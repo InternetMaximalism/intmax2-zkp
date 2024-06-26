@@ -1,0 +1,32 @@
+[package]
+name = "intmax2-zkp"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+plonky2 = { git="https://github.com/InternetMaximalism/polygon-plonky2.git", branch="intmax2-dev"}
+plonky2_u32={git="https://github.com/InternetMaximalism/plonky2-u32.git", branch="intmax2-dev"}
+plonky2_keccak={ git="https://github.com/InternetMaximalism/plonky2_keccak"}
+plonky2_bn254={ git="https://github.com/InternetMaximalism/plonky2_bn254"}
+hex = "0.4.3"
+rand = "0.8.5"
+anyhow = "1.0.82"
+itertools = "0.12.1"
+hashbrown = "0.14.5"
+log = "0.4.21"
+num = "0.4.3"
+num-bigint = "0.4.5"
+ark-bn254 = "0.4.0"
+ark-ec = "0.4.2"
+ark-ff = "0.4.2"
+ark-std = "0.4.0"
+serde = "1.0.203"
+num-traits = "0.2.19"
+serde_json = "1.0.117"
+ff = { package = "ff", version = "0.13", features = ["derive"] }
+lazy_static = "1.5.0"
+
+# [patch."https://github.com/qope/plonky2.git"]
+# plonky2 = {path="../plonky2/plonky2"}
