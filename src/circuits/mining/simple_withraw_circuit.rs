@@ -262,14 +262,27 @@ where
 
 #[cfg(test)]
 mod tests {
+    use crate::{
+        circuits::{
+            mining::simple_withraw_circuit::{
+                get_pubkey_salt_hash, SimpleWithdrawCircuit, SimpleWithdrawValue,
+            },
+            utils::wrapper::WrapperCircuit,
+        },
+        common::{
+            salt::Salt,
+            trees::deposit_tree::{DepositLeaf, DepositTree},
+        },
+        constants::DEPOSIT_TREE_HEIGHT,
+        ethereum_types::u256::U256,
+        utils::save::{save_circuit_data, save_proof},
+        wrapper_config::plonky2_config::PoseidonBN128GoldilocksConfig,
+    };
     use plonky2::{
         field::goldilocks_field::GoldilocksField, plonk::config::PoseidonGoldilocksConfig,
     };
     use rand::Rng;
 
-    use crate::common::trees::deposit_tree::DepositTree;
-
-    use super::*;
     type F = GoldilocksField;
     const D: usize = 2;
     type C = PoseidonGoldilocksConfig;
@@ -318,5 +331,60 @@ mod tests {
         let _proof = circuit.prove(&value).expect("prove failed");
         println!("prove time: {:?}", instant.elapsed());
         dbg!(circuit.data.common.degree_bits());
+    }
+
+    #[test]
+    fn wrap_withdraw() {
+        type OuterC = PoseidonBN128GoldilocksConfig;
+
+        let mut rng = rand::thread_rng();
+        let mut deposit_tree = DepositTree::new(DEPOSIT_TREE_HEIGHT);
+
+        // add dummy deposits
+        for _ in 0..100 {
+            let deposit_leaf = DepositLeaf::rand(&mut rng);
+            deposit_tree.push(deposit_leaf);
+        }
+
+        let salt = Salt::rand(&mut rng);
+        let pubkey = U256::rand(&mut rng);
+        let pubkey_salt_hash = get_pubkey_salt_hash(pubkey, salt);
+        let deposit = DepositLeaf {
+            pubkey_salt_hash,
+            token_index: rng.gen(),
+            amount: U256::rand(&mut rng),
+        };
+        let deposit_index = deposit_tree.len();
+        deposit_tree.push(deposit.clone());
+
+        // add dummy deposits
+        for _ in 0..100 {
+            let deposit_leaf = DepositLeaf::rand(&mut rng);
+            deposit_tree.push(deposit_leaf);
+        }
+
+        let deposit_merkle_proof = deposit_tree.prove(deposit_index);
+
+        let value = SimpleWithdrawValue::new(
+            deposit_tree.get_root(),
+            deposit_index as u32,
+            deposit,
+            deposit_merkle_proof,
+            pubkey,
+            salt,
+        );
+
+        let circuit = SimpleWithdrawCircuit::<F, C, D>::new();
+        let wrapper_circuit1 = WrapperCircuit::<F, C, C, D>::new(&circuit);
+        let wrapper_circuit2 = WrapperCircuit::<F, C, OuterC, D>::new(&wrapper_circuit1);
+
+        let instant = std::time::Instant::now();
+        let inner_proof = circuit.prove(&value).expect("prove failed");
+        let wrap_proof1 = wrapper_circuit1.prove(&inner_proof).expect("prove failed");
+        let proof = wrapper_circuit2.prove(&wrap_proof1).expect("prove failed");
+        println!("prove time: {:?}", instant.elapsed());
+        dbg!(wrapper_circuit2.data.common.degree_bits());
+        save_circuit_data("./withdraw_circuit_data/", &wrapper_circuit2.data).expect("save failed");
+        save_proof("./withdraw_circuit_data/", &proof).expect("save failed");
     }
 }
