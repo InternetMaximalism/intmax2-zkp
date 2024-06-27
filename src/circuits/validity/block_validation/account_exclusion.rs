@@ -9,7 +9,7 @@ use plonky2::{
         circuit_builder::CircuitBuilder,
         circuit_data::{CircuitConfig, CircuitData},
         config::{AlgebraicHasher, GenericConfig},
-        proof::{ProofWithPublicInputs, ProofWithPublicInputsTarget},
+        proof::ProofWithPublicInputs,
     },
 };
 
@@ -18,8 +18,9 @@ use crate::{
     constants::{ACCOUNT_TREE_HEIGHT, NUM_SENDERS_IN_BLOCK},
     ethereum_types::{u256::U256, u32limb_trait::U32LimbTargetTrait as _},
     utils::{
-        dummy::{conditionally_verify_proof, DummyProof},
+        dummy::DummyProof,
         poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget},
+        recursivable::Recursivable,
     },
 };
 
@@ -219,16 +220,16 @@ where
         self.target.set_witness(&mut pw, value);
         self.data.prove(pw)
     }
+}
 
-    pub fn add_proof_target_and_conditionally_verify(
-        &self,
-        builder: &mut CircuitBuilder<F, D>,
-        condition: BoolTarget,
-    ) -> ProofWithPublicInputsTarget<D> {
-        let proof = builder.add_virtual_proof_with_pis(&self.data.common);
-        let vd = builder.constant_verifier_data(&self.data.verifier_only);
-        conditionally_verify_proof::<F, C, D>(builder, condition, &proof, &vd, &self.data.common);
-        proof
+impl<F, C, const D: usize> Recursivable<F, C, D> for AccountExclusionCircuit<F, C, D>
+where
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F> + 'static,
+    C::Hasher: AlgebraicHasher<F>,
+{
+    fn circuit_data(&self) -> &CircuitData<F, C, D> {
+        &self.data
     }
 }
 

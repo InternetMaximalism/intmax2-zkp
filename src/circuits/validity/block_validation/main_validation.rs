@@ -8,6 +8,7 @@ use crate::{
         dummy::DummyProof,
         logic::BuilderLogic,
         poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget},
+        recursivable::Recursivable,
     },
 };
 use plonky2::{
@@ -595,15 +596,15 @@ where
         );
         self.data.prove(pw)
     }
+}
 
-    pub fn add_proof_target_and_verify(
-        &self,
-        builder: &mut CircuitBuilder<F, D>,
-    ) -> ProofWithPublicInputsTarget<D> {
-        let proof = builder.add_virtual_proof_with_pis(&self.data.common);
-        let vd_target = builder.constant_verifier_data(&self.data.verifier_only);
-        builder.verify_proof::<C>(&proof, &vd_target, &self.data.common);
-        proof
+impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F> + 'static, const D: usize>
+    Recursivable<F, C, D> for MainValidationCircuit<F, C, D>
+where
+    <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
+{
+    fn circuit_data(&self) -> &CircuitData<F, C, D> {
+        &self.data
     }
 }
 

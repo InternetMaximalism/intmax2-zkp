@@ -9,7 +9,7 @@ use plonky2::{
         circuit_builder::CircuitBuilder,
         circuit_data::{CircuitConfig, CircuitData},
         config::{AlgebraicHasher, GenericConfig},
-        proof::{ProofWithPublicInputs, ProofWithPublicInputsTarget},
+        proof::ProofWithPublicInputs,
     },
 };
 use plonky2_keccak::{builder::BuilderKeccak256, utils::solidity_keccak256};
@@ -27,7 +27,10 @@ use crate::{
         u256::U256,
         u32limb_trait::{U32LimbTargetTrait as _, U32LimbTrait as _},
     },
-    utils::poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget},
+    utils::{
+        poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget},
+        recursivable::Recursivable,
+    },
 };
 
 pub struct SimpleWithdrawPublicInputs {
@@ -245,15 +248,15 @@ where
         self.target.set_witness(&mut pw, value);
         self.data.prove(pw)
     }
+}
 
-    pub fn add_proof_target_and_verify(
-        &self,
-        builder: &mut CircuitBuilder<F, D>,
-    ) -> ProofWithPublicInputsTarget<D> {
-        let proof = builder.add_virtual_proof_with_pis(&self.data.common);
-        let vd_target = builder.constant_verifier_data(&self.data.verifier_only);
-        builder.verify_proof::<C>(&proof, &vd_target, &self.data.common);
-        proof
+impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F> + 'static, const D: usize>
+    Recursivable<F, C, D> for SimpleWithdrawCircuit<F, C, D>
+where
+    <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
+{
+    fn circuit_data(&self) -> &CircuitData<F, C, D> {
+        &self.data
     }
 }
 

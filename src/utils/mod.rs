@@ -3,5 +3,6 @@ pub mod dummy;
 pub mod leafable;
 pub mod logic;
 pub mod poseidon_hash_out;
+pub mod recursivable;
 pub mod save;
 pub mod trees;

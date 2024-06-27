@@ -9,7 +9,7 @@ use plonky2::{
         circuit_builder::CircuitBuilder,
         circuit_data::{CircuitConfig, CircuitData},
         config::{AlgebraicHasher, GenericConfig},
-        proof::{ProofWithPublicInputs, ProofWithPublicInputsTarget},
+        proof::ProofWithPublicInputs,
     },
 };
 
@@ -18,7 +18,10 @@ use crate::{
     common::signature::{SignatureContent, SignatureContentTarget},
     constants::NUM_SENDERS_IN_BLOCK,
     ethereum_types::{u256::U256, u32limb_trait::U32LimbTargetTrait},
-    utils::poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget},
+    utils::{
+        poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget},
+        recursivable::Recursivable,
+    },
 };
 
 use super::utils::get_pubkey_commitment;
@@ -167,9 +170,11 @@ impl<F, C, const D: usize> FormatValidationCircuit<F, C, D>
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F> + 'static,
-    C::Hasher: AlgebraicHasher<F>,
 {
-    pub fn new() -> Self {
+    pub fn new() -> Self
+    where
+        <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
+    {
         let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::default());
         let target = FormatValidationTarget::new::<F, C, D>(&mut builder);
         let pis = FormatValidationPublicInputsTarget {
@@ -190,14 +195,15 @@ where
         self.target.set_witness(&mut pw, value);
         self.data.prove(pw)
     }
+}
 
-    pub fn add_proof_target_and_verify(
-        &self,
-        builder: &mut CircuitBuilder<F, D>,
-    ) -> ProofWithPublicInputsTarget<D> {
-        let proof = builder.add_virtual_proof_with_pis(&self.data.common);
-        let vd_target = builder.constant_verifier_data(&self.data.verifier_only);
-        builder.verify_proof::<C>(&proof, &vd_target, &self.data.common);
-        proof
+impl<F, C, const D: usize> Recursivable<F, C, D> for FormatValidationCircuit<F, C, D>
+where
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F> + 'static,
+    C::Hasher: AlgebraicHasher<F>,
+{
+    fn circuit_data(&self) -> &CircuitData<F, C, D> {
+        &self.data
     }
 }

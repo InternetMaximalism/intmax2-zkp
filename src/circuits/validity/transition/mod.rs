@@ -21,7 +21,10 @@ use crate::{
     common::trees::block_hash_tree::{BlockHashMerkleProof, BlockHashMerkleProofTarget},
     constants::BLOCK_HASH_TREE_HEIGHT,
     ethereum_types::{bytes32::Bytes32, u32limb_trait::U32LimbTargetTrait as _},
-    utils::{dummy::DummyProof, logic::BuilderLogic, poseidon_hash_out::PoseidonHashOutTarget},
+    utils::{
+        dummy::DummyProof, logic::BuilderLogic, poseidon_hash_out::PoseidonHashOutTarget,
+        recursivable::Recursivable,
+    },
 };
 
 use super::{
@@ -374,15 +377,16 @@ where
         );
         self.data.prove(pw)
     }
+}
 
-    pub fn add_proof_target_and_verify(
-        &self,
-        builder: &mut CircuitBuilder<F, D>,
-    ) -> ProofWithPublicInputsTarget<D> {
-        let proof = builder.add_virtual_proof_with_pis(&self.data.common);
-        let vd_target = builder.constant_verifier_data(&self.data.verifier_only);
-        builder.verify_proof::<C>(&proof, &vd_target, &self.data.common);
-        proof
+impl<F, C, const D: usize> Recursivable<F, C, D> for ValidityTransitionCircuit<F, C, D>
+where
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F> + 'static,
+    C::Hasher: AlgebraicHasher<F>,
+{
+    fn circuit_data(&self) -> &CircuitData<F, C, D> {
+        &self.data
     }
 }
 

@@ -12,27 +12,27 @@ use plonky2::{
     },
 };
 
-use super::simple_withraw_circuit::SimpleWithdrawCircuit;
+use crate::utils::recursivable::Recursivable;
 
-pub struct WrapperCircuit<F, C, OuterC, const D: usize>
+pub struct WrapperCircuit<F, InnerC, OuterC, const D: usize>
 where
     F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F>,
+    InnerC: GenericConfig<D, F = F>,
     OuterC: GenericConfig<D, F = F>,
 {
     pub data: CircuitData<F, OuterC, D>,
     pub wrap_proof: ProofWithPublicInputsTarget<D>,
-    _maker: PhantomData<C>,
+    _maker: PhantomData<InnerC>,
 }
 
-impl<F, C, OuterC, const D: usize> WrapperCircuit<F, C, OuterC, D>
+impl<F, InnerC, OuterC, const D: usize> WrapperCircuit<F, InnerC, OuterC, D>
 where
     F: RichField + Extendable<D>,
     OuterC: GenericConfig<D, F = F>,
-    C: GenericConfig<D, F = F> + 'static,
-    C::Hasher: AlgebraicHasher<F>,
+    InnerC: GenericConfig<D, F = F> + 'static,
+    InnerC::Hasher: AlgebraicHasher<F>,
 {
-    pub fn new(config: CircuitConfig, inner_circuit: &SimpleWithdrawCircuit<F, C, D>) -> Self {
+    pub fn new(config: CircuitConfig, inner_circuit: &impl Recursivable<F, InnerC, D>) -> Self {
         let mut builder = CircuitBuilder::new(config);
         let wrap_proof = inner_circuit.add_proof_target_and_verify(&mut builder);
         builder.register_public_inputs(&wrap_proof.public_inputs);
@@ -46,7 +46,7 @@ where
 
     pub fn prove(
         &self,
-        inner_proof: &ProofWithPublicInputs<F, C, D>,
+        inner_proof: &ProofWithPublicInputs<F, InnerC, D>,
     ) -> anyhow::Result<ProofWithPublicInputs<F, OuterC, D>> {
         let mut pw = PartialWitness::new();
         pw.set_proof_with_pis_target(&self.wrap_proof, inner_proof);

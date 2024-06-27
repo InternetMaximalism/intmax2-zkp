@@ -9,8 +9,9 @@ use crate::{
         u32limb_trait::{U32LimbTargetTrait, U32LimbTrait},
     },
     utils::{
-        dummy::{conditionally_verify_proof, DummyProof},
+        dummy::DummyProof,
         poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget},
+        recursivable::Recursivable,
     },
 };
 use plonky2::{
@@ -25,7 +26,7 @@ use plonky2::{
         circuit_builder::CircuitBuilder,
         circuit_data::{CircuitConfig, CircuitData},
         config::{AlgebraicHasher, GenericConfig},
-        proof::{ProofWithPublicInputs, ProofWithPublicInputsTarget},
+        proof::ProofWithPublicInputs,
     },
 };
 
@@ -269,16 +270,15 @@ where
         self.target.set_witness(&mut pw, value);
         self.data.prove(pw)
     }
+}
 
-    pub fn add_proof_target_and_conditionally_verify(
-        &self,
-        builder: &mut CircuitBuilder<F, D>,
-        condition: BoolTarget,
-    ) -> ProofWithPublicInputsTarget<D> {
-        let proof = builder.add_virtual_proof_with_pis(&self.data.common);
-        let vd = builder.constant_verifier_data(&self.data.verifier_only);
-        conditionally_verify_proof::<F, C, D>(builder, condition, &proof, &vd, &self.data.common);
-        proof
+impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F> + 'static, const D: usize>
+    Recursivable<F, C, D> for AccountInclusionCircuit<F, C, D>
+where
+    <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
+{
+    fn circuit_data(&self) -> &CircuitData<F, C, D> {
+        &self.data
     }
 }
 
