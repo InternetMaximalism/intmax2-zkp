@@ -1,3 +1,4 @@
+use core::fmt::Display;
 use plonky2::{
     field::{extension::Extendable, types::Field},
     hash::hash_types::RichField,
@@ -26,6 +27,12 @@ impl<'de> Deserialize<'de> for Salt {
     fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         let hash = PoseidonHashOut::deserialize(deserializer)?;
         Ok(Self(hash))
+    }
+}
+
+impl Display for Salt {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
     }
 }
 

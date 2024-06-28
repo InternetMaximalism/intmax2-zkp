@@ -391,4 +391,16 @@ mod tests {
         save_circuit_data("./withdraw_circuit_data/", &wrapper_circuit2.data).expect("save failed");
         save_proof("./withdraw_circuit_data/", &proof).expect("save failed");
     }
+
+    #[test]
+    fn test_pubkey_hash_equivalence() {
+        let mut rng = rand::thread_rng();
+        let salt = Salt::rand(&mut rng);
+        let pubkey = U256::rand(&mut rng);
+        let pubkey_salt_hash = get_pubkey_salt_hash(pubkey, salt);
+
+        println!("salt: {}", salt);
+        println!("pubkey: {}", pubkey);
+        println!("pubkey_salt_hash: {}", pubkey_salt_hash);
+    }
 }
