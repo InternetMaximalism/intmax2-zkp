@@ -13,6 +13,7 @@ use plonky2::{
     },
 };
 use plonky2_keccak::{builder::BuilderKeccak256, utils::solidity_keccak256};
+use serde::Serialize;
 
 use crate::{
     common::{
@@ -33,7 +34,8 @@ use crate::{
     },
 };
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct SimpleWithdrawPublicInputs {
     pub deposit_root: Bytes32<u32>,
     pub nullifier: Bytes32<u32>, // nullifier = hash(pubkey, zero_salt)

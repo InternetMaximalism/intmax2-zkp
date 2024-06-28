@@ -5,6 +5,7 @@ use plonky2::{
     plonk::circuit_builder::CircuitBuilder,
 };
 use rand::Rng;
+use serde::{Deserialize, Serialize};
 
 use crate::utils::poseidon_hash_out::{
     PoseidonHashOut, PoseidonHashOutTarget, POSEIDON_HASH_OUT_LEN,
@@ -14,6 +15,19 @@ pub const SALT_LEN: usize = POSEIDON_HASH_OUT_LEN;
 
 #[derive(Debug, Clone, Copy, Default)]
 pub struct Salt(PoseidonHashOut);
+
+impl Serialize for Salt {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        self.0.serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for Salt {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let hash = PoseidonHashOut::deserialize(deserializer)?;
+        Ok(Self(hash))
+    }
+}
 
 #[derive(Debug, Clone, Copy)]
 pub struct SaltTarget(PoseidonHashOutTarget);
