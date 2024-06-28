@@ -30,7 +30,7 @@ pub type DepositTree = MerkleTreeWithLeaves<DepositLeaf>;
 pub type DepositMerkleProof = MerkleProofWithLeaves<DepositLeaf>;
 pub type DepositMerkleProofTarget = MerkleProofWithLeavesTarget<DepositLeafTarget>;
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct DepositLeaf {
     pub pubkey_salt_hash: Bytes32<u32>,
     pub token_index: u32,

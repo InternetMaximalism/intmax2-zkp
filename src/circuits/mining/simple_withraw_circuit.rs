@@ -33,6 +33,7 @@ use crate::{
     },
 };
 
+#[derive(Debug, Clone)]
 pub struct SimpleWithdrawPublicInputs {
     pub deposit_root: Bytes32<u32>,
     pub nullifier: Bytes32<u32>, // nullifier = hash(pubkey, zero_salt)
@@ -40,6 +41,7 @@ pub struct SimpleWithdrawPublicInputs {
     pub amount: U256<u32>,
 }
 
+#[derive(Debug, Clone)]
 pub struct SimpleWithdrawPublicInputsTarget {
     pub deposit_root: Bytes32<Target>,
     pub nullifier: Bytes32<Target>,
