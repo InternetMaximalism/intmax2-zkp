@@ -278,14 +278,14 @@ mod tests {
             trees::deposit_tree::{DepositLeaf, DepositTree},
         },
         constants::DEPOSIT_TREE_HEIGHT,
-        ethereum_types::u256::U256,
+        ethereum_types::{u256::U256, u32limb_trait::U32LimbTrait},
         utils::save::{save_circuit_data, save_proof},
         wrapper_config::plonky2_config::PoseidonBN128GoldilocksConfig,
     };
     use plonky2::{
         field::goldilocks_field::GoldilocksField, plonk::config::PoseidonGoldilocksConfig,
     };
-    use rand::Rng;
+    use rand::{Rng, SeedableRng as _};
 
     type F = GoldilocksField;
     const D: usize = 2;
@@ -380,25 +380,29 @@ mod tests {
 
         let circuit = SimpleWithdrawCircuit::<F, C, D>::new();
         let wrapper_circuit1 = WrapperCircuit::<F, C, C, D>::new(&circuit);
-        let wrapper_circuit2 = WrapperCircuit::<F, C, OuterC, D>::new(&wrapper_circuit1);
+        let wrapper_circuit2 = WrapperCircuit::<F, C, C, D>::new(&wrapper_circuit1);
+        let wrapper_circuit3 = WrapperCircuit::<F, C, OuterC, D>::new(&wrapper_circuit2);
 
         let instant = std::time::Instant::now();
         let inner_proof = circuit.prove(&value).expect("prove failed");
         let wrap_proof1 = wrapper_circuit1.prove(&inner_proof).expect("prove failed");
-        let proof = wrapper_circuit2.prove(&wrap_proof1).expect("prove failed");
+        let wrap_proof2 = wrapper_circuit2.prove(&wrap_proof1).expect("prove failed");
+        let proof = wrapper_circuit3.prove(&wrap_proof2).expect("prove failed");
         println!("prove time: {:?}", instant.elapsed());
-        dbg!(wrapper_circuit2.data.common.degree_bits());
-        save_circuit_data("./withdraw_circuit_data/", &wrapper_circuit2.data).expect("save failed");
+        save_circuit_data("./withdraw_circuit_data/", &wrapper_circuit3.data).expect("save failed");
         save_proof("./withdraw_circuit_data/", &proof).expect("save failed");
     }
 
     #[test]
     fn test_pubkey_hash_equivalence() {
-        let mut rng = rand::thread_rng();
+        // rand with seed
+        let mut rng = rand::rngs::StdRng::seed_from_u64(0);
         let salt = Salt::rand(&mut rng);
         let pubkey = U256::rand(&mut rng);
         let pubkey_salt_hash = get_pubkey_salt_hash(pubkey, salt);
 
+        dbg!(salt);
+        dbg!(pubkey.to_u64_vec());
         println!("salt: {}", salt);
         println!("pubkey: {}", pubkey);
         println!("pubkey_salt_hash: {}", pubkey_salt_hash);
