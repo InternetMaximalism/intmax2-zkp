@@ -1,5 +1,5 @@
+pub mod dynamic_tree;
 pub mod get_root;
-
 pub mod indexed_merkle_tree;
 pub mod keylike;
 pub mod merkle_tree;
