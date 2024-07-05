@@ -275,14 +275,13 @@ mod tests {
                 .unwrap();
             account_registoration_proofs.push(proof);
         }
-        let new_account_tree_root = tree.0.get_root();
-
         let account_registoration_value = AccountRegistorationValue::new(
             prev_account_tree_root,
             block_number,
             sender_leaves,
             account_registoration_proofs,
         );
+        let new_account_tree_root = tree.0.get_root();
         assert_eq!(
             account_registoration_value.new_account_tree_root,
             new_account_tree_root
