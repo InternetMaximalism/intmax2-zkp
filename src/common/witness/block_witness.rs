@@ -102,6 +102,7 @@ impl BlockWitness {
             account_tree_root,
             tx_tree_root,
             sender_tree_root,
+            block_number: block.block_number,
             is_registoration_block,
             is_valid: result,
         }
