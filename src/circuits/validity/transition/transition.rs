@@ -30,6 +30,7 @@ use crate::{
 use super::{
     account_registoration::AccountRegistorationCircuit,
     account_transition_pis::AccountTransitionPublicInputsTarget,
+    account_update::AccountUpdateCircuit,
 };
 
 pub struct ValidityTransitionValue<
@@ -51,7 +52,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
 {
     pub fn new(
         account_registoration_circuit: &AccountRegistorationCircuit<F, C, D>,
-        account_update_circuit: &AccountRegistorationCircuit<F, C, D>,
+        account_update_circuit: &AccountUpdateCircuit<F, C, D>,
         prev_block_pis: MainValidationPublicInputs,
         prev_block_tree_root: PoseidonHashOut,
         account_registoration_proof: Option<ProofWithPublicInputs<F, C, D>>,
@@ -142,7 +143,7 @@ pub struct ValidityTransitionTarget<const D: usize> {
 impl<const D: usize> ValidityTransitionTarget<D> {
     pub fn new<F: RichField + Extendable<D>, C: GenericConfig<D, F = F> + 'static>(
         account_registoration_circuit: &AccountRegistorationCircuit<F, C, D>,
-        account_update_circuit: &AccountRegistorationCircuit<F, C, D>,
+        account_update_circuit: &AccountUpdateCircuit<F, C, D>,
         builder: &mut CircuitBuilder<F, D>,
     ) -> Self
     where
@@ -291,6 +292,7 @@ mod tests {
     use crate::{
         circuits::validity::transition::{
             account_registoration::{AccountRegistorationCircuit, AccountRegistorationValue},
+            account_update::AccountUpdateCircuit,
             transition::{ValidityTransitionTarget, ValidityTransitionValue},
         },
         common::trees::sender_tree::get_sender_leaves,
@@ -311,7 +313,7 @@ mod tests {
         let prev_block_pis = prev_block_witness.to_main_validation_pis();
 
         let account_registoration_circuit = AccountRegistorationCircuit::<F, C, D>::new();
-        let account_update_circuit = AccountRegistorationCircuit::<F, C, D>::new();
+        let account_update_circuit = AccountUpdateCircuit::<F, C, D>::new();
 
         let block_merkle_proof = mock_db
             .prev_block_hash_tree
