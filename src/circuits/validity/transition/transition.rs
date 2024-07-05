@@ -1,7 +1,7 @@
 use plonky2::{
     field::extension::Extendable,
     hash::hash_types::RichField,
-    iop::witness::Witness,
+    iop::{target::Target, witness::Witness},
     plonk::{
         circuit_builder::CircuitBuilder,
         config::{AlgebraicHasher, GenericConfig},
@@ -18,7 +18,7 @@ use crate::{
     },
     common::trees::block_hash_tree::{BlockHashMerkleProof, BlockHashMerkleProofTarget},
     constants::BLOCK_HASH_TREE_HEIGHT,
-    ethereum_types::bytes32::Bytes32,
+    ethereum_types::{bytes32::Bytes32, u32limb_trait::U32LimbTargetTrait as _},
     utils::{
         dummy::DummyProof,
         logic::BuilderLogic,
@@ -160,6 +160,7 @@ impl<const D: usize> ValidityTransitionTarget<D> {
             prev_block_pis.is_registoration_block,
             prev_block_pis.is_valid,
         );
+        // let true_ = builder._true();
         let account_registoration_proof = account_registoration_circuit
             .add_proof_target_and_conditionally_verify(builder, is_account_registoration);
         let account_registoration_pis = AccountTransitionPublicInputsTarget::from_vec(
@@ -217,9 +218,10 @@ impl<const D: usize> ValidityTransitionTarget<D> {
         );
 
         let prev_block_number = prev_block_pis.block_number;
+        let empty_leaf = Bytes32::<Target>::zero::<F, D, Bytes32<u32>>(builder);
         block_hash_merkle_proof.verify::<F, C, D>(
             builder,
-            &Bytes32::default(),
+            &empty_leaf,
             prev_block_number,
             prev_block_tree_root,
         );
@@ -253,10 +255,10 @@ impl<const D: usize> ValidityTransitionTarget<D> {
             .set_witness(witness, &value.prev_block_pis);
         self.prev_block_tree_root
             .set_witness(witness, value.prev_block_tree_root);
-        // self.new_account_tree_root
-        //     .set_witness(witness, value.new_account_tree_root);
-        self.new_block_tree_root
-            .set_witness(witness, value.new_block_tree_root);
+        self.new_account_tree_root
+            .set_witness(witness, value.new_account_tree_root);
+        // self.new_block_tree_root
+        //     .set_witness(witness, value.new_block_tree_root);
         let account_registoration_proof = value
             .account_registoration_proof
             .clone()
