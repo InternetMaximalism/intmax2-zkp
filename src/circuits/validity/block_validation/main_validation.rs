@@ -12,7 +12,7 @@ use crate::{
     },
 };
 use plonky2::{
-    field::extension::Extendable,
+    field::{extension::Extendable, types::Field},
     hash::hash_types::RichField,
     iop::{
         target::{BoolTarget, Target},
@@ -101,6 +101,30 @@ impl MainValidationPublicInputs {
 }
 
 impl MainValidationPublicInputsTarget {
+    pub fn new<F: RichField + Extendable<D>, const D: usize>(
+        builder: &mut CircuitBuilder<F, D>,
+        is_checked: bool,
+    ) -> Self {
+        let block_number = builder.add_virtual_target();
+        let is_registoration_block = builder.add_virtual_bool_target_unsafe();
+        let is_valid = builder.add_virtual_bool_target_unsafe();
+        if is_checked {
+            builder.range_check(block_number, 32);
+            builder.assert_bool(is_registoration_block);
+            builder.assert_bool(is_valid);
+        }
+        Self {
+            prev_block_hash: Bytes32::<Target>::new(builder, is_checked),
+            block_hash: Bytes32::<Target>::new(builder, is_checked),
+            account_tree_root: PoseidonHashOutTarget::new(builder),
+            tx_tree_root: Bytes32::<Target>::new(builder, is_checked),
+            sender_tree_root: PoseidonHashOutTarget::new(builder),
+            block_number,
+            is_registoration_block,
+            is_valid,
+        }
+    }
+
     pub fn to_vec(&self) -> Vec<Target> {
         let vec = self
             .prev_block_hash
@@ -140,6 +164,24 @@ impl MainValidationPublicInputsTarget {
             is_registoration_block,
             is_valid,
         }
+    }
+
+    pub fn set_witness<W: Witness<F>, F: Field>(
+        &self,
+        witness: &mut W,
+        value: &MainValidationPublicInputs,
+    ) {
+        self.prev_block_hash
+            .set_witness(witness, value.prev_block_hash);
+        self.block_hash.set_witness(witness, value.block_hash);
+        self.account_tree_root
+            .set_witness(witness, value.account_tree_root);
+        self.tx_tree_root.set_witness(witness, value.tx_tree_root);
+        self.sender_tree_root
+            .set_witness(witness, value.sender_tree_root);
+        witness.set_target(self.block_number, F::from_canonical_u32(value.block_number));
+        witness.set_bool_target(self.is_registoration_block, value.is_registoration_block);
+        witness.set_bool_target(self.is_valid, value.is_valid);
     }
 }
 

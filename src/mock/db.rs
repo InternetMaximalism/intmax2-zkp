@@ -4,7 +4,7 @@ use crate::{
         trees::{account_tree::AccountTree, block_hash_tree::BlockHashTree, tx_tree::TxTree},
         witness::block_witness::BlockWitness,
     },
-    constants::{ACCOUNT_TREE_HEIGHT, TX_TREE_HEIGHT},
+    constants::{ACCOUNT_TREE_HEIGHT, BLOCK_HASH_TREE_HEIGHT, TX_TREE_HEIGHT},
     ethereum_types::bytes32::Bytes32,
 };
 
@@ -26,7 +26,7 @@ pub struct MockDB {
 impl MockDB {
     pub fn new() -> Self {
         let account_tree = AccountTree::new(ACCOUNT_TREE_HEIGHT);
-        let block_hash_tree = BlockHashTree::new(ACCOUNT_TREE_HEIGHT);
+        let block_hash_tree = BlockHashTree::new(BLOCK_HASH_TREE_HEIGHT);
         let block_info = vec![BlockInfo {
             block_witness: BlockWitness::default(),
             tx_tree: TxTree::new(TX_TREE_HEIGHT),

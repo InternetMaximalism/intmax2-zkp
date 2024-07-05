@@ -11,7 +11,7 @@ use plonky2::{
     recursion::dummy_circuit::{cyclic_base_proof, dummy_circuit, dummy_proof},
 };
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct DummyProof<F, C, const D: usize>
 where
     F: RichField + Extendable<D>,
