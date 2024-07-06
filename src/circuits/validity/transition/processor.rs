@@ -54,9 +54,9 @@ where
 
     pub fn prove(
         &self,
-        prev_block_witness: &BlockWitness,
-        block_witness: &BlockWitness,
-        transition_witness: &TransitionWitness,
+        _prev_block_witness: &BlockWitness,
+        _block_witness: &BlockWitness,
+        _transition_witness: &TransitionWitness,
     ) -> Result<ProofWithPublicInputs<F, C, D>> {
         todo!()
     }

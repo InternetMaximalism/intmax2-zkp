@@ -335,6 +335,7 @@ mod tests {
         let _proof = circuit.prove(&value).expect("prove failed");
         println!("prove time: {:?}", instant.elapsed());
         dbg!(circuit.data.common.degree_bits());
+        dbg!(circuit.data.verifier_only.circuit_digest);
     }
 
     #[test]
