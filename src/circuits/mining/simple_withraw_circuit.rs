@@ -395,6 +395,12 @@ mod tests {
     }
 
     #[test]
+    fn test_circuit_digest() {
+        let circuit = SimpleWithdrawCircuit::<F, C, D>::new();
+        dbg!(circuit.data.verifier_only.circuit_digest);
+    }
+
+    #[test]
     fn test_pubkey_hash_equivalence() {
         // rand with seed
         let mut rng = rand::rngs::StdRng::seed_from_u64(0);
