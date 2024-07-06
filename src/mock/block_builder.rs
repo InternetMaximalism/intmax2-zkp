@@ -6,6 +6,7 @@ use plonky2_bn254::{curves::g2::G2Target, utils::hash_to_g2::HashToG2 as _};
 use rand::Rng;
 
 use crate::{
+    circuits::validity::transition::account_registoration::AccountRegistorationValue,
     common::{
         block::Block,
         signature::{
@@ -14,9 +15,9 @@ use crate::{
             utils::get_pubkey_hash,
             SignatureContent,
         },
-        trees::tx_tree::TxTree,
+        trees::{sender_tree::get_sender_leaves, tx_tree::TxTree},
         tx::Tx,
-        witness::block_witness::BlockWitness,
+        witness::{block_witness::BlockWitness, transition_witness::TransitionWitness},
     },
     constants::{NUM_SENDERS_IN_BLOCK, TX_TREE_HEIGHT},
     ethereum_types::{
@@ -134,6 +135,80 @@ impl MockBlockBuilder {
         BlockInfo {
             block_witness,
             tx_tree,
+        }
+    }
+
+    // This should be called before the update.
+    fn generate_transition_witness(&self, db: &MockDB) -> TransitionWitness {
+        let prev_block_witness = db.get_last_block_witness();
+        let prev_pis = prev_block_witness.to_validity_pis();
+        let block_merkle_proof = db
+            .prev_block_hash_tree
+            .clone()
+            .unwrap()
+            .prove(prev_block_witness.block.block_number as usize);
+        assert_eq!(
+            prev_pis.account_tree_root,
+            db.prev_account_tree.as_ref().unwrap().0.get_root()
+        );
+
+        let account_registoration_proofs = {
+            if prev_pis.is_valid_block && prev_pis.is_registoration_block {
+                let sender_leaves = get_sender_leaves(
+                    &prev_block_witness.pubkeys,
+                    prev_block_witness.signature.sender_flag,
+                );
+                let mut account_registoration_proofs = Vec::new();
+                let mut prev_account_tree = db.prev_account_tree.clone().unwrap();
+                for sender_leaf in &sender_leaves {
+                    let last_block_number = if sender_leaf.is_valid {
+                        prev_pis.block_number
+                    } else {
+                        0
+                    };
+                    let proof = prev_account_tree
+                        .prove_and_insert(sender_leaf.sender, last_block_number as u64)
+                        .unwrap();
+                    account_registoration_proofs.push(proof);
+                }
+                Some(account_registoration_proofs)
+            } else {
+                None
+            }
+        };
+
+        let account_update_proofs = {
+            if prev_pis.is_valid_block && (!prev_pis.is_registoration_block) {
+                let sender_leaves = get_sender_leaves(
+                    &prev_block_witness.pubkeys,
+                    prev_block_witness.signature.sender_flag,
+                );
+                let mut account_update_proofs = Vec::new();
+                let mut prev_account_tree = db.prev_account_tree.clone().unwrap();
+                let block_number = prev_pis.block_number;
+                for sender_leaf in sender_leaves.iter() {
+                    let account_id = prev_account_tree.index(sender_leaf.sender).unwrap();
+                    let prev_leaf = prev_account_tree.0.get_leaf(account_id);
+                    let prev_last_block_number = prev_leaf.value as u32;
+                    let last_block_number = if sender_leaf.is_valid {
+                        block_number
+                    } else {
+                        prev_last_block_number
+                    };
+                    let proof = prev_account_tree
+                        .prove_and_update(sender_leaf.sender, last_block_number as u64);
+                    account_update_proofs.push(proof);
+                }
+                Some(account_update_proofs)
+            } else {
+                None
+            }
+        };
+
+        TransitionWitness {
+            prev_pis,
+            account_registoration_proofs,
+            account_update_proofs,
         }
     }
 
