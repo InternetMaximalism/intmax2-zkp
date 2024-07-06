@@ -278,7 +278,7 @@ mod tests {
             trees::deposit_tree::{DepositLeaf, DepositTree},
         },
         constants::DEPOSIT_TREE_HEIGHT,
-        ethereum_types::{u256::U256, u32limb_trait::U32LimbTrait},
+        ethereum_types::u256::U256,
         utils::save::{save_circuit_data, save_proof},
         wrapper_config::plonky2_config::PoseidonBN128GoldilocksConfig,
     };
@@ -395,12 +395,6 @@ mod tests {
     }
 
     #[test]
-    fn test_circuit_digest() {
-        let circuit = SimpleWithdrawCircuit::<F, C, D>::new();
-        dbg!(circuit.data.verifier_only.circuit_digest);
-    }
-
-    #[test]
     fn test_pubkey_hash_equivalence() {
         // rand with seed
         let mut rng = rand::rngs::StdRng::seed_from_u64(0);
@@ -408,8 +402,6 @@ mod tests {
         let pubkey = U256::rand(&mut rng);
         let pubkey_salt_hash = get_pubkey_salt_hash(pubkey, salt);
 
-        dbg!(salt);
-        dbg!(pubkey.to_u64_vec());
         println!("salt: {}", salt);
         println!("pubkey: {}", pubkey);
         println!("pubkey_salt_hash: {}", pubkey_salt_hash);
