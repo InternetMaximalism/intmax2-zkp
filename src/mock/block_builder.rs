@@ -27,7 +27,7 @@ use crate::{
 
 use super::db::{BlockInfo, MockDB};
 
-pub struct MockBlockBuilder {}
+pub struct MockBlockBuilder;
 
 #[derive(Clone, Debug)]
 pub struct TxResuest {

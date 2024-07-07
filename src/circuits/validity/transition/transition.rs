@@ -161,7 +161,6 @@ impl<const D: usize> ValidityTransitionTarget<D> {
             prev_block_pis.is_registoration_block,
             prev_block_pis.is_valid,
         );
-        // let true_ = builder._true();
         let account_registoration_proof = account_registoration_circuit
             .add_proof_target_and_conditionally_verify(builder, is_account_registoration);
         let account_registoration_pis = AccountTransitionPublicInputsTarget::from_vec(
