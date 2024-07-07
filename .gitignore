@@ -1,2 +1,3 @@
-/target
-/withdraw_circuit_data
+target/
+withdraw_circuit_data/
+*.txt
