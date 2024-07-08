@@ -24,7 +24,11 @@ use crate::{
     utils::recursivable::Recursivable as _,
 };
 
+#[cfg(not(feature = "dummy_validity_proof"))]
 use super::transition::wrapper::TransitionWrapperCircuit;
+
+#[cfg(feature = "dummy_validity_proof")]
+use crate::circuits::validity::transition::dummy_wrapper::DummyTransitionWrapperCircuit;
 
 #[derive(Debug)]
 pub struct ValidityCircuit<F, C, const D: usize>
@@ -45,12 +49,22 @@ where
     C: GenericConfig<D, F = F> + 'static,
     C::Hasher: AlgebraicHasher<F>,
 {
-    pub fn new(validity_wrap_circuit: &TransitionWrapperCircuit<F, C, D>) -> Self {
+    pub fn new(
+        #[cfg(not(feature = "dummy_validity_proof"))]
+        validity_wrap_circuit: &TransitionWrapperCircuit<F, C, D>,
+        #[cfg(feature = "dummy_validity_proof")]
+        dummy_validity_wrap_circuit: &DummyTransitionWrapperCircuit<F, C, D>,
+    ) -> Self {
         let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::default());
         let is_first_step = builder.add_virtual_bool_target_safe();
         let is_not_first_step = builder.not(is_first_step);
 
+        #[cfg(not(feature = "dummy_validity_proof"))]
         let transition_proof = validity_wrap_circuit.add_proof_target_and_verify(&mut builder);
+        #[cfg(feature = "dummy_validity_proof")]
+        let transition_proof =
+            dummy_validity_wrap_circuit.add_proof_target_and_verify(&mut builder);
+
         let prev_pis_ = ValidityPublicInputsTarget::from_vec(
             &transition_proof.public_inputs[0..VALIDITY_PUBLIC_INPUTS_LEN],
         );
@@ -178,6 +192,7 @@ mod tests {
 
     use super::ValidityCircuit;
 
+    #[cfg(not(feature = "dummy_validity_proof"))]
     #[test]
     fn validity_circuit() {
         let mut rng = rand::thread_rng();
@@ -195,18 +210,53 @@ mod tests {
                 }
             })
             .collect::<Vec<_>>();
-        let block_witness = block_builder
-            .generate_block(&mut mock_db, true, txs)
-            .block_witness;
+        let block_info = block_builder.generate_block(&mut mock_db, true, txs);
+        let block_witness = block_info.block_witness.clone();
         let transition_witness = block_builder.generate_transition_witness(&mut mock_db);
-
         let prev_block_witness = mock_db.get_last_block_witness();
+        block_builder.update(&mut mock_db, &block_info); // this is not needed in this test
+                                                         // but we add here to demonstrate that the block is updated after the transition
+
         let transition_proof = transition_processor
             .prove(&block_witness, &prev_block_witness, &transition_witness)
             .unwrap();
 
         let validity_circuit =
             ValidityCircuit::<F, C, D>::new(&transition_processor.transition_wrapper_circuit);
+        validity_circuit.prove(&transition_proof, &None).unwrap();
+    }
+
+    #[cfg(feature = "dummy_validity_proof")]
+    #[test]
+    fn dummy_validity_circuit() {
+        use crate::circuits::validity::transition::dummy_wrapper::DummyTransitionWrapperCircuit;
+
+        let mut rng = rand::thread_rng();
+        let mut mock_db = MockDB::new();
+        let block_builder = MockBlockBuilder;
+
+        let txs = (0..NUM_SENDERS_IN_BLOCK)
+            .map(|_| {
+                let sender = KeySet::rand(&mut rng);
+                TxResuest {
+                    tx: Tx::rand(&mut rng),
+                    sender,
+                    will_return_signature: rng.gen_bool(0.5),
+                }
+            })
+            .collect::<Vec<_>>();
+        let block_info = block_builder.generate_block(&mut mock_db, true, txs);
+        let block_witness = block_info.block_witness.clone();
+        let prev_block_witness = mock_db.get_last_block_witness();
+        block_builder.update(&mut mock_db, &block_info); // this is not needed in this test
+                                                         // but we add here to demonstrate that the block is updated after the transition
+
+        let prev_pis = prev_block_witness.to_validity_pis();
+        let new_pis = block_witness.to_validity_pis();
+        let dummy_transition_wrapper = DummyTransitionWrapperCircuit::<F, C, D>::new();
+        let transition_proof = dummy_transition_wrapper.prove(&prev_pis, &new_pis).unwrap();
+
+        let validity_circuit = ValidityCircuit::<F, C, D>::new(&dummy_transition_wrapper);
         validity_circuit.prove(&transition_proof, &None).unwrap();
     }
 }
