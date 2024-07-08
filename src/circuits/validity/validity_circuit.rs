@@ -174,14 +174,7 @@ mod tests {
     type F = GoldilocksField;
     type C = PoseidonGoldilocksConfig;
     const D: usize = 2;
-
-    use plonky2::{
-        field::goldilocks_field::GoldilocksField, plonk::config::PoseidonGoldilocksConfig,
-    };
-    use rand::Rng;
-
     use crate::{
-        circuits::validity::transition::processor::TransitionProcessor,
         common::{signature::key_set::KeySet, tx::Tx},
         constants::NUM_SENDERS_IN_BLOCK,
         mock::{
@@ -189,12 +182,17 @@ mod tests {
             db::MockDB,
         },
     };
+    use plonky2::{
+        field::goldilocks_field::GoldilocksField, plonk::config::PoseidonGoldilocksConfig,
+    };
+    use rand::Rng;
 
     use super::ValidityCircuit;
 
     #[cfg(not(feature = "dummy_validity_proof"))]
     #[test]
     fn validity_circuit() {
+        use crate::circuits::validity::transition::wrapper::TransitionWrapperCircuit;
         let mut rng = rand::thread_rng();
         let mut mock_db = MockDB::new();
         let block_builder = MockBlockBuilder;
