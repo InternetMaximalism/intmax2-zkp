@@ -71,8 +71,8 @@ where
         )?;
         #[cfg(feature = "dummy_validity_proof")]
         let transition_proof = self.dummy_transition_circuit.prove(
-            &block_witness.to_validity_pis(),
             &prev_block_witness.to_validity_pis(),
+            &block_witness.to_validity_pis(),
         )?;
         #[cfg(feature = "dummy_validity_proof")]
         {
@@ -83,3 +83,4 @@ where
         self.validity_circuit.prove(&transition_proof, &prev_proof)
     }
 }
+
