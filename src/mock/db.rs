@@ -28,7 +28,7 @@ impl MockDB {
         let account_tree = AccountTree::new(ACCOUNT_TREE_HEIGHT);
         let block_hash_tree = BlockHashTree::new(BLOCK_HASH_TREE_HEIGHT);
         let block_info = vec![BlockInfo {
-            block_witness: BlockWitness::default(),
+            block_witness: BlockWitness::genesis(),
             tx_tree: TxTree::new(TX_TREE_HEIGHT),
         }];
         Self {

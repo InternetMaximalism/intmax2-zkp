@@ -142,6 +142,10 @@ impl MockBlockBuilder {
     pub fn generate_transition_witness(&self, db: &MockDB) -> TransitionWitness {
         let prev_block_witness = db.get_last_block_witness();
         if prev_block_witness.block.block_number == 0 {
+            assert_eq!(
+                db.block_hash_tree.get_root(),
+                prev_block_witness.block_hash_tree_root
+            );
             // genesis block
             return TransitionWitness {
                 prev_pis: ValidityPublicInputs::genesis(),

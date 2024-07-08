@@ -79,8 +79,8 @@ where
         let genesis_pis_t = ValidityPublicInputsTarget::constant(&mut builder, &genesis_pis);
         prev_pis.conditional_assert_eq(&mut builder, &genesis_pis_t, is_first_step);
 
-        let (data, success) = builder.try_build_with_options::<C>(false);
-        debug_assert_eq!(data.common, common_data);
+        let (data, success) = builder.try_build_with_options::<C>(true);
+        assert_eq!(data.common, common_data);
         assert!(success);
         Self {
             data,
@@ -142,8 +142,7 @@ where
     builder.verify_proof::<C>(&proof, &verifier_data, &data.common);
     let data = builder.build::<C>();
 
-    let config = CircuitConfig::standard_recursion_config();
-    let mut builder = CircuitBuilder::<F, D>::new(config);
+    let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::default());
     let proof = builder.add_virtual_proof_with_pis(&data.common);
     let verifier_data = VerifierCircuitTarget {
         constants_sigmas_cap: builder.add_virtual_cap(data.common.config.fri_config.cap_height),
@@ -184,7 +183,6 @@ mod tests {
         let mut rng = rand::thread_rng();
         let mut mock_db = MockDB::new();
         let block_builder = MockBlockBuilder;
-        // block_builder.post_dummy_block(&mut rng, &mut mock_db);
 
         let transition_processor = TransitionProcessor::<F, C, D>::new();
         let txs = (0..NUM_SENDERS_IN_BLOCK)

@@ -11,16 +11,18 @@ use crate::{
         block::Block,
         signature::{utils::get_pubkey_hash, SignatureContent},
         trees::{
-            account_tree::{AccountMembershipProof, AccountMerkleProof},
+            account_tree::{AccountMembershipProof, AccountMerkleProof, AccountTree},
+            block_hash_tree::BlockHashTree,
             sender_tree::get_sender_tree_root,
         },
     },
-    ethereum_types::{account_id_packed::AccountIdPacked, bytes32::Bytes32, u256::U256},
+    constants::{ACCOUNT_TREE_HEIGHT, BLOCK_HASH_TREE_HEIGHT},
+    ethereum_types::{account_id_packed::AccountIdPacked, u256::U256},
     utils::poseidon_hash_out::PoseidonHashOut,
 };
 
 /// A structure that holds all the information needed to verify a block
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct BlockWitness {
     pub block: Block,
     pub signature: SignatureContent,
@@ -33,6 +35,21 @@ pub struct BlockWitness {
 }
 
 impl BlockWitness {
+    pub fn genesis() -> Self {
+        let block_hash_tree = BlockHashTree::new(BLOCK_HASH_TREE_HEIGHT);
+        let account_tree = AccountTree::new(ACCOUNT_TREE_HEIGHT);
+        Self {
+            block: Block::genesis(),
+            signature: SignatureContent::default(),
+            pubkeys: vec![],
+            account_tree_root: account_tree.0.get_root(),
+            block_hash_tree_root: block_hash_tree.get_root(),
+            account_id_packed: None,
+            account_merkle_proofs: None,
+            account_membership_proofs: None,
+        }
+    }
+
     pub fn to_validity_pis(&self) -> ValidityPublicInputs {
         let main_validation_pis = self.to_main_validation_pis();
         ValidityPublicInputs {
@@ -51,7 +68,7 @@ impl BlockWitness {
         if self.block == Block::genesis() {
             let validity_pis = ValidityPublicInputs::genesis();
             return MainValidationPublicInputs {
-                prev_block_hash: Bytes32::default(),
+                prev_block_hash: Block::genesis().prev_block_hash,
                 block_hash: validity_pis.block_hash,
                 account_tree_root: validity_pis.account_tree_root,
                 tx_tree_root: validity_pis.tx_tree_root,
