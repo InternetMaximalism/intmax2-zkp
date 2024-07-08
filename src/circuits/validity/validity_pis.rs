@@ -101,6 +101,28 @@ impl ValidityPublicInputs {
         assert_eq!(vec.len(), VALIDITY_PUBLIC_INPUTS_LEN);
         vec
     }
+
+    pub fn from_u64_vec(input: &[u64]) -> Self {
+        assert_eq!(input.len(), VALIDITY_PUBLIC_INPUTS_LEN);
+        let account_tree_root = PoseidonHashOut::from_u64_vec(&input[0..4]);
+        let block_hash_tree_root = PoseidonHashOut::from_u64_vec(&input[4..8]);
+        let block_hash = Bytes32::from_u64_vec(&input[8..16]);
+        let tx_tree_root = Bytes32::from_u64_vec(&input[16..24]);
+        let sender_tree_root = PoseidonHashOut::from_u64_vec(&input[24..28]);
+        let block_number = input[28] as u32;
+        let is_registoration_block = input[29] == 1;
+        let is_valid_block = input[30] == 1;
+        Self {
+            account_tree_root,
+            block_hash_tree_root,
+            block_hash,
+            block_number,
+            tx_tree_root,
+            sender_tree_root,
+            is_registoration_block,
+            is_valid_block,
+        }
+    }
 }
 
 impl ValidityPublicInputsTarget {
@@ -121,6 +143,28 @@ impl ValidityPublicInputsTarget {
             .collect::<Vec<_>>();
         assert_eq!(vec.len(), VALIDITY_PUBLIC_INPUTS_LEN);
         vec
+    }
+
+    pub fn from_vec(input: &[Target]) -> Self {
+        assert_eq!(input.len(), VALIDITY_PUBLIC_INPUTS_LEN);
+        let account_tree_root = PoseidonHashOutTarget::from_vec(&input[0..4]);
+        let block_hash_tree_root = PoseidonHashOutTarget::from_vec(&input[4..8]);
+        let block_hash = Bytes32::<Target>::from_limbs(&input[8..16]);
+        let tx_tree_root = Bytes32::<Target>::from_limbs(&input[16..24]);
+        let sender_tree_root = PoseidonHashOutTarget::from_vec(&input[24..28]);
+        let block_number = input[28];
+        let is_registoration_block = BoolTarget::new_unsafe(input[29]);
+        let is_valid_block = BoolTarget::new_unsafe(input[30]);
+        Self {
+            account_tree_root,
+            block_hash_tree_root,
+            block_hash,
+            block_number,
+            tx_tree_root,
+            sender_tree_root,
+            is_registoration_block,
+            is_valid_block,
+        }
     }
 }
 
@@ -145,6 +189,78 @@ impl ValidityPublicInputsTarget {
             is_registoration_block,
             is_valid_block,
         }
+    }
+
+    pub fn constant<F: RichField + Extendable<D>, const D: usize>(
+        builder: &mut CircuitBuilder<F, D>,
+        value: &ValidityPublicInputs,
+    ) -> Self {
+        Self {
+            account_tree_root: PoseidonHashOutTarget::constant(builder, value.account_tree_root),
+            block_hash_tree_root: PoseidonHashOutTarget::constant(
+                builder,
+                value.block_hash_tree_root,
+            ),
+            block_hash: Bytes32::constant(builder, value.block_hash),
+            tx_tree_root: Bytes32::constant(builder, value.tx_tree_root),
+            sender_tree_root: PoseidonHashOutTarget::constant(builder, value.sender_tree_root),
+            block_number: builder.constant(F::from_canonical_u32(value.block_number)),
+            is_registoration_block: builder.constant_bool(value.is_registoration_block),
+            is_valid_block: builder.constant_bool(value.is_valid_block),
+        }
+    }
+
+    pub fn connect<F: RichField + Extendable<D>, const D: usize>(
+        &self,
+        builder: &mut CircuitBuilder<F, D>,
+        other: &Self,
+    ) {
+        self.account_tree_root
+            .connect(builder, other.account_tree_root);
+        self.block_hash_tree_root
+            .connect(builder, other.block_hash_tree_root);
+        self.block_hash.connect(builder, other.block_hash);
+        self.tx_tree_root.connect(builder, other.tx_tree_root);
+        self.sender_tree_root
+            .connect(builder, other.sender_tree_root);
+        builder.connect(self.block_number, other.block_number);
+        builder.connect(
+            self.is_registoration_block.target,
+            other.is_registoration_block.target,
+        );
+        builder.connect(self.is_valid_block.target, other.is_valid_block.target);
+    }
+
+    pub fn conditional_assert_eq<F: RichField + Extendable<D>, const D: usize>(
+        &self,
+        builder: &mut CircuitBuilder<F, D>,
+        other: &Self,
+        condition: BoolTarget,
+    ) {
+        self.account_tree_root
+            .conditional_assert_eq(builder, other.account_tree_root, condition);
+        self.block_hash_tree_root.conditional_assert_eq(
+            builder,
+            other.block_hash_tree_root,
+            condition,
+        );
+        self.block_hash
+            .conditional_assert_eq(builder, other.block_hash, condition);
+        self.tx_tree_root
+            .conditional_assert_eq(builder, other.tx_tree_root, condition);
+        self.sender_tree_root
+            .conditional_assert_eq(builder, other.sender_tree_root, condition);
+        builder.conditional_assert_eq(condition.target, self.block_number, other.block_number);
+        builder.conditional_assert_eq(
+            condition.target,
+            self.is_registoration_block.target,
+            other.is_registoration_block.target,
+        );
+        builder.conditional_assert_eq(
+            condition.target,
+            self.is_valid_block.target,
+            other.is_valid_block.target,
+        );
     }
 
     pub fn set_witness<F: RichField, W: Witness<F>>(

@@ -131,6 +131,17 @@ impl PoseidonHashOutTarget {
         }
     }
 
+    pub fn conditional_assert_eq<F: RichField + Extendable<D>, const D: usize>(
+        &self,
+        builder: &mut CircuitBuilder<F, D>,
+        other: Self,
+        condition: BoolTarget,
+    ) {
+        for (a, b) in self.elements.iter().zip(other.elements.iter()) {
+            builder.conditional_assert_eq(condition.target, *a, *b);
+        }
+    }
+
     pub fn select<F: RichField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
         condition: BoolTarget,
