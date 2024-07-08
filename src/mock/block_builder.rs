@@ -6,6 +6,7 @@ use plonky2_bn254::{curves::g2::G2Target, utils::hash_to_g2::HashToG2 as _};
 use rand::Rng;
 
 use crate::{
+    circuits::validity::validity_pis::ValidityPublicInputs,
     common::{
         block::Block,
         signature::{
@@ -140,6 +141,15 @@ impl MockBlockBuilder {
     // This should be called before the update.
     pub fn generate_transition_witness(&self, db: &MockDB) -> TransitionWitness {
         let prev_block_witness = db.get_last_block_witness();
+        if prev_block_witness.block.block_number == 0 {
+            // genesis block
+            return TransitionWitness {
+                prev_pis: ValidityPublicInputs::genesis(),
+                block_merkle_proof: db.block_hash_tree.prove(0),
+                account_registoration_proofs: None,
+                account_update_proofs: None,
+            };
+        }
         let prev_pis = prev_block_witness.to_validity_pis();
         let block_merkle_proof = db
             .prev_block_hash_tree

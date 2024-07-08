@@ -15,7 +15,7 @@ use crate::{
             sender_tree::get_sender_tree_root,
         },
     },
-    ethereum_types::{account_id_packed::AccountIdPacked, u256::U256},
+    ethereum_types::{account_id_packed::AccountIdPacked, bytes32::Bytes32, u256::U256},
     utils::poseidon_hash_out::PoseidonHashOut,
 };
 
@@ -48,6 +48,20 @@ impl BlockWitness {
     }
 
     pub fn to_main_validation_pis(&self) -> MainValidationPublicInputs {
+        if self.block == Block::genesis() {
+            let validity_pis = ValidityPublicInputs::genesis();
+            return MainValidationPublicInputs {
+                prev_block_hash: Bytes32::default(),
+                block_hash: validity_pis.block_hash,
+                account_tree_root: validity_pis.account_tree_root,
+                tx_tree_root: validity_pis.tx_tree_root,
+                sender_tree_root: validity_pis.sender_tree_root,
+                block_number: validity_pis.block_number,
+                is_registoration_block: validity_pis.is_registoration_block,
+                is_valid: validity_pis.is_valid_block,
+            };
+        }
+
         let mut result = true;
         let block = self.block.clone();
         let signature = self.signature.clone();

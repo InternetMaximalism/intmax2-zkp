@@ -69,16 +69,16 @@ where
     ) -> Result<ProofWithPublicInputs<F, C, D>> {
         let prev_pis = prev_block_witness.to_validity_pis();
         let prev_block_pis = prev_block_witness.to_main_validation_pis();
-        let prev_sender_leaves = get_sender_leaves(
-            &prev_block_witness.pubkeys,
-            prev_block_witness.signature.sender_flag,
-        );
         let account_registoration_proof =
             if prev_pis.is_valid_block && prev_pis.is_registoration_block {
                 let account_registoration_proofs = transition_witness
                     .account_registoration_proofs
                     .clone()
                     .expect("Account registoration proofs are missing");
+                let prev_sender_leaves = get_sender_leaves(
+                    &prev_block_witness.pubkeys,
+                    prev_block_witness.signature.sender_flag,
+                );
                 let value = AccountRegistorationValue::new(
                     prev_pis.account_tree_root,
                     prev_pis.block_number,
@@ -96,6 +96,10 @@ where
                 .account_update_proofs
                 .clone()
                 .expect("Account update proofs are missing");
+            let prev_sender_leaves = get_sender_leaves(
+                &prev_block_witness.pubkeys,
+                prev_block_witness.signature.sender_flag,
+            );
             let value = AccountUpdateValue::new(
                 prev_pis.account_tree_root,
                 prev_pis.block_number,
