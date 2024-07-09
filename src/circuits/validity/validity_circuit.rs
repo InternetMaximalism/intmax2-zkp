@@ -192,7 +192,7 @@ mod tests {
     #[cfg(not(feature = "dummy_validity_proof"))]
     #[test]
     fn validity_circuit() {
-        use crate::circuits::validity::transition::wrapper::TransitionWrapperCircuit;
+        use crate::circuits::validity::transition::processor::TransitionProcessor;
         let mut rng = rand::thread_rng();
         let mut mock_db = MockDB::new();
         let block_builder = MockBlockBuilder;

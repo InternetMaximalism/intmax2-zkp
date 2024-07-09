@@ -1,6 +1,7 @@
 pub mod block;
 pub mod generic_address;
-pub mod local_state;
+pub mod private_state;
+pub mod public_state;
 pub mod salt;
 pub mod signature;
 pub mod transfer;

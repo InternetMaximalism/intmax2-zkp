@@ -125,7 +125,7 @@ impl MockBlockBuilder {
             signature: signature.clone(),
             pubkeys: pubkeys.clone(),
             account_tree_root,
-            block_hash_tree_root,
+            block_tree_root: block_hash_tree_root,
             account_id_packed,
             account_merkle_proofs,
             account_membership_proofs,
@@ -144,7 +144,7 @@ impl MockBlockBuilder {
         if prev_block_witness.block.block_number == 0 {
             assert_eq!(
                 db.block_hash_tree.get_root(),
-                prev_block_witness.block_hash_tree_root
+                prev_block_witness.block_tree_root
             );
             // genesis block
             return TransitionWitness {
@@ -161,7 +161,7 @@ impl MockBlockBuilder {
             .unwrap()
             .prove(prev_block_witness.block.block_number as usize);
         assert_eq!(
-            prev_pis.account_tree_root,
+            prev_pis.public_state.account_tree_root,
             db.prev_account_tree.as_ref().unwrap().0.get_root()
         );
 
@@ -175,7 +175,7 @@ impl MockBlockBuilder {
                 let mut prev_account_tree = db.prev_account_tree.clone().unwrap();
                 for sender_leaf in &sender_leaves {
                     let last_block_number = if sender_leaf.is_valid {
-                        prev_pis.block_number
+                        prev_pis.public_state.block_number
                     } else {
                         0
                     };
@@ -198,7 +198,7 @@ impl MockBlockBuilder {
                 );
                 let mut account_update_proofs = Vec::new();
                 let mut prev_account_tree = db.prev_account_tree.clone().unwrap();
-                let block_number = prev_pis.block_number;
+                let block_number = prev_pis.public_state.block_number;
                 for sender_leaf in sender_leaves.iter() {
                     let account_id = prev_account_tree.index(sender_leaf.sender).unwrap();
                     let prev_leaf = prev_account_tree.0.get_leaf(account_id);

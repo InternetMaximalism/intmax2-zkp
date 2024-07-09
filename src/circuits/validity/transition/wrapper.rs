@@ -18,6 +18,7 @@ use crate::{
         },
         validity_pis::{ValidityPublicInputs, ValidityPublicInputsTarget},
     },
+    common::public_state::PublicStateTarget,
     ethereum_types::u32limb_trait::U32LimbTargetTrait,
     utils::{dummy::DummyProof, recursivable::Recursivable},
 };
@@ -65,22 +66,30 @@ where
 
         // connect prev_pis to transition_target.prev_block_pis
         let prev_block_pis = transition_target.prev_block_pis.clone();
+
         prev_pis
+            .public_state
             .account_tree_root
             .connect(&mut builder, prev_block_pis.account_tree_root);
         prev_pis
-            .block_hash_tree_root
-            .connect(&mut builder, transition_target.prev_block_tree_root);
+            .public_state
+            .deposit_tree_root
+            .connect(&mut builder, prev_block_pis.deposit_tree_root);
         prev_pis
+            .public_state
             .block_hash
             .connect(&mut builder, prev_block_pis.block_hash);
+        builder.connect(
+            prev_pis.public_state.block_number,
+            prev_block_pis.block_number,
+        );
+
         prev_pis
             .tx_tree_root
             .connect(&mut builder, prev_block_pis.tx_tree_root);
         prev_pis
             .sender_tree_root
             .connect(&mut builder, prev_block_pis.sender_tree_root);
-        builder.connect(prev_pis.block_number, prev_block_pis.block_number);
         builder.connect(
             prev_pis.is_registoration_block.target,
             prev_block_pis.is_registoration_block.target,
@@ -96,15 +105,19 @@ where
             .connect(&mut builder, transition_target.new_account_tree_root);
         block_pis
             .prev_block_hash
-            .connect(&mut builder, prev_pis.block_hash);
+            .connect(&mut builder, prev_pis.public_state.block_hash);
 
         let new_pis = ValidityPublicInputsTarget {
-            account_tree_root: transition_target.new_account_tree_root,
-            block_hash_tree_root: transition_target.new_block_tree_root,
-            block_hash: block_pis.block_hash,
+            public_state: PublicStateTarget {
+                account_tree_root: transition_target.new_account_tree_root,
+                block_tree_root: transition_target.new_block_tree_root,
+                block_hash: block_pis.block_hash,
+                block_number: block_pis.block_number,
+                deposit_tree_root: block_pis.deposit_tree_root,
+            },
             tx_tree_root: block_pis.tx_tree_root,
             sender_tree_root: block_pis.sender_tree_root,
-            block_number: block_pis.block_number,
+
             is_registoration_block: block_pis.is_registoration_block,
             is_valid_block: block_pis.is_valid,
         };

@@ -50,12 +50,13 @@ use super::{
     utils::{get_pubkey_commitment, get_pubkey_commitment_circuit},
 };
 
-pub const MAIN_VALIDATION_PUBLIC_INPUT_LEN: usize = 3 * BYTES32_LEN + 2 * 4 + 3;
+pub const MAIN_VALIDATION_PUBLIC_INPUT_LEN: usize = 4 * BYTES32_LEN + 2 * 4 + 3;
 
 #[derive(Clone, Debug)]
 pub struct MainValidationPublicInputs {
     pub prev_block_hash: Bytes32<u32>,
     pub block_hash: Bytes32<u32>,
+    pub deposit_tree_root: Bytes32<u32>,
     pub account_tree_root: PoseidonHashOut,
     pub tx_tree_root: Bytes32<u32>,
     pub sender_tree_root: PoseidonHashOut,
@@ -68,6 +69,7 @@ pub struct MainValidationPublicInputs {
 pub struct MainValidationPublicInputsTarget {
     pub prev_block_hash: Bytes32<Target>,
     pub block_hash: Bytes32<Target>,
+    pub deposit_tree_root: Bytes32<Target>,
     pub account_tree_root: PoseidonHashOutTarget,
     pub tx_tree_root: Bytes32<Target>,
     pub sender_tree_root: PoseidonHashOutTarget,
@@ -81,15 +83,17 @@ impl MainValidationPublicInputs {
         assert_eq!(input.len(), MAIN_VALIDATION_PUBLIC_INPUT_LEN);
         let prev_block_hash = Bytes32::<u32>::from_u64_vec(&input[0..8]);
         let block_hash = Bytes32::<u32>::from_u64_vec(&input[8..16]);
-        let account_tree_root = PoseidonHashOut::from_u64_vec(&input[16..20]);
-        let tx_tree_root = Bytes32::<u32>::from_u64_vec(&input[20..28]);
-        let sender_tree_root = PoseidonHashOut::from_u64_vec(&input[28..32]);
-        let block_number = input[32] as u32;
-        let is_registoration_block = input[33] == 1;
-        let is_valid = input[34] == 1;
+        let deposit_tree_root = Bytes32::<u32>::from_u64_vec(&input[16..24]);
+        let account_tree_root = PoseidonHashOut::from_u64_vec(&input[24..28]);
+        let tx_tree_root = Bytes32::<u32>::from_u64_vec(&input[28..36]);
+        let sender_tree_root = PoseidonHashOut::from_u64_vec(&input[36..40]);
+        let block_number = input[40] as u32;
+        let is_registoration_block = input[41] == 1;
+        let is_valid = input[42] == 1;
         Self {
             prev_block_hash,
             block_hash,
+            deposit_tree_root,
             account_tree_root,
             tx_tree_root,
             sender_tree_root,
@@ -116,6 +120,7 @@ impl MainValidationPublicInputsTarget {
         Self {
             prev_block_hash: Bytes32::<Target>::new(builder, is_checked),
             block_hash: Bytes32::<Target>::new(builder, is_checked),
+            deposit_tree_root: Bytes32::<Target>::new(builder, is_checked),
             account_tree_root: PoseidonHashOutTarget::new(builder),
             tx_tree_root: Bytes32::<Target>::new(builder, is_checked),
             sender_tree_root: PoseidonHashOutTarget::new(builder),
@@ -131,6 +136,7 @@ impl MainValidationPublicInputsTarget {
             .limbs()
             .into_iter()
             .chain(self.block_hash.limbs().into_iter())
+            .chain(self.deposit_tree_root.limbs().into_iter())
             .chain(self.account_tree_root.elements.into_iter())
             .chain(self.tx_tree_root.limbs().into_iter())
             .chain(self.sender_tree_root.elements.into_iter())
@@ -148,15 +154,17 @@ impl MainValidationPublicInputsTarget {
         assert_eq!(input.len(), MAIN_VALIDATION_PUBLIC_INPUT_LEN);
         let prev_block_hash = Bytes32::<Target>::from_limbs(&input[0..8]);
         let block_hash = Bytes32::<Target>::from_limbs(&input[8..16]);
-        let account_tree_root = PoseidonHashOutTarget::from_vec(&input[16..20]);
-        let tx_tree_root = Bytes32::<Target>::from_limbs(&input[20..28]);
-        let sender_tree_root = PoseidonHashOutTarget::from_vec(&input[28..32]);
-        let block_number = input[32];
-        let is_registoration_block = BoolTarget::new_unsafe(input[33]);
-        let is_valid = BoolTarget::new_unsafe(input[34]);
+        let deposit_tree_root = Bytes32::<Target>::from_limbs(&input[16..24]);
+        let account_tree_root = PoseidonHashOutTarget::from_vec(&input[24..28]);
+        let tx_tree_root = Bytes32::<Target>::from_limbs(&input[28..36]);
+        let sender_tree_root = PoseidonHashOutTarget::from_vec(&input[36..40]);
+        let block_number = input[40];
+        let is_registoration_block = BoolTarget::new_unsafe(input[41]);
+        let is_valid = BoolTarget::new_unsafe(input[42]);
         Self {
             prev_block_hash,
             block_hash,
+            deposit_tree_root,
             account_tree_root,
             tx_tree_root,
             sender_tree_root,
@@ -174,6 +182,8 @@ impl MainValidationPublicInputsTarget {
         self.prev_block_hash
             .set_witness(witness, value.prev_block_hash);
         self.block_hash.set_witness(witness, value.block_hash);
+        self.deposit_tree_root
+            .set_witness(witness, value.deposit_tree_root);
         self.account_tree_root
             .set_witness(witness, value.account_tree_root);
         self.tx_tree_root.set_witness(witness, value.tx_tree_root);
@@ -619,6 +629,7 @@ where
         let pis = MainValidationPublicInputsTarget {
             prev_block_hash: target.prev_block_hash,
             block_hash: target.block_hash,
+            deposit_tree_root: target.block.deposit_tree_root,
             account_tree_root: target.account_tree_root,
             tx_tree_root: target.signature.tx_tree_root,
             sender_tree_root: target.sender_tree_root,

@@ -15,7 +15,7 @@ use plonky2::{
 
 use crate::{
     common::{
-        local_state::{PrivateState, PrivateStateTarget},
+        private_state::{PrivateState, PrivateStateTarget},
         transfer::{Transfer, TransferTarget},
         trees::asset_tree::{AssetLeaf, AssetLeafTarget, AssetMerkleProof, AssetMerkleProofTarget},
     },
@@ -239,7 +239,7 @@ mod tests {
     use crate::{
         common::{
             generic_address::GenericAddress,
-            local_state::PrivateState,
+            private_state::PrivateState,
             salt::Salt,
             transfer::Transfer,
             trees::asset_tree::{AssetLeaf, AssetTree},

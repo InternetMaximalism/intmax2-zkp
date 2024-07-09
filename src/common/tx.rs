@@ -3,22 +3,22 @@ use serde::Serialize;
 
 use crate::utils::{leafable::Leafable, poseidon_hash_out::PoseidonHashOut};
 
-pub const TX_LEN: usize = 4 + 4;
+pub const TX_LEN: usize = 4 + 1;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Tx {
-    pub fee_transfer_hash: PoseidonHashOut,
     pub transfer_tree_root: PoseidonHashOut,
+    pub nonce: u32,
 }
 
 impl Tx {
     pub fn to_u64_vec(&self) -> Vec<u64> {
         let vec = self
-            .fee_transfer_hash
+            .transfer_tree_root
             .to_u64_vec()
             .into_iter()
-            .chain(self.transfer_tree_root.to_u64_vec().into_iter())
+            .chain(vec![self.nonce as u64].into_iter())
             .collect::<Vec<_>>();
         assert_eq!(vec.len(), TX_LEN);
         vec
@@ -26,8 +26,8 @@ impl Tx {
 
     pub fn rand<R: Rng>(rng: &mut R) -> Self {
         Self {
-            fee_transfer_hash: PoseidonHashOut::rand(rng),
             transfer_tree_root: PoseidonHashOut::rand(rng),
+            nonce: rng.gen(),
         }
     }
 }

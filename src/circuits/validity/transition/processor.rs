@@ -80,8 +80,8 @@ where
                     prev_block_witness.signature.sender_flag,
                 );
                 let value = AccountRegistorationValue::new(
-                    prev_pis.account_tree_root,
-                    prev_pis.block_number,
+                    prev_pis.public_state.account_tree_root,
+                    prev_pis.public_state.block_number,
                     prev_sender_leaves.clone(),
                     account_registoration_proofs,
                 );
@@ -101,8 +101,8 @@ where
                 prev_block_witness.signature.sender_flag,
             );
             let value = AccountUpdateValue::new(
-                prev_pis.account_tree_root,
-                prev_pis.block_number,
+                prev_pis.public_state.account_tree_root,
+                prev_pis.public_state.block_number,
                 prev_sender_leaves.clone(),
                 account_update_proofs,
             );
@@ -115,7 +115,7 @@ where
             &self.account_registoration_circuit,
             &self.account_update_circuit,
             prev_block_pis,
-            prev_pis.block_hash_tree_root,
+            prev_pis.public_state.block_tree_root,
             account_registoration_proof,
             account_update_proof,
             transition_witness.block_merkle_proof.clone(),

@@ -9,6 +9,7 @@ use crate::{
     },
     common::{
         block::Block,
+        public_state::PublicState,
         signature::{utils::get_pubkey_hash, SignatureContent},
         trees::{
             account_tree::{AccountMembershipProof, AccountMerkleProof, AccountTree},
@@ -28,7 +29,7 @@ pub struct BlockWitness {
     pub signature: SignatureContent,
     pub pubkeys: Vec<U256<u32>>,
     pub account_tree_root: PoseidonHashOut,
-    pub block_hash_tree_root: PoseidonHashOut,
+    pub block_tree_root: PoseidonHashOut,
     pub account_id_packed: Option<AccountIdPacked<u32>>, // account id case
     pub account_merkle_proofs: Option<Vec<AccountMerkleProof>>, // account id case
     pub account_membership_proofs: Option<Vec<AccountMembershipProof>>, // pubkey case
@@ -43,7 +44,7 @@ impl BlockWitness {
             signature: SignatureContent::default(),
             pubkeys: vec![],
             account_tree_root: account_tree.0.get_root(),
-            block_hash_tree_root: block_hash_tree.get_root(),
+            block_tree_root: block_hash_tree.get_root(),
             account_id_packed: None,
             account_merkle_proofs: None,
             account_membership_proofs: None,
@@ -53,10 +54,13 @@ impl BlockWitness {
     pub fn to_validity_pis(&self) -> ValidityPublicInputs {
         let main_validation_pis = self.to_main_validation_pis();
         ValidityPublicInputs {
-            account_tree_root: self.account_tree_root,
-            block_hash_tree_root: self.block_hash_tree_root,
-            block_number: self.block.block_number,
-            block_hash: main_validation_pis.block_hash,
+            public_state: PublicState {
+                account_tree_root: self.account_tree_root,
+                block_tree_root: self.block_tree_root,
+                deposit_tree_root: self.block.deposit_tree_root,
+                block_number: self.block.block_number,
+                block_hash: main_validation_pis.block_hash,
+            },
             tx_tree_root: main_validation_pis.tx_tree_root,
             sender_tree_root: main_validation_pis.sender_tree_root,
             is_registoration_block: main_validation_pis.is_registoration_block,
@@ -69,11 +73,12 @@ impl BlockWitness {
             let validity_pis = ValidityPublicInputs::genesis();
             return MainValidationPublicInputs {
                 prev_block_hash: Block::genesis().prev_block_hash,
-                block_hash: validity_pis.block_hash,
-                account_tree_root: validity_pis.account_tree_root,
+                block_hash: validity_pis.public_state.block_hash,
+                deposit_tree_root: validity_pis.public_state.deposit_tree_root,
+                account_tree_root: validity_pis.public_state.account_tree_root,
                 tx_tree_root: validity_pis.tx_tree_root,
                 sender_tree_root: validity_pis.sender_tree_root,
-                block_number: validity_pis.block_number,
+                block_number: validity_pis.public_state.block_number,
                 is_registoration_block: validity_pis.is_registoration_block,
                 is_valid: validity_pis.is_valid_block,
             };
@@ -130,6 +135,7 @@ impl BlockWitness {
         MainValidationPublicInputs {
             prev_block_hash,
             block_hash,
+            deposit_tree_root: block.deposit_tree_root,
             account_tree_root,
             tx_tree_root,
             sender_tree_root,
