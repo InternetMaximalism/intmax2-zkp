@@ -11,12 +11,15 @@ use plonky2_keccak::{builder::BuilderKeccak256, utils::solidity_keccak256};
 use serde::{Deserialize, Serialize};
 
 use crate::{
+    constants::DEPOSIT_TREE_HEIGHT,
     ethereum_types::{
         bytes32::Bytes32,
         u32limb_trait::{U32LimbTargetTrait as _, U32LimbTrait},
     },
     utils::poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget},
 };
+
+use super::trees::deposit_tree::DepositTree;
 
 #[derive(Clone, Default, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -37,7 +40,13 @@ pub struct BlockTarget {
 
 impl Block {
     pub fn genesis() -> Self {
-        Self::default()
+        let deposit_tree_root = DepositTree::new(DEPOSIT_TREE_HEIGHT).get_root();
+        Self {
+            prev_block_hash: Bytes32::default(),
+            deposit_tree_root: deposit_tree_root,
+            signature_hash: Bytes32::default(),
+            block_number: 0,
+        }
     }
 
     pub fn to_u32_vec(&self) -> Vec<u32> {

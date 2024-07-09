@@ -83,6 +83,10 @@ where
             prev_pis.public_state.block_number,
             prev_block_pis.block_number,
         );
+        prev_pis
+            .public_state
+            .block_tree_root
+            .connect(&mut builder, transition_target.prev_block_tree_root);
 
         prev_pis
             .tx_tree_root
