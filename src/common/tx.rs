@@ -2,13 +2,16 @@ use plonky2::{
     field::{extension::Extendable, types::Field},
     hash::hash_types::RichField,
     iop::{target::Target, witness::WitnessWrite},
-    plonk::circuit_builder::CircuitBuilder,
+    plonk::{
+        circuit_builder::CircuitBuilder,
+        config::{AlgebraicHasher, GenericConfig},
+    },
 };
 use rand::Rng;
 use serde::Serialize;
 
 use crate::utils::{
-    leafable::Leafable,
+    leafable::{Leafable, LeafableTarget},
     leafable_hasher::PoseidonLeafableHasher,
     poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget},
 };
@@ -105,5 +108,25 @@ impl Leafable for Tx {
 
     fn hash(&self) -> PoseidonHashOut {
         PoseidonHashOut::hash_inputs_u64(&self.to_u64_vec())
+    }
+}
+
+impl LeafableTarget for TxTarget {
+    type Leaf = Tx;
+
+    fn empty_leaf<F: RichField + Extendable<D>, const D: usize>(
+        builder: &mut CircuitBuilder<F, D>,
+    ) -> Self {
+        TxTarget::constant(builder, Tx::empty_leaf())
+    }
+
+    fn hash<F: RichField + Extendable<D>, C: 'static + GenericConfig<D, F = F>, const D: usize>(
+        &self,
+        builder: &mut CircuitBuilder<F, D>,
+    ) -> PoseidonHashOutTarget
+    where
+        <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
+    {
+        PoseidonHashOutTarget::hash_inputs(builder, &self.to_vec())
     }
 }
