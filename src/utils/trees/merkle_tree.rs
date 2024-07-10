@@ -10,7 +10,10 @@ use plonky2::{
     },
 };
 
-use crate::utils::leafable::{Leafable, LeafableTarget};
+use crate::utils::{
+    leafable::{Leafable, LeafableTarget},
+    leafable_hasher::LeafableHasher,
+};
 
 // `MekleTree`` is a structure of Merkle Tree used for `MerkleTreeWithLeaves`
 // and `SparseMerkleTreeWithLeaves`. It only holds non-zero nodes.
@@ -20,23 +23,27 @@ use crate::utils::leafable::{Leafable, LeafableTarget};
 #[derive(Clone, Debug)]
 pub(crate) struct MerkleTree<V: Leafable> {
     height: usize,
-    node_hashes: HashMap<Vec<bool>, V::HashOut>,
-    zero_hashes: Vec<V::HashOut>,
+    node_hashes: HashMap<Vec<bool>, <V::LeafableHasher as LeafableHasher>::HashOut>,
+    zero_hashes: Vec<<V::LeafableHasher as LeafableHasher>::HashOut>,
 }
 
 impl<V: Leafable> MerkleTree<V> {
-    pub(crate) fn new(height: usize, empty_leaf_hash: V::HashOut) -> Self {
+    pub(crate) fn new(
+        height: usize,
+        empty_leaf_hash: <V::LeafableHasher as LeafableHasher>::HashOut,
+    ) -> Self {
         // zero_hashes = reverse([H(zero_leaf), H(H(zero_leaf), H(zero_leaf)), ...])
         let mut zero_hashes = vec![];
         let mut h = empty_leaf_hash;
         zero_hashes.push(h.clone());
         for _ in 0..height {
-            h = V::two_to_one(h, h);
+            h = <V::LeafableHasher as LeafableHasher>::two_to_one(h, h);
             zero_hashes.push(h.clone());
         }
         zero_hashes.reverse();
 
-        let node_hashes: HashMap<Vec<bool>, V::HashOut> = HashMap::new();
+        let node_hashes: HashMap<Vec<bool>, <V::LeafableHasher as LeafableHasher>::HashOut> =
+            HashMap::new();
 
         Self {
             height,
@@ -49,7 +56,10 @@ impl<V: Leafable> MerkleTree<V> {
         self.height
     }
 
-    pub(crate) fn get_node_hash(&self, path: &Vec<bool>) -> V::HashOut {
+    pub(crate) fn get_node_hash(
+        &self,
+        path: &Vec<bool>,
+    ) -> <V::LeafableHasher as LeafableHasher>::HashOut {
         assert!(path.len() <= self.height);
         match self.node_hashes.get(path) {
             Some(h) => h.clone(),
@@ -57,11 +67,11 @@ impl<V: Leafable> MerkleTree<V> {
         }
     }
 
-    pub(crate) fn get_root(&self) -> V::HashOut {
+    pub(crate) fn get_root(&self) -> <V::LeafableHasher as LeafableHasher>::HashOut {
         self.get_node_hash(&vec![])
     }
 
-    fn get_sibling_hash(&self, path: &Vec<bool>) -> V::HashOut {
+    fn get_sibling_hash(&self, path: &Vec<bool>) -> <V::LeafableHasher as LeafableHasher>::HashOut {
         assert!(!path.is_empty());
         let mut path = path.clone();
         let last = path.len() - 1;
@@ -70,7 +80,11 @@ impl<V: Leafable> MerkleTree<V> {
     }
 
     // index_bits is little endian
-    pub(crate) fn update_leaf(&mut self, index_bits: Vec<bool>, leaf_hash: V::HashOut) {
+    pub(crate) fn update_leaf(
+        &mut self,
+        index_bits: Vec<bool>,
+        leaf_hash: <V::LeafableHasher as LeafableHasher>::HashOut,
+    ) {
         assert_eq!(index_bits.len(), self.height);
         let mut path = index_bits;
         path.reverse(); // path is big endian
@@ -81,9 +95,9 @@ impl<V: Leafable> MerkleTree<V> {
         while !path.is_empty() {
             let sibling = self.get_sibling_hash(&path);
             h = if path.pop().unwrap() {
-                V::two_to_one(sibling, h)
+                <V::LeafableHasher as LeafableHasher>::two_to_one(sibling, h)
             } else {
-                V::two_to_one(h, sibling)
+                <V::LeafableHasher as LeafableHasher>::two_to_one(h, sibling)
             };
             self.node_hashes.insert(path.clone(), h.clone());
         }
@@ -105,7 +119,7 @@ impl<V: Leafable> MerkleTree<V> {
 
 #[derive(Clone, Debug)]
 pub(crate) struct MerkleProof<V: Leafable> {
-    pub(crate) siblings: Vec<V::HashOut>,
+    pub(crate) siblings: Vec<<V::LeafableHasher as LeafableHasher>::HashOut>,
 }
 
 impl<V: Leafable> MerkleProof<V> {
@@ -113,13 +127,17 @@ impl<V: Leafable> MerkleProof<V> {
         self.siblings.len()
     }
 
-    pub fn get_root(&self, leaf_data: &V, index_bits: Vec<bool>) -> V::HashOut {
+    pub fn get_root(
+        &self,
+        leaf_data: &V,
+        index_bits: Vec<bool>,
+    ) -> <V::LeafableHasher as LeafableHasher>::HashOut {
         let mut state = leaf_data.hash();
         for (&bit, sibling) in index_bits.iter().zip(self.siblings.iter()) {
             state = if bit {
-                V::two_to_one(*sibling, state)
+                <V::LeafableHasher as LeafableHasher>::two_to_one(*sibling, state)
             } else {
-                V::two_to_one(state, *sibling)
+                <V::LeafableHasher as LeafableHasher>::two_to_one(state, *sibling)
             }
         }
         state
@@ -129,7 +147,7 @@ impl<V: Leafable> MerkleProof<V> {
         &self,
         leaf_data: &V,
         index_bits: Vec<bool>, // little endian
-        merkle_root: V::HashOut,
+        merkle_root: <V::LeafableHasher as LeafableHasher>::HashOut,
     ) -> anyhow::Result<()> {
         anyhow::ensure!(
             self.get_root(leaf_data, index_bits) == merkle_root,
@@ -141,7 +159,7 @@ impl<V: Leafable> MerkleProof<V> {
 
 #[derive(Clone, Debug)]
 pub(crate) struct MerkleProofTarget<VT: LeafableTarget> {
-    siblings: Vec<VT::HashOutTarget>,
+    siblings: Vec<<<VT::Leaf as Leafable>::LeafableHasher as LeafableHasher>::HashOutTarget>,
 }
 
 impl<VT: LeafableTarget> MerkleProofTarget<VT> {
@@ -150,7 +168,9 @@ impl<VT: LeafableTarget> MerkleProofTarget<VT> {
         height: usize,
     ) -> Self {
         let siblings = (0..height)
-            .map(|_| VT::hash_out_target(builder))
+            .map(|_| {
+                <<VT::Leaf as Leafable>::LeafableHasher as LeafableHasher>::hash_out_target(builder)
+            })
             .collect::<Vec<_>>();
         Self { siblings }
     }
@@ -163,7 +183,7 @@ impl<VT: LeafableTarget> MerkleProofTarget<VT> {
             siblings: input
                 .siblings
                 .iter()
-                .map(|sibling| VT::constant_hash_out_target(builder, *sibling))
+                .map(|sibling| <<VT::Leaf as Leafable>::LeafableHasher as LeafableHasher>::constant_hash_out_target(builder, *sibling))
                 .collect(),
         }
     }
@@ -175,7 +195,9 @@ impl<VT: LeafableTarget> MerkleProofTarget<VT> {
     ) {
         assert_eq!(self.siblings.len(), merkle_proof.siblings.len());
         for (sibling_t, sibling) in self.siblings.iter().zip(merkle_proof.siblings.iter()) {
-            VT::set_hash_out_target(sibling_t, pw, *sibling);
+            <<VT::Leaf as Leafable>::LeafableHasher as LeafableHasher>::set_hash_out_target(
+                sibling_t, pw, *sibling,
+            );
         }
     }
 }
@@ -190,14 +212,18 @@ impl<VT: LeafableTarget> MerkleProofTarget<VT> {
         builder: &mut CircuitBuilder<F, D>,
         leaf_data: &VT,
         index_bits: Vec<BoolTarget>,
-    ) -> VT::HashOutTarget
+    ) -> <<VT::Leaf as Leafable>::LeafableHasher as LeafableHasher>::HashOutTarget
     where
         <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
     {
         let mut state = leaf_data.hash::<F, C, D>(builder);
         assert_eq!(index_bits.len(), self.siblings.len());
         for (bit, sibling) in index_bits.iter().zip(&self.siblings) {
-            state = VT::two_to_one_swapped::<F, C, D>(builder, &state, sibling, *bit);
+            state = <<VT::Leaf as Leafable>::LeafableHasher as LeafableHasher>::two_to_one_swapped::<
+                F,
+                C,
+                D,
+            >(builder, &state, sibling, *bit);
         }
         state
     }
@@ -211,12 +237,16 @@ impl<VT: LeafableTarget> MerkleProofTarget<VT> {
         builder: &mut CircuitBuilder<F, D>,
         leaf_data: &VT,
         index_bits: Vec<BoolTarget>,
-        merkle_root: VT::HashOutTarget,
+        merkle_root: <<VT::Leaf as Leafable>::LeafableHasher as LeafableHasher>::HashOutTarget,
     ) where
         <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
     {
         let state = self.get_root::<F, C, D>(builder, leaf_data, index_bits);
-        VT::connect_hash(builder, &state, &merkle_root);
+        <<VT::Leaf as Leafable>::LeafableHasher as LeafableHasher>::connect_hash(
+            builder,
+            &state,
+            &merkle_root,
+        );
     }
 
     pub(crate) fn height(&self) -> usize {

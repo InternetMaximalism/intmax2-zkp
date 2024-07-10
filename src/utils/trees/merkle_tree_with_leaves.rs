@@ -1,6 +1,6 @@
 use plonky2::{
     field::{extension::Extendable, types::Field},
-    hash::hash_types::RichField,
+    hash::hash_types::{RichField},
     iop::{target::Target, witness::WitnessWrite},
     plonk::{
         circuit_builder::CircuitBuilder,
@@ -11,6 +11,7 @@ use plonky2::{
 use super::merkle_tree::{MerkleProof, MerkleProofTarget, MerkleTree};
 use crate::utils::{
     leafable::{Leafable, LeafableTarget},
+    leafable_hasher::LeafableHasher,
     trees::merkle_tree::usize_le_bits,
 };
 
@@ -45,7 +46,7 @@ impl<V: Leafable> MerkleTreeWithLeaves<V> {
         }
     }
 
-    pub fn get_root(&self) -> V::HashOut {
+    pub fn get_root(&self) -> <V::LeafableHasher as LeafableHasher>::HashOut {
         self.merkle_tree.get_root()
     }
 
@@ -95,7 +96,11 @@ impl<V: Leafable> MerkleTreeWithLeaves<V> {
 pub struct MerkleProofWithLeaves<V: Leafable>(pub(crate) MerkleProof<V>);
 
 impl<V: Leafable> MerkleProofWithLeaves<V> {
-    pub fn get_root(&self, leaf_data: &V, index: usize) -> V::HashOut {
+    pub fn get_root(
+        &self,
+        leaf_data: &V,
+        index: usize,
+    ) -> <V::LeafableHasher as LeafableHasher>::HashOut {
         let height = self.0.height();
         let index_bits = usize_le_bits(index, height);
         self.0.get_root(leaf_data, index_bits)
@@ -105,7 +110,7 @@ impl<V: Leafable> MerkleProofWithLeaves<V> {
         &self,
         leaf_data: &V,
         index: usize,
-        merkle_root: V::HashOut,
+        merkle_root: <V::LeafableHasher as LeafableHasher>::HashOut,
     ) -> anyhow::Result<()> {
         let height = self.0.height();
         let index_bits = usize_le_bits(index, height);
@@ -150,7 +155,7 @@ impl<VT: LeafableTarget> MerkleProofWithLeavesTarget<VT> {
         builder: &mut CircuitBuilder<F, D>,
         leaf_data: &VT,
         index: Target,
-    ) -> VT::HashOutTarget
+    ) -> <<VT::Leaf as Leafable>::LeafableHasher as LeafableHasher>::HashOutTarget
     where
         <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
     {
@@ -167,7 +172,7 @@ impl<VT: LeafableTarget> MerkleProofWithLeavesTarget<VT> {
         builder: &mut CircuitBuilder<F, D>,
         leaf_data: &VT,
         index: Target,
-        merkle_root: VT::HashOutTarget,
+        merkle_root: <<VT::Leaf as Leafable>::LeafableHasher as LeafableHasher>::HashOutTarget,
     ) where
         <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
     {

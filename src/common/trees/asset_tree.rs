@@ -1,5 +1,8 @@
-use crate::utils::trees::merkle_tree_with_leaves::{
-    MerkleProofWithLeaves, MerkleProofWithLeavesTarget, MerkleTreeWithLeaves,
+use crate::utils::{
+    leafable_hasher::PoseidonLeafableHasher,
+    trees::merkle_tree_with_leaves::{
+        MerkleProofWithLeaves, MerkleProofWithLeavesTarget, MerkleTreeWithLeaves,
+    },
 };
 use plonky2::{
     field::{extension::Extendable, types::Field},
@@ -127,50 +130,19 @@ impl AssetLeafTarget {
 }
 
 impl Leafable for AssetLeaf {
-    type HashOut = PoseidonHashOut;
+    type LeafableHasher = PoseidonLeafableHasher;
 
     fn empty_leaf() -> Self {
         Self::default()
     }
 
-    fn hash(&self) -> Self::HashOut {
+    fn hash(&self) -> PoseidonHashOut {
         PoseidonHashOut::hash_inputs_u32(self.to_u32_vec().as_slice())
-    }
-
-    fn two_to_one(left: Self::HashOut, right: Self::HashOut) -> Self::HashOut {
-        let inputs = left
-            .to_u64_vec()
-            .into_iter()
-            .chain(right.to_u64_vec().into_iter())
-            .collect::<Vec<_>>();
-        PoseidonHashOut::hash_inputs_u64(inputs.as_slice())
     }
 }
 
 impl LeafableTarget for AssetLeafTarget {
     type Leaf = AssetLeaf;
-    type HashOutTarget = PoseidonHashOutTarget;
-
-    fn hash_out_target<F: RichField + Extendable<D>, const D: usize>(
-        builder: &mut CircuitBuilder<F, D>,
-    ) -> Self::HashOutTarget {
-        PoseidonHashOutTarget::new(builder)
-    }
-
-    fn constant_hash_out_target<F: RichField + Extendable<D>, const D: usize>(
-        builder: &mut CircuitBuilder<F, D>,
-        value: PoseidonHashOut,
-    ) -> Self::HashOutTarget {
-        PoseidonHashOutTarget::constant(builder, value)
-    }
-
-    fn set_hash_out_target<W: WitnessWrite<F>, F: Field>(
-        target: &Self::HashOutTarget,
-        witness: &mut W,
-        value: PoseidonHashOut,
-    ) {
-        target.set_witness(witness, value)
-    }
 
     fn empty_leaf<F: RichField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
@@ -187,44 +159,5 @@ impl LeafableTarget for AssetLeafTarget {
         <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
     {
         PoseidonHashOutTarget::hash_inputs(builder, &self.to_vec())
-    }
-
-    fn connect_hash<F: RichField + Extendable<D>, const D: usize>(
-        builder: &mut CircuitBuilder<F, D>,
-        x: &Self::HashOutTarget,
-        y: &Self::HashOutTarget,
-    ) {
-        x.connect(builder, *y)
-    }
-
-    fn two_to_one<
-        F: RichField + Extendable<D>,
-        C: GenericConfig<D, F = F> + 'static,
-        const D: usize,
-    >(
-        builder: &mut CircuitBuilder<F, D>,
-        left: &Self::HashOutTarget,
-        right: &Self::HashOutTarget,
-    ) -> PoseidonHashOutTarget
-    where
-        <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
-    {
-        PoseidonHashOutTarget::two_to_one(builder, *left, *right)
-    }
-
-    fn two_to_one_swapped<
-        F: RichField + Extendable<D>,
-        C: GenericConfig<D, F = F> + 'static,
-        const D: usize,
-    >(
-        builder: &mut CircuitBuilder<F, D>,
-        left: &Self::HashOutTarget,
-        right: &Self::HashOutTarget,
-        swap: BoolTarget,
-    ) -> Self::HashOutTarget
-    where
-        <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
-    {
-        PoseidonHashOutTarget::two_to_one_swapped(builder, *left, *right, swap)
     }
 }

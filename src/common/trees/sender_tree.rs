@@ -2,6 +2,7 @@ use crate::{
     constants::{NUM_SENDERS_IN_BLOCK, SENDER_TREE_HEIGHT},
     ethereum_types::u128::U128,
     utils::{
+        leafable_hasher::PoseidonLeafableHasher,
         poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget},
         trees::{
             get_root::{get_merkle_root_from_leaves, get_merkle_root_from_leaves_circuit},
@@ -10,11 +11,11 @@ use crate::{
     },
 };
 use plonky2::{
-    field::{extension::Extendable, types::Field},
+    field::extension::Extendable,
     hash::hash_types::RichField,
     iop::{
         target::{BoolTarget, Target},
-        witness::{Witness, WitnessWrite},
+        witness::Witness,
     },
     plonk::{
         circuit_builder::CircuitBuilder,
@@ -35,13 +36,13 @@ pub type SenderMerkleProof = MerkleProofWithLeaves<SenderLeaf>;
 
 pub const SENDER_LEAF_LEN: usize = U256_LEN + 1;
 
-#[derive(Default, Clone)]
+#[derive(Default, Debug, Clone)]
 pub struct SenderLeaf {
     pub sender: U256<u32>,
     pub is_valid: bool,
 }
 
-#[derive(Default, Clone)]
+#[derive(Debug, Clone)]
 pub struct SenderLeafTarget {
     pub sender: U256<Target>,
     pub is_valid: BoolTarget,
@@ -61,23 +62,14 @@ impl SenderLeaf {
 }
 
 impl Leafable for SenderLeaf {
-    type HashOut = PoseidonHashOut;
+    type LeafableHasher = PoseidonLeafableHasher;
 
     fn empty_leaf() -> Self {
         Self::default()
     }
 
-    fn hash(&self) -> Self::HashOut {
+    fn hash(&self) -> PoseidonHashOut {
         PoseidonHashOut::hash_inputs_u32(&self.to_u32_vec())
-    }
-
-    fn two_to_one(left: Self::HashOut, right: Self::HashOut) -> Self::HashOut {
-        let inputs = left
-            .to_u64_vec()
-            .into_iter()
-            .chain(right.to_u64_vec().into_iter())
-            .collect::<Vec<_>>();
-        PoseidonHashOut::hash_inputs_u64(&inputs)
     }
 }
 
@@ -125,28 +117,6 @@ impl SenderLeafTarget {
 
 impl LeafableTarget for SenderLeafTarget {
     type Leaf = SenderLeaf;
-    type HashOutTarget = PoseidonHashOutTarget;
-
-    fn hash_out_target<F: RichField + Extendable<D>, const D: usize>(
-        builder: &mut CircuitBuilder<F, D>,
-    ) -> Self::HashOutTarget {
-        PoseidonHashOutTarget::new(builder)
-    }
-
-    fn constant_hash_out_target<F: RichField + Extendable<D>, const D: usize>(
-        builder: &mut CircuitBuilder<F, D>,
-        value: PoseidonHashOut,
-    ) -> Self::HashOutTarget {
-        PoseidonHashOutTarget::constant(builder, value)
-    }
-
-    fn set_hash_out_target<W: WitnessWrite<F>, F: Field>(
-        target: &Self::HashOutTarget,
-        witness: &mut W,
-        value: PoseidonHashOut,
-    ) {
-        target.set_witness(witness, value)
-    }
 
     fn empty_leaf<F: RichField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
@@ -163,45 +133,6 @@ impl LeafableTarget for SenderLeafTarget {
         <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
     {
         PoseidonHashOutTarget::hash_inputs(builder, &self.to_vec())
-    }
-
-    fn connect_hash<F: RichField + Extendable<D>, const D: usize>(
-        builder: &mut CircuitBuilder<F, D>,
-        x: &Self::HashOutTarget,
-        y: &Self::HashOutTarget,
-    ) {
-        x.connect(builder, *y)
-    }
-
-    fn two_to_one<
-        F: RichField + Extendable<D>,
-        C: GenericConfig<D, F = F> + 'static,
-        const D: usize,
-    >(
-        builder: &mut CircuitBuilder<F, D>,
-        left: &Self::HashOutTarget,
-        right: &Self::HashOutTarget,
-    ) -> PoseidonHashOutTarget
-    where
-        <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
-    {
-        PoseidonHashOutTarget::two_to_one(builder, *left, *right)
-    }
-
-    fn two_to_one_swapped<
-        F: RichField + Extendable<D>,
-        C: GenericConfig<D, F = F> + 'static,
-        const D: usize,
-    >(
-        builder: &mut CircuitBuilder<F, D>,
-        left: &Self::HashOutTarget,
-        right: &Self::HashOutTarget,
-        swap: BoolTarget,
-    ) -> Self::HashOutTarget
-    where
-        <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
-    {
-        PoseidonHashOutTarget::two_to_one_swapped(builder, *left, *right, swap)
     }
 }
 
