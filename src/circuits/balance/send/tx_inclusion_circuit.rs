@@ -1,9 +1,13 @@
 use plonky2::{
     field::extension::Extendable,
     hash::hash_types::RichField,
-    iop::target::{BoolTarget, Target},
+    iop::{
+        target::{BoolTarget, Target},
+        witness::{PartialWitness, WitnessWrite},
+    },
     plonk::{
         circuit_builder::CircuitBuilder,
+        circuit_data::{CircuitConfig, CircuitData},
         config::{AlgebraicHasher, GenericConfig},
         proof::{ProofWithPublicInputs, ProofWithPublicInputsTarget},
     },
@@ -17,7 +21,7 @@ use crate::{
         },
     },
     common::{
-        public_state::{PublicState, PublicStateTarget},
+        public_state::{PublicState, PublicStateTarget, PUBLIC_STATE_LEN},
         trees::{
             block_hash_tree::{BlockHashMerkleProof, BlockHashMerkleProofTarget},
             sender_tree::{
@@ -25,12 +29,17 @@ use crate::{
             },
             tx_tree::{TxMerkleProof, TxMerkleProofTarget},
         },
-        tx::{Tx, TxTarget},
+        tx::{Tx, TxTarget, TX_LEN},
     },
     constants::{BLOCK_HASH_TREE_HEIGHT, SENDER_TREE_HEIGHT, TX_TREE_HEIGHT},
-    ethereum_types::{u256::U256, u32limb_trait::U32LimbTargetTrait},
+    ethereum_types::{
+        u256::{U256, U256_LEN},
+        u32limb_trait::U32LimbTargetTrait,
+    },
     utils::poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget},
 };
+
+pub const TX_INCLUSION_PUBLIC_INPUTS_LEN: usize = PUBLIC_STATE_LEN + 2 + U256_LEN + TX_LEN + 1;
 
 #[derive(Clone, Debug)]
 pub struct TxInclusionPublicInputs {
@@ -50,6 +59,19 @@ pub struct TxInclusionPublicInputsTarget {
     pub is_valid: BoolTarget,
 }
 
+impl TxInclusionPublicInputsTarget {
+    pub fn to_vec(&self) -> Vec<Target> {
+        let mut vec = Vec::new();
+        vec.extend_from_slice(&self.prev_public_state.to_vec());
+        vec.extend_from_slice(&self.new_public_state.to_vec());
+        vec.extend_from_slice(&self.pubkey.to_vec());
+        vec.extend_from_slice(&self.tx.to_vec());
+        vec.push(self.is_valid.target);
+        assert_eq!(vec.len(), TX_INCLUSION_PUBLIC_INPUTS_LEN);
+        vec
+    }
+}
+
 pub struct TxInclusionValue<
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F> + 'static,
@@ -57,6 +79,7 @@ pub struct TxInclusionValue<
 > where
     <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
 {
+    pub pubkey: U256<u32>,
     pub prev_public_state: PublicState,
     pub new_public_state: PublicState,
     pub validity_proof: ProofWithPublicInputs<F, C, D>,
@@ -117,6 +140,7 @@ where
         let is_valid = sender_leaf.is_valid && validity_pis.is_valid_block;
 
         Self {
+            pubkey,
             prev_public_state: prev_public_state.clone(),
             new_public_state: validity_pis.public_state.clone(),
             validity_proof: validity_proof.clone(),
@@ -132,6 +156,7 @@ where
 }
 
 pub struct TxInclusionTarget<const D: usize> {
+    pub pubkey: U256<Target>,
     pub prev_public_state: PublicStateTarget,
     pub new_public_state: PublicStateTarget,
     pub validity_proof: ProofWithPublicInputsTarget<D>,
@@ -184,6 +209,7 @@ impl<const D: usize> TxInclusionTarget<D> {
         sender_leaf.sender.connect(builder, pubkey);
         let is_valid = builder.and(sender_leaf.is_valid, validity_pis.is_valid_block);
         Self {
+            pubkey,
             prev_public_state,
             new_public_state: validity_pis.public_state,
             validity_proof,
@@ -195,5 +221,77 @@ impl<const D: usize> TxInclusionTarget<D> {
             sender_merkle_proof,
             is_valid,
         }
+    }
+
+    pub fn set_witness<
+        F: RichField + Extendable<D>,
+        C: GenericConfig<D, F = F> + 'static,
+        W: WitnessWrite<F>,
+    >(
+        &self,
+        witness: &mut W,
+        value: &TxInclusionValue<F, C, D>,
+    ) where
+        <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
+    {
+        self.prev_public_state
+            .set_witness(witness, &value.prev_public_state);
+        self.new_public_state
+            .set_witness(witness, &value.new_public_state);
+        witness.set_proof_with_pis_target(&self.validity_proof, &value.validity_proof);
+        self.block_merkle_proof
+            .set_witness(witness, &value.block_merkle_proof);
+        witness.set_target(
+            self.sender_index,
+            F::from_canonical_usize(value.sender_index),
+        );
+        self.tx.set_witness(witness, value.tx);
+        self.tx_merkle_proof
+            .set_witness(witness, &value.tx_merkle_proof);
+        self.sender_leaf.set_witness(witness, &value.sender_leaf);
+        self.sender_merkle_proof
+            .set_witness(witness, &value.sender_merkle_proof);
+        witness.set_bool_target(self.is_valid, value.is_valid);
+    }
+}
+
+pub struct TxInclusionCircuit<F, C, const D: usize>
+where
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+{
+    pub data: CircuitData<F, C, D>,
+    pub target: TxInclusionTarget<D>,
+}
+
+impl<F, C, const D: usize> TxInclusionCircuit<F, C, D>
+where
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F> + 'static,
+    C::Hasher: AlgebraicHasher<F>,
+{
+    pub fn new(validity_circuit: &ValidityCircuit<F, C, D>) -> Self {
+        let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::default());
+        let target = TxInclusionTarget::new::<F, C>(validity_circuit, &mut builder, true);
+        let pis = TxInclusionPublicInputsTarget {
+            prev_public_state: target.prev_public_state.clone(),
+            new_public_state: target.new_public_state.clone(),
+            pubkey: target.pubkey,
+            tx: target.tx.clone(),
+            is_valid: target.is_valid,
+        };
+        builder.register_public_inputs(&pis.to_vec());
+        dbg!(builder.num_gates());
+        let data = builder.build();
+        Self { data, target }
+    }
+
+    pub fn prove(
+        &self,
+        value: &TxInclusionValue<F, C, D>,
+    ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
+        let mut pw = PartialWitness::<F>::new();
+        self.target.set_witness(&mut pw, value);
+        self.data.prove(pw)
     }
 }

@@ -17,7 +17,7 @@ use plonky2::{
     hash::hash_types::RichField,
     iop::{
         target::{BoolTarget, Target},
-        witness::Witness,
+        witness::WitnessWrite,
     },
     plonk::{
         circuit_builder::CircuitBuilder,
@@ -112,7 +112,11 @@ impl SenderLeafTarget {
         }
     }
 
-    pub fn set_witness<F: RichField, W: Witness<F>>(&self, witness: &mut W, value: &SenderLeaf) {
+    pub fn set_witness<F: RichField, W: WitnessWrite<F>>(
+        &self,
+        witness: &mut W,
+        value: &SenderLeaf,
+    ) {
         self.sender.set_witness(witness, value.sender);
         witness.set_bool_target(self.is_valid, value.is_valid);
     }
