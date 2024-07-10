@@ -1,11 +1,20 @@
+use plonky2::{
+    field::{extension::Extendable, types::Field},
+    hash::hash_types::RichField,
+    iop::{target::Target, witness::WitnessWrite},
+    plonk::circuit_builder::CircuitBuilder,
+};
 use rand::Rng;
 use serde::Serialize;
 
-use crate::utils::{leafable::Leafable, poseidon_hash_out::PoseidonHashOut};
+use crate::utils::{
+    leafable::Leafable,
+    poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget},
+};
 
 pub const TX_LEN: usize = 4 + 1;
 
-#[derive(Clone, Default, Debug, PartialEq, Serialize)]
+#[derive(Clone, Default, Copy, Debug, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Tx {
     pub transfer_tree_root: PoseidonHashOut,
@@ -29,6 +38,60 @@ impl Tx {
             transfer_tree_root: PoseidonHashOut::rand(rng),
             nonce: rng.gen(),
         }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct TxTarget {
+    pub transfer_tree_root: PoseidonHashOutTarget,
+    pub nonce: Target,
+}
+
+impl TxTarget {
+    pub fn new<F: RichField + Extendable<D>, const D: usize>(
+        builder: &mut CircuitBuilder<F, D>,
+    ) -> Self {
+        Self {
+            transfer_tree_root: PoseidonHashOutTarget::new(builder),
+            nonce: builder.add_virtual_target(),
+        }
+    }
+
+    pub fn to_vec(&self) -> Vec<Target> {
+        let vec = self
+            .transfer_tree_root
+            .to_vec()
+            .into_iter()
+            .chain([self.nonce].iter().copied())
+            .collect::<Vec<_>>();
+        assert_eq!(vec.len(), TX_LEN);
+        vec
+    }
+
+    pub fn from_vec(input: &[Target]) -> Self {
+        assert_eq!(input.len(), TX_LEN);
+        let transfer_tree_root = PoseidonHashOutTarget::from_vec(&input[0..4]);
+        let nonce = input[4];
+        Self {
+            transfer_tree_root,
+            nonce,
+        }
+    }
+
+    pub fn constant<F: RichField + Extendable<D>, const D: usize>(
+        builder: &mut CircuitBuilder<F, D>,
+        value: Tx,
+    ) -> Self {
+        Self {
+            transfer_tree_root: PoseidonHashOutTarget::constant(builder, value.transfer_tree_root),
+            nonce: builder.constant(F::from_canonical_u32(value.nonce)),
+        }
+    }
+
+    pub fn set_witness<W: WitnessWrite<F>, F: Field>(&self, witness: &mut W, value: Tx) {
+        self.transfer_tree_root
+            .set_witness(witness, value.transfer_tree_root);
+        witness.set_target(self.nonce, F::from_canonical_u32(value.nonce));
     }
 }
 

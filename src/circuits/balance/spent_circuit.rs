@@ -2,7 +2,7 @@ use plonky2::{
     field::{extension::Extendable, types::Field},
     hash::hash_types::RichField,
     iop::{
-        target::Target,
+        target::{BoolTarget, Target},
         witness::{PartialWitness, WitnessWrite},
     },
     plonk::{
@@ -18,6 +18,7 @@ use crate::{
         private_state::{PrivateState, PrivateStateTarget},
         transfer::{Transfer, TransferTarget},
         trees::asset_tree::{AssetLeaf, AssetLeafTarget, AssetMerkleProof, AssetMerkleProofTarget},
+        tx::{Tx, TxTarget, TX_LEN},
     },
     constants::{ASSET_TREE_HEIGHT, NUM_TRANSFERS_IN_TX, TRANSFER_TREE_HEIGHT},
     utils::{
@@ -26,20 +27,22 @@ use crate::{
     },
 };
 
-pub const SPENT_PUBLIC_INPUTS_LEN: usize = POSEIDON_HASH_OUT_LEN * 3;
+pub const SPENT_PUBLIC_INPUTS_LEN: usize = POSEIDON_HASH_OUT_LEN * 2 + TX_LEN + 1;
 
 #[derive(Clone, Debug)]
 pub struct SpentPublicInputs {
     pub prev_private_commitment: PoseidonHashOut,
     pub new_private_commitment: PoseidonHashOut,
-    pub transfer_root: PoseidonHashOut,
+    pub tx: Tx,
+    pub is_valid: bool,
 }
 
 #[derive(Clone, Debug)]
 pub struct SpentPublicInputsTarget {
     pub prev_private_commitment: PoseidonHashOutTarget,
     pub new_private_commitment: PoseidonHashOutTarget,
-    pub transfer_root: PoseidonHashOutTarget,
+    pub tx: TxTarget,
+    pub is_valid: BoolTarget,
 }
 
 impl SpentPublicInputsTarget {
@@ -47,7 +50,8 @@ impl SpentPublicInputsTarget {
         let vec = vec![
             self.prev_private_commitment.to_vec(),
             self.new_private_commitment.to_vec(),
-            self.transfer_root.to_vec(),
+            self.tx.to_vec(),
+            vec![self.is_valid.target],
         ]
         .concat();
         assert_eq!(vec.len(), SPENT_PUBLIC_INPUTS_LEN);
@@ -63,7 +67,8 @@ pub struct SpentValue {
     pub asset_merkle_proofs: Vec<AssetMerkleProof>,
     pub prev_private_commitment: PoseidonHashOut,
     pub new_private_commitment: PoseidonHashOut,
-    pub transfer_root: PoseidonHashOut,
+    pub tx: Tx,
+    pub is_valid: bool,
 }
 
 #[derive(Clone, Debug)]
@@ -74,7 +79,8 @@ pub struct SpentTarget {
     pub asset_merkle_proofs: Vec<AssetMerkleProofTarget>,
     pub prev_private_commitment: PoseidonHashOutTarget,
     pub new_private_commitment: PoseidonHashOutTarget,
-    pub transfer_root: PoseidonHashOutTarget,
+    pub tx: TxTarget,
+    pub is_valid: BoolTarget,
 }
 
 impl SpentValue {
@@ -83,6 +89,7 @@ impl SpentValue {
         prev_balances: Vec<AssetLeaf>,
         transfers: Vec<Transfer>,
         asset_merkle_proofs: Vec<AssetMerkleProof>,
+        tx_nonce: u32,
     ) -> Self {
         assert_eq!(prev_balances.len(), NUM_TRANSFERS_IN_TX);
         assert_eq!(transfers.len(), NUM_TRANSFERS_IN_TX);
@@ -100,13 +107,19 @@ impl SpentValue {
             balance.sub(transfer.amount);
             asset_tree_root = proof.get_root(&balance, transfer.token_index as usize);
         }
+        let is_valid = tx_nonce == prev_private_state.nonce;
         let new_private_state = PrivateState {
             asset_tree_root,
+            nonce: prev_private_state.nonce + 1,
             ..prev_private_state
         };
         let prev_private_commitment = prev_private_state.commitment();
         let new_private_commitment = new_private_state.commitment();
         let transfer_root = get_merkle_root_from_leaves(TRANSFER_TREE_HEIGHT, &transfers);
+        let tx = Tx {
+            transfer_tree_root: transfer_root,
+            nonce: tx_nonce,
+        };
         Self {
             prev_private_state,
             transfers,
@@ -114,7 +127,8 @@ impl SpentValue {
             asset_merkle_proofs,
             prev_private_commitment,
             new_private_commitment,
-            transfer_root,
+            tx,
+            is_valid,
         }
     }
 }
@@ -126,6 +140,7 @@ impl SpentTarget {
     where
         <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
     {
+        let tx_nonce = builder.add_virtual_target();
         let prev_private_state = PrivateStateTarget::new(builder);
         let transfers = (0..NUM_TRANSFERS_IN_TX)
             .map(|_| TransferTarget::new(builder, true))
@@ -147,8 +162,11 @@ impl SpentTarget {
             balance.sub(builder, transfer.amount);
             asset_tree_root = proof.get_root::<F, C, D>(builder, &balance, transfer.token_index);
         }
+        let is_valid = builder.is_equal(prev_private_state.nonce, tx_nonce);
+        let one = builder.one();
         let new_private_state = PrivateStateTarget {
             asset_tree_root,
+            nonce: builder.add(prev_private_state.nonce, one),
             ..prev_private_state
         };
         let prev_private_commitment = prev_private_state.commitment(builder);
@@ -158,6 +176,10 @@ impl SpentTarget {
             TRANSFER_TREE_HEIGHT,
             &transfers,
         );
+        let tx = TxTarget {
+            transfer_tree_root: transfer_root,
+            nonce: tx_nonce,
+        };
         Self {
             prev_private_state,
             transfers,
@@ -165,7 +187,8 @@ impl SpentTarget {
             asset_merkle_proofs,
             prev_private_commitment,
             new_private_commitment,
-            transfer_root,
+            tx,
+            is_valid,
         }
     }
 
@@ -189,7 +212,8 @@ impl SpentTarget {
             .set_witness(witness, value.prev_private_commitment);
         self.new_private_commitment
             .set_witness(witness, value.new_private_commitment);
-        self.transfer_root.set_witness(witness, value.transfer_root);
+        self.tx.set_witness(witness, value.tx);
+        witness.set_bool_target(self.is_valid, value.is_valid);
     }
 }
 
@@ -215,7 +239,8 @@ where
         let pis = SpentPublicInputsTarget {
             prev_private_commitment: target.prev_private_commitment,
             new_private_commitment: target.new_private_commitment,
-            transfer_root: target.transfer_root,
+            tx: target.tx.clone(),
+            is_valid: target.is_valid,
         };
         builder.register_public_inputs(&pis.to_vec());
         dbg!(builder.num_gates());
@@ -266,6 +291,7 @@ mod tests {
         }
         let prev_private_state = PrivateState {
             asset_tree_root: asset_tree.get_root(),
+            nonce: 12,
             ..PrivateState::default()
         };
         let transfers = (0..NUM_TRANSFERS_IN_TX)
@@ -285,11 +311,13 @@ mod tests {
             asset_merkle_proofs.push(proof);
         }
         let value = SpentValue::new(
-            prev_private_state,
+            prev_private_state.clone(),
             prev_balances,
             transfers,
             asset_merkle_proofs,
+            prev_private_state.nonce,
         );
+        assert!(value.is_valid);
         let circuit = SpentCircuit::<F, C, D>::new();
         let instant = std::time::Instant::now();
         let _proof = circuit.prove(&value).unwrap();
