@@ -20,7 +20,7 @@ use plonky2::{
 
 use crate::{
     circuits::{
-        utils::cyclic::vd_from_pis_slice_target,
+        utils::cyclic::{vd_from_pis_slice_target, vd_vec_len},
         validity::validity_pis::{
             ValidityPublicInputs, ValidityPublicInputsTarget, VALIDITY_PUBLIC_INPUTS_LEN,
         },
@@ -78,9 +78,8 @@ where
         );
         builder.register_public_inputs(&new_pis.to_vec());
 
-        let mut common_data = common_data_for_validity_circuit::<F, C, D>();
+        let common_data = common_data_for_validity_circuit::<F, C, D>();
         let verifier_data_target = builder.add_verifier_data_public_inputs();
-        common_data.num_public_inputs = builder.num_public_inputs();
 
         let prev_proof = builder.add_virtual_proof_with_pis(&common_data);
         builder
@@ -99,7 +98,8 @@ where
         prev_pis.conditional_assert_eq(&mut builder, &genesis_pis_t, is_first_step);
 
         let (data, success) = builder.try_build_with_options::<C>(true);
-        assert_eq!(data.common, common_data);
+        let common = common_data_for_validity_circuit::<F, C, D>();
+        assert_eq!(data.common, common);
         assert!(success);
         Self {
             data,
@@ -193,7 +193,9 @@ where
     while builder.num_gates() < 1 << VALIDITY_CIRCUIT_PADDING_DEGREE {
         builder.add_gate(NoopGate, vec![]);
     }
-    builder.build::<C>().common
+    let mut common = builder.build::<C>().common;
+    common.num_public_inputs = VALIDITY_PUBLIC_INPUTS_LEN + vd_vec_len(&common.config);
+    common
 }
 
 #[cfg(test)]

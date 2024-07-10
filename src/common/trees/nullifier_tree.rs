@@ -23,9 +23,11 @@ use plonky2::{
         config::{AlgebraicHasher, GenericConfig},
     },
 };
-
+#[derive(Debug, Clone)]
 pub struct NullifierTree(IndexedMerkleTree);
+#[derive(Debug, Clone)]
 pub struct NullifierInsersionProof(IndexedInsertionProof);
+#[derive(Debug, Clone)]
 pub struct NullifierInsersionProofTarget(IndexedInsertionProofTarget);
 
 impl NullifierTree {

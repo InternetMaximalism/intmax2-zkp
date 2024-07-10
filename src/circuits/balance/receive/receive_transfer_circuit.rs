@@ -6,7 +6,12 @@ use crate::{
         private_state::PrivateState,
         public_state::{PublicState, PublicStateTarget, PUBLIC_STATE_LEN},
         transfer::Transfer,
-        trees::{block_hash_tree::BlockHashMerkleProof, transfer_tree::TransferMerkleProof},
+        trees::{
+            asset_tree::{AssetLeaf, AssetMerkleProof},
+            block_hash_tree::BlockHashMerkleProof,
+            nullifier_tree::NullifierInsersionProof,
+            transfer_tree::TransferMerkleProof,
+        },
         tx::Tx,
     },
     ethereum_types::{
@@ -21,7 +26,9 @@ use plonky2::{
     hash::hash_types::RichField,
     iop::target::Target,
     plonk::{
-        circuit_data::{CircuitConfig, VerifierCircuitTarget, VerifierOnlyCircuitData},
+        circuit_data::{
+            CircuitConfig, VerifierCircuitData, VerifierCircuitTarget, VerifierOnlyCircuitData,
+        },
         config::{AlgebraicHasher, GenericConfig},
         proof::ProofWithPublicInputs,
     },
@@ -128,6 +135,7 @@ pub struct ReceiveTransferValue<
     pub transfer_merkle_proof: TransferMerkleProof,
     pub transfer_index: usize,
     pub transfer: Transfer,
+    pub balance_cricuit_vd: VerifierOnlyCircuitData<C, D>,
     pub balance_proof: ProofWithPublicInputs<F, C, D>,
     pub public_state: PublicState,
     pub prev_private_satet: PrivateState,
@@ -135,4 +143,55 @@ pub struct ReceiveTransferValue<
     pub prev_private_commitment: PoseidonHashOut,
     pub new_private_commitment: PoseidonHashOut,
     pub block_merkle_proof: BlockHashMerkleProof,
+    pub nullifier_proof: NullifierInsersionProof,
+    pub prev_asset_leaf: AssetLeaf,
+    pub asset_merkle_proof: AssetMerkleProof,
+}
+
+impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
+    ReceiveTransferValue<F, C, D>
+{
+    pub fn new(
+        tx: Tx,
+        transfer_merkle_proof: TransferMerkleProof,
+        transfer_index: usize,
+        transfer: Transfer,
+        balance_proof: ProofWithPublicInputs<F, C, D>,
+        public_state: PublicState,
+        prev_private_satet: PrivateState,
+        block_merkle_proof: BlockHashMerkleProof,
+        nullifier_proof: NullifierInsersionProof,
+        prev_asset_leaf: AssetLeaf,
+        asset_merkle_proof: AssetMerkleProof,
+    ) -> Self {
+        // verify balance proof
+        // let balance_pis =
+
+        // let balance_circuit_verifier_data = VerifierCircuitData {
+        //     verifier_only: todo!(),
+        //     common: todo!(),
+        // };
+        // balance_circuit_verifier_data.verify(proof_with_pis);
+
+        // verify transfer inclusion
+
+        // ReceiveTransferValue {
+        //     tx,
+        //     transfer_merkle_proof,
+        //     transfer_index,
+        //     transfer,
+        //     balance_proof,
+        //     public_state,
+        //     prev_private_satet,
+        //     new_private_state,
+        //     prev_private_commitment,
+        //     new_private_commitment,
+        //     block_merkle_proof,
+        //     nullifier_proof,
+        //     prev_asset_leaf,
+        //     asset_merkle_proof,
+        // }
+
+        todo!()
+    }
 }

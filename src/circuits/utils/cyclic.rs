@@ -12,6 +12,10 @@ use plonky2::{
     },
 };
 
+pub fn vd_vec_len(config: &CircuitConfig) -> usize {
+    4 + 4 * config.fri_config.num_cap_elements()
+}
+
 pub fn vd_to_vec<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
     config: &CircuitConfig,
     vd: &VerifierOnlyCircuitData<C, D>,
