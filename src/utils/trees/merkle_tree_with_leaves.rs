@@ -1,6 +1,6 @@
 use plonky2::{
     field::{extension::Extendable, types::Field},
-    hash::hash_types::{RichField},
+    hash::hash_types::RichField,
     iop::{target::Target, witness::WitnessWrite},
     plonk::{
         circuit_builder::CircuitBuilder,

@@ -1,10 +1,10 @@
-use anyhow::Result;
+use anyhow::{ensure, Result};
 use plonky2::{
     field::extension::Extendable,
     gates::noop::NoopGate,
-    hash::hash_types::RichField,
+    hash::hash_types::{HashOutTarget, MerkleCapTarget, RichField},
     iop::{
-        target::BoolTarget,
+        target::{BoolTarget, Target},
         witness::{PartialWitness, WitnessWrite as _},
     },
     plonk::{
@@ -13,7 +13,9 @@ use plonky2::{
         config::{AlgebraicHasher, GenericConfig},
         proof::{ProofWithPublicInputs, ProofWithPublicInputsTarget},
     },
-    recursion::dummy_circuit::cyclic_base_proof,
+    recursion::{
+        cyclic_recursion::check_cyclic_proof_verifier_data, dummy_circuit::cyclic_base_proof,
+    },
 };
 
 use crate::{
@@ -133,6 +135,50 @@ where
         }
         self.data.prove(pw)
     }
+
+    pub fn verify(&self, proof: &ProofWithPublicInputs<F, C, D>) -> Result<()> {
+        check_cyclic_proof_verifier_data(&proof, &self.data.verifier_only, &self.data.common)?;
+        self.data.verify(proof.clone())
+    }
+
+    pub fn add_proof_target_and_verify(
+        &self,
+        builder: &mut CircuitBuilder<F, D>,
+    ) -> ProofWithPublicInputsTarget<D> {
+        let proof = builder.add_virtual_proof_with_pis(&self.data.common);
+        let vd_target = builder.constant_verifier_data(&self.data.verifier_only);
+        let inner_vd_target = vd_from_slice(&proof.public_inputs, &self.data.common).unwrap();
+        builder.connect_hashes(vd_target.circuit_digest, inner_vd_target.circuit_digest);
+        builder.connect_merkle_caps(
+            &vd_target.constants_sigmas_cap,
+            &inner_vd_target.constants_sigmas_cap,
+        );
+        builder.verify_proof::<C>(&proof, &vd_target, &self.data.common);
+        proof
+    }
+}
+
+fn vd_from_slice<F: RichField + Extendable<D>, const D: usize>(
+    slice: &[Target],
+    common_data: &CommonCircuitData<F, D>,
+) -> Result<VerifierCircuitTarget> {
+    let cap_len = common_data.config.fri_config.num_cap_elements();
+    let len = slice.len();
+    ensure!(len >= 4 + 4 * cap_len, "Not enough public inputs");
+    let constants_sigmas_cap = MerkleCapTarget(
+        (0..cap_len)
+            .map(|i| HashOutTarget {
+                elements: core::array::from_fn(|j| slice[len - 4 * (cap_len - i) + j]),
+            })
+            .collect(),
+    );
+    let circuit_digest = HashOutTarget {
+        elements: core::array::from_fn(|i| slice[len - 4 - 4 * cap_len + i]),
+    };
+    Ok(VerifierCircuitTarget {
+        circuit_digest,
+        constants_sigmas_cap,
+    })
 }
 
 // Generates `CommonCircuitData` usable for recursion.

@@ -6,7 +6,9 @@ use crate::{
         poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget},
         trees::{
             get_root::{get_merkle_root_from_leaves, get_merkle_root_from_leaves_circuit},
-            merkle_tree_with_leaves::{MerkleProofWithLeaves, MerkleTreeWithLeaves},
+            merkle_tree_with_leaves::{
+                MerkleProofWithLeaves, MerkleProofWithLeavesTarget, MerkleTreeWithLeaves,
+            },
         },
     },
 };
@@ -33,6 +35,7 @@ use crate::{
 
 pub type SenderTree = MerkleTreeWithLeaves<SenderLeaf>;
 pub type SenderMerkleProof = MerkleProofWithLeaves<SenderLeaf>;
+pub type SenderMerkleProofTarget = MerkleProofWithLeavesTarget<SenderLeafTarget>;
 
 pub const SENDER_LEAF_LEN: usize = U256_LEN + 1;
 
