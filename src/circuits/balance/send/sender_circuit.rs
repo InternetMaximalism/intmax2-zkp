@@ -1,5 +1,6 @@
 use plonky2::{
     field::extension::Extendable,
+    gates::constant::ConstantGate,
     hash::hash_types::RichField,
     iop::{
         target::Target,
@@ -273,8 +274,8 @@ where
         spent_circuit: &SpentCircuit<F, C, D>,
         tx_inclusion_circuit: &TxInclusionCircuit<F, C, D>,
     ) -> Self {
-        let mut builder =
-            CircuitBuilder::<F, D>::new(CircuitConfig::standard_recursion_zk_config());
+        let config = CircuitConfig::default();
+        let mut builder = CircuitBuilder::<F, D>::new(config.clone());
         let target =
             SenderTarget::new::<F, C>(spent_circuit, tx_inclusion_circuit, &mut builder, true);
         let pis = SenderPublicInputsTarget {
@@ -282,7 +283,9 @@ where
             new_balance_pis: target.new_balance_pis.clone(),
         };
         builder.register_public_inputs(&pis.to_vec());
-        dbg!(builder.num_gates());
+        // add constant gate
+        let constant_gate = ConstantGate::new(config.num_constants);
+        builder.add_gate(constant_gate, vec![]);
         let data = builder.build();
         let dummy_proof = DummyProof::new(&data.common);
         Self {

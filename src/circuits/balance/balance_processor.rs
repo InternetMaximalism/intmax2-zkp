@@ -55,7 +55,6 @@ mod tests {
     #[test]
     fn test_balance_processor() {
         let validity_processor = ValdityProcessor::<F, C, D>::new();
-        println!("end of validity_processor");
-        let balance_processor = BalanceProcessor::new(&validity_processor.validity_circuit);
+        let _balance_processor = BalanceProcessor::new(&validity_processor.validity_circuit);
     }
 }

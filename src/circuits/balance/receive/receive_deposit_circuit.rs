@@ -25,18 +25,15 @@ use crate::{
     },
 };
 use plonky2::{
-    field::{extension::Extendable, types::Field},
-    hash::hash_types::RichField,
-    iop::{
+    field::{extension::Extendable, types::Field}, gates::constant::ConstantGate, hash::hash_types::RichField, iop::{
         target::Target,
         witness::{PartialWitness, WitnessWrite},
-    },
-    plonk::{
+    }, plonk::{
         circuit_builder::CircuitBuilder,
         circuit_data::{CircuitConfig, CircuitData},
         config::{AlgebraicHasher, GenericConfig},
         proof::ProofWithPublicInputs,
-    },
+    }
 };
 
 pub const RECEIVE_DEPOSIT_PUBLIC_INPUTS_LEN: usize =
@@ -345,7 +342,9 @@ where
             public_state: target.public_state.clone(),
         };
         builder.register_public_inputs(&pis.to_vec());
-        dbg!(builder.num_gates());
+        // add constant gate
+        let constant_gate = ConstantGate::new(config.num_constants);
+        builder.add_gate(constant_gate, vec![]);
         let data = builder.build();
         let dummy_proof = DummyProof::new(&data.common);
         Self {

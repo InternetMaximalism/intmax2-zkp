@@ -57,3 +57,25 @@ where
 
     pub fn prove(&self) {}
 }
+
+#[cfg(test)]
+mod tests {
+    use plonky2::{
+        field::goldilocks_field::GoldilocksField, plonk::config::PoseidonGoldilocksConfig,
+    };
+
+    use crate::circuits::validity::validity_processor::ValdityProcessor;
+
+    use super::BalanceTransitionProcessor;
+
+    type F = GoldilocksField;
+    type C = PoseidonGoldilocksConfig;
+    const D: usize = 2;
+
+    #[test]
+    fn balance_transition_processor() {
+        let validity_processor = ValdityProcessor::<F, C, D>::new();
+        let _sender_processor =
+            BalanceTransitionProcessor::new(&validity_processor.validity_circuit);
+    }
+}
