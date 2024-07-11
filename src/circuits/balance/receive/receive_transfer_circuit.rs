@@ -34,11 +34,15 @@ use crate::{
 use plonky2::{
     field::extension::Extendable,
     hash::hash_types::RichField,
-    iop::target::Target,
+    iop::{
+        target::Target,
+        witness::{PartialWitness, WitnessWrite},
+    },
     plonk::{
         circuit_builder::CircuitBuilder,
         circuit_data::{
-            CircuitConfig, VerifierCircuitData, VerifierCircuitTarget, VerifierOnlyCircuitData,
+            CircuitConfig, CircuitData, VerifierCircuitData, VerifierCircuitTarget,
+            VerifierOnlyCircuitData,
         },
         config::{AlgebraicHasher, GenericConfig},
         proof::{ProofWithPublicInputs, ProofWithPublicInputsTarget},
@@ -102,7 +106,7 @@ where
 pub struct ReceiveTransferPublicInputsTarget {
     pub prev_private_commitment: PoseidonHashOutTarget,
     pub new_private_commitment: PoseidonHashOutTarget,
-    pub pubkey: Bytes32<Target>,
+    pub pubkey: U256<Target>,
     pub public_state: PublicStateTarget,
     pub balance_cricuit_vd: VerifierCircuitTarget,
 }
@@ -123,7 +127,7 @@ impl ReceiveTransferPublicInputsTarget {
     pub fn from_vec(config: &CircuitConfig, input: &[Target]) -> Self {
         let prev_private_commitment = PoseidonHashOutTarget::from_vec(&input[0..4]);
         let new_private_commitment = PoseidonHashOutTarget::from_vec(&input[4..8]);
-        let pubkey = Bytes32::<Target>::from_limbs(&input[8..16]);
+        let pubkey = U256::<Target>::from_limbs(&input[8..16]);
         let public_state = PublicStateTarget::from_vec(&input[16..16 + PUBLIC_STATE_LEN]);
         let balance_cricuit_vd = vd_from_pis_slice_target(input, config).unwrap();
         ReceiveTransferPublicInputsTarget {
@@ -142,6 +146,7 @@ pub struct ReceiveTransferValue<
     C: GenericConfig<D, F = F> + 'static,
     const D: usize,
 > {
+    pub pubkey: U256<u32>,
     pub tx: Tx,
     pub transfer_merkle_proof: TransferMerkleProof,
     pub transfer_index: usize,
@@ -163,6 +168,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     ReceiveTransferValue<F, C, D>
 {
     pub fn new(
+        pubkey: U256<u32>,
         tx: Tx,
         transfer_merkle_proof: TransferMerkleProof,
         transfer_index: usize,
@@ -212,6 +218,11 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
             .expect("Invalid transfer merkle proof");
 
         // verify private_state update
+        let recipient = transfer
+            .recipient
+            .to_pubkey()
+            .expect("generic address is not pubkey");
+        assert_eq!(recipient, pubkey);
         let nullifier: Bytes32<u32> = transfer.hash().into();
         let new_nullifier_tree_root = nullifier_proof
             .get_new_root(prev_private_state.nullifier_tree_root, nullifier)
@@ -239,6 +250,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         let new_private_commitment = new_private_state.commitment();
 
         ReceiveTransferValue {
+            pubkey,
             tx,
             transfer_merkle_proof,
             transfer_index,
@@ -260,6 +272,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
 
 #[derive(Debug, Clone)]
 pub struct ReceiveTransferTarget<const D: usize> {
+    pub pubkey: U256<Target>,
     pub tx: TxTarget,
     pub transfer_merkle_proof: TransferMerkleProofTarget,
     pub transfer_index: Target,
@@ -285,6 +298,7 @@ impl<const D: usize> ReceiveTransferTarget<D> {
     where
         <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
     {
+        let pubkey = U256::<Target>::new(builder, is_checked);
         let tx = TxTarget::new(builder);
         let transfer_merkle_proof = TransferMerkleProofTarget::new(builder, TRANSFER_TREE_HEIGHT);
         let transfer_index = builder.add_virtual_target();
@@ -315,6 +329,8 @@ impl<const D: usize> ReceiveTransferTarget<D> {
         );
 
         // verify transfer inclusion
+        let recipient = transfer.recipient.to_pubkey(builder);
+        recipient.connect(builder, pubkey);
         let tx_hash = tx.hash::<F, C, D>(builder);
         balance_pis.last_tx_hash.connect(builder, tx_hash);
         transfer_merkle_proof.verify::<F, C, D>(
@@ -354,6 +370,7 @@ impl<const D: usize> ReceiveTransferTarget<D> {
         let new_private_commitment = new_private_state.commitment(builder);
 
         ReceiveTransferTarget {
+            pubkey,
             tx,
             transfer_merkle_proof,
             transfer_index,
@@ -370,5 +387,83 @@ impl<const D: usize> ReceiveTransferTarget<D> {
             prev_asset_leaf,
             asset_merkle_proof,
         }
+    }
+
+    pub fn set_witness<
+        F: RichField + Extendable<D>,
+        C: GenericConfig<D, F = F>,
+        W: WitnessWrite<F>,
+    >(
+        &self,
+        witness: &mut W,
+        value: &ReceiveTransferValue<F, C, D>,
+    ) where
+        <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
+    {
+        self.pubkey.set_witness(witness, value.pubkey);
+        self.transfer_merkle_proof
+            .set_witness(witness, &value.transfer_merkle_proof);
+        witness.set_target(
+            self.transfer_index,
+            F::from_canonical_usize(value.transfer_index),
+        );
+        self.transfer.set_witness(witness, value.transfer);
+        // todo set balance circuit vd witness
+        witness.set_proof_with_pis_target(&self.balance_proof, &value.balance_proof);
+        self.public_state.set_witness(witness, &value.public_state);
+        self.prev_private_commitment
+            .set_witness(witness, value.prev_private_commitment);
+        self.new_private_commitment
+            .set_witness(witness, value.new_private_commitment);
+        self.block_merkle_proof
+            .set_witness(witness, &value.block_merkle_proof);
+        self.nullifier_proof
+            .set_witness(witness, &value.nullifier_proof);
+        self.prev_asset_leaf
+            .set_witness(witness, value.prev_asset_leaf);
+        self.asset_merkle_proof
+            .set_witness(witness, &value.asset_merkle_proof);
+    }
+}
+
+pub struct ReceiveTransferCircuit<F, C, const D: usize>
+where
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+{
+    pub data: CircuitData<F, C, D>,
+    pub target: ReceiveTransferTarget<D>,
+}
+
+impl<F, C, const D: usize> ReceiveTransferCircuit<F, C, D>
+where
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F> + 'static,
+    C::Hasher: AlgebraicHasher<F>,
+{
+    pub fn new() -> Self {
+        let config = CircuitConfig::default();
+        let mut builder = CircuitBuilder::<F, D>::new(config.clone());
+        let target = ReceiveTransferTarget::new::<F, C>(&mut builder, true);
+        let pis = ReceiveTransferPublicInputsTarget {
+            pubkey: target.pubkey,
+            prev_private_commitment: target.prev_private_commitment,
+            new_private_commitment: target.new_private_commitment,
+            public_state: target.public_state.clone(),
+            balance_cricuit_vd: target.balance_cricuit_vd.clone(),
+        };
+        builder.register_public_inputs(&pis.to_vec(&config));
+        dbg!(builder.num_gates());
+        let data = builder.build();
+        Self { data, target }
+    }
+
+    pub fn prove(
+        &self,
+        value: &ReceiveTransferValue<F, C, D>,
+    ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
+        let mut pw = PartialWitness::<F>::new();
+        self.target.set_witness(&mut pw, value);
+        self.data.prove(pw)
     }
 }
