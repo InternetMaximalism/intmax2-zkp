@@ -37,14 +37,23 @@ use crate::{
     },
 };
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum BalanceTransitionType {
+    Dummy = 0,
+    ReceiveTransfer = 1,
+    ReceiveDeposit = 2,
+    Update = 3,
+    Sender = 4,
+}
+
 #[derive(Debug, Clone)]
 pub struct BalanceTransitionValue<
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
     const D: usize,
 > {
-    pub circuit_type: usize,
-    pub circuit_flags: [bool; 4],
+    pub circuit_type: BalanceTransitionType,
+    pub circuit_flags: [bool; 5],
     pub receive_transfer_proof: Option<ProofWithPublicInputs<F, C, D>>,
     pub receive_deposit_proof: Option<ProofWithPublicInputs<F, C, D>>,
     pub update_proof: Option<ProofWithPublicInputs<F, C, D>>,
@@ -62,7 +71,7 @@ where
 {
     pub fn new(
         config: &CircuitConfig,
-        circuit_flags: [bool; 4],
+        circuit_type: BalanceTransitionType,
         receive_transfer_circuit: &ReceiveTransferCircuit<F, C, D>,
         receive_deposit_circuit: &ReceiveDepositCircuit<F, C, D>,
         update_circuit: &UpdateCircuit<F, C, D>,
@@ -74,16 +83,12 @@ where
         prev_balance_pis: BalancePublicInputs,
         balance_circuit_vd: VerifierOnlyCircuitData<C, D>,
     ) -> Self {
-        assert_eq!(
-            circuit_flags.iter().filter(|&&x| x).count(),
-            1,
-            "Only one circuit flag should set"
-        );
-
-        let circuit_type = circuit_flags.iter().position(|&x| x).unwrap();
+        let mut circuit_flags = [false; 5];
+        circuit_flags[circuit_type as usize] = true;
 
         let new_balance_pis = match circuit_type {
-            0 => {
+            BalanceTransitionType::Dummy => prev_balance_pis.clone(),
+            BalanceTransitionType::ReceiveTransfer => {
                 let receive_transfer_proof = receive_transfer_proof
                     .clone()
                     .expect("receive_transfer_proof is None");
@@ -111,7 +116,7 @@ where
                     ..prev_balance_pis.clone()
                 }
             }
-            1 => {
+            BalanceTransitionType::ReceiveDeposit => {
                 let receive_deposit_proof = receive_deposit_proof
                     .clone()
                     .expect("receive_deposit_proof is None");
@@ -138,7 +143,7 @@ where
                     ..prev_balance_pis.clone()
                 }
             }
-            2 => {
+            BalanceTransitionType::Update => {
                 let update_proof = update_proof.clone().expect("update_proof is None");
                 update_circuit
                     .data
@@ -157,7 +162,7 @@ where
                     ..prev_balance_pis
                 }
             }
-            3 => {
+            BalanceTransitionType::Sender => {
                 let sender_proof = sender_proof.clone().expect("sender_proof is None");
                 sender_circuit
                     .data
@@ -173,7 +178,6 @@ where
                 assert_eq!(pis.prev_balance_pis, prev_balance_pis);
                 pis.new_balance_pis
             }
-            _ => panic!("Invalid circuit_type"),
         };
 
         let new_balance_pis_commitment = new_balance_pis.commitment();
@@ -196,7 +200,7 @@ where
 #[derive(Debug, Clone)]
 pub struct BalanceTransitionTarget<const D: usize> {
     pub circuit_type: Target,
-    pub circuit_flags: [BoolTarget; 4],
+    pub circuit_flags: [BoolTarget; 5],
     pub receive_transfer_proof: ProofWithPublicInputsTarget<D>,
     pub receive_deposit_proof: ProofWithPublicInputsTarget<D>,
     pub update_proof: ProofWithPublicInputsTarget<D>,
@@ -219,26 +223,20 @@ impl<const D: usize> BalanceTransitionTarget<D> {
     where
         <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
     {
-        let circuit_flags = [(); 4].map(|_| builder.add_virtual_bool_target_safe());
-        let zero = builder.zero();
-        let sum_circuit_flags = circuit_flags
-            .iter()
-            .fold(zero, |acc, x| builder.add(acc, x.target));
+        let circuit_type = builder.add_virtual_target();
+        let circuit_flags = [(); 8].map(|_| builder.add_virtual_bool_target_safe());
+        let circuit_flags_target = circuit_flags.iter().map(|x| x.target).collect::<Vec<_>>();
         let one = builder.one();
-        builder.connect(sum_circuit_flags, one); // exactly one circuit should be selected
-        let circuit_type = circuit_flags.iter().enumerate().fold(zero, |acc, (i, b)| {
-            let term = builder.mul_const(F::from_canonical_usize(i), b.target);
-            builder.add(acc, term)
-        });
+        let bit_selected = builder.random_access(circuit_type, circuit_flags_target);
+        builder.connect(bit_selected, one);
 
-        //  prev_balance_pis: BalancePublicInputs,
-        // balance_circuit_vd: VerifierOnlyCircuitData<C, D>,
         let balance_circuit_vd = builder.add_virtual_verifier_data(config.fri_config.cap_height);
         let prev_balance_pis = BalancePublicInputsTarget::new(builder, false);
 
+        let new_balance_pis0 = prev_balance_pis.clone();
         let receive_transfer_proof = receive_transfer_circuit
             .add_proof_target_and_conditionally_verify(builder, circuit_flags[0]);
-        let new_balance_pis0 = {
+        let new_balance_pis1 = {
             let pis = ReceiveTransferPublicInputsTarget::from_vec(
                 config,
                 &receive_transfer_proof.public_inputs,
@@ -257,7 +255,7 @@ impl<const D: usize> BalanceTransitionTarget<D> {
         };
         let receive_deposit_proof = receive_deposit_circuit
             .add_proof_target_and_conditionally_verify(builder, circuit_flags[1]);
-        let new_balance_pis1 = {
+        let new_balance_pis2 = {
             let pis =
                 ReceiveDepositPublicInputsTarget::from_vec(&receive_deposit_proof.public_inputs);
             pis.prev_private_commitment
@@ -273,7 +271,7 @@ impl<const D: usize> BalanceTransitionTarget<D> {
         };
         let update_proof =
             update_circuit.add_proof_target_and_conditionally_verify(builder, circuit_flags[2]);
-        let new_balance_pis2 = {
+        let new_balance_pis3 = {
             let pis = UpdatePublicInputsTarget::from_vec(&update_proof.public_inputs);
             pis.prev_public_state
                 .connect(builder, &prev_balance_pis.public_state);
@@ -284,18 +282,20 @@ impl<const D: usize> BalanceTransitionTarget<D> {
         };
         let sender_proof =
             sender_circuit.add_proof_target_and_conditionally_verify(builder, circuit_flags[3]);
-        let new_balance_pis3 = {
+        let new_balance_pis4 = {
             let pis = SenderPublicInputsTarget::from_vec(&sender_proof.public_inputs);
             pis.prev_balance_pis.connect(builder, &prev_balance_pis);
             pis.new_balance_pis
         };
 
-        let candidates = vec![
+        let mut candidates = vec![
             new_balance_pis0.clone(),
             new_balance_pis1.clone(),
             new_balance_pis2.clone(),
             new_balance_pis3.clone(),
+            new_balance_pis4.clone(),
         ];
+        candidates.resize(8, new_balance_pis0); // dummy
         let candidate_commitments = candidates
             .iter()
             .map(|pis| HashOutTarget {
@@ -313,7 +313,7 @@ impl<const D: usize> BalanceTransitionTarget<D> {
 
         Self {
             circuit_type,
-            circuit_flags,
+            circuit_flags: circuit_flags[0..5].to_vec().try_into().unwrap(),
             receive_transfer_proof,
             receive_deposit_proof,
             update_proof,
@@ -342,7 +342,7 @@ impl<const D: usize> BalanceTransitionTarget<D> {
     {
         witness.set_target(
             self.circuit_type,
-            F::from_canonical_usize(value.circuit_type),
+            F::from_canonical_usize(value.circuit_type as usize),
         );
         self.circuit_flags
             .iter()
