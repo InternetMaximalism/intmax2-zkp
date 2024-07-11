@@ -411,6 +411,10 @@ impl<const D: usize> ReceiveTransferTarget<D> {
         // todo set balance circuit vd witness
         witness.set_proof_with_pis_target(&self.balance_proof, &value.balance_proof);
         self.public_state.set_witness(witness, &value.public_state);
+        self.prev_private_state
+            .set_witness(witness, &value.prev_private_state);
+        self.new_private_state
+            .set_witness(witness, &value.new_private_state);
         self.prev_private_commitment
             .set_witness(witness, value.prev_private_commitment);
         self.new_private_commitment

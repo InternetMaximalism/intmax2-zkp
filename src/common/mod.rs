@@ -1,5 +1,6 @@
 pub mod block;
 pub mod generic_address;
+pub mod hash;
 pub mod private_state;
 pub mod public_state;
 pub mod salt;

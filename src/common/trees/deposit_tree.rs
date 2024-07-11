@@ -19,6 +19,7 @@ use crate::{
     utils::{
         leafable::{Leafable, LeafableTarget},
         leafable_hasher::KeccakLeafableHasher,
+        poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget},
         trees::merkle_tree_with_leaves::{
             MerkleProofWithLeaves, MerkleProofWithLeavesTarget, MerkleTreeWithLeaves,
         },
@@ -60,6 +61,10 @@ impl DepositLeaf {
             amount: U256::rand(rng),
         }
     }
+
+    pub fn poseidon_hash(&self) -> PoseidonHashOut {
+        PoseidonHashOut::hash_inputs_u32(&self.to_u32_vec())
+    }
 }
 
 impl DepositLeafTarget {
@@ -99,6 +104,13 @@ impl DepositLeafTarget {
             token_index,
             amount,
         }
+    }
+
+    pub fn poseidon_hash<F: RichField + Extendable<D>, const D: usize>(
+        &self,
+        builder: &mut CircuitBuilder<F, D>,
+    ) -> PoseidonHashOutTarget {
+        PoseidonHashOutTarget::hash_inputs(builder, &self.to_vec())
     }
 
     pub fn set_witness<F: Field, W: WitnessWrite<F>>(&self, witness: &mut W, value: &DepositLeaf) {

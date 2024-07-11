@@ -1,5 +1,5 @@
 use plonky2::{
-    field::extension::Extendable,
+    field::{extension::Extendable, types::Field},
     hash::hash_types::RichField,
     iop::{
         target::{BoolTarget, Target},
@@ -176,11 +176,7 @@ impl PublicStateTarget {
         builder.conditional_assert_eq(condition.target, self.block_number, other.block_number);
     }
 
-    pub fn set_witness<F: RichField, W: WitnessWrite<F>>(
-        &self,
-        witness: &mut W,
-        value: &PublicState,
-    ) {
+    pub fn set_witness<F: Field, W: WitnessWrite<F>>(&self, witness: &mut W, value: &PublicState) {
         self.account_tree_root
             .set_witness(witness, value.account_tree_root);
         self.block_tree_root

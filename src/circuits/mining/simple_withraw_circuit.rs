@@ -17,6 +17,7 @@ use serde::Serialize;
 
 use crate::{
     common::{
+        hash::{get_pubkey_salt_hash, get_pubkey_salt_hash_circuit},
         salt::{Salt, SaltTarget},
         trees::deposit_tree::{
             DepositLeaf, DepositLeafTarget, DepositMerkleProof, DepositMerkleProofTarget,
@@ -29,10 +30,7 @@ use crate::{
         u256::U256,
         u32limb_trait::{U32LimbTargetTrait as _, U32LimbTrait as _},
     },
-    utils::{
-        poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget},
-        recursivable::Recursivable,
-    },
+    utils::recursivable::Recursivable,
 };
 
 #[derive(Debug, Clone, Serialize)]
@@ -213,22 +211,6 @@ impl SimpleWithdrawTarget {
         self.pubkey.set_witness(witness, value.pubkey);
         self.salt.set_witness(witness, value.salt);
     }
-}
-
-pub fn get_pubkey_salt_hash(pubkey: U256<u32>, salt: Salt) -> Bytes32<u32> {
-    let input = vec![pubkey.to_u64_vec(), salt.to_u64_vec()].concat();
-    let hash = PoseidonHashOut::hash_inputs_u64(&input);
-    hash.into()
-}
-
-pub fn get_pubkey_salt_hash_circuit<F: RichField + Extendable<D>, const D: usize>(
-    builder: &mut CircuitBuilder<F, D>,
-    pubkey: U256<Target>,
-    salt: SaltTarget,
-) -> Bytes32<Target> {
-    let inputs = vec![pubkey.to_vec(), salt.to_vec()].concat();
-    let hash = PoseidonHashOutTarget::hash_inputs(builder, &inputs);
-    Bytes32::<Target>::from_hash_out(builder, hash)
 }
 
 pub struct SimpleWithdrawCircuit<
