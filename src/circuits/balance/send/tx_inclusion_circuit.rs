@@ -34,12 +34,15 @@ use crate::{
     constants::{BLOCK_HASH_TREE_HEIGHT, SENDER_TREE_HEIGHT, TX_TREE_HEIGHT},
     ethereum_types::{
         u256::{U256, U256_LEN},
-        u32limb_trait::U32LimbTargetTrait,
+        u32limb_trait::{U32LimbTargetTrait, U32LimbTrait},
     },
-    utils::poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget},
+    utils::{
+        poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget},
+        recursivable::Recursivable,
+    },
 };
 
-pub const TX_INCLUSION_PUBLIC_INPUTS_LEN: usize = PUBLIC_STATE_LEN + 2 + U256_LEN + TX_LEN + 1;
+pub const TX_INCLUSION_PUBLIC_INPUTS_LEN: usize = PUBLIC_STATE_LEN * 2 + U256_LEN + TX_LEN + 1;
 
 #[derive(Clone, Debug)]
 pub struct TxInclusionPublicInputs {
@@ -48,6 +51,29 @@ pub struct TxInclusionPublicInputs {
     pub pubkey: U256<u32>,
     pub tx: Tx,
     pub is_valid: bool,
+}
+
+impl TxInclusionPublicInputs {
+    pub fn from_u64_vec(input: &[u64]) -> Self {
+        assert_eq!(input.len(), TX_INCLUSION_PUBLIC_INPUTS_LEN);
+        let prev_public_state = PublicState::from_u64_vec(&input[0..PUBLIC_STATE_LEN]);
+        let new_public_state =
+            PublicState::from_u64_vec(&input[PUBLIC_STATE_LEN..PUBLIC_STATE_LEN * 2]);
+        let pubkey = U256::<u32>::from_u64_vec(
+            &input[PUBLIC_STATE_LEN * 2..PUBLIC_STATE_LEN * 2 + U256_LEN],
+        );
+        let tx = Tx::from_u64_vec(
+            &input[PUBLIC_STATE_LEN * 2 + U256_LEN..PUBLIC_STATE_LEN * 2 + U256_LEN + TX_LEN],
+        );
+        let is_valid = input[PUBLIC_STATE_LEN * 2 + U256_LEN + TX_LEN] == 1;
+        Self {
+            prev_public_state,
+            new_public_state,
+            pubkey,
+            tx,
+            is_valid,
+        }
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -69,6 +95,27 @@ impl TxInclusionPublicInputsTarget {
         vec.push(self.is_valid.target);
         assert_eq!(vec.len(), TX_INCLUSION_PUBLIC_INPUTS_LEN);
         vec
+    }
+
+    pub fn from_vec(input: &[Target]) -> Self {
+        assert_eq!(input.len(), TX_INCLUSION_PUBLIC_INPUTS_LEN);
+        let prev_public_state = PublicStateTarget::from_vec(&input[0..PUBLIC_STATE_LEN]);
+        let new_public_state =
+            PublicStateTarget::from_vec(&input[PUBLIC_STATE_LEN..PUBLIC_STATE_LEN * 2]);
+        let pubkey = U256::<Target>::from_limbs(
+            &input[PUBLIC_STATE_LEN * 2..PUBLIC_STATE_LEN * 2 + U256_LEN],
+        );
+        let tx = TxTarget::from_vec(
+            &input[PUBLIC_STATE_LEN * 2 + U256_LEN..PUBLIC_STATE_LEN * 2 + U256_LEN + TX_LEN],
+        );
+        let is_valid = BoolTarget::new_unsafe(input[PUBLIC_STATE_LEN * 2 + U256_LEN + TX_LEN]);
+        Self {
+            prev_public_state,
+            new_public_state,
+            pubkey,
+            tx,
+            is_valid,
+        }
     }
 }
 
@@ -293,5 +340,16 @@ where
         let mut pw = PartialWitness::<F>::new();
         self.target.set_witness(&mut pw, value);
         self.data.prove(pw)
+    }
+}
+
+impl<F, C, const D: usize> Recursivable<F, C, D> for TxInclusionCircuit<F, C, D>
+where
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F> + 'static,
+    C::Hasher: AlgebraicHasher<F>,
+{
+    fn circuit_data(&self) -> &CircuitData<F, C, D> {
+        &self.data
     }
 }

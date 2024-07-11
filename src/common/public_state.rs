@@ -25,7 +25,7 @@ use super::{
 pub const PUBLIC_STATE_LEN: usize = POSEIDON_HASH_OUT_LEN * 2 + BYTES32_LEN * 2 + 1;
 
 // This structure is used in the public input of the validity proof and balance proof.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct PublicState {
     pub block_tree_root: PoseidonHashOut,
     pub account_tree_root: PoseidonHashOut,

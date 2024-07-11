@@ -1,4 +1,9 @@
-use plonky2::iop::target::Target;
+use plonky2::{
+    field::{extension::Extendable, types::Field},
+    hash::hash_types::RichField,
+    iop::{target::Target, witness::WitnessWrite},
+    plonk::circuit_builder::CircuitBuilder,
+};
 
 use crate::{
     common::public_state::{PublicState, PublicStateTarget, PUBLIC_STATE_LEN},
@@ -61,6 +66,42 @@ pub struct BalancePublicInputsTarget {
 }
 
 impl BalancePublicInputsTarget {
+    pub fn new<F: RichField + Extendable<D>, const D: usize>(
+        builder: &mut CircuitBuilder<F, D>,
+        is_checked: bool,
+    ) -> Self {
+        Self {
+            pubkey: U256::<Target>::new(builder, is_checked),
+            private_commitment: PoseidonHashOutTarget::new(builder),
+            last_tx_hash: PoseidonHashOutTarget::new(builder),
+            public_state: PublicStateTarget::new(builder, is_checked),
+        }
+    }
+
+    pub fn connect<F: RichField + Extendable<D>, const D: usize>(
+        &self,
+        builder: &mut CircuitBuilder<F, D>,
+        other: &Self,
+    ) {
+        self.pubkey.connect(builder, other.pubkey);
+        self.private_commitment
+            .connect(builder, other.private_commitment);
+        self.last_tx_hash.connect(builder, other.last_tx_hash);
+        self.public_state.connect(builder, &other.public_state);
+    }
+
+    pub fn set_witness<W: WitnessWrite<F>, F: Field>(
+        &self,
+        witness: &mut W,
+        value: &BalancePublicInputs,
+    ) {
+        self.pubkey.set_witness(witness, value.pubkey);
+        self.private_commitment
+            .set_witness(witness, value.private_commitment);
+        self.last_tx_hash.set_witness(witness, value.last_tx_hash);
+        self.public_state.set_witness(witness, &value.public_state);
+    }
+
     pub fn to_vec(&self) -> Vec<Target> {
         let vec = vec![
             self.pubkey.to_vec(),

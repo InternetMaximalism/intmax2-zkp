@@ -23,6 +23,7 @@ use crate::{
     constants::{ASSET_TREE_HEIGHT, NUM_TRANSFERS_IN_TX, TRANSFER_TREE_HEIGHT},
     utils::{
         poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget, POSEIDON_HASH_OUT_LEN},
+        recursivable::Recursivable,
         trees::get_root::{get_merkle_root_from_leaves, get_merkle_root_from_leaves_circuit},
     },
 };
@@ -35,6 +36,25 @@ pub struct SpentPublicInputs {
     pub new_private_commitment: PoseidonHashOut,
     pub tx: Tx,
     pub is_valid: bool,
+}
+
+impl SpentPublicInputs {
+    pub fn from_u64_vec(input: &[u64]) -> Self {
+        assert_eq!(input.len(), SPENT_PUBLIC_INPUTS_LEN);
+        let prev_private_commitment =
+            PoseidonHashOut::from_u64_vec(&input[0..POSEIDON_HASH_OUT_LEN]);
+        let new_private_commitment =
+            PoseidonHashOut::from_u64_vec(&input[POSEIDON_HASH_OUT_LEN..2 * POSEIDON_HASH_OUT_LEN]);
+        let tx =
+            Tx::from_u64_vec(&input[2 * POSEIDON_HASH_OUT_LEN..2 * POSEIDON_HASH_OUT_LEN + TX_LEN]);
+        let is_valid = input[2 * POSEIDON_HASH_OUT_LEN + TX_LEN] == 1;
+        Self {
+            prev_private_commitment,
+            new_private_commitment,
+            tx,
+            is_valid,
+        }
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -56,6 +76,25 @@ impl SpentPublicInputsTarget {
         .concat();
         assert_eq!(vec.len(), SPENT_PUBLIC_INPUTS_LEN);
         vec
+    }
+
+    pub fn from_vec(input: &[Target]) -> Self {
+        assert_eq!(input.len(), SPENT_PUBLIC_INPUTS_LEN);
+        let prev_private_commitment =
+            PoseidonHashOutTarget::from_vec(&input[0..POSEIDON_HASH_OUT_LEN]);
+        let new_private_commitment = PoseidonHashOutTarget::from_vec(
+            &input[POSEIDON_HASH_OUT_LEN..2 * POSEIDON_HASH_OUT_LEN],
+        );
+        let tx = TxTarget::from_vec(
+            &input[2 * POSEIDON_HASH_OUT_LEN..2 * POSEIDON_HASH_OUT_LEN + TX_LEN],
+        );
+        let is_valid = BoolTarget::new_unsafe(input[2 * POSEIDON_HASH_OUT_LEN + TX_LEN]);
+        Self {
+            prev_private_commitment,
+            new_private_commitment,
+            tx,
+            is_valid,
+        }
     }
 }
 
@@ -252,6 +291,17 @@ where
         let mut pw = PartialWitness::<F>::new();
         self.target.set_witness(&mut pw, value);
         self.data.prove(pw)
+    }
+}
+
+impl<F, C, const D: usize> Recursivable<F, C, D> for SpentCircuit<F, C, D>
+where
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F> + 'static,
+    C::Hasher: AlgebraicHasher<F>,
+{
+    fn circuit_data(&self) -> &CircuitData<F, C, D> {
+        &self.data
     }
 }
 

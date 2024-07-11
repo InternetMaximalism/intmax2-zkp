@@ -37,6 +37,16 @@ impl Tx {
         vec
     }
 
+    pub fn from_u64_vec(input: &[u64]) -> Self {
+        assert_eq!(input.len(), TX_LEN);
+        let transfer_tree_root = PoseidonHashOut::from_u64_vec(&input[0..4]);
+        let nonce = input[4] as u32;
+        Self {
+            transfer_tree_root,
+            nonce,
+        }
+    }
+
     pub fn rand<R: Rng>(rng: &mut R) -> Self {
         Self {
             transfer_tree_root: PoseidonHashOut::rand(rng),
@@ -80,6 +90,16 @@ impl TxTarget {
             transfer_tree_root,
             nonce,
         }
+    }
+
+    pub fn connect<F: RichField + Extendable<D>, const D: usize>(
+        &self,
+        builder: &mut CircuitBuilder<F, D>,
+        other: &Self,
+    ) {
+        self.transfer_tree_root
+            .connect(builder, other.transfer_tree_root);
+        builder.connect(self.nonce, other.nonce);
     }
 
     pub fn constant<F: RichField + Extendable<D>, const D: usize>(
