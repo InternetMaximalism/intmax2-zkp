@@ -1,11 +1,16 @@
 use plonky2::{
     field::extension::Extendable,
     hash::hash_types::RichField,
-    plonk::config::{AlgebraicHasher, GenericConfig},
+    plonk::{
+        circuit_data::{CircuitConfig, VerifierOnlyCircuitData},
+        config::{AlgebraicHasher, GenericConfig},
+        proof::ProofWithPublicInputs,
+    },
 };
 
 use crate::circuits::{
     balance::{
+        balance_pis::BalancePublicInputs,
         receive::{
             receive_deposit_circuit::ReceiveDepositCircuit,
             receive_transfer_circuit::ReceiveTransferCircuit, update_circuit::UpdateCircuit,
@@ -15,7 +20,9 @@ use crate::circuits::{
     validity::validity_circuit::ValidityCircuit,
 };
 
-use super::transition_circuit::BalanceTransitionCircuit;
+use super::transition_circuit::{
+    BalanceTransitionCircuit, BalanceTransitionType, BalanceTransitionValue,
+};
 
 pub struct BalanceTransitionProcessor<F, C, const D: usize>
 where
@@ -56,6 +63,37 @@ where
     }
 
     pub fn prove(&self) {}
+
+    pub fn prove_dummy(
+        &self,
+        balance_circuit_vd: &VerifierOnlyCircuitData<C, D>,
+        prev_balance_pis: &BalancePublicInputs,
+    ) -> ProofWithPublicInputs<F, C, D> {
+        let config = CircuitConfig::default();
+        let balance_transition_value = BalanceTransitionValue::new(
+            &config,
+            BalanceTransitionType::Dummy,
+            &self.receive_transfer_circuit,
+            &self.receive_deposit_circuit,
+            &self.update_circuit,
+            &self.sender_processor.sender_circuit,
+            None,
+            None,
+            None,
+            None,
+            prev_balance_pis.clone(),
+            balance_circuit_vd.clone(),
+        );
+        self.balance_transition_circuit
+            .prove(
+                &self.receive_transfer_circuit,
+                &self.receive_deposit_circuit,
+                &self.update_circuit,
+                &self.sender_processor.sender_circuit,
+                &balance_transition_value,
+            )
+            .unwrap()
+    }
 }
 
 #[cfg(test)]
@@ -64,18 +102,29 @@ mod tests {
         field::goldilocks_field::GoldilocksField, plonk::config::PoseidonGoldilocksConfig,
     };
 
-    use crate::circuits::validity::validity_processor::ValdityProcessor;
-
-    use super::BalanceTransitionProcessor;
+    use crate::{
+        circuits::{
+            balance::{balance_pis::BalancePublicInputs, balance_processor::BalanceProcessor},
+            validity::validity_processor::ValdityProcessor,
+        },
+        ethereum_types::u256::U256,
+    };
 
     type F = GoldilocksField;
     type C = PoseidonGoldilocksConfig;
     const D: usize = 2;
 
     #[test]
-    fn balance_transition_processor() {
+    fn balance_transition_processor_prove_dummy() {
         let validity_processor = ValdityProcessor::<F, C, D>::new();
-        let _sender_processor =
-            BalanceTransitionProcessor::new(&validity_processor.validity_circuit);
+        let balance_processor = BalanceProcessor::new(&validity_processor.validity_circuit);
+
+        let pubkey = U256::<u32>::rand(&mut rand::thread_rng());
+        let balance_pis = BalancePublicInputs::new(pubkey);
+        let balance_circuit_vd = balance_processor.get_verifier_only_data();
+
+        let _ = balance_processor
+            .balance_transition_processor
+            .prove_dummy(&balance_circuit_vd, &balance_pis);
     }
 }

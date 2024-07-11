@@ -41,11 +41,11 @@ where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
 {
-    pub data: CircuitData<F, C, D>,
-    pub is_first_step: BoolTarget,
-    pub transition_proof: ProofWithPublicInputsTarget<D>,
-    pub prev_proof: ProofWithPublicInputsTarget<D>,
-    pub verifier_data_target: VerifierCircuitTarget,
+    data: CircuitData<F, C, D>,
+    is_first_step: BoolTarget,
+    transition_proof: ProofWithPublicInputsTarget<D>,
+    prev_proof: ProofWithPublicInputsTarget<D>,
+    verifier_data_target: VerifierCircuitTarget,
 }
 
 impl<F, C, const D: usize> ValidityCircuit<F, C, D>

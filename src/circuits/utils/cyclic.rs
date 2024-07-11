@@ -12,11 +12,15 @@ use plonky2::{
     },
 };
 
-pub fn vd_vec_len(config: &CircuitConfig) -> usize {
+pub(crate) fn vd_vec_len(config: &CircuitConfig) -> usize {
     4 + 4 * config.fri_config.num_cap_elements()
 }
 
-pub fn vd_to_vec<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
+pub(crate) fn vd_to_vec<
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    const D: usize,
+>(
     config: &CircuitConfig,
     vd: &VerifierOnlyCircuitData<C, D>,
 ) -> Vec<F> {
@@ -28,7 +32,7 @@ pub fn vd_to_vec<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const
     vec
 }
 
-pub fn vd_to_vec_target(config: &CircuitConfig, vd: &VerifierCircuitTarget) -> Vec<Target> {
+pub(crate) fn vd_to_vec_target(config: &CircuitConfig, vd: &VerifierCircuitTarget) -> Vec<Target> {
     let mut vec = vec![];
     vec.extend_from_slice(&vd.circuit_digest.elements);
     for i in 0..config.fri_config.num_cap_elements() {
@@ -37,7 +41,11 @@ pub fn vd_to_vec_target(config: &CircuitConfig, vd: &VerifierCircuitTarget) -> V
     vec
 }
 
-pub fn vd_from_pis_slice<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
+pub(crate) fn vd_from_pis_slice<
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    const D: usize,
+>(
     slice: &[F],
     config: &CircuitConfig,
 ) -> Result<VerifierOnlyCircuitData<C, D>>
@@ -63,7 +71,7 @@ where
     })
 }
 
-pub fn vd_from_pis_slice_target(
+pub(crate) fn vd_from_pis_slice_target(
     slice: &[Target],
     config: &CircuitConfig,
 ) -> Result<VerifierCircuitTarget> {

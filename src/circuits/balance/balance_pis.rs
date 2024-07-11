@@ -9,7 +9,10 @@ use plonky2::{
 };
 
 use crate::{
-    common::public_state::{PublicState, PublicStateTarget, PUBLIC_STATE_LEN},
+    common::{
+        private_state::PrivateState,
+        public_state::{PublicState, PublicStateTarget, PUBLIC_STATE_LEN},
+    },
     ethereum_types::{
         u256::{U256, U256_LEN},
         u32limb_trait::{U32LimbTargetTrait as _, U32LimbTrait as _},
@@ -29,6 +32,18 @@ pub struct BalancePublicInputs {
 }
 
 impl BalancePublicInputs {
+    pub fn new(pubkey: U256<u32>) -> Self {
+        let private_commitment = PrivateState::new().commitment();
+        let last_tx_hash = PoseidonHashOut::default();
+        let public_state = PublicState::genesis();
+        Self {
+            pubkey,
+            private_commitment,
+            last_tx_hash,
+            public_state,
+        }
+    }
+
     pub fn to_u64_vec(&self) -> Vec<u64> {
         let vec = vec![
             self.pubkey.to_u64_vec(),

@@ -1,7 +1,10 @@
 use plonky2::{
     field::extension::Extendable,
     hash::hash_types::RichField,
-    plonk::config::{AlgebraicHasher, GenericConfig},
+    plonk::{
+        circuit_data::VerifierOnlyCircuitData,
+        config::{AlgebraicHasher, GenericConfig},
+    },
 };
 
 use crate::circuits::validity::validity_circuit::ValidityCircuit;
@@ -33,6 +36,10 @@ where
             balance_transition_processor,
             balance_circuit,
         }
+    }
+
+    pub fn get_verifier_only_data(&self) -> VerifierOnlyCircuitData<C, D> {
+        self.balance_circuit.get_verifier_only_data()
     }
 
     pub fn prove(&self) {}

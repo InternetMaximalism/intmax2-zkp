@@ -9,7 +9,10 @@ use plonky2::{
     },
     plonk::{
         circuit_builder::CircuitBuilder,
-        circuit_data::{CircuitConfig, CircuitData, CommonCircuitData, VerifierCircuitTarget},
+        circuit_data::{
+            CircuitConfig, CircuitData, CommonCircuitData, VerifierCircuitTarget,
+            VerifierOnlyCircuitData,
+        },
         config::{AlgebraicHasher, GenericConfig},
         proof::{ProofWithPublicInputs, ProofWithPublicInputsTarget},
     },
@@ -19,10 +22,7 @@ use plonky2::{
 };
 
 use crate::{
-    circuits::{
-        balance::balance_pis::BalancePublicInputsTarget, utils::cyclic::vd_vec_len,
-        validity::validity_pis::ValidityPublicInputs,
-    },
+    circuits::{balance::balance_pis::BalancePublicInputsTarget, utils::cyclic::vd_vec_len},
     common::{
         private_state::PrivateState,
         public_state::{PublicState, PublicStateTarget},
@@ -36,7 +36,7 @@ use crate::{
 };
 
 use super::{
-    balance_pis::BALANCE_PUBLIC_INPUTS_LEN,
+    balance_pis::{BalancePublicInputs, BALANCE_PUBLIC_INPUTS_LEN},
     transition::transition_circuit::BalanceTransitionCircuit,
 };
 
@@ -48,12 +48,12 @@ where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
 {
-    pub data: CircuitData<F, C, D>,
-    pub is_first_step: BoolTarget,
-    pub pubkey: U256<Target>,
-    pub transition_proof: ProofWithPublicInputsTarget<D>,
-    pub prev_proof: ProofWithPublicInputsTarget<D>,
-    pub verifier_data_target: VerifierCircuitTarget,
+    data: CircuitData<F, C, D>,
+    is_first_step: BoolTarget,
+    pubkey: U256<Target>,
+    transition_proof: ProofWithPublicInputsTarget<D>,
+    prev_proof: ProofWithPublicInputsTarget<D>,
+    verifier_data_target: VerifierCircuitTarget,
 }
 
 impl<F, C, const D: usize> BalanceCircuit<F, C, D>
@@ -131,17 +131,19 @@ where
 
     pub fn prove(
         &self,
+        pubkey: U256<u32>,
         transition_proof: &ProofWithPublicInputs<F, C, D>,
         prev_proof: &Option<ProofWithPublicInputs<F, C, D>>,
     ) -> Result<ProofWithPublicInputs<F, C, D>> {
         let mut pw = PartialWitness::<F>::new();
         pw.set_verifier_data_target(&self.verifier_data_target, &self.data.verifier_only);
         pw.set_proof_with_pis_target(&self.transition_proof, transition_proof);
+        self.pubkey.set_witness(&mut pw, pubkey);
         if prev_proof.is_none() {
             let dummy_proof = cyclic_base_proof(
                 &self.data.common,
                 &self.data.verifier_only,
-                ValidityPublicInputs::genesis()
+                BalancePublicInputs::new(pubkey)
                     .to_u64_vec()
                     .into_iter()
                     .map(F::from_canonical_u64)
@@ -156,6 +158,10 @@ where
             pw.set_proof_with_pis_target(&self.prev_proof, prev_proof.as_ref().unwrap());
         }
         self.data.prove(pw)
+    }
+
+    pub fn get_verifier_only_data(&self) -> VerifierOnlyCircuitData<C, D> {
+        self.data.verifier_only.clone()
     }
 
     pub fn verify(&self, proof: &ProofWithPublicInputs<F, C, D>) -> Result<()> {

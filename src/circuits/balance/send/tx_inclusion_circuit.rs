@@ -328,7 +328,6 @@ where
             is_valid: target.is_valid,
         };
         builder.register_public_inputs(&pis.to_vec());
-        dbg!(builder.num_gates());
         let data = builder.build();
         Self { data, target }
     }

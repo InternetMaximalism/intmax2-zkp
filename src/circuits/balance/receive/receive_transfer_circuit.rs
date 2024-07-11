@@ -27,7 +27,10 @@ use crate::{
         u32limb_trait::{U32LimbTargetTrait as _, U32LimbTrait},
     },
     utils::{
-        dummy::DummyProof, leafable::{Leafable as _, LeafableTarget}, poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget}, recursivable::Recursivable
+        dummy::DummyProof,
+        leafable::{Leafable as _, LeafableTarget},
+        poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget},
+        recursivable::Recursivable,
     },
 };
 use plonky2::{
@@ -457,7 +460,6 @@ where
             balance_circuit_vd: target.balance_circuit_vd.clone(),
         };
         builder.register_public_inputs(&pis.to_vec(&config));
-        dbg!(builder.num_gates());
         let data = builder.build();
         let dummy_proof = DummyProof::new(&data.common);
         Self {
