@@ -104,8 +104,8 @@ impl NullifierInsersionProofTarget {
     >(
         &self,
         builder: &mut CircuitBuilder<F, D>,
-        nullifier: Bytes32<Target>,
         prev_root: PoseidonHashOutTarget,
+        nullifier: Bytes32<Target>,
     ) -> PoseidonHashOutTarget
     where
         <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
@@ -126,13 +126,13 @@ impl NullifierInsersionProofTarget {
     >(
         &self,
         builder: &mut CircuitBuilder<F, D>,
-        nullifier: Bytes32<Target>,
         prev_root: PoseidonHashOutTarget,
         new_root: PoseidonHashOutTarget,
+        nullifier: Bytes32<Target>,
     ) where
         <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
     {
-        let expected_new_root = self.get_new_root::<F, C, D>(builder, nullifier, prev_root);
+        let expected_new_root = self.get_new_root::<F, C, D>(builder, prev_root, nullifier);
         expected_new_root.connect(builder, new_root);
     }
 }
