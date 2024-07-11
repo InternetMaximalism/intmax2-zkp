@@ -17,7 +17,7 @@ use crate::{
 pub const BALANCE_PUBLIC_INPUTS_LEN: usize =
     U256_LEN + POSEIDON_HASH_OUT_LEN * 2 + PUBLIC_STATE_LEN;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct BalancePublicInputs {
     pub pubkey: U256<u32>,
     pub private_commitment: PoseidonHashOut,
@@ -54,6 +54,10 @@ impl BalancePublicInputs {
             last_tx_hash,
             public_state,
         }
+    }
+
+    pub fn commitment(&self) -> PoseidonHashOut {
+        PoseidonHashOut::hash_inputs_u64(&self.to_u64_vec())
     }
 }
 
@@ -130,5 +134,12 @@ impl BalancePublicInputsTarget {
             last_tx_hash,
             public_state,
         }
+    }
+
+    pub fn commitment<F: RichField + Extendable<D>, const D: usize>(
+        &self,
+        builder: &mut CircuitBuilder<F, D>,
+    ) -> PoseidonHashOutTarget {
+        PoseidonHashOutTarget::hash_inputs(builder, &self.to_vec())
     }
 }

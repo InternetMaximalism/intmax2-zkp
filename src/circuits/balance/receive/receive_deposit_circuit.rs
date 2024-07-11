@@ -18,7 +18,11 @@ use crate::{
         u256::{U256, U256_LEN},
         u32limb_trait::{U32LimbTargetTrait as _, U32LimbTrait as _},
     },
-    utils::poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget, POSEIDON_HASH_OUT_LEN},
+    utils::{
+        dummy::DummyProof,
+        poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget, POSEIDON_HASH_OUT_LEN},
+        recursivable::Recursivable,
+    },
 };
 use plonky2::{
     field::{extension::Extendable, types::Field},
@@ -321,6 +325,7 @@ where
 {
     pub data: CircuitData<F, C, D>,
     pub target: ReceiveDepositTarget,
+    pub dummy_proof: DummyProof<F, C, D>,
 }
 
 impl<F, C, const D: usize> ReceiveDepositCircuit<F, C, D>
@@ -342,7 +347,12 @@ where
         builder.register_public_inputs(&pis.to_vec());
         dbg!(builder.num_gates());
         let data = builder.build();
-        Self { data, target }
+        let dummy_proof = DummyProof::new(&data.common);
+        Self {
+            data,
+            target,
+            dummy_proof,
+        }
     }
 
     pub fn prove(
@@ -352,5 +362,16 @@ where
         let mut pw = PartialWitness::<F>::new();
         self.target.set_witness(&mut pw, value);
         self.data.prove(pw)
+    }
+}
+
+impl<F, C, const D: usize> Recursivable<F, C, D> for ReceiveDepositCircuit<F, C, D>
+where
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F> + 'static,
+    C::Hasher: AlgebraicHasher<F>,
+{
+    fn circuit_data(&self) -> &CircuitData<F, C, D> {
+        &self.data
     }
 }

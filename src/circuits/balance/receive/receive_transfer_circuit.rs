@@ -27,8 +27,7 @@ use crate::{
         u32limb_trait::{U32LimbTargetTrait as _, U32LimbTrait},
     },
     utils::{
-        leafable::{Leafable as _, LeafableTarget},
-        poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget},
+        dummy::DummyProof, leafable::{Leafable as _, LeafableTarget}, poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget}, recursivable::Recursivable
     },
 };
 use plonky2::{
@@ -59,7 +58,7 @@ pub struct ReceiveTransferPublicInputs<
     pub new_private_commitment: PoseidonHashOut,
     pub pubkey: U256<u32>,
     pub public_state: PublicState,
-    pub balance_cricuit_vd: VerifierOnlyCircuitData<C, D>,
+    pub balance_circuit_vd: VerifierOnlyCircuitData<C, D>,
 }
 
 impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
@@ -78,7 +77,7 @@ where
         .into_iter()
         .map(|x| F::from_canonical_u64(x))
         .collect::<Vec<_>>();
-        vec.extend(vd_to_vec(config, &self.balance_cricuit_vd));
+        vec.extend(vd_to_vec(config, &self.balance_circuit_vd));
         vec
     }
 
@@ -91,13 +90,13 @@ where
         let new_private_commitment = PoseidonHashOut::from_u64_vec(&non_vd[4..8]);
         let pubkey = U256::from_u64_vec(&non_vd[8..16]);
         let public_state = PublicState::from_u64_vec(&non_vd[16..16 + PUBLIC_STATE_LEN]);
-        let balance_cricuit_vd = vd_from_pis_slice(input, config).unwrap();
+        let balance_circuit_vd = vd_from_pis_slice(input, config).unwrap();
         ReceiveTransferPublicInputs {
             prev_private_commitment,
             new_private_commitment,
             pubkey,
             public_state,
-            balance_cricuit_vd,
+            balance_circuit_vd: balance_circuit_vd,
         }
     }
 }
@@ -108,7 +107,7 @@ pub struct ReceiveTransferPublicInputsTarget {
     pub new_private_commitment: PoseidonHashOutTarget,
     pub pubkey: U256<Target>,
     pub public_state: PublicStateTarget,
-    pub balance_cricuit_vd: VerifierCircuitTarget,
+    pub balance_circuit_vd: VerifierCircuitTarget,
 }
 
 impl ReceiveTransferPublicInputsTarget {
@@ -120,7 +119,7 @@ impl ReceiveTransferPublicInputsTarget {
             self.public_state.to_vec(),
         ]
         .concat();
-        vec.extend(vd_to_vec_target(config, &self.balance_cricuit_vd));
+        vec.extend(vd_to_vec_target(config, &self.balance_circuit_vd));
         vec
     }
 
@@ -129,13 +128,13 @@ impl ReceiveTransferPublicInputsTarget {
         let new_private_commitment = PoseidonHashOutTarget::from_vec(&input[4..8]);
         let pubkey = U256::<Target>::from_limbs(&input[8..16]);
         let public_state = PublicStateTarget::from_vec(&input[16..16 + PUBLIC_STATE_LEN]);
-        let balance_cricuit_vd = vd_from_pis_slice_target(input, config).unwrap();
+        let balance_circuit_vd = vd_from_pis_slice_target(input, config).unwrap();
         ReceiveTransferPublicInputsTarget {
             prev_private_commitment,
             new_private_commitment,
             pubkey,
             public_state,
-            balance_cricuit_vd,
+            balance_circuit_vd,
         }
     }
 }
@@ -151,7 +150,7 @@ pub struct ReceiveTransferValue<
     pub transfer_merkle_proof: TransferMerkleProof,
     pub transfer_index: usize,
     pub transfer: Transfer,
-    pub balance_cricuit_vd: VerifierOnlyCircuitData<C, D>,
+    pub balance_circuit_vd: VerifierOnlyCircuitData<C, D>,
     pub balance_proof: ProofWithPublicInputs<F, C, D>,
     pub public_state: PublicState,
     pub prev_private_state: PrivateState,
@@ -192,11 +191,11 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
                 .map(|x| x.to_canonical_u64())
                 .collect::<Vec<_>>(),
         );
-        let balance_cricuit_vd =
+        let balance_circuit_vd =
             vd_from_pis_slice::<F, C, D>(&balance_proof.public_inputs, &balance_common_data.config)
                 .expect("Failed to parse balance vd");
         let balance_circuit_verifier_data = VerifierCircuitData {
-            verifier_only: balance_cricuit_vd.clone(),
+            verifier_only: balance_circuit_vd.clone(),
             common: balance_common_data,
         };
         balance_circuit_verifier_data
@@ -255,7 +254,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
             transfer_merkle_proof,
             transfer_index,
             transfer,
-            balance_cricuit_vd,
+            balance_circuit_vd,
             balance_proof,
             public_state,
             prev_private_state,
@@ -277,7 +276,7 @@ pub struct ReceiveTransferTarget<const D: usize> {
     pub transfer_merkle_proof: TransferMerkleProofTarget,
     pub transfer_index: Target,
     pub transfer: TransferTarget,
-    pub balance_cricuit_vd: VerifierCircuitTarget,
+    pub balance_circuit_vd: VerifierCircuitTarget,
     pub balance_proof: ProofWithPublicInputsTarget<D>,
     pub public_state: PublicStateTarget,
     pub prev_private_state: PrivateStateTarget,
@@ -316,10 +315,10 @@ impl<const D: usize> ReceiveTransferTarget<D> {
         let balance_pis = BalancePublicInputsTarget::from_vec(
             &balance_proof.public_inputs[0..BALANCE_PUBLIC_INPUTS_LEN],
         );
-        let balance_cricuit_vd =
+        let balance_circuit_vd =
             vd_from_pis_slice_target(&balance_proof.public_inputs, &balance_common_data.config)
                 .expect("Failed to parse balance vd");
-        builder.verify_proof::<C>(&balance_proof, &balance_cricuit_vd, &balance_common_data);
+        builder.verify_proof::<C>(&balance_proof, &balance_circuit_vd, &balance_common_data);
         // check block hash inclusion of balance proof
         block_merkle_proof.verify::<F, C, D>(
             builder,
@@ -375,7 +374,7 @@ impl<const D: usize> ReceiveTransferTarget<D> {
             transfer_merkle_proof,
             transfer_index,
             transfer,
-            balance_cricuit_vd,
+            balance_circuit_vd,
             balance_proof,
             public_state,
             prev_private_state,
@@ -437,6 +436,7 @@ where
 {
     pub data: CircuitData<F, C, D>,
     pub target: ReceiveTransferTarget<D>,
+    pub dummy_proof: DummyProof<F, C, D>,
 }
 
 impl<F, C, const D: usize> ReceiveTransferCircuit<F, C, D>
@@ -454,12 +454,17 @@ where
             prev_private_commitment: target.prev_private_commitment,
             new_private_commitment: target.new_private_commitment,
             public_state: target.public_state.clone(),
-            balance_cricuit_vd: target.balance_cricuit_vd.clone(),
+            balance_circuit_vd: target.balance_circuit_vd.clone(),
         };
         builder.register_public_inputs(&pis.to_vec(&config));
         dbg!(builder.num_gates());
         let data = builder.build();
-        Self { data, target }
+        let dummy_proof = DummyProof::new(&data.common);
+        Self {
+            data,
+            target,
+            dummy_proof,
+        }
     }
 
     pub fn prove(
@@ -469,5 +474,16 @@ where
         let mut pw = PartialWitness::<F>::new();
         self.target.set_witness(&mut pw, value);
         self.data.prove(pw)
+    }
+}
+
+impl<F, C, const D: usize> Recursivable<F, C, D> for ReceiveTransferCircuit<F, C, D>
+where
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F> + 'static,
+    C::Hasher: AlgebraicHasher<F>,
+{
+    fn circuit_data(&self) -> &CircuitData<F, C, D> {
+        &self.data
     }
 }

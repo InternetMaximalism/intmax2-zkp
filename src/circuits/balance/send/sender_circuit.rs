@@ -23,6 +23,7 @@ use crate::{
     },
     ethereum_types::u32limb_trait::U32LimbTargetTrait as _,
     utils::{
+        dummy::DummyProof,
         leafable::{Leafable as _, LeafableTarget},
         poseidon_hash_out::PoseidonHashOutTarget,
         recursivable::Recursivable,
@@ -259,6 +260,7 @@ where
 {
     pub data: CircuitData<F, C, D>,
     pub target: SenderTarget<D>,
+    pub dummy_proof: DummyProof<F, C, D>,
 }
 
 impl<F, C, const D: usize> SenderCircuit<F, C, D>
@@ -282,7 +284,12 @@ where
         builder.register_public_inputs(&pis.to_vec());
         dbg!(builder.num_gates());
         let data = builder.build();
-        Self { data, target }
+        let dummy_proof = DummyProof::new(&data.common);
+        Self {
+            data,
+            target,
+            dummy_proof,
+        }
     }
 
     pub fn prove(
@@ -292,5 +299,16 @@ where
         let mut pw = PartialWitness::<F>::new();
         self.target.set_witness(&mut pw, value);
         self.data.prove(pw)
+    }
+}
+
+impl<F, C, const D: usize> Recursivable<F, C, D> for SenderCircuit<F, C, D>
+where
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F> + 'static,
+    C::Hasher: AlgebraicHasher<F>,
+{
+    fn circuit_data(&self) -> &CircuitData<F, C, D> {
+        &self.data
     }
 }
