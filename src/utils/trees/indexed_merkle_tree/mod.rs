@@ -7,8 +7,11 @@ use anyhow::{anyhow, ensure};
 
 use crate::{
     ethereum_types::u256::U256,
-    utils::trees::merkle_tree_with_leaves::{
-        MerkleProofWithLeaves, MerkleProofWithLeavesTarget, MerkleTreeWithLeaves,
+    utils::{
+        poseidon_hash_out::PoseidonHashOut,
+        trees::merkle_tree_with_leaves::{
+            MerkleProofWithLeaves, MerkleProofWithLeavesTarget, MerkleTreeWithLeaves,
+        },
     },
 };
 use anyhow::Result;
@@ -24,6 +27,10 @@ impl IndexedMerkleTree {
         let mut tree = MerkleTreeWithLeaves::<IndexedMerkleLeaf>::new(height);
         tree.push(IndexedMerkleLeaf::default());
         Self(tree)
+    }
+
+    pub fn get_root(&self) -> PoseidonHashOut {
+        self.0.get_root()
     }
 
     pub(crate) fn low_index(&self, key: U256<u32>) -> Result<usize> {

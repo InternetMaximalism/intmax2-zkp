@@ -1,7 +1,10 @@
 use plonky2::{
     field::{extension::Extendable, types::Field},
     hash::hash_types::RichField,
-    iop::{target::Target, witness::WitnessWrite},
+    iop::{
+        target::{BoolTarget, Target},
+        witness::WitnessWrite,
+    },
     plonk::circuit_builder::CircuitBuilder,
 };
 
@@ -92,6 +95,22 @@ impl BalancePublicInputsTarget {
             .connect(builder, other.private_commitment);
         self.last_tx_hash.connect(builder, other.last_tx_hash);
         self.public_state.connect(builder, &other.public_state);
+    }
+
+    pub fn conditional_assert_eq<F: RichField + Extendable<D>, const D: usize>(
+        &self,
+        builder: &mut CircuitBuilder<F, D>,
+        other: &Self,
+        condition: BoolTarget,
+    ) {
+        self.pubkey
+            .conditional_assert_eq(builder, other.pubkey, condition);
+        self.private_commitment
+            .conditional_assert_eq(builder, other.private_commitment, condition);
+        self.last_tx_hash
+            .conditional_assert_eq(builder, other.last_tx_hash, condition);
+        self.public_state
+            .conditional_assert_eq(builder, &other.public_state, condition);
     }
 
     pub fn set_witness<W: WitnessWrite<F>, F: Field>(

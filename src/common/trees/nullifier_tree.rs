@@ -35,6 +35,10 @@ impl NullifierTree {
         Self(IndexedMerkleTree::new(NULLIFIER_TREE_HEIGHT))
     }
 
+    pub fn get_root(&self) -> PoseidonHashOut {
+        self.0.get_root()
+    }
+
     pub fn prove_and_insert(&mut self, nullifier: Bytes32<u32>) -> Result<NullifierInsersionProof> {
         let proof = self
             .0

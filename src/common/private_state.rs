@@ -5,11 +5,17 @@ use plonky2::{
     plonk::circuit_builder::CircuitBuilder,
 };
 
-use crate::utils::poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget};
+use crate::{
+    constants::ASSET_TREE_HEIGHT,
+    utils::poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget},
+};
 
-use super::salt::{Salt, SaltTarget};
+use super::{
+    salt::{Salt, SaltTarget},
+    trees::{asset_tree::AssetTree, nullifier_tree::NullifierTree},
+};
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 pub struct PrivateState {
     pub asset_tree_root: PoseidonHashOut,
     pub nullifier_tree_root: PoseidonHashOut,
@@ -26,6 +32,17 @@ pub struct PrivateStateTarget {
 }
 
 impl PrivateState {
+    pub fn new() -> Self {
+        let asset_tree_root = AssetTree::new(ASSET_TREE_HEIGHT).get_root();
+        let nullifier_tree_root = NullifierTree::new().get_root();
+        Self {
+            asset_tree_root,
+            nullifier_tree_root,
+            nonce: 0,
+            salt: Salt::default(),
+        }
+    }
+
     pub fn to_u64_vec(&self) -> Vec<u64> {
         let vec = vec![
             self.asset_tree_root.to_u64_vec(),

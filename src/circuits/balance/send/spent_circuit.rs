@@ -342,7 +342,7 @@ mod tests {
         let prev_private_state = PrivateState {
             asset_tree_root: asset_tree.get_root(),
             nonce: 12,
-            ..PrivateState::default()
+            ..PrivateState::new()
         };
         let transfers = (0..NUM_TRANSFERS_IN_TX)
             .map(|i| Transfer {
