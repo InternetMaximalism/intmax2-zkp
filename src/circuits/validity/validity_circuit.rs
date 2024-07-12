@@ -237,7 +237,9 @@ mod tests {
                 }
             })
             .collect::<Vec<_>>();
-        let validity_witness = block_builder.generate_block_and_witness(&mut mock_db, true, txs);
+        let validity_witness = block_builder
+            .generate_block_and_witness(&mut mock_db, true, txs)
+            .0;
         let prev_block_witness = mock_db.get_last_block_witness();
 
         let transition_proof = transition_processor

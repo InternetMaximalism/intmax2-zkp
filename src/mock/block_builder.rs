@@ -235,13 +235,16 @@ impl MockBlockBuilder {
         db: &MockDB,
         is_registoration_block: bool,
         txs: Vec<TxResuest>,
-    ) -> ValidityWitness {
+    ) -> (ValidityWitness, BlockInfo) {
         let block_info = self.generate_block(db, is_registoration_block, txs);
         let validity_transition_witness = self.generate_transition_witness(db);
-        ValidityWitness {
-            validity_transition_witness,
-            block_witness: block_info.block_witness,
-        }
+        (
+            ValidityWitness {
+                validity_transition_witness,
+                block_witness: block_info.block_witness.clone(),
+            },
+            block_info,
+        )
     }
 
     pub fn update(&self, db: &mut MockDB, block_info: &BlockInfo) {
