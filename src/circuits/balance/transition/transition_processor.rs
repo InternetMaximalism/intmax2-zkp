@@ -105,7 +105,7 @@ mod tests {
     use crate::{
         circuits::{
             balance::{balance_pis::BalancePublicInputs, balance_processor::BalanceProcessor},
-            validity::validity_processor::ValdityProcessor,
+            validity::validity_processor::ValidityProcessor,
         },
         ethereum_types::u256::U256,
     };
@@ -116,7 +116,7 @@ mod tests {
 
     #[test]
     fn balance_transition_processor_prove_dummy() {
-        let validity_processor = ValdityProcessor::<F, C, D>::new();
+        let validity_processor = ValidityProcessor::<F, C, D>::new();
         let balance_processor = BalanceProcessor::new(&validity_processor.validity_circuit);
 
         let pubkey = U256::<u32>::rand(&mut rand::thread_rng());

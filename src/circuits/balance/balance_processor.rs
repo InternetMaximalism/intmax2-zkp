@@ -51,7 +51,7 @@ mod tests {
         field::goldilocks_field::GoldilocksField, plonk::config::PoseidonGoldilocksConfig,
     };
 
-    use crate::circuits::validity::validity_processor::ValdityProcessor;
+    use crate::circuits::validity::validity_processor::ValidityProcessor;
 
     use super::BalanceProcessor;
 
@@ -61,7 +61,7 @@ mod tests {
 
     #[test]
     fn test_balance_processor() {
-        let validity_processor = ValdityProcessor::<F, C, D>::new();
+        let validity_processor = ValidityProcessor::<F, C, D>::new();
         let _balance_processor = BalanceProcessor::new(&validity_processor.validity_circuit);
     }
 }

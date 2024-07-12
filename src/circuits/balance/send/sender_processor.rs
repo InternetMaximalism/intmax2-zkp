@@ -47,7 +47,7 @@ mod tests {
         field::goldilocks_field::GoldilocksField, plonk::config::PoseidonGoldilocksConfig,
     };
 
-    use crate::circuits::validity::validity_processor::ValdityProcessor;
+    use crate::circuits::validity::validity_processor::ValidityProcessor;
 
     use super::SenderProcessor;
 
@@ -57,7 +57,7 @@ mod tests {
 
     #[test]
     fn sender_processor() {
-        let validity_processor = ValdityProcessor::<F, C, D>::new();
+        let validity_processor = ValidityProcessor::<F, C, D>::new();
         let _sender_processor = SenderProcessor::new(&validity_processor.validity_circuit);
     }
 }

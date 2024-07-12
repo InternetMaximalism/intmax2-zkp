@@ -280,7 +280,17 @@ impl MockBlockBuilder {
         db.block_hash_tree.push(block_witness.block.hash());
     }
 
-    pub fn post_dummy_block<R: Rng>(&self, rng: &mut R, db: &mut MockDB) {
+    pub fn post_dummy_block<R: Rng>(&self, rng: &mut R, db: &mut MockDB) -> ValidityWitness {
+        let (witness, block_info) = self.generate_dummy_block_and_witness(rng, db);
+        self.update(db, &block_info);
+        witness
+    }
+
+    pub fn generate_dummy_block_and_witness<R: Rng>(
+        &self,
+        rng: &mut R,
+        db: &MockDB,
+    ) -> (ValidityWitness, BlockInfo) {
         let txs = (0..NUM_SENDERS_IN_BLOCK)
             .map(|_| {
                 let sender = KeySet::rand(rng);
@@ -292,8 +302,7 @@ impl MockBlockBuilder {
                 }
             })
             .collect::<Vec<_>>();
-        let block_info = self.generate_block(db, true, txs);
-        self.update(db, &block_info);
+        self.generate_block_and_witness(db, true, txs)
     }
 }
 
