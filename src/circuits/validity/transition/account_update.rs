@@ -261,7 +261,7 @@ mod tests {
         for punkey in &pubkeys {
             tree.insert(*punkey, 10).unwrap();
         }
-        let prev_account_tree_root = tree.0.get_root();
+        let prev_account_tree_root = tree.get_root();
 
         let sender_flag = U128::<u32>::rand(&mut rng);
         let sender_leaves = get_sender_leaves(&pubkeys, sender_flag);
@@ -269,7 +269,7 @@ mod tests {
         let mut account_update_proofs = Vec::new();
         for sender_leaf in sender_leaves.iter() {
             let account_id = tree.index(sender_leaf.sender).unwrap();
-            let prev_leaf = tree.0.get_leaf(account_id);
+            let prev_leaf = tree.get_leaf(account_id);
             let prev_last_block_number = prev_leaf.value as u32;
             let last_block_number = if sender_leaf.is_valid {
                 block_number
@@ -279,7 +279,7 @@ mod tests {
             let proof = tree.prove_and_update(sender_leaf.sender, last_block_number as u64);
             account_update_proofs.push(proof);
         }
-        let new_account_tree_root = tree.0.get_root();
+        let new_account_tree_root = tree.get_root();
 
         let account_registoration_value = AccountUpdateValue::new(
             prev_account_tree_root,

@@ -203,17 +203,11 @@ mod tests {
     type C = PoseidonGoldilocksConfig;
     const D: usize = 2;
     use crate::{
-        common::{signature::key_set::KeySet, tx::Tx},
-        constants::NUM_SENDERS_IN_BLOCK,
-        mock::{
-            block_builder::{MockBlockBuilder, TxResuest},
-            db::MockDB,
-        },
+        mock::block_builder::MockBlockBuilder, test_utils::tx::generate_random_tx_requests,
     };
     use plonky2::{
         field::goldilocks_field::GoldilocksField, plonk::config::PoseidonGoldilocksConfig,
     };
-    use rand::Rng;
 
     use super::ValidityCircuit;
 
@@ -222,24 +216,12 @@ mod tests {
     fn validity_circuit() {
         use crate::circuits::validity::transition::processor::TransitionProcessor;
         let mut rng = rand::thread_rng();
-        let mut mock_db = MockDB::new();
-        let block_builder = MockBlockBuilder;
+        let block_builder = MockBlockBuilder::new();
 
         let transition_processor = TransitionProcessor::<F, C, D>::new();
-        let txs = (0..NUM_SENDERS_IN_BLOCK)
-            .map(|_| {
-                let sender = KeySet::rand(&mut rng);
-                TxResuest {
-                    tx: Tx::rand(&mut rng),
-                    sender,
-                    will_return_signature: rng.gen_bool(0.5),
-                }
-            })
-            .collect::<Vec<_>>();
-        let validity_witness = block_builder
-            .generate_block_and_witness(&mut mock_db, true, txs)
-            .0;
-        let prev_block_witness = mock_db.get_last_block_witness();
+        let txs = generate_random_tx_requests(&mut rng);
+        let validity_witness = block_builder.generate_block_and_witness(true, txs).0;
+        let prev_block_witness = block_builder.get_last_block_witness();
 
         let transition_proof = transition_processor
             .prove(&prev_block_witness, &validity_witness)
@@ -256,30 +238,15 @@ mod tests {
         use crate::circuits::validity::transition::dummy_wrapper::DummyTransitionWrapperCircuit;
 
         let mut rng = rand::thread_rng();
-        let mut mock_db = MockDB::new();
-        let block_builder = MockBlockBuilder;
+        let block_builder = MockBlockBuilder::new();
+        let txs = generate_random_tx_requests(&mut rng);
+        let validity_witness = block_builder.generate_block_and_witness(true, txs).0;
+        let prev_block_witness = block_builder.get_last_block_witness();
 
-        let txs = (0..NUM_SENDERS_IN_BLOCK)
-            .map(|_| {
-                let sender = KeySet::rand(&mut rng);
-                TxResuest {
-                    tx: Tx::rand(&mut rng),
-                    sender,
-                    will_return_signature: rng.gen_bool(0.5),
-                }
-            })
-            .collect::<Vec<_>>();
-        let block_info = block_builder.generate_block(&mut mock_db, true, txs);
-        let block_witness = block_info.block_witness.clone();
-        let prev_block_witness = mock_db.get_last_block_witness();
-        block_builder.update(&mut mock_db, &block_info); // this is not needed in this test
-                                                         // but we add here to demonstrate that the block is updated after the transition
-
-        let prev_pis = prev_block_witness.to_validity_pis();
-        let new_pis = block_witness.to_validity_pis();
         let dummy_transition_wrapper = DummyTransitionWrapperCircuit::<F, C, D>::new();
-        let transition_proof = dummy_transition_wrapper.prove(&prev_pis, &new_pis).unwrap();
-
+        let transition_proof = dummy_transition_wrapper
+            .prove(&prev_block_witness, &validity_witness)
+            .unwrap();
         let validity_circuit = ValidityCircuit::<F, C, D>::new(&dummy_transition_wrapper);
         validity_circuit.prove(&transition_proof, &None).unwrap();
     }

@@ -140,18 +140,11 @@ where
 
 #[cfg(test)]
 mod tests {
+    use crate::{
+        mock::block_builder::MockBlockBuilder, test_utils::tx::generate_random_tx_requests,
+    };
     use plonky2::{
         field::goldilocks_field::GoldilocksField, plonk::config::PoseidonGoldilocksConfig,
-    };
-    use rand::Rng;
-
-    use crate::{
-        common::{signature::key_set::KeySet, tx::Tx},
-        constants::NUM_SENDERS_IN_BLOCK,
-        mock::{
-            block_builder::{MockBlockBuilder, TxResuest},
-            db::MockDB,
-        },
     };
 
     use super::TransitionProcessor;
@@ -163,25 +156,13 @@ mod tests {
     #[test]
     fn test_transition_processor() {
         let mut rng = rand::thread_rng();
-        let mut mock_db = MockDB::new();
-        let block_builder = MockBlockBuilder;
-        block_builder.post_dummy_block(&mut rng, &mut mock_db);
+        let mut block_builder = MockBlockBuilder::new();
+        block_builder.post_block(true, generate_random_tx_requests(&mut rng));
 
         let transition_processor = TransitionProcessor::<F, C, D>::new();
-        let txs = (0..NUM_SENDERS_IN_BLOCK)
-            .map(|_| {
-                let sender = KeySet::rand(&mut rng);
-                TxResuest {
-                    tx: Tx::rand(&mut rng),
-                    sender,
-                    will_return_signature: rng.gen_bool(0.5),
-                }
-            })
-            .collect::<Vec<_>>();
-        let validity_witness = block_builder
-            .generate_block_and_witness(&mut mock_db, true, txs)
-            .0;
-        let prev_block_witness = mock_db.get_last_block_witness();
+        let txs = generate_random_tx_requests(&mut rng);
+        let validity_witness = block_builder.generate_block_and_witness(true, txs).0;
+        let prev_block_witness = block_builder.get_last_block_witness();
 
         let _proof = transition_processor
             .prove(&prev_block_witness, &validity_witness)

@@ -136,16 +136,10 @@ mod tests {
     use plonky2::{
         field::goldilocks_field::GoldilocksField, plonk::config::PoseidonGoldilocksConfig,
     };
-    use rand::Rng;
 
     use crate::{
         circuits::validity::block_validation::processor::MainValidationProcessor,
-        common::{signature::key_set::KeySet, tx::Tx},
-        constants::NUM_SENDERS_IN_BLOCK,
-        mock::{
-            block_builder::{MockBlockBuilder, TxResuest},
-            db::MockDB,
-        },
+        mock::block_builder::MockBlockBuilder, test_utils::tx::generate_random_tx_requests,
     };
 
     type F = GoldilocksField;
@@ -156,22 +150,13 @@ mod tests {
     fn main_validation_processor() {
         let main_validation_processor = MainValidationProcessor::<F, C, D>::new();
         let mut rng = rand::thread_rng();
-        let mut mock_db = MockDB::new();
-        let mock_block_builder = MockBlockBuilder {};
-        let txs = (0..NUM_SENDERS_IN_BLOCK)
-            .map(|_| {
-                let sender = KeySet::rand(&mut rng);
-                TxResuest {
-                    tx: Tx::rand(&mut rng),
-                    sender,
-                    will_return_signature: rng.gen_bool(0.5),
-                }
-            })
-            .collect::<Vec<_>>();
-        let block_info = mock_block_builder.generate_block(&mut mock_db, true, txs);
-        let block_witness = block_info.block_witness;
+        let block_builder = MockBlockBuilder::new();
+        let txs = generate_random_tx_requests(&mut rng);
+        let validity_witness = block_builder.generate_block_and_witness(true, txs).0;
         let instant = std::time::Instant::now();
-        let _main_validation_proof = main_validation_processor.prove(&block_witness).unwrap();
+        let _main_validation_proof = main_validation_processor
+            .prove(&validity_witness.block_witness)
+            .unwrap();
         println!(
             "main validation proof generation time: {:?}",
             instant.elapsed()

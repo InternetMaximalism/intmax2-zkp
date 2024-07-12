@@ -43,7 +43,7 @@ impl PublicState {
         let block_number = 0;
         Self {
             block_tree_root: block_hash_tree.get_root(),
-            account_tree_root: account_tree.0.get_root(),
+            account_tree_root: account_tree.get_root(),
             deposit_tree_root: deposit_tree_root.get_root(),
             block_hash,
             block_number,

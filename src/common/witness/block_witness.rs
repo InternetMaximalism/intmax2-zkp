@@ -33,9 +33,9 @@ pub struct BlockWitness {
     pub pubkeys: Vec<U256<u32>>,
     pub account_tree_root: PoseidonHashOut,
     pub block_tree_root: PoseidonHashOut,
-    pub account_id_packed: Option<AccountIdPacked<u32>>, // account id case
-    pub account_merkle_proofs: Option<Vec<AccountMerkleProof>>, // account id case
-    pub account_membership_proofs: Option<Vec<AccountMembershipProof>>, // pubkey case
+    pub account_id_packed: Option<AccountIdPacked<u32>>, // in account id case
+    pub account_merkle_proofs: Option<Vec<AccountMerkleProof>>, // in account id case
+    pub account_membership_proofs: Option<Vec<AccountMembershipProof>>, // in pubkey case
 }
 
 impl BlockWitness {
@@ -46,7 +46,7 @@ impl BlockWitness {
             block: Block::genesis(),
             signature: SignatureContent::default(),
             pubkeys: vec![],
-            account_tree_root: account_tree.0.get_root(),
+            account_tree_root: account_tree.get_root(),
             block_tree_root: block_hash_tree.get_root(),
             account_id_packed: None,
             account_merkle_proofs: None,
@@ -58,11 +58,11 @@ impl BlockWitness {
         let main_validation_pis = self.to_main_validation_pis();
         ValidityPublicInputs {
             public_state: PublicState {
-                account_tree_root: self.account_tree_root, // previous account tree root
-                block_tree_root: self.block_tree_root,     // previous block tree root
-                deposit_tree_root: self.block.deposit_tree_root, // current deposit tree root
-                block_number: self.block.block_number,     // current block number
-                block_hash: main_validation_pis.block_hash, // current block hash
+                account_tree_root: self.account_tree_root,
+                block_tree_root: self.block_tree_root,
+                deposit_tree_root: self.block.deposit_tree_root,
+                block_number: self.block.block_number,
+                block_hash: main_validation_pis.block_hash,
             },
             tx_tree_root: main_validation_pis.tx_tree_root,
             sender_tree_root: main_validation_pis.sender_tree_root,

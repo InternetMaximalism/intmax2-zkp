@@ -38,8 +38,8 @@ pub type AccountUpdateProofTarget = UpdateProofTarget;
 
 impl AccountTree {
     pub fn prove_inclusion(&self, account_id: usize) -> AccountMerkleProof {
-        let leaf = self.0.get_leaf(account_id);
-        let merkle_proof = self.0.prove(account_id);
+        let leaf = self.get_leaf(account_id);
+        let merkle_proof = self.prove(account_id);
         AccountMerkleProof { merkle_proof, leaf }
     }
 }

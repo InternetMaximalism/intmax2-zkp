@@ -18,7 +18,7 @@ use anyhow::Result;
 use leaf::{IndexedMerkleLeaf, IndexedMerkleLeafTarget};
 
 #[derive(Debug, Clone)]
-pub struct IndexedMerkleTree(pub(crate) MerkleTreeWithLeaves<IndexedMerkleLeaf>);
+pub struct IndexedMerkleTree(MerkleTreeWithLeaves<IndexedMerkleLeaf>);
 pub type IndexedMerkleProof = MerkleProofWithLeaves<IndexedMerkleLeaf>;
 pub type IndexedMerkleProofTarget = MerkleProofWithLeavesTarget<IndexedMerkleLeafTarget>;
 
@@ -31,6 +31,14 @@ impl IndexedMerkleTree {
 
     pub fn get_root(&self) -> PoseidonHashOut {
         self.0.get_root()
+    }
+
+    pub fn get_leaf(&self, index: usize) -> IndexedMerkleLeaf {
+        self.0.get_leaf(index)
+    }
+
+    pub fn prove(&self, index: usize) -> IndexedMerkleProof {
+        self.0.prove(index)
     }
 
     pub(crate) fn low_index(&self, key: U256<u32>) -> Result<usize> {

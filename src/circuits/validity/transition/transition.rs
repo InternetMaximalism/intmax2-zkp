@@ -292,7 +292,8 @@ mod tests {
             transition::{ValidityTransitionTarget, ValidityTransitionValue},
         },
         common::trees::sender_tree::get_sender_leaves,
-        mock::{block_builder::MockBlockBuilder, db::MockDB},
+        mock::block_builder::MockBlockBuilder,
+        test_utils::tx::generate_random_tx_requests,
     };
 
     type F = GoldilocksField;
@@ -302,24 +303,21 @@ mod tests {
     #[test]
     fn validity_transition() {
         let mut rng = rand::thread_rng();
-        let mut mock_db = MockDB::new();
-        let block_builder = MockBlockBuilder {};
-        block_builder.post_dummy_block(&mut rng, &mut mock_db);
-        let prev_block_witness = mock_db.get_last_block_witness();
+        let mut block_builder = MockBlockBuilder::new();
+        block_builder.post_block(true, generate_random_tx_requests(&mut rng));
+        let prev_block_witness = block_builder.get_last_block_witness();
         let prev_block_pis = prev_block_witness.to_main_validation_pis();
 
         let account_registoration_circuit = AccountRegistorationCircuit::<F, C, D>::new();
         let account_update_circuit = AccountUpdateCircuit::<F, C, D>::new();
 
-        let block_merkle_proof = mock_db
-            .prev_block_hash_tree
-            .clone()
-            .unwrap()
+        let block_merkle_proof = block_builder
+            .prev_block_tree
             .prove(prev_block_witness.block.block_number as usize);
 
         assert_eq!(
             prev_block_pis.account_tree_root,
-            mock_db.prev_account_tree.as_ref().unwrap().0.get_root()
+            block_builder.prev_account_tree.get_root()
         );
 
         // it's a registoration block
@@ -329,7 +327,7 @@ mod tests {
                 prev_block_witness.signature.sender_flag,
             );
             let mut account_registoration_proofs = Vec::new();
-            let mut prev_account_tree = mock_db.prev_account_tree.clone().unwrap();
+            let mut prev_account_tree = block_builder.prev_account_tree.clone();
             for sender_leaf in &sender_leaves {
                 let last_block_number = if sender_leaf.is_valid {
                     prev_block_pis.block_number
@@ -351,7 +349,7 @@ mod tests {
                 .prove(&account_registoration_value)
                 .unwrap()
         };
-        let prev_block_tree_root = mock_db.prev_block_hash_tree.as_ref().unwrap().get_root();
+        let prev_block_tree_root = block_builder.prev_block_tree.get_root();
         let value = ValidityTransitionValue::new(
             &account_registoration_circuit,
             &account_update_circuit,

@@ -255,7 +255,7 @@ mod tests {
         let mut rng = rand::thread_rng();
         let mut tree = AccountTree::new(ACCOUNT_TREE_HEIGHT);
         add_random_accounts(&mut rng, &mut tree, 1000);
-        let prev_account_tree_root = tree.0.get_root();
+        let prev_account_tree_root = tree.get_root();
 
         let pubkeys = (0..NUM_SENDERS_IN_BLOCK)
             .map(|_| U256::<u32>::rand(&mut rng))
@@ -281,7 +281,7 @@ mod tests {
             sender_leaves,
             account_registoration_proofs,
         );
-        let new_account_tree_root = tree.0.get_root();
+        let new_account_tree_root = tree.get_root();
         assert_eq!(
             account_registoration_value.new_account_tree_root,
             new_account_tree_root

@@ -322,7 +322,7 @@ mod tests {
             account_ids.push(account_id);
             account_merkle_proofs.push(proof);
         }
-        let account_tree_root = tree.0.get_root();
+        let account_tree_root = tree.get_root();
         let account_id_packed = AccountIdPacked::pack(&account_ids);
         let value = AccountInclusionValue::new(
             account_tree_root,

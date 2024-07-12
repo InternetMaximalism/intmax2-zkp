@@ -10,7 +10,7 @@ use rand::Rng;
 
 use crate::{
     circuits::validity::validity_processor::ValidityProcessor,
-    mock::{block_builder::MockBlockBuilder, db::MockDB},
+    mock::block_builder::MockBlockBuilder, test_utils::tx::generate_random_tx_requests,
 };
 
 pub fn generate_random_validity_proofs<F, C, const D: usize, R: Rng>(
@@ -23,18 +23,15 @@ where
     C: GenericConfig<D, F = F> + 'static,
     <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
 {
-    let mut db = MockDB::new();
-    let block_builder = MockBlockBuilder;
-
+    let mut block_builder = MockBlockBuilder::new();
     let mut proofs = Vec::with_capacity(n);
     let mut prev_proof = None;
     for _ in 0..n {
-        let prev_block_witness = db.get_last_block_witness();
-        let validity_witness = block_builder.post_dummy_block(rng, &mut db);
+        let prev_block_witness = block_builder.get_last_block_witness();
+        let validity_witness = block_builder.post_block(true, generate_random_tx_requests(rng));
         prev_proof = validity_processor
             .prove(&prev_block_witness, &prev_proof, &validity_witness)
             .map_or(None, Some);
-        dbg!("Proof end");
         proofs.push(prev_proof.clone().unwrap());
     }
     proofs
