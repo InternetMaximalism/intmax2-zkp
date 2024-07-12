@@ -25,7 +25,7 @@ use crate::{
         trees::block_hash_tree::{BlockHashMerkleProof, BlockHashMerkleProofTarget},
     },
     constants::BLOCK_HASH_TREE_HEIGHT,
-    utils::{dummy::DummyProof, recursivable::Recursivable},
+    utils::{conversion::ToU64, dummy::DummyProof, recursivable::Recursivable},
 };
 
 pub const UPDATE_PUBLIC_INPUTS_LEN: usize = PUBLIC_STATE_LEN * 2;
@@ -115,10 +115,7 @@ where
             .verify(validity_proof)
             .expect("validity proof is invalid");
         let validity_pis = ValidityPublicInputs::from_u64_vec(
-            &validity_proof.public_inputs[0..VALIDITY_PUBLIC_INPUTS_LEN]
-                .into_iter()
-                .map(|x| x.to_canonical_u64())
-                .collect::<Vec<_>>(),
+            &validity_proof.public_inputs[0..VALIDITY_PUBLIC_INPUTS_LEN].to_u64_vec(),
         );
         block_merkle_proof
             .verify(

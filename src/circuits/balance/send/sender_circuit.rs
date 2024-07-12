@@ -24,6 +24,7 @@ use crate::{
     },
     ethereum_types::u32limb_trait::U32LimbTargetTrait as _,
     utils::{
+        conversion::ToU64,
         dummy::DummyProof,
         leafable::{Leafable as _, LeafableTarget},
         poseidon_hash_out::PoseidonHashOutTarget,
@@ -127,13 +128,8 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
                 .map(|x| x.to_canonical_u64())
                 .collect::<Vec<_>>(),
         );
-        let tx_inclusion_pis = TxInclusionPublicInputs::from_u64_vec(
-            &tx_inclusion_proof
-                .public_inputs
-                .iter()
-                .map(|x| x.to_canonical_u64())
-                .collect::<Vec<_>>(),
-        );
+        let tx_inclusion_pis =
+            TxInclusionPublicInputs::from_u64_vec(&tx_inclusion_proof.public_inputs.to_u64_vec());
         // check tx equivalence
         assert_eq!(spent_pis.tx, tx_inclusion_pis.tx);
         let is_valid = spent_pis.is_valid && tx_inclusion_pis.is_valid;

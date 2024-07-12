@@ -20,6 +20,7 @@ use crate::{
     constants::BLOCK_HASH_TREE_HEIGHT,
     ethereum_types::{bytes32::Bytes32, u32limb_trait::U32LimbTargetTrait as _},
     utils::{
+        conversion::ToU64,
         dummy::DummyProof,
         logic::BuilderLogic,
         poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget},
@@ -72,11 +73,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
                 .verify(account_registoration_proof.clone())
                 .expect("Account registoration proof is invalid");
             let pis = AccountTransitionPublicInputs::from_u64_vec(
-                &account_registoration_proof
-                    .public_inputs
-                    .iter()
-                    .map(|x| x.to_canonical_u64())
-                    .collect::<Vec<_>>(),
+                &account_registoration_proof.public_inputs.to_u64_vec(),
             );
             assert_eq!(pis.prev_account_tree_root, prev_block_pis.account_tree_root);
             assert_eq!(pis.sender_tree_root, prev_block_pis.sender_tree_root);

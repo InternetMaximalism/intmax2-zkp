@@ -27,6 +27,7 @@ use crate::{
         u32limb_trait::{U32LimbTargetTrait as _, U32LimbTrait},
     },
     utils::{
+        conversion::ToU64 as _,
         dummy::DummyProof,
         leafable::{Leafable as _, LeafableTarget},
         poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget},
@@ -85,10 +86,7 @@ where
     }
 
     pub fn from_vec(config: &CircuitConfig, input: &[F]) -> Self {
-        let non_vd = input[0..16 + PUBLIC_STATE_LEN]
-            .into_iter()
-            .map(|x| x.to_canonical_u64())
-            .collect::<Vec<_>>();
+        let non_vd = input[0..16 + PUBLIC_STATE_LEN].to_u64_vec();
         let prev_private_commitment = PoseidonHashOut::from_u64_vec(&non_vd[0..4]);
         let new_private_commitment = PoseidonHashOut::from_u64_vec(&non_vd[4..8]);
         let pubkey = U256::from_u64_vec(&non_vd[8..16]);

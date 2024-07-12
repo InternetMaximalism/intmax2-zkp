@@ -34,6 +34,7 @@ where
         prev_proof = validity_processor
             .prove(&prev_block_witness, &prev_proof, &validity_witness)
             .map_or(None, Some);
+        println!("Proof end");
         proofs.push(prev_proof.clone().unwrap());
     }
     proofs

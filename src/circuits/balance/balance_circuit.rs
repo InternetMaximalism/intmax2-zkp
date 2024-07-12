@@ -30,6 +30,7 @@ use crate::{
     constants::BALANCE_CIRCUIT_PADDING_DEGREE,
     ethereum_types::{u256::U256, u32limb_trait::U32LimbTargetTrait},
     utils::{
+        conversion::ToField as _,
         poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget},
         recursivable::Recursivable as _,
     },
@@ -145,8 +146,7 @@ where
                 &self.data.verifier_only,
                 BalancePublicInputs::new(pubkey)
                     .to_u64_vec()
-                    .into_iter()
-                    .map(F::from_canonical_u64)
+                    .to_field_vec::<F>()
                     .into_iter()
                     .enumerate()
                     .collect(),

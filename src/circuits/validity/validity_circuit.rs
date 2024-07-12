@@ -26,7 +26,7 @@ use crate::{
         },
     },
     constants::VALIDITY_CIRCUIT_PADDING_DEGREE,
-    utils::recursivable::Recursivable as _,
+    utils::{conversion::ToField, recursivable::Recursivable as _},
 };
 
 #[cfg(not(feature = "dummy_validity_proof"))]
@@ -124,8 +124,7 @@ where
                 &self.data.verifier_only,
                 ValidityPublicInputs::genesis()
                     .to_u64_vec()
-                    .into_iter()
-                    .map(F::from_canonical_u64)
+                    .to_field_vec::<F>()
                     .into_iter()
                     .enumerate()
                     .collect(),

@@ -26,6 +26,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::ethereum_types::bytes32::Bytes32;
 
+use super::conversion::{ToField, ToU64};
+
 pub const POSEIDON_HASH_OUT_LEN: usize = 4;
 
 /// A struct equivalent to plonky2's `HashOut`, but implemented with u64 fixed instead of
@@ -53,11 +55,7 @@ impl PoseidonHashOut {
     }
 
     pub fn hash_inputs_u64(inputs: &[u64]) -> Self {
-        let inputs = inputs
-            .iter()
-            .map(|&x| GoldilocksField::from_canonical_u64(x))
-            .collect::<Vec<_>>();
-        PoseidonHash::hash_no_pad(&inputs).into()
+        PoseidonHash::hash_no_pad(&inputs.to_field_vec::<GoldilocksField>()).into()
     }
 
     pub fn hash_inputs_u32(inputs: &[u32]) -> Self {
@@ -208,13 +206,7 @@ impl PoseidonHashOutTarget {
  */
 impl<F: PrimeField64> From<HashOut<F>> for PoseidonHashOut {
     fn from(value: HashOut<F>) -> Self {
-        let elements: [u64; 4] = value
-            .elements
-            .iter()
-            .map(F::to_canonical_u64)
-            .collect::<Vec<_>>()
-            .try_into()
-            .unwrap();
+        let elements: [u64; 4] = value.elements.iter().to_u64_vec().try_into().unwrap();
         Self { elements }
     }
 }

@@ -32,6 +32,7 @@ use crate::{
     },
     ethereum_types::u32limb_trait::U32LimbTargetTrait as _,
     utils::{
+        conversion::ToU64,
         poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget},
         recursivable::Recursivable,
     },
@@ -149,13 +150,8 @@ where
                     .data
                     .verify(update_proof.clone())
                     .expect("update_proof is invalid");
-                let pis = UpdatePublicInputs::from_u64_vec(
-                    &update_proof
-                        .public_inputs
-                        .iter()
-                        .map(|x| x.to_canonical_u64())
-                        .collect::<Vec<_>>(),
-                );
+                let pis =
+                    UpdatePublicInputs::from_u64_vec(&update_proof.public_inputs.to_u64_vec());
                 assert_eq!(pis.prev_public_state, prev_balance_pis.public_state);
                 BalancePublicInputs {
                     public_state: pis.new_public_state,

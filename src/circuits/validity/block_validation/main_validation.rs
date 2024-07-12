@@ -5,6 +5,7 @@ use crate::{
     },
     ethereum_types::{bytes32::BYTES32_LEN, u32limb_trait::U32LimbTrait as _},
     utils::{
+        conversion::ToU64,
         dummy::DummyProof,
         logic::BuilderLogic,
         poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget},
@@ -267,11 +268,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
                 .verify(account_exclusion_proof.clone())
                 .expect("account exclusion proof verification failed");
             let pis = AccountExclusionPublicInputs::from_u64_vec(
-                &account_exclusion_proof
-                    .public_inputs
-                    .into_iter()
-                    .map(|x| x.to_canonical_u64())
-                    .collect::<Vec<_>>(),
+                &account_exclusion_proof.public_inputs.to_u64_vec(),
             );
             assert_eq!(
                 pis.pubkey_commitment, pubkey_commitment,
@@ -319,11 +316,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
             .verify(format_validation_proof.clone())
             .expect("format validation proof verification failed");
         let format_validation_pis = FormatValidationPublicInputs::from_u64_vec(
-            &format_validation_proof
-                .public_inputs
-                .iter()
-                .map(|x| x.to_canonical_u64())
-                .collect::<Vec<_>>(),
+            &format_validation_proof.public_inputs.to_u64_vec(),
         );
         assert_eq!(
             format_validation_pis.pubkey_commitment, pubkey_commitment,

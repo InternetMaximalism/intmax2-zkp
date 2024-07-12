@@ -37,6 +37,7 @@ use crate::{
         u32limb_trait::{U32LimbTargetTrait, U32LimbTrait},
     },
     utils::{
+        conversion::ToU64,
         poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget},
         recursivable::Recursivable,
     },
@@ -160,10 +161,7 @@ where
             .verify(validity_proof)
             .expect("validity proof is invalid");
         let validity_pis = ValidityPublicInputs::from_u64_vec(
-            &validity_proof.public_inputs[0..VALIDITY_PUBLIC_INPUTS_LEN]
-                .into_iter()
-                .map(|x| x.to_canonical_u64())
-                .collect::<Vec<_>>(),
+            &validity_proof.public_inputs[0..VALIDITY_PUBLIC_INPUTS_LEN].to_u64_vec(),
         );
         block_merkle_proof
             .verify(
@@ -350,5 +348,49 @@ where
 {
     fn circuit_data(&self) -> &CircuitData<F, C, D> {
         &self.data
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use plonky2::{
+        field::goldilocks_field::GoldilocksField, plonk::config::PoseidonGoldilocksConfig,
+    };
+
+    use crate::{
+        circuits::validity::{
+            validity_pis::ValidityPublicInputs, validity_processor::ValidityProcessor,
+        },
+        test_utils::validity_proof::generate_random_validity_proofs,
+    };
+
+    use super::TxInclusionValue;
+
+    type F = GoldilocksField;
+    type C = PoseidonGoldilocksConfig;
+    const D: usize = 2;
+
+    #[test]
+    fn tx_inclusion_circuit() {
+        let num_validity_proofs = 2;
+        let mut rng = rand::thread_rng();
+        let validity_processor = ValidityProcessor::<F, C, D>::new();
+        let _proofs =
+            generate_random_validity_proofs(&validity_processor, &mut rng, num_validity_proofs);
+
+        let first_validity_pis = ValidityPublicInputs::from_u64_vec(&proofs[0].public_inputs);
+
+        // let value = TxInclusionValue::new(
+        //     &validity_processor.validity_circuit,
+        //     pubkey,
+        //     prev_public_state,
+        //     validity_proof,
+        //     block_merkle_proof,
+        //     sender_index,
+        //     tx,
+        //     tx_merkle_proof,
+        //     sender_leaf,
+        //     sender_merkle_proof,
+        // );
     }
 }
