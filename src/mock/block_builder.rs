@@ -19,7 +19,8 @@ use crate::{
         tx::Tx,
         witness::{
             block_witness::{BlockInfo, BlockWitness},
-            transition_witness::TransitionWitness,
+            validity_transition_witness::ValidityTransitionWitness,
+            validity_witness::ValidityWitness,
         },
     },
     constants::{NUM_SENDERS_IN_BLOCK, TX_TREE_HEIGHT},
@@ -142,7 +143,7 @@ impl MockBlockBuilder {
     }
 
     // This should be called before the update.
-    pub fn generate_transition_witness(&self, db: &MockDB) -> TransitionWitness {
+    pub fn generate_transition_witness(&self, db: &MockDB) -> ValidityTransitionWitness {
         let prev_block_witness = db.get_last_block_witness();
         if prev_block_witness.block.block_number == 0 {
             assert_eq!(
@@ -150,7 +151,7 @@ impl MockBlockBuilder {
                 prev_block_witness.block_tree_root
             );
             // genesis block
-            return TransitionWitness {
+            return ValidityTransitionWitness {
                 prev_pis: ValidityPublicInputs::genesis(),
                 block_merkle_proof: db.block_hash_tree.prove(0),
                 account_registoration_proofs: None,
@@ -221,11 +222,25 @@ impl MockBlockBuilder {
             }
         };
 
-        TransitionWitness {
+        ValidityTransitionWitness {
             prev_pis,
             block_merkle_proof,
             account_registoration_proofs,
             account_update_proofs,
+        }
+    }
+
+    pub fn generate_block_and_witness(
+        &self,
+        db: &MockDB,
+        is_registoration_block: bool,
+        txs: Vec<TxResuest>,
+    ) -> ValidityWitness {
+        let block_info = self.generate_block(db, is_registoration_block, txs);
+        let validity_transition_witness = self.generate_transition_witness(db);
+        ValidityWitness {
+            validity_transition_witness,
+            block_witness: block_info.block_witness,
         }
     }
 

@@ -17,7 +17,7 @@ use crate::{
     },
     common::{
         trees::sender_tree::get_sender_leaves,
-        witness::{block_witness::BlockWitness, transition_witness::TransitionWitness},
+        witness::{block_witness::BlockWitness, validity_witness::ValidityWitness},
     },
 };
 
@@ -63,15 +63,15 @@ where
 
     pub fn prove(
         &self,
-        block_witness: &BlockWitness,
         prev_block_witness: &BlockWitness,
-        transition_witness: &TransitionWitness,
+        validity_witness: &ValidityWitness,
     ) -> Result<ProofWithPublicInputs<F, C, D>> {
         let prev_pis = prev_block_witness.to_validity_pis();
         let prev_block_pis = prev_block_witness.to_main_validation_pis();
         let account_registoration_proof =
             if prev_pis.is_valid_block && prev_pis.is_registoration_block {
-                let account_registoration_proofs = transition_witness
+                let account_registoration_proofs = validity_witness
+                    .validity_transition_witness
                     .account_registoration_proofs
                     .clone()
                     .expect("Account registoration proofs are missing");
@@ -92,7 +92,8 @@ where
             };
         let account_update_proof = if prev_pis.is_valid_block && (!prev_pis.is_registoration_block)
         {
-            let account_update_proofs = transition_witness
+            let account_update_proofs = validity_witness
+                .validity_transition_witness
                 .account_update_proofs
                 .clone()
                 .expect("Account update proofs are missing");
@@ -118,9 +119,14 @@ where
             prev_pis.public_state.block_tree_root,
             account_registoration_proof,
             account_update_proof,
-            transition_witness.block_merkle_proof.clone(),
+            validity_witness
+                .validity_transition_witness
+                .block_merkle_proof
+                .clone(),
         );
-        let main_validation_proof = self.main_validation_processor.prove(&block_witness)?;
+        let main_validation_proof = self
+            .main_validation_processor
+            .prove(&validity_witness.block_witness)?;
         let proof = self.transition_wrapper_circuit.prove(
             &main_validation_proof,
             &transition_value,
@@ -172,14 +178,11 @@ mod tests {
                 }
             })
             .collect::<Vec<_>>();
-        let block_witness = block_builder
-            .generate_block(&mut mock_db, true, txs)
-            .block_witness;
-        let transition_witness = block_builder.generate_transition_witness(&mut mock_db);
+        let validity_witness = block_builder.generate_block_and_witness(&mut mock_db, true, txs);
         let prev_block_witness = mock_db.get_last_block_witness();
 
         let _proof = transition_processor
-            .prove(&block_witness, &prev_block_witness, &transition_witness)
+            .prove(&prev_block_witness, &validity_witness)
             .unwrap();
     }
 }

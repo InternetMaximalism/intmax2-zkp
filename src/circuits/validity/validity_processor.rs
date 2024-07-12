@@ -8,7 +8,7 @@ use plonky2::{
     },
 };
 
-use crate::common::witness::{block_witness::BlockWitness, transition_witness::TransitionWitness};
+use crate::common::witness::{block_witness::BlockWitness, validity_witness::ValidityWitness};
 
 use super::validity_circuit::ValidityCircuit;
 
@@ -58,29 +58,19 @@ where
 
     pub fn prove(
         &self,
-        block_witness: &BlockWitness,
         prev_block_witness: &BlockWitness,
-        transition_witness: &TransitionWitness,
         prev_proof: &Option<ProofWithPublicInputs<F, C, D>>,
+        validity_witness: &ValidityWitness,
     ) -> Result<ProofWithPublicInputs<F, C, D>> {
         #[cfg(not(feature = "dummy_validity_proof"))]
-        let transition_proof = self.transition_processor.prove(
-            &block_witness,
-            &prev_block_witness,
-            &transition_witness,
-        )?;
+        let transition_proof = self
+            .transition_processor
+            .prove(&prev_block_witness, &validity_witness)?;
         #[cfg(feature = "dummy_validity_proof")]
         let transition_proof = self.dummy_transition_circuit.prove(
             &prev_block_witness.to_validity_pis(),
-            &block_witness.to_validity_pis(),
+            &validity_witness.block_witness.to_validity_pis(),
         )?;
-        #[cfg(feature = "dummy_validity_proof")]
-        {
-            // Just to avoid unused variable warning
-            let _ = transition_witness;
-            let _ = prev_proof;
-        }
         self.validity_circuit.prove(&transition_proof, &prev_proof)
     }
 }
-

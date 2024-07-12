@@ -237,15 +237,11 @@ mod tests {
                 }
             })
             .collect::<Vec<_>>();
-        let block_info = block_builder.generate_block(&mut mock_db, true, txs);
-        let block_witness = block_info.block_witness.clone();
-        let transition_witness = block_builder.generate_transition_witness(&mut mock_db);
+        let validity_witness = block_builder.generate_block_and_witness(&mut mock_db, true, txs);
         let prev_block_witness = mock_db.get_last_block_witness();
-        block_builder.update(&mut mock_db, &block_info); // this is not needed in this test
-                                                         // but we add here to demonstrate that the block is updated after the transition
 
         let transition_proof = transition_processor
-            .prove(&block_witness, &prev_block_witness, &transition_witness)
+            .prove(&prev_block_witness, &validity_witness)
             .unwrap();
 
         let validity_circuit =
