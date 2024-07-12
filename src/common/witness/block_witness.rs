@@ -58,11 +58,11 @@ impl BlockWitness {
         let main_validation_pis = self.to_main_validation_pis();
         ValidityPublicInputs {
             public_state: PublicState {
-                account_tree_root: self.account_tree_root,
-                block_tree_root: self.block_tree_root,
-                deposit_tree_root: self.block.deposit_tree_root,
-                block_number: self.block.block_number,
-                block_hash: main_validation_pis.block_hash,
+                account_tree_root: self.account_tree_root, // previous account tree root
+                block_tree_root: self.block_tree_root,     // previous block tree root
+                deposit_tree_root: self.block.deposit_tree_root, // current deposit tree root
+                block_number: self.block.block_number,     // current block number
+                block_hash: main_validation_pis.block_hash, // current block hash
             },
             tx_tree_root: main_validation_pis.tx_tree_root,
             sender_tree_root: main_validation_pis.sender_tree_root,

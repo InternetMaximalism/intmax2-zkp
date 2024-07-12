@@ -21,7 +21,7 @@ pub const VALIDITY_PUBLIC_INPUTS_LEN: usize =
     PUBLIC_STATE_LEN + BYTES32_LEN + POSEIDON_HASH_OUT_LEN + 2;
 
 /// Public inputs for the validity circuit
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct ValidityPublicInputs {
     pub public_state: PublicState,
     pub tx_tree_root: Bytes32<u32>,

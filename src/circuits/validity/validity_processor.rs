@@ -8,7 +8,11 @@ use plonky2::{
     },
 };
 
-use crate::common::witness::{block_witness::BlockWitness, validity_witness::ValidityWitness};
+use crate::{
+    circuits::validity::validity_pis::{ValidityPublicInputs, VALIDITY_PUBLIC_INPUTS_LEN},
+    common::witness::{block_witness::BlockWitness, validity_witness::ValidityWitness},
+    utils::conversion::ToU64,
+};
 
 use super::validity_circuit::ValidityCircuit;
 
@@ -71,6 +75,19 @@ where
             &prev_block_witness.to_validity_pis(),
             &validity_witness.block_witness.to_validity_pis(),
         )?;
+        if prev_proof.is_some() {
+            let transition_prev_pis = ValidityPublicInputs::from_u64_vec(
+                &transition_proof.public_inputs[0..VALIDITY_PUBLIC_INPUTS_LEN].to_u64_vec(),
+            );
+            let prev_pis = ValidityPublicInputs::from_u64_vec(
+                &prev_proof.as_ref().unwrap().public_inputs[0..VALIDITY_PUBLIC_INPUTS_LEN]
+                    .to_u64_vec(),
+            );
+            dbg!(&transition_prev_pis);
+            dbg!(&prev_pis);
+            assert_eq!(transition_prev_pis, prev_pis);
+        }
+        dbg!("end of transition proof");
         self.validity_circuit.prove(&transition_proof, &prev_proof)
     }
 }

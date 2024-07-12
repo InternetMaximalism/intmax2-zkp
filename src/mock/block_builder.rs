@@ -168,6 +168,10 @@ impl MockBlockBuilder {
             prev_pis.public_state.account_tree_root,
             db.prev_account_tree.as_ref().unwrap().0.get_root()
         );
+        assert_eq!(
+            prev_pis.public_state.block_tree_root,
+            db.prev_block_hash_tree.as_ref().unwrap().get_root()
+        );
 
         let account_registoration_proofs = {
             if prev_pis.is_valid_block && prev_pis.is_registoration_block {

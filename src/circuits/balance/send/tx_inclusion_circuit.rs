@@ -359,12 +359,13 @@ mod tests {
 
     use crate::{
         circuits::validity::{
-            validity_pis::ValidityPublicInputs, validity_processor::ValidityProcessor,
+            validity_pis::{ValidityPublicInputs, VALIDITY_PUBLIC_INPUTS_LEN},
+            validity_processor::ValidityProcessor,
         },
+        ethereum_types::u256::U256,
         test_utils::validity_proof::generate_random_validity_proofs,
+        utils::conversion::ToU64,
     };
-
-    use super::TxInclusionValue;
 
     type F = GoldilocksField;
     type C = PoseidonGoldilocksConfig;
@@ -372,19 +373,23 @@ mod tests {
 
     #[test]
     fn tx_inclusion_circuit() {
-        let num_validity_proofs = 2;
+        let num_validity_proofs = 1;
         let mut rng = rand::thread_rng();
         let validity_processor = ValidityProcessor::<F, C, D>::new();
-        let _proofs =
+        let proofs =
             generate_random_validity_proofs(&validity_processor, &mut rng, num_validity_proofs);
-
-        let first_validity_pis = ValidityPublicInputs::from_u64_vec(&proofs[0].public_inputs);
+        let first_validity_pis = ValidityPublicInputs::from_u64_vec(
+            &proofs[0].public_inputs[0..VALIDITY_PUBLIC_INPUTS_LEN].to_u64_vec(),
+        );
+        let _validity_proof = proofs[1].clone();
+        let _prev_public_state = first_validity_pis.public_state.clone();
+        let _pubkey = U256::<u32>::rand(&mut rng);
 
         // let value = TxInclusionValue::new(
         //     &validity_processor.validity_circuit,
         //     pubkey,
-        //     prev_public_state,
-        //     validity_proof,
+        //     &prev_public_state,
+        //     &validity_proof,
         //     block_merkle_proof,
         //     sender_index,
         //     tx,
