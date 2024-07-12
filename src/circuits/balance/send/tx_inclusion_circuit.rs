@@ -367,13 +367,15 @@ mod tests {
         utils::conversion::ToU64,
     };
 
+    use super::TxInclusionValue;
+
     type F = GoldilocksField;
     type C = PoseidonGoldilocksConfig;
     const D: usize = 2;
 
     #[test]
     fn tx_inclusion_circuit() {
-        let num_validity_proofs = 1;
+        let num_validity_proofs = 2;
         let mut rng = rand::thread_rng();
         let validity_processor = ValidityProcessor::<F, C, D>::new();
         let proofs =
@@ -381,9 +383,9 @@ mod tests {
         let first_validity_pis = ValidityPublicInputs::from_u64_vec(
             &proofs[0].public_inputs[0..VALIDITY_PUBLIC_INPUTS_LEN].to_u64_vec(),
         );
-        let _validity_proof = proofs[1].clone();
-        let _prev_public_state = first_validity_pis.public_state.clone();
-        let _pubkey = U256::<u32>::rand(&mut rng);
+        let validity_proof = proofs[1].clone();
+        let prev_public_state = first_validity_pis.public_state.clone();
+        let pubkey = U256::<u32>::rand(&mut rng);
 
         // let value = TxInclusionValue::new(
         //     &validity_processor.validity_circuit,

@@ -39,11 +39,19 @@ pub struct MockBlockBuilder {
     pub account_tree: AccountTree, // current account tree
     pub block_tree: BlockHashTree, // current block hash tree
     pub deposit_tree: DepositTree, // current deposit tree
-    pub block_witnesses: Vec<BlockWitness>, /* all block witnesses which have been posted on the
-                                    * chain */
-    pub tx_trees: HashMap<u32, TxTree>, // all tx trees which have been posted on the chain
+    pub block_witnesses: Vec<BlockWitness>,
     pub prev_account_tree: AccountTree, // previous account tree
     pub prev_block_tree: BlockHashTree, // previous block hash tree
+    pub aux_info: AuxInfo,
+}
+
+/// Information not required for validity proof but required for balance proof construction
+#[derive(Default)]
+pub struct AuxInfo {
+    pub tx_trees: HashMap<u32, TxTree>,
+    pub validity_witnesses: HashMap<u32, ValidityWitness>,
+    pub account_trees: HashMap<u32, AccountTree>,
+    pub block_trees: HashMap<u32, BlockHashTree>,
 }
 
 impl MockBlockBuilder {
@@ -62,9 +70,9 @@ impl MockBlockBuilder {
             block_tree,
             deposit_tree,
             block_witnesses: vec![block_witness],
-            tx_trees: HashMap::new(),
             prev_account_tree,
             prev_block_tree,
+            aux_info: AuxInfo::default(),
         }
     }
 
@@ -265,8 +273,23 @@ impl MockBlockBuilder {
         )
     }
 
-    pub fn save_tx_tree(&mut self, block_number: u32, tx_tree: TxTree) {
-        self.tx_trees.insert(block_number, tx_tree);
+    pub fn save_aux_info(
+        &mut self,
+        block_number: u32,
+        tx_tree: TxTree,
+        validity_witness: ValidityWitness,
+    ) {
+        assert_eq!(self.block_witnesses.len(), block_number as usize);
+        self.aux_info.tx_trees.insert(block_number, tx_tree);
+        self.aux_info
+            .validity_witnesses
+            .insert(block_number, validity_witness);
+        self.aux_info
+            .account_trees
+            .insert(block_number, self.account_tree.clone());
+        self.aux_info
+            .block_trees
+            .insert(block_number, self.block_tree.clone());
     }
 
     pub fn update(&mut self, block_witness: &BlockWitness) {
@@ -309,7 +332,11 @@ impl MockBlockBuilder {
     ) -> ValidityWitness {
         let (validity_witness, tx_tree) =
             self.generate_block_and_witness(is_registoration_block, txs);
-        self.save_tx_tree(validity_witness.block_witness.block.block_number, tx_tree);
+        self.save_aux_info(
+            validity_witness.block_witness.block.block_number,
+            tx_tree,
+            validity_witness.clone(),
+        );
         self.update(&validity_witness.block_witness);
         validity_witness
     }
