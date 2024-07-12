@@ -1,8 +1,6 @@
 use crate::utils::{
     leafable_hasher::PoseidonLeafableHasher,
-    trees::merkle_tree_with_leaves::{
-        MerkleProofWithLeaves, MerkleProofWithLeavesTarget, MerkleTreeWithLeaves,
-    },
+    trees::sparse_merkle_tree::{SparseMerkleProof, SparseMerkleProofTarget, SparseMerkleTree},
 };
 use plonky2::{
     field::{extension::Extendable, types::Field},
@@ -29,9 +27,9 @@ use crate::{
     },
 };
 
-pub type AssetTree = MerkleTreeWithLeaves<AssetLeaf>;
-pub type AssetMerkleProof = MerkleProofWithLeaves<AssetLeaf>;
-pub type AssetMerkleProofTarget = MerkleProofWithLeavesTarget<AssetLeafTarget>;
+pub type AssetTree = SparseMerkleTree<AssetLeaf>;
+pub type AssetMerkleProof = SparseMerkleProof<AssetLeaf>;
+pub type AssetMerkleProofTarget = SparseMerkleProofTarget<AssetLeafTarget>;
 
 #[derive(Clone, Debug, Copy)]
 pub struct AssetLeaf {

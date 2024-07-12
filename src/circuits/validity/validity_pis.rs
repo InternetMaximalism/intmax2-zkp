@@ -1,5 +1,5 @@
 use plonky2::{
-    field::extension::Extendable,
+    field::{extension::Extendable, types::PrimeField64},
     hash::hash_types::RichField,
     iop::{
         target::{BoolTarget, Target},
@@ -14,7 +14,10 @@ use crate::{
         bytes32::{Bytes32, BYTES32_LEN},
         u32limb_trait::{U32LimbTargetTrait as _, U32LimbTrait as _},
     },
-    utils::poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget, POSEIDON_HASH_OUT_LEN},
+    utils::{
+        conversion::ToU64 as _,
+        poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget, POSEIDON_HASH_OUT_LEN},
+    },
 };
 
 pub const VALIDITY_PUBLIC_INPUTS_LEN: usize =
@@ -90,6 +93,10 @@ impl ValidityPublicInputs {
             is_registoration_block,
             is_valid_block,
         }
+    }
+
+    pub fn from_pis<F: PrimeField64>(pis: &[F]) -> Self {
+        Self::from_u64_vec(&pis[0..VALIDITY_PUBLIC_INPUTS_LEN].to_u64_vec())
     }
 }
 

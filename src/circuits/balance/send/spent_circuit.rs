@@ -335,8 +335,8 @@ mod tests {
         let prev_balances = (0..NUM_TRANSFERS_IN_TX)
             .map(|_| AssetLeaf::rand(&mut rng))
             .collect::<Vec<_>>();
-        for balance in prev_balances.iter() {
-            asset_tree.push(*balance);
+        for (i, balance) in prev_balances.iter().enumerate() {
+            asset_tree.update(i, *balance);
         }
         let prev_private_state = PrivateState {
             asset_tree_root: asset_tree.get_root(),

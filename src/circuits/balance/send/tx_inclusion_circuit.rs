@@ -363,7 +363,10 @@ mod tests {
             validity_processor::ValidityProcessor,
         },
         ethereum_types::u256::U256,
-        test_utils::validity_proof::generate_random_validity_proofs,
+        mock::block_builder::MockBlockBuilder,
+        test_utils::{
+            tx::generate_random_tx_requests, validity_proof::generate_random_validity_proofs,
+        },
         utils::conversion::ToU64,
     };
 
@@ -375,24 +378,46 @@ mod tests {
 
     #[test]
     fn tx_inclusion_circuit() {
-        let num_validity_proofs = 2;
         let mut rng = rand::thread_rng();
         let validity_processor = ValidityProcessor::<F, C, D>::new();
-        let proofs =
-            generate_random_validity_proofs(&validity_processor, &mut rng, num_validity_proofs);
-        let first_validity_pis = ValidityPublicInputs::from_u64_vec(
-            &proofs[0].public_inputs[0..VALIDITY_PUBLIC_INPUTS_LEN].to_u64_vec(),
-        );
-        let validity_proof = proofs[1].clone();
-        let prev_public_state = first_validity_pis.public_state.clone();
-        let pubkey = U256::<u32>::rand(&mut rng);
+        let mut block_builder = MockBlockBuilder::new();
+
+        let prev_block_witness1 = block_builder.get_last_block_witness();
+        let validity_witness1 =
+            block_builder.post_block(true, generate_random_tx_requests(&mut rng));
+        let validity_proof1 = validity_processor
+            .prove(&prev_block_witness1, &None, &validity_witness1)
+            .unwrap();
+
+        let prev_block_witness2 = block_builder.get_last_block_witness();
+        let validity_witness2 =
+            block_builder.post_block(true, generate_random_tx_requests(&mut rng));
+        let validity_proof2 = validity_processor
+            .prove(
+                &prev_block_witness2,
+                &Some(validity_proof1),
+                &validity_witness2,
+            )
+            .unwrap();
+
+        // let block_tree = block_builder
+        //     .aux_info
+        //     .block_trees
+        //     .get(&validity_pis.public_state.block_number)
+        //     .clone()
+        //     .unwrap();
+        // let block_merkle_proof =
+        //     block_tree.prove(old_validity_pis.public_state.block_number as usize);
+
+        // let prev_public_state = old_validity_pis.public_state.clone();
+        // let pubkey = U256::<u32>::rand(&mut rng);
 
         // let value = TxInclusionValue::new(
         //     &validity_processor.validity_circuit,
         //     pubkey,
         //     &prev_public_state,
         //     &validity_proof,
-        //     block_merkle_proof,
+        //     &block_merkle_proof,
         //     sender_index,
         //     tx,
         //     tx_merkle_proof,
