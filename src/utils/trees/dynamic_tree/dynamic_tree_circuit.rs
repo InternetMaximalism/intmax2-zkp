@@ -102,7 +102,7 @@ where
         assert_eq!(&data.common, common_data);
         assert!(success);
         let dummy_leaf = inner_circuit.dummy_leaf();
-        let dummy_node = DummyProof::<F, C, D>::new_cyclic(&data);
+        let dummy_node = DummyProof::<F, C, D>::new_cyclic(&data.common, &data.verifier_only);
 
         Self {
             data,
@@ -275,7 +275,7 @@ mod tests {
         C::Hasher: AlgebraicHasher<F>,
     {
         fn dummy_leaf(&self) -> DummyProof<F, C, D> {
-            DummyProof::new_cyclic(&self.data)
+            DummyProof::new_cyclic(&self.data.common, &self.data.verifier_only)
         }
     }
 

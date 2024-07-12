@@ -16,19 +16,23 @@ use plonky2::{
 };
 
 use crate::{
-    circuits::balance::{
-        balance_pis::{BalancePublicInputs, BalancePublicInputsTarget},
-        receive::{
-            receive_deposit_circuit::{
-                ReceiveDepositCircuit, ReceiveDepositPublicInputs, ReceiveDepositPublicInputsTarget,
+    circuits::{
+        balance::{
+            balance_pis::{BalancePublicInputs, BalancePublicInputsTarget},
+            receive::{
+                receive_deposit_circuit::{
+                    ReceiveDepositCircuit, ReceiveDepositPublicInputs,
+                    ReceiveDepositPublicInputsTarget,
+                },
+                receive_transfer_circuit::{
+                    ReceiveTransferCircuit, ReceiveTransferPublicInputs,
+                    ReceiveTransferPublicInputsTarget,
+                },
+                update_circuit::{UpdateCircuit, UpdatePublicInputs, UpdatePublicInputsTarget},
             },
-            receive_transfer_circuit::{
-                ReceiveTransferCircuit, ReceiveTransferPublicInputs,
-                ReceiveTransferPublicInputsTarget,
-            },
-            update_circuit::{UpdateCircuit, UpdatePublicInputs, UpdatePublicInputsTarget},
+            send::sender_circuit::{SenderCircuit, SenderPublicInputs, SenderPublicInputsTarget},
         },
-        send::sender_circuit::{SenderCircuit, SenderPublicInputs, SenderPublicInputsTarget},
+        utils::cyclic::conditionally_connect_vd,
     },
     ethereum_types::u32limb_trait::U32LimbTargetTrait as _,
     utils::{
@@ -231,18 +235,31 @@ impl<const D: usize> BalanceTransitionTarget<D> {
 
         let new_balance_pis0 = prev_balance_pis.clone();
         let receive_transfer_proof = receive_transfer_circuit
-            .add_proof_target_and_conditionally_verify(builder, circuit_flags[0]);
+            .add_proof_target_and_conditionally_verify(builder, circuit_flags[1]);
         let new_balance_pis1 = {
+            let condition = circuit_flags[1];
             let pis = ReceiveTransferPublicInputsTarget::from_vec(
                 config,
                 &receive_transfer_proof.public_inputs,
             );
-            builder.connect_verifier_data(&pis.balance_circuit_vd, &balance_circuit_vd);
-            pis.prev_private_commitment
-                .connect(builder, prev_balance_pis.private_commitment);
-            pis.pubkey.connect(builder, prev_balance_pis.pubkey);
-            pis.public_state
-                .connect(builder, &prev_balance_pis.public_state);
+            conditionally_connect_vd(
+                builder,
+                condition,
+                &pis.balance_circuit_vd,
+                &balance_circuit_vd,
+            );
+            pis.prev_private_commitment.conditional_assert_eq(
+                builder,
+                prev_balance_pis.private_commitment,
+                condition,
+            );
+            pis.pubkey
+                .conditional_assert_eq(builder, prev_balance_pis.pubkey, condition);
+            pis.public_state.conditional_assert_eq(
+                builder,
+                &prev_balance_pis.public_state,
+                condition,
+            );
             BalancePublicInputsTarget {
                 pubkey: pis.pubkey,
                 private_commitment: pis.new_private_commitment,
@@ -250,15 +267,23 @@ impl<const D: usize> BalanceTransitionTarget<D> {
             }
         };
         let receive_deposit_proof = receive_deposit_circuit
-            .add_proof_target_and_conditionally_verify(builder, circuit_flags[1]);
+            .add_proof_target_and_conditionally_verify(builder, circuit_flags[2]);
         let new_balance_pis2 = {
+            let condition = circuit_flags[2];
             let pis =
                 ReceiveDepositPublicInputsTarget::from_vec(&receive_deposit_proof.public_inputs);
-            pis.prev_private_commitment
-                .connect(builder, prev_balance_pis.private_commitment);
-            pis.pubkey.connect(builder, prev_balance_pis.pubkey);
-            pis.public_state
-                .connect(builder, &prev_balance_pis.public_state);
+            pis.prev_private_commitment.conditional_assert_eq(
+                builder,
+                prev_balance_pis.private_commitment,
+                condition,
+            );
+            pis.pubkey
+                .conditional_assert_eq(builder, prev_balance_pis.pubkey, condition);
+            pis.public_state.conditional_assert_eq(
+                builder,
+                &prev_balance_pis.public_state,
+                condition,
+            );
             BalancePublicInputsTarget {
                 pubkey: pis.pubkey,
                 private_commitment: pis.new_private_commitment,
@@ -266,21 +291,27 @@ impl<const D: usize> BalanceTransitionTarget<D> {
             }
         };
         let update_proof =
-            update_circuit.add_proof_target_and_conditionally_verify(builder, circuit_flags[2]);
+            update_circuit.add_proof_target_and_conditionally_verify(builder, circuit_flags[3]);
         let new_balance_pis3 = {
+            let condition = circuit_flags[3];
             let pis = UpdatePublicInputsTarget::from_vec(&update_proof.public_inputs);
-            pis.prev_public_state
-                .connect(builder, &prev_balance_pis.public_state);
+            pis.prev_public_state.conditional_assert_eq(
+                builder,
+                &prev_balance_pis.public_state,
+                condition,
+            );
             BalancePublicInputsTarget {
                 public_state: pis.new_public_state,
                 ..prev_balance_pis.clone()
             }
         };
         let sender_proof =
-            sender_circuit.add_proof_target_and_conditionally_verify(builder, circuit_flags[3]);
+            sender_circuit.add_proof_target_and_conditionally_verify(builder, circuit_flags[4]);
         let new_balance_pis4 = {
+            let condition = circuit_flags[4];
             let pis = SenderPublicInputsTarget::from_vec(&sender_proof.public_inputs);
-            pis.prev_balance_pis.connect(builder, &prev_balance_pis);
+            pis.prev_balance_pis
+                .conditional_assert_eq(builder, &prev_balance_pis, condition);
             pis.new_balance_pis
         };
 

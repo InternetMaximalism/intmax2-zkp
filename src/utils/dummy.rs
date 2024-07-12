@@ -4,7 +4,9 @@ use plonky2::{
     iop::target::BoolTarget,
     plonk::{
         circuit_builder::CircuitBuilder,
-        circuit_data::{CircuitData, CommonCircuitData, VerifierCircuitTarget},
+        circuit_data::{
+            CircuitData, CommonCircuitData, VerifierCircuitTarget, VerifierOnlyCircuitData,
+        },
         config::{AlgebraicHasher, GenericConfig},
         proof::{ProofWithPublicInputs, ProofWithPublicInputsTarget},
     },
@@ -32,10 +34,13 @@ where
         Self { proof }
     }
 
-    pub fn new_cyclic(data: &CircuitData<F, C, D>) -> Self {
+    pub fn new_cyclic(
+        common: &CommonCircuitData<F, D>,
+        verifier_data: &VerifierOnlyCircuitData<C, D>,
+    ) -> Self {
         let proof = cyclic_base_proof(
-            &data.common,
-            &data.verifier_only,
+            &common,
+            &verifier_data,
             vec![].into_iter().enumerate().collect(),
         );
         Self { proof }

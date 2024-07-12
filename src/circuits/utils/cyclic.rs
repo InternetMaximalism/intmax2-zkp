@@ -5,8 +5,9 @@ use plonky2::{
         hash_types::{HashOut, HashOutTarget, MerkleCapTarget, RichField},
         merkle_tree::MerkleCap,
     },
-    iop::target::Target,
+    iop::target::{BoolTarget, Target},
     plonk::{
+        circuit_builder::CircuitBuilder,
         circuit_data::{CircuitConfig, VerifierCircuitTarget, VerifierOnlyCircuitData},
         config::{AlgebraicHasher, GenericConfig, GenericHashOut as _},
     },
@@ -92,4 +93,14 @@ pub(crate) fn vd_from_pis_slice_target(
         circuit_digest,
         constants_sigmas_cap,
     })
+}
+
+pub(crate) fn conditionally_connect_vd<F: RichField + Extendable<D>, const D: usize>(
+    builder: &mut CircuitBuilder<F, D>,
+    condition: BoolTarget,
+    vk0: &VerifierCircuitTarget,
+    vk1: &VerifierCircuitTarget,
+) {
+    let selected_vd = builder.select_verifier_data(condition, vk0, vk1);
+    builder.connect_verifier_data(&selected_vd, vk1);
 }
