@@ -17,7 +17,10 @@ use crate::{
         },
         trees::{sender_tree::get_sender_leaves, tx_tree::TxTree},
         tx::Tx,
-        witness::{block_witness::BlockWitness, transition_witness::TransitionWitness},
+        witness::{
+            block_witness::{BlockInfo, BlockWitness},
+            transition_witness::TransitionWitness,
+        },
     },
     constants::{NUM_SENDERS_IN_BLOCK, TX_TREE_HEIGHT},
     ethereum_types::{
@@ -26,7 +29,7 @@ use crate::{
     },
 };
 
-use super::db::{BlockInfo, MockDB};
+use super::db::MockDB;
 
 pub struct MockBlockBuilder;
 

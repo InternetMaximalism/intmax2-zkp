@@ -53,7 +53,7 @@ pub struct BalanceTransitionValue<
     const D: usize,
 > {
     pub circuit_type: BalanceTransitionType,
-    pub circuit_flags: [bool; 5],
+    pub circuit_flags: [bool; 8],
     pub receive_transfer_proof: Option<ProofWithPublicInputs<F, C, D>>,
     pub receive_deposit_proof: Option<ProofWithPublicInputs<F, C, D>>,
     pub update_proof: Option<ProofWithPublicInputs<F, C, D>>,
@@ -83,7 +83,7 @@ where
         prev_balance_pis: BalancePublicInputs,
         balance_circuit_vd: VerifierOnlyCircuitData<C, D>,
     ) -> Self {
-        let mut circuit_flags = [false; 5];
+        let mut circuit_flags = [false; 8];
         circuit_flags[circuit_type as usize] = true;
 
         let new_balance_pis = match circuit_type {
@@ -200,7 +200,7 @@ where
 #[derive(Debug, Clone)]
 pub struct BalanceTransitionTarget<const D: usize> {
     pub circuit_type: Target,
-    pub circuit_flags: [BoolTarget; 5],
+    pub circuit_flags: [BoolTarget; 8],
     pub receive_transfer_proof: ProofWithPublicInputsTarget<D>,
     pub receive_deposit_proof: ProofWithPublicInputsTarget<D>,
     pub update_proof: ProofWithPublicInputsTarget<D>,
@@ -313,7 +313,7 @@ impl<const D: usize> BalanceTransitionTarget<D> {
 
         Self {
             circuit_type,
-            circuit_flags: circuit_flags[0..5].to_vec().try_into().unwrap(),
+            circuit_flags,
             receive_transfer_proof,
             receive_deposit_proof,
             update_proof,

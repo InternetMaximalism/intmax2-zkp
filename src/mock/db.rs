@@ -2,17 +2,11 @@ use crate::{
     common::{
         block::Block,
         trees::{account_tree::AccountTree, block_hash_tree::BlockHashTree, tx_tree::TxTree},
-        witness::block_witness::BlockWitness,
+        witness::block_witness::{BlockInfo, BlockWitness},
     },
     constants::{ACCOUNT_TREE_HEIGHT, BLOCK_HASH_TREE_HEIGHT, TX_TREE_HEIGHT},
     ethereum_types::bytes32::Bytes32,
 };
-
-#[derive(Clone, Debug)]
-pub struct BlockInfo {
-    pub block_witness: BlockWitness,
-    pub tx_tree: TxTree,
-}
 
 pub struct MockDB {
     pub account_tree: AccountTree,

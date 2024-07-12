@@ -15,12 +15,15 @@ use crate::{
             account_tree::{AccountMembershipProof, AccountMerkleProof, AccountTree},
             block_hash_tree::BlockHashTree,
             sender_tree::get_sender_tree_root,
+            tx_tree::TxTree,
         },
     },
     constants::{ACCOUNT_TREE_HEIGHT, BLOCK_HASH_TREE_HEIGHT},
     ethereum_types::{account_id_packed::AccountIdPacked, u256::U256},
     utils::poseidon_hash_out::PoseidonHashOut,
 };
+
+use super::tx_witness::TxWitness;
 
 /// A structure that holds all the information needed to verify a block
 #[derive(Debug, Clone)]
@@ -143,5 +146,31 @@ impl BlockWitness {
             is_registoration_block,
             is_valid: result,
         }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct BlockInfo {
+    pub block_witness: BlockWitness,
+    pub tx_tree: TxTree,
+}
+
+impl BlockInfo {
+    pub fn generate_tx_witnesses(&self) -> Vec<TxWitness> {
+        return self
+            .tx_tree
+            .leaves()
+            .into_iter()
+            .enumerate()
+            .map(|(tx_index, tx)| {
+                let tx_merkle_proof = self.tx_tree.prove(tx_index);
+                TxWitness {
+                    block_witness: self.block_witness.clone(),
+                    tx: tx.clone(),
+                    tx_index,
+                    tx_merkle_proof,
+                }
+            })
+            .collect();
     }
 }
