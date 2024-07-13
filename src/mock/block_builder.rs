@@ -15,8 +15,11 @@ use crate::{
             SignatureContent,
         },
         trees::{
-            account_tree::AccountTree, block_hash_tree::BlockHashTree, deposit_tree::DepositTree,
-            sender_tree::get_sender_leaves, tx_tree::TxTree,
+            account_tree::{AccountRegistorationProof, AccountTree},
+            block_hash_tree::BlockHashTree,
+            deposit_tree::DepositTree,
+            sender_tree::get_sender_leaves,
+            tx_tree::TxTree,
         },
         witness::{
             block_witness::BlockWitness, validity_transition_witness::ValidityTransitionWitness,
@@ -28,7 +31,7 @@ use crate::{
         TX_TREE_HEIGHT,
     },
     ethereum_types::{
-        account_id_packed::AccountIdPacked, bytes32::Bytes32, u128::U128,
+        account_id_packed::AccountIdPacked, bytes32::Bytes32, u128::U128, u256::U256,
         u32limb_trait::U32LimbTrait,
     },
 };
@@ -210,9 +213,14 @@ impl MockBlockBuilder {
                     } else {
                         0
                     };
-                    let proof = prev_account_tree
-                        .prove_and_insert(sender_leaf.sender, last_block_number as u64)
-                        .unwrap();
+                    let is_dummy_pubkey = sender_leaf.sender == U256::<u32>::one();
+                    let proof = if is_dummy_pubkey {
+                        AccountRegistorationProof::dummy(ACCOUNT_TREE_HEIGHT)
+                    } else {
+                        prev_account_tree
+                            .prove_and_insert(sender_leaf.sender, last_block_number as u64)
+                            .unwrap()
+                    };
                     account_registoration_proofs.push(proof);
                 }
                 Some(account_registoration_proofs)
@@ -304,9 +312,12 @@ impl MockBlockBuilder {
                 } else {
                     0
                 };
-                self.account_tree
-                    .insert(pubkey, last_block_number as u64)
-                    .expect("insert failed");
+                let is_dummy_pubkey = pubkey == U256::<u32>::one();
+                if !is_dummy_pubkey {
+                    self.account_tree
+                        .insert(pubkey, last_block_number as u64)
+                        .expect("insert failed");
+                }
             }
         } else {
             for (&pubkey, &b) in block_witness.pubkeys.iter().zip(sender_flag_bits.iter()) {

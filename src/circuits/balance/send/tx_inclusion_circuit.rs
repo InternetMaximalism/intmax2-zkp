@@ -358,16 +358,8 @@ mod tests {
     };
 
     use crate::{
-        circuits::validity::{
-            validity_pis::{ValidityPublicInputs, VALIDITY_PUBLIC_INPUTS_LEN},
-            validity_processor::ValidityProcessor,
-        },
-        ethereum_types::u256::U256,
-        mock::block_builder::MockBlockBuilder,
-        test_utils::{
-            tx::generate_random_tx_requests, validity_proof::generate_random_validity_proofs,
-        },
-        utils::conversion::ToU64,
+        circuits::validity::validity_processor::ValidityProcessor,
+        mock::block_builder::MockBlockBuilder, test_utils::tx::generate_random_tx_requests,
     };
 
     type F = GoldilocksField;
@@ -390,7 +382,7 @@ mod tests {
         let prev_block_witness2 = block_builder.get_last_block_witness();
         let validity_witness2 =
             block_builder.post_block(true, generate_random_tx_requests(&mut rng));
-        let validity_proof2 = validity_processor
+        let _validity_proof2 = validity_processor
             .prove(
                 &prev_block_witness2,
                 &Some(validity_proof1),

@@ -68,7 +68,7 @@ impl LocalManager {
     /// Send a transaction.
     /// Side effect: a block that contains the transaction is posted.
     pub fn send_tx(
-        &self,
+        &mut self,
         block_builder: &mut MockBlockBuilder,
         transfers: &[Transfer],
     ) -> Vec<TransferWitness> {
@@ -112,6 +112,10 @@ impl LocalManager {
                 }
             })
             .collect::<Vec<_>>();
+
+        // state update
+        self.nonce += 1;
+
         transfer_witnesses
     }
 }
@@ -136,5 +140,6 @@ mod tests {
             salt: Salt::rand(&mut rng),
         };
         let _transfer_witnesses = local_manager.send_tx(&mut block_builder, &[transfer]);
+        // let _transfer_witnesses = local_manager.send_tx(&mut block_builder, &[transfer]);
     }
 }
