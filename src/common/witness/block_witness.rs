@@ -14,11 +14,11 @@ use crate::{
         trees::{
             account_tree::{AccountMembershipProof, AccountMerkleProof, AccountTree},
             block_hash_tree::BlockHashTree,
-            sender_tree::get_sender_tree_root,
+            sender_tree::{get_sender_leaves, get_sender_tree_root, SenderTree},
             tx_tree::TxTree,
         },
     },
-    constants::BLOCK_HASH_TREE_HEIGHT,
+    constants::{BLOCK_HASH_TREE_HEIGHT, SENDER_TREE_HEIGHT},
     ethereum_types::{account_id_packed::AccountIdPacked, u256::U256},
     utils::poseidon_hash_out::PoseidonHashOut,
 };
@@ -146,6 +146,19 @@ impl BlockWitness {
             is_registoration_block,
             is_valid: result,
         }
+    }
+
+    pub fn get_sender_tree(&self) -> SenderTree {
+        let sender_leaves = get_sender_leaves(&self.pubkeys, self.signature.sender_flag);
+        let mut sender_tree = SenderTree::new(SENDER_TREE_HEIGHT);
+        for sender_leaf in sender_leaves {
+            sender_tree.push(sender_leaf);
+        }
+        assert_eq!(
+            sender_tree.get_root(),
+            get_sender_tree_root(&self.pubkeys, self.signature.sender_flag)
+        );
+        sender_tree
     }
 }
 
