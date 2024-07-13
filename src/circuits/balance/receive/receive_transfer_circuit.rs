@@ -235,7 +235,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
             )
             .expect("Invalid asset merkle proof");
         let new_asset_leaf = AssetLeaf {
-            is_sufficient: prev_asset_leaf.is_sufficient,
+            is_insufficient: prev_asset_leaf.is_insufficient,
             amount: prev_asset_leaf.amount + transfer.amount,
         };
         let new_asset_tree_root =
@@ -355,7 +355,7 @@ impl<const D: usize> ReceiveTransferTarget<D> {
             prev_private_state.asset_tree_root,
         );
         let new_asset_leaf = AssetLeafTarget {
-            is_sufficient: prev_asset_leaf.is_sufficient,
+            is_insufficient: prev_asset_leaf.is_insufficient,
             amount: prev_asset_leaf.amount.add(builder, &transfer.amount),
         };
         let new_asset_tree_root =

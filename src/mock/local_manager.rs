@@ -80,7 +80,7 @@ impl LocalManager {
         self.asset_tree.update(
             token_index as usize,
             AssetLeaf {
-                is_sufficient: true,
+                is_insufficient: false,
                 amount,
             },
         );

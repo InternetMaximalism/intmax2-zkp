@@ -25,15 +25,19 @@ use crate::{
     },
 };
 use plonky2::{
-    field::{extension::Extendable, types::Field}, gates::constant::ConstantGate, hash::hash_types::RichField, iop::{
+    field::{extension::Extendable, types::Field},
+    gates::constant::ConstantGate,
+    hash::hash_types::RichField,
+    iop::{
         target::Target,
         witness::{PartialWitness, WitnessWrite},
-    }, plonk::{
+    },
+    plonk::{
         circuit_builder::CircuitBuilder,
         circuit_data::{CircuitConfig, CircuitData},
         config::{AlgebraicHasher, GenericConfig},
         proof::ProofWithPublicInputs,
-    }
+    },
 };
 
 pub const RECEIVE_DEPOSIT_PUBLIC_INPUTS_LEN: usize =
@@ -159,7 +163,7 @@ impl ReceiveDepositValue {
             )
             .expect("Invalid asset merkle proof");
         let new_asset_leaf = AssetLeaf {
-            is_sufficient: prev_asset_leaf.is_sufficient,
+            is_insufficient: prev_asset_leaf.is_insufficient,
             amount: prev_asset_leaf.amount + deposit.amount,
         };
         let new_asset_tree_root =
@@ -252,7 +256,7 @@ impl ReceiveDepositTarget {
             prev_private_state.asset_tree_root,
         );
         let new_asset_leaf = AssetLeafTarget {
-            is_sufficient: prev_asset_leaf.is_sufficient,
+            is_insufficient: prev_asset_leaf.is_insufficient,
             amount: prev_asset_leaf.amount.add(builder, &deposit.amount),
         };
         let new_asset_tree_root =

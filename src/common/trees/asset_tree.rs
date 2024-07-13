@@ -31,40 +31,31 @@ pub type AssetTree = SparseMerkleTree<AssetLeaf>;
 pub type AssetMerkleProof = SparseMerkleProof<AssetLeaf>;
 pub type AssetMerkleProofTarget = SparseMerkleProofTarget<AssetLeafTarget>;
 
-#[derive(Clone, Debug, Copy, PartialEq)]
+#[derive(Clone, Debug, Default, Copy, PartialEq)]
 pub struct AssetLeaf {
-    pub is_sufficient: bool,
+    pub is_insufficient: bool,
     pub amount: U256<u32>,
-}
-
-impl Default for AssetLeaf {
-    fn default() -> Self {
-        Self {
-            is_sufficient: true,
-            amount: Default::default(),
-        }
-    }
 }
 
 #[derive(Clone, Debug)]
 pub struct AssetLeafTarget {
-    pub is_sufficient: BoolTarget,
+    pub is_insufficient: BoolTarget,
     pub amount: U256<Target>,
 }
 
 impl AssetLeaf {
     pub fn sub(&self, amount: U256<u32>) -> Self {
-        let is_sufficient = (amount <= self.amount) && self.is_sufficient;
-        let substract_amount = if is_sufficient { amount } else { self.amount };
+        let is_insufficient = (self.amount < amount) || self.is_insufficient;
+        let substract_amount = if is_insufficient { self.amount } else { amount };
         let amount = self.amount - substract_amount;
         Self {
-            is_sufficient,
+            is_insufficient,
             amount,
         }
     }
 
     pub fn to_u32_vec(&self) -> Vec<u32> {
-        let vec = vec![self.is_sufficient as u32]
+        let vec = vec![self.is_insufficient as u32]
             .into_iter()
             .chain(self.amount.limbs().into_iter())
             .collect::<Vec<_>>();
@@ -73,7 +64,7 @@ impl AssetLeaf {
 
     pub fn rand<R: Rng>(rng: &mut R) -> Self {
         Self {
-            is_sufficient: true,
+            is_insufficient: false,
             amount: U256::rand(rng),
         }
     }
@@ -84,12 +75,12 @@ impl AssetLeafTarget {
         builder: &mut CircuitBuilder<F, D>,
         is_checked: bool,
     ) -> Self {
-        let is_sufficient = builder.add_virtual_bool_target_unsafe();
+        let is_insufficient = builder.add_virtual_bool_target_unsafe();
         if is_checked {
-            builder.assert_bool(is_sufficient);
+            builder.assert_bool(is_insufficient);
         }
         Self {
-            is_sufficient,
+            is_insufficient,
             amount: U256::new(builder, is_checked),
         }
     }
@@ -99,11 +90,12 @@ impl AssetLeafTarget {
         builder: &mut CircuitBuilder<F, D>,
         amount: U256<Target>,
     ) -> Self {
-        let amount_cmp = amount.is_le(builder, &self.amount);
-        let is_sufficient = builder.and(self.is_sufficient, amount_cmp);
-        let substract_amount = U256::<Target>::select(builder, is_sufficient, amount, self.amount);
+        let amount_cmp = self.amount.is_lt(builder, &amount);
+        let is_insufficient = builder.or(amount_cmp, self.is_insufficient);
+        let substract_amount =
+            U256::<Target>::select(builder, is_insufficient, self.amount, amount);
         Self {
-            is_sufficient,
+            is_insufficient,
             amount: self.amount.sub(builder, &substract_amount),
         }
     }
@@ -113,18 +105,18 @@ impl AssetLeafTarget {
         value: AssetLeaf,
     ) -> Self {
         Self {
-            is_sufficient: builder.constant_bool(value.is_sufficient),
+            is_insufficient: builder.constant_bool(value.is_insufficient),
             amount: U256::constant(builder, value.amount),
         }
     }
 
     pub fn set_witness<F: Field, W: WitnessWrite<F>>(&self, witness: &mut W, value: AssetLeaf) {
-        witness.set_bool_target(self.is_sufficient, value.is_sufficient);
+        witness.set_bool_target(self.is_insufficient, value.is_insufficient);
         self.amount.set_witness(witness, value.amount);
     }
 
     pub fn to_vec(&self) -> Vec<Target> {
-        let vec = vec![self.is_sufficient.target]
+        let vec = vec![self.is_insufficient.target]
             .into_iter()
             .chain(self.amount.limbs().into_iter())
             .collect::<Vec<_>>();
