@@ -1,4 +1,5 @@
 pub mod block;
+pub mod enough_balance_flags;
 pub mod generic_address;
 pub mod hash;
 pub mod private_state;
