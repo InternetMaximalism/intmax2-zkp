@@ -1,6 +1,9 @@
 use crate::{
     constants::ACCOUNT_TREE_HEIGHT,
-    ethereum_types::{u256::U256, u32limb_trait::U32LimbTargetTrait},
+    ethereum_types::{
+        u256::U256,
+        u32limb_trait::{U32LimbTargetTrait, U32LimbTrait},
+    },
     utils::{
         poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget},
         trees::indexed_merkle_tree::{
@@ -37,6 +40,12 @@ pub type AccountUpdateProof = UpdateProof;
 pub type AccountUpdateProofTarget = UpdateProofTarget;
 
 impl AccountTree {
+    pub fn initialize() -> Self {
+        let mut tree = IndexedMerkleTree::new(ACCOUNT_TREE_HEIGHT);
+        tree.insert(U256::<u32>::one(), 0).unwrap(); // add default account
+        tree
+    }
+
     pub fn prove_inclusion(&self, account_id: usize) -> AccountMerkleProof {
         let leaf = self.get_leaf(account_id);
         let merkle_proof = self.prove(account_id);

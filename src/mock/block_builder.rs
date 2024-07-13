@@ -61,13 +61,14 @@ impl MockBlockBuilder {
     // instantiate a new MockBlockBuilder
     // post the genesis block
     pub fn new() -> Self {
-        let prev_account_tree = AccountTree::new(ACCOUNT_TREE_HEIGHT);
+        let account_tree = AccountTree::initialize();
+        let prev_account_tree = account_tree.clone();
+
         let prev_block_tree = BlockHashTree::new(BLOCK_HASH_TREE_HEIGHT);
         let deposit_tree = DepositTree::new(DEPOSIT_TREE_HEIGHT);
         let block_witness = BlockWitness::genesis();
         let mut block_tree = prev_block_tree.clone();
         block_tree.push(block_witness.block.hash()); // register genesis block
-        let account_tree = prev_account_tree.clone(); // no account registered
         MockBlockBuilder {
             account_tree,
             block_tree,
@@ -108,8 +109,9 @@ impl MockBlockBuilder {
             if is_registoration_block {
                 let mut account_membership_proofs = Vec::new();
                 for pubkey in pubkeys.iter() {
+                    let is_dummy = *pubkey == U256::<u32>::one();
                     assert!(
-                        self.account_tree.index(*pubkey).is_none(),
+                        self.account_tree.index(*pubkey).is_none() || is_dummy,
                         "account already exists"
                     );
                     let proof = self.account_tree.prove_membership(*pubkey);

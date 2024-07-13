@@ -122,9 +122,20 @@ impl LocalManager {
 
 #[cfg(test)]
 mod tests {
-    use crate::common::generic_address::GenericAddress;
+    use plonky2::{
+        field::goldilocks_field::GoldilocksField, plonk::config::PoseidonGoldilocksConfig,
+    };
+
+    use crate::{
+        circuits::validity::validity_processor::ValidityProcessor,
+        common::generic_address::GenericAddress,
+    };
 
     use super::*;
+
+    type F = GoldilocksField;
+    const D: usize = 2;
+    type C = PoseidonGoldilocksConfig;
 
     #[test]
     fn local_manager() {
@@ -141,5 +152,48 @@ mod tests {
         };
         let _transfer_witnesses = local_manager.send_tx(&mut block_builder, &[transfer]);
         // let _transfer_witnesses = local_manager.send_tx(&mut block_builder, &[transfer]);
+    }
+
+    #[test]
+    fn test_prove_local_manager() {
+        let mut rng = rand::thread_rng();
+        let mut local_manager = LocalManager::new_rand(&mut rng);
+        let mut block_builder = MockBlockBuilder::new();
+
+        local_manager.forced_fund(0, U256::<u32>::rand(&mut rng));
+        let transfer = Transfer {
+            recipient: GenericAddress::from_pubkey(KeySet::rand(&mut rng).pubkey_x),
+            token_index: 0,
+            amount: U256::<u32>::rand_small(&mut rng),
+            salt: Salt::rand(&mut rng),
+        };
+
+        let mut witness_pairs = vec![];
+        for block_number in 1..3 {
+            let prev_blockw_witness = block_builder.get_last_block_witness();
+            let transfer_witnesses = local_manager.send_tx(&mut block_builder, &[transfer]);
+            assert_eq!(
+                transfer_witnesses[0]
+                    .tx_witness
+                    .block_witness
+                    .block
+                    .block_number,
+                block_number
+            );
+            let validity_witness = block_builder
+                .aux_info
+                .validity_witnesses
+                .get(&block_number)
+                .unwrap();
+            // dbg!(&validity_witness.block_witness.to_validity_pis());
+            witness_pairs.push((prev_blockw_witness, validity_witness.clone()));
+        }
+        let validity_processor = ValidityProcessor::<F, C, D>::new();
+        let mut prev_proof = None;
+        for (prev_block_witness, validity_witness) in witness_pairs {
+            prev_proof = validity_processor
+                .prove(&prev_block_witness, &prev_proof, &validity_witness)
+                .map_or(None, Some);
+        }
     }
 }

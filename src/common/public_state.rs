@@ -9,7 +9,7 @@ use plonky2::{
 };
 
 use crate::{
-    constants::{ACCOUNT_TREE_HEIGHT, BLOCK_HASH_TREE_HEIGHT, DEPOSIT_TREE_HEIGHT},
+    constants::{BLOCK_HASH_TREE_HEIGHT, DEPOSIT_TREE_HEIGHT},
     ethereum_types::{
         bytes32::{Bytes32, BYTES32_LEN},
         u32limb_trait::{U32LimbTargetTrait as _, U32LimbTrait},
@@ -37,7 +37,7 @@ pub struct PublicState {
 impl PublicState {
     pub fn genesis() -> Self {
         let block_hash_tree = BlockHashTree::new(BLOCK_HASH_TREE_HEIGHT);
-        let account_tree = AccountTree::new(ACCOUNT_TREE_HEIGHT);
+        let account_tree = AccountTree::initialize();
         let deposit_tree_root = DepositTree::new(DEPOSIT_TREE_HEIGHT);
         let block_hash = Block::genesis().hash();
         let block_number = 0;

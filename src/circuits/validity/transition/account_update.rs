@@ -203,9 +203,6 @@ where
         };
         builder.register_public_inputs(&pis.to_vec());
 
-        // // Add a ContantGate to create a dummy proof.
-        // builder.add_gate(ConstantGate::new(config.num_constants), vec![]);
-
         let data = builder.build();
         let dummy_proof = DummyProof::new(&data.common);
         Self {
@@ -254,7 +251,7 @@ mod tests {
     #[test]
     fn account_update() {
         let mut rng = rand::thread_rng();
-        let mut tree = AccountTree::new(ACCOUNT_TREE_HEIGHT);
+        let mut tree = AccountTree::initialize();
         let pubkeys = (0..NUM_SENDERS_IN_BLOCK)
             .map(|_| U256::<u32>::rand(&mut rng))
             .collect::<Vec<_>>();

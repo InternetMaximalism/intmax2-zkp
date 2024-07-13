@@ -18,7 +18,7 @@ use crate::{
             tx_tree::TxTree,
         },
     },
-    constants::{ACCOUNT_TREE_HEIGHT, BLOCK_HASH_TREE_HEIGHT},
+    constants::BLOCK_HASH_TREE_HEIGHT,
     ethereum_types::{account_id_packed::AccountIdPacked, u256::U256},
     utils::poseidon_hash_out::PoseidonHashOut,
 };
@@ -41,7 +41,7 @@ pub struct BlockWitness {
 impl BlockWitness {
     pub fn genesis() -> Self {
         let block_hash_tree = BlockHashTree::new(BLOCK_HASH_TREE_HEIGHT);
-        let account_tree = AccountTree::new(ACCOUNT_TREE_HEIGHT);
+        let account_tree = AccountTree::initialize();
         Self {
             block: Block::genesis(),
             signature: SignatureContent::default(),

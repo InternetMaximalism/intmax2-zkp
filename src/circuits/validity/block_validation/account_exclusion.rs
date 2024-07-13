@@ -16,7 +16,10 @@ use plonky2::{
 use crate::{
     common::trees::account_tree::{AccountMembershipProof, AccountMembershipProofTarget},
     constants::{ACCOUNT_TREE_HEIGHT, NUM_SENDERS_IN_BLOCK},
-    ethereum_types::{u256::U256, u32limb_trait::U32LimbTargetTrait as _},
+    ethereum_types::{
+        u256::U256,
+        u32limb_trait::{U32LimbTargetTrait as _, U32LimbTrait},
+    },
     utils::{
         dummy::DummyProof,
         poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget},
@@ -100,7 +103,9 @@ impl AccountExclusionValue {
         let mut result = true;
         for (pubkey, proof) in pubkeys.iter().zip(account_membership_proofs.iter()) {
             proof.verify(*pubkey, account_tree_root).unwrap();
-            result = result && !proof.is_included;
+            let is_dummy = pubkey == &U256::<u32>::one();
+            let is_excluded = !proof.is_included || is_dummy; // ignore dummy pubkey
+            result = result && is_excluded;
         }
         let pubkey_commitment = get_pubkey_commitment(&pubkeys);
         Self {
@@ -141,7 +146,9 @@ impl AccountExclusionTarget {
 
         for (pubkey, proof) in pubkeys.iter().zip(account_membership_proofs.iter()) {
             proof.verify::<F, C, D>(builder, *pubkey, account_tree_root);
-            let is_excluded = builder.not(proof.is_included);
+            let is_dummy = pubkey.is_one::<F, D, U256<u32>>(builder);
+            let is_not_included = builder.not(proof.is_included);
+            let is_excluded = builder.or(is_not_included, is_dummy);
             result = builder.and(result, is_excluded);
         }
         let pubkey_commitment = get_pubkey_commitment_circuit(builder, &pubkeys);
@@ -253,13 +260,14 @@ mod tests {
     #[test]
     fn account_exclusion() {
         let mut rng = rand::thread_rng();
-        let mut tree = AccountTree::new(ACCOUNT_TREE_HEIGHT);
+        let mut tree = AccountTree::initialize();
         add_random_accounts(&mut rng, &mut tree, 1000);
         let account_tree_root = tree.get_root();
 
-        let pubkeys = (0..NUM_SENDERS_IN_BLOCK)
+        let mut pubkeys = (0..10)
             .map(|_| U256::<u32>::rand(&mut rng))
             .collect::<Vec<_>>();
+        pubkeys.resize(NUM_SENDERS_IN_BLOCK, U256::<u32>::one());
         let mut account_membership_proofs = Vec::new();
         for pubkey in pubkeys.iter() {
             let proof = tree.prove_membership(*pubkey);

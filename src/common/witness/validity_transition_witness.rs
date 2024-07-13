@@ -5,7 +5,7 @@ use crate::{
         block_hash_tree::BlockHashMerkleProof,
         sender_tree::SenderLeaf,
     },
-    ethereum_types::bytes32::Bytes32,
+    ethereum_types::{bytes32::Bytes32, u256::U256, u32limb_trait::U32LimbTrait},
     utils::poseidon_hash_out::PoseidonHashOut,
 };
 
@@ -55,8 +55,10 @@ impl ValidityTransitionWitness {
                 } else {
                     0
                 };
+                let is_not_dummy = sender_leaf.sender != U256::<u32>::one();
                 account_tree_root = account_registoration_proof
-                    .get_new_root(
+                    .conditional_get_new_root(
+                        is_not_dummy,
                         sender_leaf.sender,
                         last_block_number as u64,
                         account_tree_root,

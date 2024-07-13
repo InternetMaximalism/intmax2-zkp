@@ -262,7 +262,7 @@ mod tests {
     #[test]
     fn account_registoration() {
         let mut rng = rand::thread_rng();
-        let mut tree = AccountTree::new(ACCOUNT_TREE_HEIGHT);
+        let mut tree = AccountTree::initialize();
         add_random_accounts(&mut rng, &mut tree, 1000);
         let prev_account_tree_root = tree.get_root();
 

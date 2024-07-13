@@ -291,7 +291,7 @@ mod tests {
 
     use crate::{
         common::{signature::key_set::KeySet, trees::account_tree::AccountTree},
-        constants::{ACCOUNT_TREE_HEIGHT, NUM_SENDERS_IN_BLOCK},
+        constants::NUM_SENDERS_IN_BLOCK,
         ethereum_types::account_id_packed::AccountIdPacked,
     };
 
@@ -303,7 +303,7 @@ mod tests {
     #[test]
     fn account_inclusion() {
         let mut rng = rand::thread_rng();
-        let mut tree = AccountTree::new(ACCOUNT_TREE_HEIGHT);
+        let mut tree = AccountTree::initialize();
 
         let mut pubkeys = Vec::new();
         // insert
