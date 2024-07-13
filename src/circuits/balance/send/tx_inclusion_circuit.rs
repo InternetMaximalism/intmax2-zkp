@@ -358,9 +358,7 @@ mod tests {
     };
 
     use crate::{
-        circuits::validity::{
-            validity_pis::ValidityPublicInputs, validity_processor::ValidityProcessor,
-        },
+        circuits::validity::validity_processor::ValidityProcessor,
         common::{
             generic_address::GenericAddress, salt::Salt, signature::key_set::KeySet,
             transfer::Transfer,
@@ -379,7 +377,7 @@ mod tests {
     fn tx_inclusion_circuit() {
         let mut rng = rand::thread_rng();
         let mut block_builder = MockBlockBuilder::new();
-        let mut local_manager = LocalManager::new_rand(&mut rng);
+        let local_manager = LocalManager::new_rand(&mut rng);
 
         let transfer = Transfer {
             recipient: GenericAddress::from_pubkey(KeySet::rand(&mut rng).pubkey_x),
@@ -388,55 +386,30 @@ mod tests {
             salt: Salt::rand(&mut rng),
         };
 
-        let mut tx_witness = None;
-        for block_number in 1..3 {
-            let send_transfer = if block_number == 2 {
-                transfer
-            } else {
-                Transfer::rand(&mut rng)
-            };
-            let transfer_witnesses = local_manager.send_tx(&mut block_builder, &[send_transfer]);
-            if block_number == 2 {
-                tx_witness = Some(transfer_witnesses[0].tx_witness.clone());
-            }
-            assert_eq!(
-                transfer_witnesses[0]
-                    .tx_witness
-                    .block_witness
-                    .block
-                    .block_number,
-                block_number
-            );
-        }
+        // send tx
+        let tx_witness = local_manager.send_tx(&mut block_builder, &[transfer]).0;
 
         let validity_processor = ValidityProcessor::<F, C, D>::new();
-        let mut prev_proof = None;
-        let mut validity_proofs = vec![];
-        for block_number in 1..3 {
-            let aux_info = block_builder
-                .aux_info
-                .get(&block_number)
-                .expect("aux info not found");
-            prev_proof = validity_processor
-                .prove(
-                    &aux_info.prev_block_witness,
-                    &prev_proof,
-                    &aux_info.validity_witness,
-                )
-                .map_or(None, Some);
-            validity_proofs.push(prev_proof.clone().unwrap());
-        }
+        let block_number = 1;
+        let aux_info = block_builder
+            .aux_info
+            .get(&block_number)
+            .expect("aux info not found");
+        let validity_proof = validity_processor
+            .prove(
+                &aux_info.prev_block_witness,
+                &None,
+                &aux_info.validity_witness,
+            )
+            .unwrap();
 
         let validity_processor = ValidityProcessor::<F, C, D>::new();
-        let validity_proof = &validity_proofs[1];
-        let prev_public_state =
-            ValidityPublicInputs::from_pis(&validity_proofs[0].public_inputs).public_state;
+        let prev_public_state = local_manager.get_balance_pis().public_state;
 
         let block_merkle_proof =
-            block_builder.get_block_merkle_proof(2, prev_public_state.block_number);
+            block_builder.get_block_merkle_proof(block_number, prev_public_state.block_number);
 
         let pubkey = local_manager.key_set.pubkey_x;
-        let tx_witness = tx_witness.unwrap();
         let tx_index = tx_witness.tx_index;
         let sender_tree = tx_witness.block_witness.get_sender_tree();
         let sender_leaf = sender_tree.get_leaf(tx_index);

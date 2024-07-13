@@ -1,8 +1,10 @@
 use rand::Rng;
 
 use crate::{
+    circuits::balance::balance_pis::BalancePublicInputs,
     common::{
         private_state::PrivateState,
+        public_state::PublicState,
         salt::Salt,
         signature::key_set::KeySet,
         transfer::Transfer,
@@ -12,11 +14,14 @@ use crate::{
             transfer_tree::TransferTree,
         },
         tx::Tx,
-        witness::{transfer_witness::TransferWitness, tx_witness::TxWitness},
+        witness::{
+            send_witness::SendWitness, transfer_witness::TransferWitness, tx_witness::TxWitness,
+        },
     },
     constants::{ASSET_TREE_HEIGHT, NUM_TRANSFERS_IN_TX, TRANSFER_TREE_HEIGHT},
     ethereum_types::u256::U256,
     mock::tx_request::TxRequest,
+    utils::{leafable::Leafable, poseidon_hash_out::PoseidonHashOut},
 };
 
 use super::block_builder::MockBlockBuilder;
@@ -28,7 +33,8 @@ pub struct LocalManager {
     pub nullifier_tree: NullifierTree,
     pub nonce: u32,
     pub salt: Salt,
-    pub sent_tx: Vec<TxWitness>,
+    pub public_state: PublicState,
+    pub sent_tx: Vec<SendWitness>,
 }
 
 impl LocalManager {
@@ -40,16 +46,31 @@ impl LocalManager {
             nullifier_tree: NullifierTree::new(),
             nonce: 0,
             salt: Salt::rand(rng),
+            public_state: PublicState::genesis(),
             sent_tx: Vec::new(),
         }
     }
 
-    pub fn private_state(&self) -> PrivateState {
+    pub fn get_private_state(&self) -> PrivateState {
         PrivateState {
             asset_tree_root: self.asset_tree.get_root(),
             nullifier_tree_root: self.nullifier_tree.get_root(),
             nonce: self.nonce,
             salt: self.salt,
+        }
+    }
+
+    pub fn get_balance_pis(&self) -> BalancePublicInputs {
+        BalancePublicInputs {
+            pubkey: self.key_set.pubkey_x,
+            private_commitment: self.get_private_state().commitment(),
+            last_tx_hash: self
+                .sent_tx
+                .last()
+                .map_or(PoseidonHashOut::default(), |send_witness| {
+                    send_witness.tx_witness.tx.hash()
+                }),
+            public_state: self.public_state.clone(),
         }
     }
 
@@ -68,10 +89,10 @@ impl LocalManager {
     /// Send a transaction.
     /// Side effect: a block that contains the transaction is posted.
     pub fn send_tx(
-        &mut self,
+        &self,
         block_builder: &mut MockBlockBuilder,
         transfers: &[Transfer],
-    ) -> Vec<TransferWitness> {
+    ) -> (TxWitness, Vec<TransferWitness>) {
         assert!(transfers.len() < NUM_TRANSFERS_IN_TX);
         let mut transfer_tree = TransferTree::new(TRANSFER_TREE_HEIGHT);
         for transfer in transfers {
@@ -112,11 +133,51 @@ impl LocalManager {
                 }
             })
             .collect::<Vec<_>>();
+        (tx_witness, transfer_witnesses)
+    }
 
-        // state update
+    fn update(
+        &mut self,
+        tx_witness: &TxWitness,
+        transfer_witness: &[TransferWitness],
+    ) -> SendWitness {
+        let prev_private_state = self.get_private_state();
+        assert_eq!(tx_witness.tx.nonce, self.nonce);
         self.nonce += 1;
 
-        transfer_witnesses
+        let mut asset_merkle_proofs = vec![];
+        let mut prev_balances = vec![];
+        for transfer_witness in transfer_witness.iter() {
+            let prev_balance = self.asset_tree.get_leaf(transfer_witness.transfer_index);
+            let transfer = &transfer_witness.transfer;
+            let proof = self.asset_tree.prove(transfer_witness.transfer_index);
+            let new_balance = prev_balance.sub(transfer.amount);
+            self.asset_tree
+                .update(transfer.token_index as usize, new_balance);
+            prev_balances.push(prev_balance);
+            asset_merkle_proofs.push(proof);
+        }
+        let send_witness = SendWitness {
+            prev_private_state,
+            prev_balances,
+            asset_merkle_proofs,
+            transfers: transfer_witness
+                .iter()
+                .map(|w| w.transfer.clone())
+                .collect(),
+            tx_witness: tx_witness.clone(),
+        };
+        self.sent_tx.push(send_witness.clone());
+        send_witness
+    }
+
+    pub fn send_tx_and_update(
+        &mut self,
+        block_builder: &mut MockBlockBuilder,
+        transfers: &[Transfer],
+    ) -> SendWitness {
+        let (tx_witness, transfer_witnesses) = self.send_tx(block_builder, transfers);
+        self.update(&tx_witness, &transfer_witnesses)
     }
 }
 
@@ -150,8 +211,10 @@ mod tests {
             amount: U256::<u32>::rand_small(&mut rng),
             salt: Salt::rand(&mut rng),
         };
-        let _transfer_witnesses = local_manager.send_tx(&mut block_builder, &[transfer]);
-        // let _transfer_witnesses = local_manager.send_tx(&mut block_builder, &[transfer]);
+        // post register block
+        let _transfer_witnesses1 = local_manager.send_tx(&mut block_builder, &[transfer]);
+        // post account id block
+        let _transfer_witnesses2 = local_manager.send_tx(&mut block_builder, &[transfer]);
     }
 
     #[test]
@@ -169,15 +232,8 @@ mod tests {
         };
 
         for block_number in 1..3 {
-            let transfer_witnesses = local_manager.send_tx(&mut block_builder, &[transfer]);
-            assert_eq!(
-                transfer_witnesses[0]
-                    .tx_witness
-                    .block_witness
-                    .block
-                    .block_number,
-                block_number
-            );
+            let tx_witness = local_manager.send_tx(&mut block_builder, &[transfer]).0;
+            assert_eq!(tx_witness.block_witness.block.block_number, block_number);
         }
 
         let validity_processor = ValidityProcessor::<F, C, D>::new();

@@ -53,11 +53,14 @@ pub struct AssetLeafTarget {
 }
 
 impl AssetLeaf {
-    pub fn sub(&mut self, amount: U256<u32>) {
+    pub fn sub(&self, amount: U256<u32>) -> Self {
         let is_sufficient = (amount <= self.amount) && self.is_sufficient;
         let substract_amount = if is_sufficient { amount } else { self.amount };
-        self.is_sufficient = is_sufficient;
-        self.amount -= substract_amount;
+        let amount = self.amount - substract_amount;
+        Self {
+            is_sufficient,
+            amount,
+        }
     }
 
     pub fn to_u32_vec(&self) -> Vec<u32> {
@@ -92,15 +95,17 @@ impl AssetLeafTarget {
     }
 
     pub fn sub<F: RichField + Extendable<D>, const D: usize>(
-        &mut self,
+        &self,
         builder: &mut CircuitBuilder<F, D>,
         amount: U256<Target>,
-    ) {
+    ) -> Self {
         let amount_cmp = amount.is_le(builder, &self.amount);
         let is_sufficient = builder.and(self.is_sufficient, amount_cmp);
         let substract_amount = U256::<Target>::select(builder, is_sufficient, amount, self.amount);
-        self.is_sufficient = is_sufficient;
-        self.amount = self.amount.sub(builder, &substract_amount);
+        Self {
+            is_sufficient,
+            amount: self.amount.sub(builder, &substract_amount),
+        }
     }
 
     pub fn constant<F: RichField + Extendable<D>, const D: usize>(

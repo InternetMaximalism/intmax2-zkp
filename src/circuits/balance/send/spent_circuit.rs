@@ -139,12 +139,11 @@ impl SpentValue {
             .zip(asset_merkle_proofs.iter())
             .zip(prev_balances.iter())
         {
-            let mut balance = *prev_balance;
             proof
                 .verify(prev_balance, transfer.token_index as usize, asset_tree_root)
                 .expect("asset merkle proof verification failed");
-            balance.sub(transfer.amount);
-            asset_tree_root = proof.get_root(&balance, transfer.token_index as usize);
+            let new_balance = prev_balance.sub(transfer.amount);
+            asset_tree_root = proof.get_root(&new_balance, transfer.token_index as usize);
         }
         let is_valid = tx_nonce == prev_private_state.nonce;
         let new_private_state = PrivateState {
@@ -196,10 +195,10 @@ impl SpentTarget {
             .zip(asset_merkle_proofs.iter())
             .zip(prev_balances.iter())
         {
-            let mut balance = prev_balance.clone();
             proof.verify::<F, C, D>(builder, prev_balance, transfer.token_index, asset_tree_root);
-            balance.sub(builder, transfer.amount);
-            asset_tree_root = proof.get_root::<F, C, D>(builder, &balance, transfer.token_index);
+            let new_balance = prev_balance.sub(builder, transfer.amount);
+            asset_tree_root =
+                proof.get_root::<F, C, D>(builder, &new_balance, transfer.token_index);
         }
         let is_valid = builder.is_equal(prev_private_state.nonce, tx_nonce);
         let one = builder.one();
@@ -353,10 +352,9 @@ mod tests {
             .collect::<Vec<_>>();
         let mut asset_merkle_proofs = Vec::with_capacity(NUM_TRANSFERS_IN_TX);
         for (transfer, prev_balance) in transfers.iter().zip(prev_balances.iter()) {
-            let mut balance = *prev_balance;
             let proof = asset_tree.prove(transfer.token_index as usize);
-            balance.sub(transfer.amount);
-            asset_tree.update(transfer.token_index as usize, balance);
+            let new_balance = prev_balance.sub(transfer.amount);
+            asset_tree.update(transfer.token_index as usize, new_balance);
             asset_merkle_proofs.push(proof);
         }
         let value = SpentValue::new(
