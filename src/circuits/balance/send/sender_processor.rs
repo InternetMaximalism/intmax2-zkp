@@ -8,7 +8,7 @@ use plonky2::{
 };
 
 use crate::{
-    circuits::validity::validity_circuit::ValidityCircuit,
+    circuits::validity::{validity_circuit::ValidityCircuit, validity_pis::ValidityPublicInputs},
     common::witness::{
         send_witness::SendWitness, update_public_state_witness::UpdatePublicStateWitness,
     },
@@ -53,6 +53,15 @@ where
         send_witness: &SendWitness,
         update_public_state_witness: &UpdatePublicStateWitness<F, C, D>,
     ) -> ProofWithPublicInputs<F, C, D> {
+        // assert validity proof pis for debug
+        let validity_pis = ValidityPublicInputs::from_pis(
+            &update_public_state_witness.validity_proof.public_inputs,
+        );
+        assert_eq!(
+            validity_pis,
+            send_witness.tx_witness.block_witness.to_validity_pis(),
+            "validity proof pis mismatch"
+        );
         let spent_value = SpentValue::new(
             &send_witness.prev_private_state,
             &send_witness.prev_balances,
@@ -64,7 +73,6 @@ where
         let sender_tree = tx_witness.block_witness.get_sender_tree();
         let sender_leaf = sender_tree.get_leaf(tx_witness.tx_index);
         let sender_merkle_proof = sender_tree.prove(tx_witness.tx_index);
-
         let tx_inclusion_value = TxInclusionValue::new(
             validity_circuit,
             send_witness.prev_balance_pis.pubkey,
@@ -77,7 +85,6 @@ where
             &sender_leaf,
             &sender_merkle_proof,
         );
-
         let spent_proof = self.spent_circuit.prove(&spent_value).unwrap();
         let tx_inclusion_proof = self
             .tx_inclusion_circuit

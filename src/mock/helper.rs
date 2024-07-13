@@ -17,4 +17,8 @@ impl MockBlockBuilder {
             .block_tree;
         block_tree.prove(target_block_number as usize)
     }
+
+    pub fn last_block_number(&self) -> u32 {
+        self.block_witnesses.len() as u32 - 1
+    }
 }

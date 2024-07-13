@@ -358,13 +358,15 @@ mod tests {
     };
 
     use crate::{
-        circuits::validity::validity_processor::ValidityProcessor,
         common::{
             generic_address::GenericAddress, salt::Salt, signature::key_set::KeySet,
             transfer::Transfer,
         },
         ethereum_types::u256::U256,
-        mock::{block_builder::MockBlockBuilder, local_manager::LocalManager},
+        mock::{
+            block_builder::MockBlockBuilder, local_manager::LocalManager,
+            sync_validity_prover::SyncValidityProver,
+        },
     };
 
     use super::TxInclusionValue;
@@ -378,6 +380,7 @@ mod tests {
         let mut rng = rand::thread_rng();
         let mut block_builder = MockBlockBuilder::new();
         let local_manager = LocalManager::new_rand(&mut rng);
+        let mut sync_prover = SyncValidityProver::<F, C, D>::new();
 
         let transfer = Transfer {
             recipient: GenericAddress::from_pubkey(KeySet::rand(&mut rng).pubkey_x),
@@ -388,26 +391,13 @@ mod tests {
 
         // send tx
         let tx_witness = local_manager.send_tx(&mut block_builder, &[transfer]).0;
+        // update validity proofs
+        sync_prover.sync(&block_builder);
 
-        let validity_processor = ValidityProcessor::<F, C, D>::new();
-        let block_number = 1;
-        let aux_info = block_builder
-            .aux_info
-            .get(&block_number)
-            .expect("aux info not found");
-        let validity_proof = validity_processor
-            .prove(
-                &aux_info.prev_block_witness,
-                &None,
-                &aux_info.validity_witness,
-            )
-            .unwrap();
-
-        let validity_processor = ValidityProcessor::<F, C, D>::new();
         let prev_public_state = local_manager.get_balance_pis().public_state;
-
-        let block_merkle_proof =
-            block_builder.get_block_merkle_proof(block_number, prev_public_state.block_number);
+        let block_number = block_builder.last_block_number();
+        let update_public_state_witness =
+            sync_prover.get_update_public_state_witness(&block_builder, block_number, 0);
 
         let pubkey = local_manager.key_set.pubkey_x;
         let tx_index = tx_witness.tx_index;
@@ -415,19 +405,20 @@ mod tests {
         let sender_leaf = sender_tree.get_leaf(tx_index);
         let sender_merkle_proof = sender_tree.prove(tx_index);
         let value = TxInclusionValue::new(
-            &validity_processor.validity_circuit,
+            &sync_prover.validity_processor.validity_circuit,
             pubkey,
             &prev_public_state,
-            &validity_proof,
-            &block_merkle_proof,
+            &update_public_state_witness.validity_proof,
+            &update_public_state_witness.block_merkle_proof,
             tx_witness.tx_index,
             &tx_witness.tx,
             &tx_witness.tx_merkle_proof,
             &sender_leaf,
             &sender_merkle_proof,
         );
-        let tx_inclusion_circuit =
-            super::TxInclusionCircuit::<F, C, D>::new(&validity_processor.validity_circuit);
+        let tx_inclusion_circuit = super::TxInclusionCircuit::<F, C, D>::new(
+            &sync_prover.validity_processor.validity_circuit,
+        );
         let _ = tx_inclusion_circuit.prove(&value).unwrap();
     }
 }
