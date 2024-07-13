@@ -8,16 +8,21 @@ use plonky2::{
     },
 };
 
-use crate::circuits::{
-    balance::{
-        balance_pis::BalancePublicInputs,
-        receive::{
-            receive_deposit_circuit::ReceiveDepositCircuit,
-            receive_transfer_circuit::ReceiveTransferCircuit, update_circuit::UpdateCircuit,
+use crate::{
+    circuits::{
+        balance::{
+            balance_pis::BalancePublicInputs,
+            receive::{
+                receive_deposit_circuit::ReceiveDepositCircuit,
+                receive_transfer_circuit::ReceiveTransferCircuit, update_circuit::UpdateCircuit,
+            },
+            send::sender_processor::SenderProcessor,
         },
-        send::sender_processor::SenderProcessor,
+        validity::validity_circuit::ValidityCircuit,
     },
-    validity::validity_circuit::ValidityCircuit,
+    common::witness::{
+        send_witness::SendWitness, update_public_state_witness::UpdatePublicStateWitness,
+    },
 };
 
 use super::transition_circuit::{
@@ -62,8 +67,6 @@ where
         }
     }
 
-    pub fn prove(&self) {}
-
     pub fn prove_dummy(
         &self,
         balance_circuit_vd: &VerifierOnlyCircuitData<C, D>,
@@ -94,6 +97,44 @@ where
             )
             .unwrap()
     }
+
+    pub fn prove_send(
+        &self,
+        validity_circuit: &ValidityCircuit<F, C, D>,
+        balance_circuit_vd: &VerifierOnlyCircuitData<C, D>,
+        send_witness: &SendWitness,
+        update_public_state_witness: &UpdatePublicStateWitness<F, C, D>,
+    ) -> ProofWithPublicInputs<F, C, D> {
+        let sender_proof = self.sender_processor.prove(
+            validity_circuit,
+            send_witness,
+            update_public_state_witness,
+        );
+
+        let balance_transition_value = BalanceTransitionValue::new(
+            &CircuitConfig::default(),
+            BalanceTransitionType::Sender,
+            &self.receive_transfer_circuit,
+            &self.receive_deposit_circuit,
+            &self.update_circuit,
+            &self.sender_processor.sender_circuit,
+            None,
+            None,
+            None,
+            Some(sender_proof),
+            send_witness.prev_balance_pis.clone(),
+            balance_circuit_vd.clone(),
+        );
+        self.balance_transition_circuit
+            .prove(
+                &self.receive_transfer_circuit,
+                &self.receive_deposit_circuit,
+                &self.update_circuit,
+                &self.sender_processor.sender_circuit,
+                &balance_transition_value,
+            )
+            .unwrap()
+    }
 }
 
 #[cfg(test)]
@@ -107,7 +148,15 @@ mod tests {
             balance::{balance_pis::BalancePublicInputs, balance_processor::BalanceProcessor},
             validity::validity_processor::ValidityProcessor,
         },
+        common::{
+            generic_address::GenericAddress, salt::Salt, signature::key_set::KeySet,
+            transfer::Transfer,
+        },
         ethereum_types::u256::U256,
+        mock::{
+            block_builder::MockBlockBuilder, local_manager::LocalManager,
+            sync_validity_prover::SyncValidityProver,
+        },
     };
 
     type F = GoldilocksField;
@@ -126,5 +175,42 @@ mod tests {
         let _ = balance_processor
             .balance_transition_processor
             .prove_dummy(&balance_circuit_vd, &balance_pis);
+    }
+
+    #[test]
+    fn balance_transition_processor_prove_send() {
+        let mut rng = rand::thread_rng();
+        let mut block_builder = MockBlockBuilder::new();
+        let mut local_manager = LocalManager::new_rand(&mut rng);
+        let mut sync_prover = SyncValidityProver::<F, C, D>::new();
+
+        let transfer = Transfer {
+            recipient: GenericAddress::from_pubkey(KeySet::rand(&mut rng).pubkey_x),
+            token_index: 0,
+            amount: U256::<u32>::rand_small(&mut rng),
+            salt: Salt::rand(&mut rng),
+        };
+
+        // send tx
+        let send_witness = local_manager.send_tx_and_update(&mut block_builder, &[transfer]);
+        sync_prover.sync(&block_builder);
+
+        let block_number = send_witness.get_included_block_number();
+        let prev_block_number = send_witness.get_prev_block_number();
+        let update_public_state_witness = sync_prover.get_update_public_state_witness(
+            &block_builder,
+            block_number,
+            prev_block_number,
+        );
+        let balance_processor =
+            BalanceProcessor::new(&sync_prover.validity_processor.validity_circuit);
+        let balance_circuit_vd = balance_processor.get_verifier_only_data();
+
+        let _ = balance_processor.balance_transition_processor.prove_send(
+            &sync_prover.validity_processor.validity_circuit,
+            &balance_circuit_vd,
+            &send_witness,
+            &update_public_state_witness,
+        );
     }
 }
