@@ -20,7 +20,7 @@ use crate::ethereum_types::{
 use core::fmt::Debug;
 
 pub trait LeafableHasher: Debug + Clone {
-    type HashOut: Clone + Copy + Debug + PartialEq;
+    type HashOut: Clone + Copy + Debug + Default + PartialEq;
     type HashOutTarget: Clone + Debug;
 
     fn two_to_one(left: Self::HashOut, right: Self::HashOut) -> Self::HashOut;
@@ -42,6 +42,13 @@ pub trait LeafableHasher: Debug + Clone {
 
     fn connect_hash<F: RichField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
+        x: &Self::HashOutTarget,
+        y: &Self::HashOutTarget,
+    );
+
+    fn conditional_assert_eq_hash<F: RichField + Extendable<D>, const D: usize>(
+        builder: &mut CircuitBuilder<F, D>,
+        condition: BoolTarget,
         x: &Self::HashOutTarget,
         y: &Self::HashOutTarget,
     );
@@ -119,6 +126,15 @@ impl LeafableHasher for PoseidonLeafableHasher {
         x.connect(builder, *y)
     }
 
+    fn conditional_assert_eq_hash<F: RichField + Extendable<D>, const D: usize>(
+        builder: &mut CircuitBuilder<F, D>,
+        condition: BoolTarget,
+        x: &Self::HashOutTarget,
+        y: &Self::HashOutTarget,
+    ) {
+        x.conditional_assert_eq(builder, *y, condition)
+    }
+
     fn two_to_one_target<
         F: RichField + Extendable<D>,
         C: GenericConfig<D, F = F> + 'static,
@@ -169,6 +185,15 @@ impl LeafableHasher for KeccakLeafableHasher {
         y: &Self::HashOutTarget,
     ) {
         x.connect(builder, *y)
+    }
+
+    fn conditional_assert_eq_hash<F: RichField + Extendable<D>, const D: usize>(
+        builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
+        condition: BoolTarget,
+        x: &Self::HashOutTarget,
+        y: &Self::HashOutTarget,
+    ) {
+        x.conditional_assert_eq(builder, *y, condition)
     }
 
     fn two_to_one_target<

@@ -4,9 +4,7 @@ use plonky2::{
     iop::target::BoolTarget,
     plonk::{
         circuit_builder::CircuitBuilder,
-        circuit_data::{
-            CircuitData, CommonCircuitData, VerifierCircuitTarget, VerifierOnlyCircuitData,
-        },
+        circuit_data::{CommonCircuitData, VerifierCircuitTarget, VerifierOnlyCircuitData},
         config::{AlgebraicHasher, GenericConfig},
         proof::{ProofWithPublicInputs, ProofWithPublicInputsTarget},
     },

@@ -123,6 +123,12 @@ pub(crate) struct MerkleProof<V: Leafable> {
 }
 
 impl<V: Leafable> MerkleProof<V> {
+    pub fn dummy(height: usize) -> Self {
+        Self {
+            siblings: vec![<V::LeafableHasher as LeafableHasher>::HashOut::default(); height],
+        }
+    }
+
     pub fn height(&self) -> usize {
         self.siblings.len()
     }
@@ -244,6 +250,29 @@ impl<VT: LeafableTarget> MerkleProofTarget<VT> {
         let state = self.get_root::<F, C, D>(builder, leaf_data, index_bits);
         <<VT::Leaf as Leafable>::LeafableHasher as LeafableHasher>::connect_hash(
             builder,
+            &state,
+            &merkle_root,
+        );
+    }
+
+    pub(crate) fn conditional_verify<
+        F: RichField + Extendable<D>,
+        C: GenericConfig<D, F = F> + 'static,
+        const D: usize,
+    >(
+        &self,
+        builder: &mut CircuitBuilder<F, D>,
+        condition: BoolTarget,
+        leaf_data: &VT,
+        index_bits: Vec<BoolTarget>,
+        merkle_root: <<VT::Leaf as Leafable>::LeafableHasher as LeafableHasher>::HashOutTarget,
+    ) where
+        <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
+    {
+        let state = self.get_root::<F, C, D>(builder, leaf_data, index_bits);
+        <<VT::Leaf as Leafable>::LeafableHasher as LeafableHasher>::conditional_assert_eq_hash(
+            builder,
+            condition,
             &state,
             &merkle_root,
         );

@@ -370,8 +370,6 @@ mod tests {
         utils::conversion::ToU64,
     };
 
-    use super::TxInclusionValue;
-
     type F = GoldilocksField;
     type C = PoseidonGoldilocksConfig;
     const D: usize = 2;

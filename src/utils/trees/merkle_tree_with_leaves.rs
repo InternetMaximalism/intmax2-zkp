@@ -1,7 +1,10 @@
 use plonky2::{
     field::{extension::Extendable, types::Field},
     hash::hash_types::RichField,
-    iop::{target::Target, witness::WitnessWrite},
+    iop::{
+        target::{BoolTarget, Target},
+        witness::WitnessWrite,
+    },
     plonk::{
         circuit_builder::CircuitBuilder,
         config::{AlgebraicHasher, GenericConfig},
@@ -96,6 +99,10 @@ impl<V: Leafable> MerkleTreeWithLeaves<V> {
 pub struct MerkleProofWithLeaves<V: Leafable>(pub(crate) MerkleProof<V>);
 
 impl<V: Leafable> MerkleProofWithLeaves<V> {
+    pub fn dummy(height: usize) -> Self {
+        Self(MerkleProof::dummy(height))
+    }
+
     pub fn get_root(
         &self,
         leaf_data: &V,
@@ -180,6 +187,26 @@ impl<VT: LeafableTarget> MerkleProofWithLeavesTarget<VT> {
         let index_bits = builder.split_le(index, height);
         self.0
             .verify::<F, C, D>(builder, leaf_data, index_bits, merkle_root)
+    }
+
+    pub fn conditional_verify<
+        F: RichField + Extendable<D>,
+        C: GenericConfig<D, F = F> + 'static,
+        const D: usize,
+    >(
+        &self,
+        builder: &mut CircuitBuilder<F, D>,
+        condition: BoolTarget,
+        leaf_data: &VT,
+        index: Target,
+        merkle_root: <<VT::Leaf as Leafable>::LeafableHasher as LeafableHasher>::HashOutTarget,
+    ) where
+        <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
+    {
+        let height = self.0.height();
+        let index_bits = builder.split_le(index, height);
+        self.0
+            .conditional_verify::<F, C, D>(builder, condition, leaf_data, index_bits, merkle_root)
     }
 }
 

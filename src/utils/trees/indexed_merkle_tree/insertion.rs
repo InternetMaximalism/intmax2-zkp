@@ -2,7 +2,10 @@ use anyhow::{ensure, Result};
 use plonky2::{
     field::{extension::Extendable, types::Field},
     hash::hash_types::RichField,
-    iop::{target::Target, witness::WitnessWrite},
+    iop::{
+        target::{BoolTarget, Target},
+        witness::WitnessWrite,
+    },
     plonk::{
         circuit_builder::CircuitBuilder,
         config::{AlgebraicHasher, GenericConfig},
@@ -92,9 +95,32 @@ impl IndexedMerkleTree {
             prev_low_leaf,
         })
     }
+
+    pub fn prove_dummy(&self) -> IndexedInsertionProof {
+        let dummy_low_index = 0;
+        let prev_low_leaf = self.0.get_leaf(dummy_low_index);
+        let dummy_proof = self.0.prove(dummy_low_index);
+        IndexedInsertionProof {
+            index: 0,
+            low_leaf_proof: dummy_proof.clone(),
+            leaf_proof: dummy_proof,
+            low_leaf_index: dummy_low_index,
+            prev_low_leaf,
+        }
+    }
 }
 
 impl IndexedInsertionProof {
+    pub fn dummy(height: usize) -> Self {
+        Self {
+            index: 0,
+            low_leaf_proof: IndexedMerkleProof::dummy(height),
+            leaf_proof: IndexedMerkleProof::dummy(height),
+            low_leaf_index: 0,
+            prev_low_leaf: IndexedMerkleLeaf::default(),
+        }
+    }
+
     pub fn get_new_root(
         &self,
         key: U256<u32>,
@@ -128,6 +154,20 @@ impl IndexedInsertionProof {
             value,
         };
         Ok(self.leaf_proof.get_root(&leaf, self.index))
+    }
+
+    pub fn conditional_get_new_root(
+        &self,
+        condition: bool,
+        key: U256<u32>,
+        value: u64,
+        prev_root: PoseidonHashOut,
+    ) -> Result<PoseidonHashOut> {
+        if condition {
+            self.get_new_root(key, value, prev_root)
+        } else {
+            Ok(prev_root)
+        }
     }
 
     pub fn verify(
@@ -263,6 +303,74 @@ impl IndexedInsertionProofTarget {
         self.leaf_proof
             .get_root::<F, C, D>(builder, &leaf, self.index)
     }
+
+    pub fn conditional_get_new_root<
+        F: RichField + Extendable<D>,
+        C: GenericConfig<D, F = F> + 'static,
+        const D: usize,
+    >(
+        &self,
+        builder: &mut CircuitBuilder<F, D>,
+        condition: BoolTarget,
+        key: U256<Target>,
+        value: Target,
+        prev_root: PoseidonHashOutTarget,
+    ) -> PoseidonHashOutTarget
+    where
+        <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
+    {
+        let one = builder.one();
+        // assert self.prev_low_leaf.key < key
+        let is_key_lower_bounded = self.prev_low_leaf.key.is_lt(builder, &key);
+        builder.conditional_assert_eq(condition.target, is_key_lower_bounded.target, one);
+        // assert key < self.prev_low_leaf.next_key
+        // || self.prev_low_leaf.next_key == U256::default()
+        let is_key_upper_bounded = key.is_lt(builder, &self.prev_low_leaf.next_key);
+        let is_next_key_zero = self
+            .prev_low_leaf
+            .next_key
+            .is_zero::<F, D, U256<u32>>(builder);
+        let is_key_upper_bounded_or_next_key_zero =
+            builder.or(is_key_upper_bounded, is_next_key_zero);
+        builder.conditional_assert_eq(
+            condition.target,
+            is_key_upper_bounded_or_next_key_zero.target,
+            one,
+        );
+        self.low_leaf_proof.conditional_verify::<F, C, D>(
+            builder,
+            condition,
+            &self.prev_low_leaf,
+            self.low_leaf_index,
+            prev_root,
+        );
+        let new_low_leaf = IndexedMerkleLeafTarget {
+            next_index: self.index,
+            next_key: key,
+            ..self.prev_low_leaf
+        };
+        let temp_root =
+            self.low_leaf_proof
+                .get_root::<F, C, D>(builder, &new_low_leaf, self.low_leaf_index);
+        let emtpy_leaf = <IndexedMerkleLeafTarget as LeafableTarget>::empty_leaf(builder);
+        self.leaf_proof.conditional_verify::<F, C, D>(
+            builder,
+            condition,
+            &emtpy_leaf,
+            self.index,
+            temp_root,
+        );
+        let leaf = IndexedMerkleLeafTarget {
+            next_index: self.prev_low_leaf.next_index,
+            key,
+            next_key: self.prev_low_leaf.next_key,
+            value,
+        };
+        let new_root = self
+            .leaf_proof
+            .get_root::<F, C, D>(builder, &leaf, self.index);
+        PoseidonHashOutTarget::select(builder, condition, new_root, prev_root)
+    }
 }
 
 #[cfg(test)]
@@ -278,11 +386,14 @@ mod tests {
     use rand::Rng;
 
     use crate::{
-        ethereum_types::{u256::U256, u32limb_trait::U32LimbTargetTrait},
+        ethereum_types::{
+            u256::U256,
+            u32limb_trait::{U32LimbTargetTrait, U32LimbTrait as _},
+        },
         utils::poseidon_hash_out::PoseidonHashOutTarget,
     };
 
-    use super::{IndexedInsertionProofTarget, IndexedMerkleTree};
+    use super::{IndexedInsertionProof, IndexedInsertionProofTarget, IndexedMerkleTree};
 
     type F = GoldilocksField;
     const D: usize = 2;
@@ -313,6 +424,36 @@ mod tests {
             let proof_t = IndexedInsertionProofTarget::constant(&mut builder, &proof);
             proof_t.verify::<F, C, D>(&mut builder, key_t, value_t, prev_root_t, new_root_t);
         }
+        let circuit = builder.build::<C>();
+        let _ = circuit.prove(PartialWitness::new()).unwrap();
+    }
+
+    #[test]
+    fn test_dummy_insertion() {
+        let height = 40;
+        let mut tree = IndexedMerkleTree::new(height);
+        tree.prove_and_insert(U256::<u32>::one(), 0).unwrap();
+
+        let prev_root = tree.get_root();
+        let dummy = IndexedInsertionProof::dummy(height);
+        dummy
+            .conditional_get_new_root(false, U256::<u32>::one(), 0, prev_root)
+            .unwrap();
+
+        let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::default());
+        let dummy_t = IndexedInsertionProofTarget::constant(&mut builder, &dummy);
+        let key_t = U256::<Target>::constant(&mut builder, U256::<u32>::one());
+        let value_t = builder.constant(F::from_canonical_u64(0));
+        let prev_root_t = PoseidonHashOutTarget::constant(&mut builder, prev_root);
+        let condition = builder._false();
+        dummy_t.conditional_get_new_root::<F, C, D>(
+            &mut builder,
+            condition,
+            key_t,
+            value_t,
+            prev_root_t,
+        );
+
         let circuit = builder.build::<C>();
         let _ = circuit.prove(PartialWitness::new()).unwrap();
     }
