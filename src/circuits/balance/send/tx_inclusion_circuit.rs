@@ -388,15 +388,17 @@ mod tests {
             salt: Salt::rand(&mut rng),
         };
 
-        let mut witness_pairs = vec![];
+        let mut tx_witness = None;
         for block_number in 1..3 {
-            let prev_block_witness = block_builder.get_last_block_witness();
             let send_transfer = if block_number == 2 {
                 transfer
             } else {
                 Transfer::rand(&mut rng)
             };
             let transfer_witnesses = local_manager.send_tx(&mut block_builder, &[send_transfer]);
+            if block_number == 2 {
+                tx_witness = Some(transfer_witnesses[0].tx_witness.clone());
+            }
             assert_eq!(
                 transfer_witnesses[0]
                     .tx_witness
@@ -405,43 +407,40 @@ mod tests {
                     .block_number,
                 block_number
             );
-            let validity_witness = block_builder
-                .aux_info
-                .validity_witnesses
-                .get(&block_number)
-                .unwrap();
-            witness_pairs.push((
-                prev_block_witness,
-                validity_witness.clone(),
-                transfer_witnesses,
-            ));
         }
 
         let validity_processor = ValidityProcessor::<F, C, D>::new();
         let mut prev_proof = None;
         let mut validity_proofs = vec![];
-        for (prev_block_witness, validity_witness, _) in &witness_pairs {
+        for block_number in 1..3 {
+            let aux_info = block_builder
+                .aux_info
+                .get(&block_number)
+                .expect("aux info not found");
             prev_proof = validity_processor
-                .prove(&prev_block_witness, &prev_proof, &validity_witness)
+                .prove(
+                    &aux_info.prev_block_witness,
+                    &prev_proof,
+                    &aux_info.validity_witness,
+                )
                 .map_or(None, Some);
             validity_proofs.push(prev_proof.clone().unwrap());
         }
 
         let validity_processor = ValidityProcessor::<F, C, D>::new();
+        let validity_proof = &validity_proofs[1];
         let prev_public_state =
             ValidityPublicInputs::from_pis(&validity_proofs[0].public_inputs).public_state;
-        let block_tree = block_builder.aux_info.block_trees.get(&2).clone().unwrap();
-        let block_merkle_proof = block_tree.prove(prev_public_state.block_number as usize);
+
+        let block_merkle_proof =
+            block_builder.get_block_merkle_proof(2, prev_public_state.block_number);
 
         let pubkey = local_manager.key_set.pubkey_x;
-        let validity_proof = &validity_proofs[1];
-        let tx_witness = &witness_pairs[1].2[0].tx_witness;
-        let sender_tree = witness_pairs[1].1.block_witness.get_sender_tree();
-
+        let tx_witness = tx_witness.unwrap();
         let tx_index = tx_witness.tx_index;
+        let sender_tree = tx_witness.block_witness.get_sender_tree();
         let sender_leaf = sender_tree.get_leaf(tx_index);
         let sender_merkle_proof = sender_tree.prove(tx_index);
-
         let value = TxInclusionValue::new(
             &validity_processor.validity_circuit,
             pubkey,
@@ -454,7 +453,6 @@ mod tests {
             &sender_leaf,
             &sender_merkle_proof,
         );
-
         let tx_inclusion_circuit =
             super::TxInclusionCircuit::<F, C, D>::new(&validity_processor.validity_circuit);
         let _ = tx_inclusion_circuit.prove(&value).unwrap();

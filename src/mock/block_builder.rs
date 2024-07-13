@@ -45,16 +45,16 @@ pub struct MockBlockBuilder {
     pub block_witnesses: Vec<BlockWitness>,
     pub prev_account_tree: AccountTree, // previous account tree
     pub prev_block_tree: BlockHashTree, // previous block hash tree
-    pub aux_info: AuxInfo,
+    pub aux_info: HashMap<u32, AuxInfo>,
 }
 
 /// Information not required for validity proof but required for balance proof construction
-#[derive(Default)]
 pub struct AuxInfo {
-    pub tx_trees: HashMap<u32, TxTree>,
-    pub validity_witnesses: HashMap<u32, ValidityWitness>,
-    pub account_trees: HashMap<u32, AccountTree>,
-    pub block_trees: HashMap<u32, BlockHashTree>,
+    pub tx_tree: TxTree,
+    pub prev_block_witness: BlockWitness,
+    pub validity_witness: ValidityWitness,
+    pub account_tree: AccountTree,
+    pub block_tree: BlockHashTree,
 }
 
 impl MockBlockBuilder {
@@ -76,7 +76,7 @@ impl MockBlockBuilder {
             block_witnesses: vec![block_witness],
             prev_account_tree,
             prev_block_tree,
-            aux_info: AuxInfo::default(),
+            aux_info: HashMap::new(),
         }
     }
 
@@ -290,16 +290,16 @@ impl MockBlockBuilder {
         validity_witness: ValidityWitness,
     ) {
         assert_eq!(self.block_witnesses.len(), block_number as usize);
-        self.aux_info.tx_trees.insert(block_number, tx_tree);
-        self.aux_info
-            .validity_witnesses
-            .insert(block_number, validity_witness);
-        self.aux_info
-            .account_trees
-            .insert(block_number, self.account_tree.clone());
-        self.aux_info
-            .block_trees
-            .insert(block_number, self.block_tree.clone());
+        self.aux_info.insert(
+            block_number,
+            AuxInfo {
+                tx_tree,
+                prev_block_witness: self.get_last_block_witness(),
+                validity_witness: validity_witness.clone(),
+                account_tree: self.account_tree.clone(),
+                block_tree: self.block_tree.clone(),
+            },
+        );
     }
 
     pub fn update(&mut self, block_witness: &BlockWitness) {

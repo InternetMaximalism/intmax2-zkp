@@ -90,7 +90,7 @@ impl LocalManager {
             }],
         );
         let block_number = validity_witness.block_witness.block.block_number;
-        let tx_tree = block_builder.aux_info.tx_trees.get(&block_number).unwrap();
+        let tx_tree = &block_builder.aux_info.get(&block_number).unwrap().tx_tree;
         let tx_index = tx_tree.get_tx_index(&tx).unwrap();
         let tx_merkle_proof = tx_tree.prove(tx_index);
         let tx_witness = TxWitness {
@@ -168,9 +168,7 @@ mod tests {
             salt: Salt::rand(&mut rng),
         };
 
-        let mut witness_pairs = vec![];
         for block_number in 1..3 {
-            let prev_blockw_witness = block_builder.get_last_block_witness();
             let transfer_witnesses = local_manager.send_tx(&mut block_builder, &[transfer]);
             assert_eq!(
                 transfer_witnesses[0]
@@ -180,19 +178,18 @@ mod tests {
                     .block_number,
                 block_number
             );
-            let validity_witness = block_builder
-                .aux_info
-                .validity_witnesses
-                .get(&block_number)
-                .unwrap();
-            // dbg!(&validity_witness.block_witness.to_validity_pis());
-            witness_pairs.push((prev_blockw_witness, validity_witness.clone()));
         }
+
         let validity_processor = ValidityProcessor::<F, C, D>::new();
         let mut prev_proof = None;
-        for (prev_block_witness, validity_witness) in witness_pairs {
+        for block_number in 1..3 {
+            let aux_info = block_builder.aux_info.get(&block_number).unwrap();
             prev_proof = validity_processor
-                .prove(&prev_block_witness, &prev_proof, &validity_witness)
+                .prove(
+                    &aux_info.prev_block_witness,
+                    &prev_proof,
+                    &aux_info.validity_witness,
+                )
                 .map_or(None, Some);
         }
     }
