@@ -142,6 +142,7 @@ impl LocalManager {
         transfer_witness: &[TransferWitness],
     ) -> SendWitness {
         let prev_private_state = self.get_private_state();
+        let prev_balance_pis = self.get_balance_pis();
         assert_eq!(tx_witness.tx.nonce, self.nonce);
         self.nonce += 1;
 
@@ -158,6 +159,7 @@ impl LocalManager {
             asset_merkle_proofs.push(proof);
         }
         let send_witness = SendWitness {
+            prev_balance_pis,
             prev_private_state,
             prev_balances,
             asset_merkle_proofs,

@@ -124,10 +124,10 @@ pub struct SpentTarget {
 
 impl SpentValue {
     pub fn new(
-        prev_private_state: PrivateState,
-        prev_balances: Vec<AssetLeaf>,
-        transfers: Vec<Transfer>,
-        asset_merkle_proofs: Vec<AssetMerkleProof>,
+        prev_private_state: &PrivateState,
+        prev_balances: &[AssetLeaf],
+        transfers: &[Transfer],
+        asset_merkle_proofs: &[AssetMerkleProof],
         tx_nonce: u32,
     ) -> Self {
         assert_eq!(prev_balances.len(), NUM_TRANSFERS_IN_TX);
@@ -149,7 +149,7 @@ impl SpentValue {
         let new_private_state = PrivateState {
             asset_tree_root,
             nonce: prev_private_state.nonce + 1,
-            ..prev_private_state
+            ..prev_private_state.clone()
         };
         let prev_private_commitment = prev_private_state.commitment();
         let new_private_commitment = new_private_state.commitment();
@@ -159,10 +159,10 @@ impl SpentValue {
             nonce: tx_nonce,
         };
         Self {
-            prev_private_state,
-            transfers,
-            prev_balances,
-            asset_merkle_proofs,
+            prev_private_state: prev_private_state.clone(),
+            transfers: transfers.to_vec(),
+            prev_balances: prev_balances.to_vec(),
+            asset_merkle_proofs: asset_merkle_proofs.to_vec(),
             prev_private_commitment,
             new_private_commitment,
             tx,
@@ -358,10 +358,10 @@ mod tests {
             asset_merkle_proofs.push(proof);
         }
         let value = SpentValue::new(
-            prev_private_state.clone(),
-            prev_balances,
-            transfers,
-            asset_merkle_proofs,
+            &prev_private_state,
+            &prev_balances,
+            &transfers,
+            &asset_merkle_proofs,
             prev_private_state.nonce,
         );
         assert!(value.is_valid);
