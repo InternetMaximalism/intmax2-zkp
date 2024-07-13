@@ -94,8 +94,11 @@ impl LocalManager {
         transfers: &[Transfer],
     ) -> (TxWitness, Vec<TransferWitness>) {
         assert!(transfers.len() < NUM_TRANSFERS_IN_TX);
+        let mut transfers = transfers.to_vec();
+        transfers.resize(NUM_TRANSFERS_IN_TX, Transfer::default());
+
         let mut transfer_tree = TransferTree::new(TRANSFER_TREE_HEIGHT);
-        for transfer in transfers {
+        for transfer in &transfers {
             transfer_tree.push(transfer.clone());
         }
         let tx = Tx {
@@ -143,15 +146,18 @@ impl LocalManager {
     ) -> SendWitness {
         let prev_private_state = self.get_private_state();
         let prev_balance_pis = self.get_balance_pis();
+
         assert_eq!(tx_witness.tx.nonce, self.nonce);
         self.nonce += 1;
-
+        let transfers = transfer_witness
+            .iter()
+            .map(|w| w.transfer.clone())
+            .collect::<Vec<_>>();
         let mut asset_merkle_proofs = vec![];
         let mut prev_balances = vec![];
-        for transfer_witness in transfer_witness.iter() {
-            let prev_balance = self.asset_tree.get_leaf(transfer_witness.transfer_index);
-            let transfer = &transfer_witness.transfer;
-            let proof = self.asset_tree.prove(transfer_witness.transfer_index);
+        for transfer in &transfers {
+            let prev_balance = self.asset_tree.get_leaf(transfer.token_index as usize);
+            let proof = self.asset_tree.prove(transfer.token_index as usize);
             let new_balance = prev_balance.sub(transfer.amount);
             self.asset_tree
                 .update(transfer.token_index as usize, new_balance);
@@ -163,10 +169,7 @@ impl LocalManager {
             prev_private_state,
             prev_balances,
             asset_merkle_proofs,
-            transfers: transfer_witness
-                .iter()
-                .map(|w| w.transfer.clone())
-                .collect(),
+            transfers,
             tx_witness: tx_witness.clone(),
         };
         self.sent_tx.push(send_witness.clone());
@@ -234,8 +237,8 @@ mod tests {
         };
 
         for block_number in 1..3 {
-            let tx_witness = local_manager.send_tx(&mut block_builder, &[transfer]).0;
-            assert_eq!(tx_witness.block_witness.block.block_number, block_number);
+            let send_witness = local_manager.send_tx_and_update(&mut block_builder, &[transfer]);
+            assert_eq!(send_witness.get_included_block_number(), block_number);
         }
 
         let validity_processor = ValidityProcessor::<F, C, D>::new();

@@ -351,7 +351,10 @@ mod tests {
             })
             .collect::<Vec<_>>();
         let mut asset_merkle_proofs = Vec::with_capacity(NUM_TRANSFERS_IN_TX);
-        for (transfer, prev_balance) in transfers.iter().zip(prev_balances.iter()) {
+        for (index, (transfer, prev_balance)) in
+            transfers.iter().zip(prev_balances.iter()).enumerate()
+        {
+            assert_eq!(*prev_balance, asset_tree.get_leaf(index));
             let proof = asset_tree.prove(transfer.token_index as usize);
             let new_balance = prev_balance.sub(transfer.amount);
             asset_tree.update(transfer.token_index as usize, new_balance);

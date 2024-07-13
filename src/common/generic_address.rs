@@ -15,6 +15,8 @@ use plonky2::{
 };
 use rand::Rng;
 
+use super::signature::key_set::KeySet;
+
 pub const GENERIC_ADDRESS_LEN: usize = 1 + U256_LEN;
 
 // A structure representing a pubkey or Ethereum address
@@ -68,9 +70,11 @@ impl GenericAddress {
     }
 
     pub fn rand<R: Rng>(rng: &mut R) -> Self {
-        Self {
-            is_pubkey: rng.gen(),
-            data: U256::<u32>::rand(rng),
+        let is_pubkey = rng.gen();
+        if is_pubkey {
+            Self::from_address(Address::rand(rng))
+        } else {
+            Self::from_pubkey(KeySet::rand(rng).pubkey_x)
         }
     }
 }

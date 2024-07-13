@@ -31,7 +31,7 @@ pub type AssetTree = SparseMerkleTree<AssetLeaf>;
 pub type AssetMerkleProof = SparseMerkleProof<AssetLeaf>;
 pub type AssetMerkleProofTarget = SparseMerkleProofTarget<AssetLeafTarget>;
 
-#[derive(Clone, Debug, Copy)]
+#[derive(Clone, Debug, Copy, PartialEq)]
 pub struct AssetLeaf {
     pub is_sufficient: bool,
     pub amount: U256<u32>,

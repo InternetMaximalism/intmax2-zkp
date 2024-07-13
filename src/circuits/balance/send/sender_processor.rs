@@ -143,7 +143,6 @@ mod tests {
 
         // send tx
         let send_witness = local_manager.send_tx_and_update(&mut block_builder, &[transfer]);
-        // create a validity proof
         sync_prover.sync(&block_builder);
 
         let block_number = send_witness.get_included_block_number();
