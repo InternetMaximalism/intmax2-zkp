@@ -107,7 +107,17 @@ mod tests {
         field::goldilocks_field::GoldilocksField, plonk::config::PoseidonGoldilocksConfig,
     };
 
-    use crate::circuits::validity::validity_processor::ValidityProcessor;
+    use crate::{
+        common::{
+            generic_address::GenericAddress, salt::Salt, signature::key_set::KeySet,
+            transfer::Transfer,
+        },
+        ethereum_types::u256::U256,
+        mock::{
+            block_builder::MockBlockBuilder, local_manager::LocalManager,
+            sync_validity_prover::SyncValidityProver,
+        },
+    };
 
     use super::SenderProcessor;
 
@@ -117,7 +127,41 @@ mod tests {
 
     #[test]
     fn sender_processor() {
-        let validity_processor = ValidityProcessor::<F, C, D>::new();
-        let _sender_processor = SenderProcessor::new(&validity_processor.validity_circuit);
+        let mut rng = rand::thread_rng();
+        let mut block_builder = MockBlockBuilder::new();
+        let mut local_manager = LocalManager::new_rand(&mut rng);
+        let mut sync_prover = SyncValidityProver::<F, C, D>::new();
+        let sender_processor =
+            SenderProcessor::new(&sync_prover.validity_processor.validity_circuit);
+
+        let transfer = Transfer {
+            recipient: GenericAddress::from_pubkey(KeySet::rand(&mut rng).pubkey_x),
+            token_index: 0,
+            amount: U256::<u32>::rand_small(&mut rng),
+            salt: Salt::rand(&mut rng),
+        };
+
+        // send tx
+        let send_witness = local_manager.send_tx_and_update(&mut block_builder, &[transfer]);
+        // create a validity proof
+        sync_prover.sync(&block_builder);
+
+        let block_number = send_witness.get_included_block_number();
+        let prev_block_number = send_witness.get_prev_block_number();
+        println!(
+            "block_number: {}, prev_block_number: {}",
+            block_number, prev_block_number
+        );
+        let update_public_state_witness = sync_prover.get_update_public_state_witness(
+            &block_builder,
+            block_number,
+            prev_block_number,
+        );
+
+        sender_processor.prove(
+            &sync_prover.validity_processor.validity_circuit,
+            &send_witness,
+            &update_public_state_witness,
+        );
     }
 }
