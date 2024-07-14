@@ -29,8 +29,9 @@ ff = { package = "ff", version = "0.13", features = ["derive"] }
 lazy_static = "1.5.0"
 
 [features]
-default = ["dummy_validity_proof"]
+default = ["dummy_validity_proof", "skip_insufficient_check"]
 dummy_validity_proof = []
+skip_insufficient_check = []
 
 # [patch."https://github.com/qope/plonky2.git"]
 # plonky2 = {path="../plonky2/plonky2"}

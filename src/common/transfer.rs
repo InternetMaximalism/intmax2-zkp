@@ -27,7 +27,7 @@ use crate::{
 
 pub const TRANSFER_LEN: usize = GENERIC_ADDRESS_LEN + 1 + U256_LEN + SALT_LEN;
 
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
 pub struct Transfer {
     pub recipient: GenericAddress,
     pub token_index: u32,

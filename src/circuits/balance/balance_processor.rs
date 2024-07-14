@@ -2,7 +2,7 @@ use plonky2::{
     field::extension::Extendable,
     hash::hash_types::RichField,
     plonk::{
-        circuit_data::VerifierOnlyCircuitData,
+        circuit_data::{VerifierCircuitData, VerifierOnlyCircuitData},
         config::{AlgebraicHasher, GenericConfig},
         proof::ProofWithPublicInputs,
     },
@@ -49,6 +49,10 @@ where
 
     pub fn get_verifier_only_data(&self) -> VerifierOnlyCircuitData<C, D> {
         self.balance_circuit.get_verifier_only_data()
+    }
+
+     pub fn get_verifier_data(&self) -> VerifierCircuitData<F, C, D> {
+        self.balance_circuit.get_verifier_data()
     }
 
     pub fn prove_send(

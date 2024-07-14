@@ -154,11 +154,12 @@ pub struct ReceiveTransferValue<
     pub balance_circuit_vd: VerifierOnlyCircuitData<C, D>,
     pub balance_proof: ProofWithPublicInputs<F, C, D>,
     pub public_state: PublicState,
+    pub block_merkle_proof: BlockHashMerkleProof,
     pub prev_private_state: PrivateState,
     pub new_private_state: PrivateState,
     pub prev_private_commitment: PoseidonHashOut,
     pub new_private_commitment: PoseidonHashOut,
-    pub block_merkle_proof: BlockHashMerkleProof,
+
     pub nullifier_proof: NullifierInsersionProof,
     pub prev_asset_leaf: AssetLeaf,
     pub asset_merkle_proof: AssetMerkleProof,

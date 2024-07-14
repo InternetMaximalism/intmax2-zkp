@@ -1,3 +1,4 @@
+use hashbrown::HashMap;
 use rand::Rng;
 
 use crate::{
@@ -36,6 +37,7 @@ pub struct LocalManager {
     pub salt: Salt,
     pub public_state: PublicState,
     pub send_witnesses: Vec<SendWitness>,
+    pub transfer_witnesses: HashMap<u32, Vec<TransferWitness>>,
 }
 
 impl LocalManager {
@@ -49,6 +51,7 @@ impl LocalManager {
             salt: Salt::default(),
             public_state: PublicState::genesis(),
             send_witnesses: Vec::new(),
+            transfer_witnesses: HashMap::new(),
         }
     }
 
@@ -78,6 +81,10 @@ impl LocalManager {
             .iter()
             .find(|w| w.get_included_block_number() == block_number)
             .cloned()
+    }
+
+    pub fn get_transfer_witnesses(&self, block_number: u32) -> Option<Vec<TransferWitness>> {
+        self.transfer_witnesses.get(&block_number).cloned()
     }
 
     pub fn get_pubkey(&self) -> U256<u32> {
@@ -211,6 +218,10 @@ impl LocalManager {
             new_salt,
         };
         self.send_witnesses.push(send_witness.clone());
+        self.transfer_witnesses.insert(
+            send_witness.get_included_block_number(),
+            transfer_witness.to_vec(),
+        );
         send_witness
     }
 

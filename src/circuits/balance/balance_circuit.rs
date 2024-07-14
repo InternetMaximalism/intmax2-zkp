@@ -10,8 +10,8 @@ use plonky2::{
     plonk::{
         circuit_builder::CircuitBuilder,
         circuit_data::{
-            CircuitConfig, CircuitData, CommonCircuitData, VerifierCircuitTarget,
-            VerifierOnlyCircuitData,
+            CircuitConfig, CircuitData, CommonCircuitData, VerifierCircuitData,
+            VerifierCircuitTarget, VerifierOnlyCircuitData,
         },
         config::{AlgebraicHasher, GenericConfig},
         proof::{ProofWithPublicInputs, ProofWithPublicInputsTarget},
@@ -178,6 +178,10 @@ where
 
     pub fn get_verifier_only_data(&self) -> VerifierOnlyCircuitData<C, D> {
         self.data.verifier_only.clone()
+    }
+
+    pub fn get_verifier_data(&self) -> VerifierCircuitData<F, C, D> {
+        self.data.verifier_data()
     }
 
     pub fn verify(&self, proof: &ProofWithPublicInputs<F, C, D>) -> Result<()> {

@@ -16,6 +16,12 @@ pub struct InsufficientFlags {
     limbs: [u32; INSUFFICIENT_FLAGS_LEN],
 }
 
+impl InsufficientFlags {
+    pub fn random_access(&self, index: usize) -> bool {
+        self.to_bits_le()[index]
+    }
+}
+
 #[derive(Clone, Copy, Debug)]
 pub struct InsufficientFlagsTarget {
     limbs: [Target; INSUFFICIENT_FLAGS_LEN],

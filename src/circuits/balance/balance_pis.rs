@@ -209,6 +209,10 @@ impl BalancePublicInputsTarget {
         }
     }
 
+    pub fn from_pis(pis: &[Target]) -> Self {
+        Self::from_vec(&pis[0..BALANCE_PUBLIC_INPUTS_LEN])
+    }
+
     pub fn commitment<F: RichField + Extendable<D>, const D: usize>(
         &self,
         builder: &mut CircuitBuilder<F, D>,
