@@ -78,4 +78,60 @@ where
             self.last_block_proof = Some(balance_proof);
         }
     }
+
+    // Sync balance proof public state to the latest block
+    // assuming that there is no un-synced send tx.
+    pub fn sync_no_send(
+        &mut self,
+        sync_validity_prover: &mut SyncValidityProver<F, C, D>,
+        balance_processor: &BalanceProcessor<F, C, D>,
+        block_builder: &MockBlockBuilder,
+        local_manager: &LocalManager,
+    ) {
+        sync_validity_prover.sync(&block_builder); // sync validity proofs
+        let all_block_numbers = local_manager.get_all_block_numbers();
+        let not_synced_block_numbers: Vec<u32> = all_block_numbers
+            .into_iter()
+            .filter(|block_number| self.last_block_number < *block_number)
+            .sorted()
+            .collect();
+        assert!(not_synced_block_numbers.is_empty(), "sync send tx first");
+        let current_block_number = block_builder.last_block_number();
+        let update_public_state_witness = sync_validity_prover.get_update_public_state_witness(
+            block_builder,
+            current_block_number,
+            self.last_block_number,
+        );
+        let balance_proof = balance_processor.prove_update(
+            sync_validity_prover.validity_circuit(),
+            local_manager.get_pubkey(),
+            &update_public_state_witness,
+            &self.last_block_proof,
+        );
+        self.balance_proofs
+            .insert(current_block_number, balance_proof.clone());
+        self.last_block_number = current_block_number;
+        self.last_block_proof = Some(balance_proof);
+    }
+
+    pub fn sync_all(
+        &mut self,
+        sync_validity_prover: &mut SyncValidityProver<F, C, D>,
+        balance_processor: &BalanceProcessor<F, C, D>,
+        block_builder: &MockBlockBuilder,
+        local_manager: &LocalManager,
+    ) {
+        self.sync_send(
+            sync_validity_prover,
+            balance_processor,
+            block_builder,
+            local_manager,
+        );
+        self.sync_no_send(
+            sync_validity_prover,
+            balance_processor,
+            block_builder,
+            local_manager,
+        );
+    }
 }

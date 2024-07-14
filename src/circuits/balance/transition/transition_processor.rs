@@ -14,7 +14,8 @@ use crate::{
             balance_pis::BalancePublicInputs,
             receive::{
                 receive_deposit_circuit::ReceiveDepositCircuit,
-                receive_transfer_circuit::ReceiveTransferCircuit, update_circuit::UpdateCircuit,
+                receive_transfer_circuit::ReceiveTransferCircuit,
+                update_circuit::{UpdateCircuit, UpdateValue},
             },
             send::sender_processor::SenderProcessor,
         },
@@ -123,6 +124,45 @@ where
             None,
             Some(sender_proof),
             send_witness.prev_balance_pis.clone(),
+            balance_circuit_vd.clone(),
+        );
+        self.balance_transition_circuit
+            .prove(
+                &self.receive_transfer_circuit,
+                &self.receive_deposit_circuit,
+                &self.update_circuit,
+                &self.sender_processor.sender_circuit,
+                &balance_transition_value,
+            )
+            .unwrap()
+    }
+
+    pub fn prove_update(
+        &self,
+        validity_circuit: &ValidityCircuit<F, C, D>,
+        balance_circuit_vd: &VerifierOnlyCircuitData<C, D>,
+        prev_balance_pis: &BalancePublicInputs,
+        update_public_state_witness: &UpdatePublicStateWitness<F, C, D>,
+    ) -> ProofWithPublicInputs<F, C, D> {
+        let update_value = UpdateValue::new(
+            validity_circuit,
+            &update_public_state_witness.validity_proof,
+            &prev_balance_pis.public_state,
+            &update_public_state_witness.block_merkle_proof,
+        );
+        let update_proof = self.update_circuit.prove(&update_value).unwrap();
+        let balance_transition_value = BalanceTransitionValue::new(
+            &CircuitConfig::default(),
+            BalanceTransitionType::Update,
+            &self.receive_transfer_circuit,
+            &self.receive_deposit_circuit,
+            &self.update_circuit,
+            &self.sender_processor.sender_circuit,
+            None,
+            None,
+            Some(update_proof),
+            None,
+            prev_balance_pis.clone(),
             balance_circuit_vd.clone(),
         );
         self.balance_transition_circuit

@@ -9,7 +9,9 @@ use plonky2::{
 };
 
 use crate::{
-    circuits::validity::validity_circuit::ValidityCircuit,
+    circuits::{
+        balance::balance_pis::BalancePublicInputs, validity::validity_circuit::ValidityCircuit,
+    },
     common::witness::{
         send_witness::SendWitness, update_public_state_witness::UpdatePublicStateWitness,
     },
@@ -69,6 +71,31 @@ where
             .unwrap();
         proof
     }
+
+    pub fn prove_update(
+        &self,
+        validity_circuit: &ValidityCircuit<F, C, D>,
+        pubkey: U256<u32>,
+        update_public_state_witness: &UpdatePublicStateWitness<F, C, D>,
+        prev_proof: &Option<ProofWithPublicInputs<F, C, D>>,
+    ) -> ProofWithPublicInputs<F, C, D> {
+        let prev_balance_pis = if prev_proof.is_some() {
+            BalancePublicInputs::from_pis(&prev_proof.as_ref().unwrap().public_inputs)
+        } else {
+            BalancePublicInputs::new(pubkey)
+        };
+        let transition_proof = self.balance_transition_processor.prove_update(
+            validity_circuit,
+            &self.get_verifier_only_data(),
+            &prev_balance_pis,
+            update_public_state_witness,
+        );
+        let proof = self
+            .balance_circuit
+            .prove(pubkey, &transition_proof, prev_proof)
+            .unwrap();
+        proof
+    }
 }
 
 #[cfg(test)]
@@ -93,7 +120,7 @@ mod tests {
     const D: usize = 2;
 
     #[test]
-    fn test_balance_processor() {
+    fn balance_processor_setup() {
         let validity_processor = ValidityProcessor::<F, C, D>::new();
         let _balance_processor = BalanceProcessor::new(&validity_processor.validity_circuit);
     }
@@ -120,6 +147,30 @@ mod tests {
             &balance_processor,
             &block_builder,
             &local_manager,
+        );
+    }
+
+    #[test]
+    fn balance_processor_update() {
+        let mut rng = rand::thread_rng();
+        // shared state
+        let mut block_builder = MockBlockBuilder::new();
+        let mut sync_validity_prover = SyncValidityProver::<F, C, D>::new();
+        let balance_processor = BalanceProcessor::new(sync_validity_prover.validity_circuit());
+
+        // alice send tx0
+        let mut alice = LocalManager::new_rand(&mut rng);
+        let transfer0 = Transfer::rand(&mut rng);
+        alice.send_tx_and_update(&mut rng, &mut block_builder, &[transfer0]);
+
+        // bob update balance proof
+        let bob = LocalManager::new_rand(&mut rng);
+        let mut bob_balance_prover = SyncBalanceProver::<F, C, D>::new();
+        bob_balance_prover.sync_no_send(
+            &mut sync_validity_prover,
+            &balance_processor,
+            &block_builder,
+            &bob,
         );
     }
 }
