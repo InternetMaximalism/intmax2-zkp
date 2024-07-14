@@ -66,6 +66,15 @@ impl Transfer {
         }
     }
 
+    pub fn rand_to<R: Rng>(rng: &mut R, to: U256<u32>) -> Self {
+        Self {
+            recipient: GenericAddress::from_pubkey(to),
+            token_index: rng.gen(),
+            amount: U256::rand_small(rng),
+            salt: Salt::rand(rng),
+        }
+    }
+
     pub fn commitment(&self) -> PoseidonHashOut {
         PoseidonHashOut::hash_inputs_u64(&self.to_u64_vec())
     }

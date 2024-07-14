@@ -139,7 +139,8 @@ mod tests {
 
     use crate::{
         circuits::validity::validity_processor::ValidityProcessor,
-        common::transfer::Transfer,
+        common::{transfer::Transfer, witness::balance_incoming_witness::BalanceIncomingWitness},
+        ethereum_types::u256::U256,
         mock::{
             block_builder::MockBlockBuilder, local_manager::LocalManager,
             sync_balance_prover::SyncBalanceProver, sync_validity_prover::SyncValidityProver,
@@ -204,6 +205,68 @@ mod tests {
             &balance_processor,
             &block_builder,
             &bob,
+        );
+    }
+
+    #[test]
+    fn balance_processor_receive_tranfer() {
+        let mut rng = rand::thread_rng();
+        // shared state
+        let mut block_builder = MockBlockBuilder::new();
+        let mut sync_validity_prover = SyncValidityProver::<F, C, D>::new();
+        let balance_processor = BalanceProcessor::new(sync_validity_prover.validity_circuit());
+
+        // accounts
+        let mut alice = LocalManager::new_rand(&mut rng);
+        let mut alice_balance_prover = SyncBalanceProver::<F, C, D>::new();
+        let bob = LocalManager::new_rand(&mut rng);
+
+        let mut bob_balance_prover = SyncBalanceProver::<F, C, D>::new();
+
+        let transfer = Transfer::rand_to(&mut rng, bob.get_pubkey());
+        let send_witness = alice.send_tx_and_update(&mut rng, &mut block_builder, &[transfer]);
+        let transfer_witness = &alice
+            .get_transfer_witnesses(send_witness.get_included_block_number())
+            .unwrap()[0];
+        alice_balance_prover.sync_send(
+            &mut sync_validity_prover,
+            &balance_processor,
+            &block_builder,
+            &alice,
+        );
+        let alice_balance_proof = alice_balance_prover.last_block_proof.clone().unwrap();
+
+        // post another block
+        {
+            alice.send_tx_and_update(&mut rng, &mut block_builder, &[transfer]);
+            sync_validity_prover.sync(&block_builder);
+        }
+
+        // bob update balance proof
+        bob_balance_prover.sync_no_send(
+            &mut sync_validity_prover,
+            &balance_processor,
+            &block_builder,
+            &bob,
+        );
+        let bob_balance_proof = bob_balance_prover.last_block_proof.clone().unwrap();
+        let private_transition_witness =
+            bob.generate_witness_for_receive_transfer(&mut rng, &transfer);
+        let block_merkle_proof = block_builder.get_block_merkle_proof(
+            block_builder.last_block_number(),
+            send_witness.get_included_block_number(),
+        );
+        let balance_incoming_witness = BalanceIncomingWitness {
+            balance_proof: alice_balance_proof,
+            block_merkle_proof,
+        };
+
+        balance_processor.prove_receive_transfer(
+            bob.get_pubkey(),
+            transfer_witness,
+            &private_transition_witness,
+            &balance_incoming_witness,
+            &Some(bob_balance_proof),
         );
     }
 }

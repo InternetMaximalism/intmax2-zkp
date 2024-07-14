@@ -268,6 +268,20 @@ impl LocalManager {
         }
     }
 
+    pub fn generate_witness_for_receive_transfer<R: Rng>(
+        &self,
+        rng: &mut R,
+        transfer: &Transfer,
+    ) -> PrivateStateTransitionWitness {
+        assert_eq!(
+            transfer.recipient.to_pubkey().unwrap(),
+            self.get_pubkey(),
+            "recipient pubkey"
+        );
+        let nullifier: Bytes32<u32> = transfer.commitment().into();
+        self.generate_witness_for_receive(rng, transfer.token_index, transfer.amount, nullifier)
+    }
+
     pub fn update_on_receive(&mut self, witness: &PrivateStateTransitionWitness) {
         // verify proofs
         let new_nullifier_tree_root = witness
