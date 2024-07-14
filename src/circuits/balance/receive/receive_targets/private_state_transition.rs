@@ -11,6 +11,7 @@ use plonky2::{
 use crate::{
     common::{
         private_state::{PrivateState, PrivateStateTarget},
+        salt::{Salt, SaltTarget},
         trees::{
             asset_tree::{AssetLeaf, AssetLeafTarget, AssetMerkleProof, AssetMerkleProofTarget},
             nullifier_tree::{NullifierInsersionProof, NullifierInsersionProofTarget},
@@ -26,6 +27,7 @@ pub struct PrivateStateTransitionValue {
     pub token_index: u32,
     pub amount: U256<u32>,
     pub nullifier: Bytes32<u32>,
+    pub new_salt: Salt,
     pub prev_private_state: PrivateState,
     pub nullifier_proof: NullifierInsersionProof,
     pub prev_asset_leaf: AssetLeaf,
@@ -38,6 +40,7 @@ impl PrivateStateTransitionValue {
         token_index: u32,
         amount: U256<u32>,
         nullifier: Bytes32<u32>,
+        new_salt: Salt,
         prev_private_state: PrivateState,
         nullifier_proof: NullifierInsersionProof,
         prev_asset_leaf: AssetLeaf,
@@ -59,12 +62,14 @@ impl PrivateStateTransitionValue {
         let new_private_state = PrivateState {
             asset_tree_root: new_asset_tree_root,
             nullifier_tree_root: new_nullifier_tree_root,
+            salt: new_salt,
             ..prev_private_state
         };
         Self {
             token_index,
             amount,
             nullifier,
+            new_salt,
             prev_private_state,
             nullifier_proof,
             prev_asset_leaf,
@@ -79,6 +84,7 @@ pub struct PrivateStateTransitionTarget {
     pub token_index: Target,
     pub amount: U256<Target>,
     pub nullifier: Bytes32<Target>,
+    pub new_salt: SaltTarget,
     pub prev_private_state: PrivateStateTarget,
     pub nullifier_proof: NullifierInsersionProofTarget,
     pub prev_asset_leaf: AssetLeafTarget,
@@ -97,6 +103,7 @@ impl PrivateStateTransitionTarget {
         let token_index = builder.add_virtual_target();
         let amount = U256::<Target>::new(builder, is_checked);
         let nullifier = Bytes32::<Target>::new(builder, is_checked);
+        let new_salt = SaltTarget::new(builder);
         let prev_private_state = PrivateStateTarget::new(builder);
         let nullifier_proof = NullifierInsersionProofTarget::new(builder, is_checked);
         let prev_asset_leaf = AssetLeafTarget::new(builder, is_checked);
@@ -119,12 +126,14 @@ impl PrivateStateTransitionTarget {
         let new_private_state = PrivateStateTarget {
             asset_tree_root: new_asset_tree_root,
             nullifier_tree_root: new_nullifier_tree_root,
+            salt: new_salt,
             ..prev_private_state
         };
         Self {
             token_index,
             amount,
             nullifier,
+            new_salt,
             prev_private_state,
             nullifier_proof,
             prev_asset_leaf,
@@ -141,6 +150,7 @@ impl PrivateStateTransitionTarget {
         witness.set_target(self.token_index, F::from_canonical_u32(value.token_index));
         self.amount.set_witness(witness, value.amount);
         self.nullifier.set_witness(witness, value.nullifier);
+        self.new_salt.set_witness(witness, value.new_salt);
         self.prev_private_state
             .set_witness(witness, &value.prev_private_state);
         self.nullifier_proof
@@ -207,10 +217,12 @@ mod tests {
         let nullifier: Bytes32<u32> = transfer.commitment().into();
         let nullifier_proof = nullifier_tree.prove_and_insert(nullifier).unwrap();
 
+        let new_salt = Salt::rand(&mut rng);
         let value = PrivateStateTransitionValue::new(
             transfer.token_index,
             transfer.amount,
             nullifier,
+            new_salt,
             prev_private_state.clone(),
             nullifier_proof.clone(),
             prev_asset_leaf,
@@ -221,7 +233,7 @@ mod tests {
             asset_tree_root: asset_tree.get_root(),
             nullifier_tree_root: nullifier_tree.get_root(),
             nonce: prev_private_state.nonce,
-            salt: prev_private_state.salt,
+            salt: new_salt,
         };
         assert_eq!(value.new_private_state, expected_new_private_state);
 

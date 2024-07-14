@@ -17,11 +17,12 @@ use crate::{
         },
         tx::Tx,
         witness::{
+            private_state_transition_witness::PrivateStateTransitionWitness,
             send_witness::SendWitness, transfer_witness::TransferWitness, tx_witness::TxWitness,
         },
     },
     constants::{ASSET_TREE_HEIGHT, NUM_TRANSFERS_IN_TX, TRANSFER_TREE_HEIGHT},
-    ethereum_types::{u256::U256, u32limb_trait::U32LimbTrait},
+    ethereum_types::{bytes32::Bytes32, u256::U256, u32limb_trait::U32LimbTrait},
     mock::tx_request::TxRequest,
     utils::poseidon_hash_out::PoseidonHashOut,
 };
@@ -234,6 +235,65 @@ impl LocalManager {
         let (tx_witness, transfer_witnesses) = self.send_tx(block_builder, transfers);
         let new_salt = Salt::rand(rng);
         self.update(new_salt, &tx_witness, &transfer_witnesses)
+    }
+
+    pub fn generate_witness_for_receive<R: Rng>(
+        &self,
+        rng: &mut R,
+        token_index: u32,
+        amount: U256<u32>,
+        nullifier: Bytes32<u32>,
+    ) -> PrivateStateTransitionWitness {
+        let new_salt = Salt::rand(rng);
+        let mut asset_tree = self.asset_tree.clone();
+        let mut nullifier_tree = self.nullifier_tree.clone();
+        let prev_private_state = self.get_private_state();
+
+        let prev_asset_leaf = asset_tree.get_leaf(token_index as usize);
+        let asset_merkle_proof = asset_tree.prove(token_index as usize);
+        let new_asset_leaf = prev_asset_leaf.add(amount);
+        asset_tree.update(token_index as usize, new_asset_leaf);
+        let nullifier_proof = nullifier_tree
+            .prove_and_insert(nullifier)
+            .expect("nullifier already exists");
+        PrivateStateTransitionWitness {
+            token_index,
+            amount,
+            nullifier,
+            new_salt,
+            prev_private_state,
+            nullifier_proof,
+            prev_asset_leaf,
+            asset_merkle_proof,
+        }
+    }
+
+    pub fn update_on_receive(&mut self, witness: &PrivateStateTransitionWitness) {
+        // verify proofs
+        let new_nullifier_tree_root = witness
+            .nullifier_proof
+            .get_new_root(self.nullifier_tree.get_root(), witness.nullifier)
+            .expect("Invalid nullifier proof");
+        witness
+            .asset_merkle_proof
+            .verify(
+                &witness.prev_asset_leaf,
+                witness.token_index as usize,
+                self.asset_tree.get_root(),
+            )
+            .expect("Invalid asset merkle proof");
+        let new_asset_leaf = witness.prev_asset_leaf.add(witness.amount);
+        let new_asset_tree_root = witness
+            .asset_merkle_proof
+            .get_root(&new_asset_leaf, witness.token_index as usize);
+        self.nullifier_tree
+            .prove_and_insert(witness.nullifier)
+            .unwrap();
+        self.asset_tree
+            .update(witness.token_index as usize, new_asset_leaf);
+        assert_eq!(self.nullifier_tree.get_root(), new_nullifier_tree_root);
+        assert_eq!(self.asset_tree.get_root(), new_asset_tree_root);
+        self.salt = witness.new_salt;
     }
 }
 
