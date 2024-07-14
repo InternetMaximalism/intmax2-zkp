@@ -1,4 +1,3 @@
-use hashbrown::HashMap;
 use itertools::Itertools;
 use plonky2::{
     field::extension::Extendable,
@@ -23,7 +22,6 @@ where
 {
     pub last_block_number: u32,
     pub last_block_proof: Option<ProofWithPublicInputs<F, C, D>>,
-    pub balance_proofs: HashMap<u32, ProofWithPublicInputs<F, C, D>>,
 }
 
 impl<F, C, const D: usize> SyncBalanceProver<F, C, D>
@@ -36,7 +34,6 @@ where
         Self {
             last_block_number: 0,
             last_block_proof: None,
-            balance_proofs: HashMap::new(),
         }
     }
 
@@ -72,8 +69,6 @@ where
                 &update_public_state_witness,
                 &self.last_block_proof,
             );
-            self.balance_proofs
-                .insert(block_number, balance_proof.clone());
             self.last_block_number = block_number;
             self.last_block_proof = Some(balance_proof);
         }
@@ -108,8 +103,6 @@ where
             &update_public_state_witness,
             &self.last_block_proof,
         );
-        self.balance_proofs
-            .insert(current_block_number, balance_proof.clone());
         self.last_block_number = current_block_number;
         self.last_block_proof = Some(balance_proof);
     }

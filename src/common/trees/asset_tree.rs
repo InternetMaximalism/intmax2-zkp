@@ -54,6 +54,13 @@ impl AssetLeaf {
         }
     }
 
+    pub fn add(&self, amount: U256<u32>) -> Self {
+        Self {
+            is_insufficient: self.is_insufficient,
+            amount: self.amount + amount,
+        }
+    }
+
     pub fn to_u32_vec(&self) -> Vec<u32> {
         let vec = vec![self.is_insufficient as u32]
             .into_iter()
@@ -97,6 +104,17 @@ impl AssetLeafTarget {
         Self {
             is_insufficient,
             amount: self.amount.sub(builder, &substract_amount),
+        }
+    }
+
+    pub fn add<F: RichField + Extendable<D>, const D: usize>(
+        &self,
+        builder: &mut CircuitBuilder<F, D>,
+        amount: U256<Target>,
+    ) -> Self {
+        Self {
+            is_insufficient: self.is_insufficient,
+            amount: self.amount.add(builder, &amount),
         }
     }
 

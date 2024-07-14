@@ -65,6 +65,10 @@ impl Transfer {
             salt: Salt::rand(rng),
         }
     }
+
+    pub fn commitment(&self) -> PoseidonHashOut {
+        PoseidonHashOut::hash_inputs_u64(&self.to_u64_vec())
+    }
 }
 
 impl TransferTarget {
@@ -110,6 +114,13 @@ impl TransferTarget {
         witness.set_target(self.token_index, F::from_canonical_u32(value.token_index));
         self.amount.set_witness(witness, value.amount);
         self.salt.set_witness(witness, value.salt);
+    }
+
+    pub fn commitment<F: RichField + Extendable<D>, const D: usize>(
+        &self,
+        builder: &mut CircuitBuilder<F, D>,
+    ) -> PoseidonHashOutTarget {
+        PoseidonHashOutTarget::hash_inputs(builder, &self.to_vec())
     }
 }
 

@@ -14,7 +14,7 @@ use crate::utils::poseidon_hash_out::{
 
 pub const SALT_LEN: usize = POSEIDON_HASH_OUT_LEN;
 
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
 pub struct Salt(PoseidonHashOut);
 
 impl Serialize for Salt {

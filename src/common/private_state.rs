@@ -15,7 +15,7 @@ use super::{
     trees::{asset_tree::AssetTree, nullifier_tree::NullifierTree},
 };
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct PrivateState {
     pub asset_tree_root: PoseidonHashOut,
     pub nullifier_tree_root: PoseidonHashOut,
