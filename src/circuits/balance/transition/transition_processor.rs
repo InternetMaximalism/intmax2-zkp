@@ -2,7 +2,7 @@ use plonky2::{
     field::extension::Extendable,
     hash::hash_types::RichField,
     plonk::{
-        circuit_data::{CircuitConfig, VerifierOnlyCircuitData},
+        circuit_data::{CircuitConfig, VerifierCircuitData, VerifierOnlyCircuitData},
         config::{AlgebraicHasher, GenericConfig},
         proof::ProofWithPublicInputs,
     },
@@ -15,7 +15,11 @@ use crate::{
             balance_pis::BalancePublicInputs,
             receive::{
                 receive_deposit_circuit::ReceiveDepositCircuit,
-                receive_transfer_circuit::ReceiveTransferCircuit,
+                receive_targets::{
+                    private_state_transition::PrivateStateTransitionValue,
+                    transfer_inclusion::TransferInclusionValue,
+                },
+                receive_transfer_circuit::{ReceiveTransferCircuit, ReceiveTransferValue},
                 update_circuit::{UpdateCircuit, UpdateValue},
             },
             send::sender_processor::SenderProcessor,
@@ -23,8 +27,11 @@ use crate::{
         validity::validity_circuit::ValidityCircuit,
     },
     common::witness::{
-        send_witness::SendWitness, update_public_state_witness::UpdatePublicStateWitness,
+        balance_incoming_witness::BalanceIncomingWitness,
+        private_state_transition_witness::PrivateStateTransitionWitness, send_witness::SendWitness,
+        transfer_witness::TransferWitness, update_public_state_witness::UpdatePublicStateWitness,
     },
+    ethereum_types::bytes32::Bytes32,
 };
 
 use super::transition_circuit::{
@@ -166,6 +173,75 @@ where
             None,
             prev_balance_pis.clone(),
             balance_circuit_vd.clone(),
+        );
+        self.balance_transition_circuit
+            .prove(
+                &self.receive_transfer_circuit,
+                &self.receive_deposit_circuit,
+                &self.update_circuit,
+                &self.sender_processor.sender_circuit,
+                &balance_transition_value,
+            )
+            .unwrap()
+    }
+
+    pub fn prove_receive_transfer(
+        &self,
+        balance_verifier_data: &VerifierCircuitData<F, C, D>,
+        prev_balance_pis: &BalancePublicInputs,
+        transfer_witness: &TransferWitness,
+        private_transition_witness: &PrivateStateTransitionWitness,
+        balance_incoming_witness: &BalanceIncomingWitness<F, C, D>,
+    ) -> ProofWithPublicInputs<F, C, D> {
+        // assertion
+        let transfer = transfer_witness.transfer;
+        let nullifier: Bytes32<u32> = transfer.commitment().into();
+        assert_eq!(nullifier, private_transition_witness.nullifier);
+        assert_eq!(transfer.token_index, private_transition_witness.token_index);
+        assert_eq!(transfer.amount, private_transition_witness.amount);
+
+        let private_state_transition = PrivateStateTransitionValue::new(
+            private_transition_witness.token_index,
+            private_transition_witness.amount,
+            private_transition_witness.nullifier,
+            private_transition_witness.new_salt,
+            &private_transition_witness.prev_private_state,
+            &private_transition_witness.nullifier_proof,
+            &private_transition_witness.prev_asset_leaf,
+            &private_transition_witness.asset_merkle_proof,
+        );
+        let transfer_inclusion = TransferInclusionValue::new(
+            balance_verifier_data,
+            &transfer,
+            transfer_witness.transfer_index,
+            &transfer_witness.transfer_merkle_proof,
+            &transfer_witness.tx_witness.tx,
+            &balance_incoming_witness.balance_proof,
+        );
+        let receive_transfer_value = ReceiveTransferValue::new(
+            &prev_balance_pis.public_state,
+            &balance_incoming_witness.block_merkle_proof,
+            &transfer_inclusion,
+            &private_state_transition,
+        );
+        let receive_transfer_proof = self
+            .receive_transfer_circuit
+            .prove(&receive_transfer_value)
+            .unwrap();
+
+        let balance_transition_value = BalanceTransitionValue::new(
+            &CircuitConfig::default(),
+            BalanceTransitionType::Update,
+            &self.receive_transfer_circuit,
+            &self.receive_deposit_circuit,
+            &self.update_circuit,
+            &self.sender_processor.sender_circuit,
+            Some(receive_transfer_proof),
+            None,
+            None,
+            None,
+            prev_balance_pis.clone(),
+            balance_verifier_data.verifier_only.clone(),
         );
         self.balance_transition_circuit
             .prove(

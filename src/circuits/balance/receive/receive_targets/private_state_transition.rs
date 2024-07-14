@@ -41,10 +41,10 @@ impl PrivateStateTransitionValue {
         amount: U256<u32>,
         nullifier: Bytes32<u32>,
         new_salt: Salt,
-        prev_private_state: PrivateState,
-        nullifier_proof: NullifierInsersionProof,
-        prev_asset_leaf: AssetLeaf,
-        asset_merkle_proof: AssetMerkleProof,
+        prev_private_state: &PrivateState,
+        nullifier_proof: &NullifierInsersionProof,
+        prev_asset_leaf: &AssetLeaf,
+        asset_merkle_proof: &AssetMerkleProof,
     ) -> Self {
         let new_nullifier_tree_root = nullifier_proof
             .get_new_root(prev_private_state.nullifier_tree_root, nullifier)
@@ -63,17 +63,17 @@ impl PrivateStateTransitionValue {
             asset_tree_root: new_asset_tree_root,
             nullifier_tree_root: new_nullifier_tree_root,
             salt: new_salt,
-            ..prev_private_state
+            ..prev_private_state.clone()
         };
         Self {
             token_index,
             amount,
             nullifier,
             new_salt,
-            prev_private_state,
-            nullifier_proof,
-            prev_asset_leaf,
-            asset_merkle_proof,
+            prev_private_state: prev_private_state.clone(),
+            nullifier_proof: nullifier_proof.clone(),
+            prev_asset_leaf: prev_asset_leaf.clone(),
+            asset_merkle_proof: asset_merkle_proof.clone(),
             new_private_state,
         }
     }
@@ -223,10 +223,10 @@ mod tests {
             transfer.amount,
             nullifier,
             new_salt,
-            prev_private_state.clone(),
-            nullifier_proof.clone(),
-            prev_asset_leaf,
-            asset_merkle_proof.clone(),
+            &prev_private_state,
+            &nullifier_proof,
+            &prev_asset_leaf,
+            &asset_merkle_proof,
         );
 
         let expected_new_private_state = PrivateState {

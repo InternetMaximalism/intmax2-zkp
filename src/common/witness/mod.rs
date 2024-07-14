@@ -1,3 +1,4 @@
+pub mod balance_incoming_witness;
 pub mod block_witness;
 pub mod private_state_transition_witness;
 pub mod send_witness;
