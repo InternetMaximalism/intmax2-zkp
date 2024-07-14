@@ -358,10 +358,7 @@ mod tests {
     };
 
     use crate::{
-        common::{
-            generic_address::GenericAddress, salt::Salt, signature::key_set::KeySet,
-            transfer::Transfer,
-        },
+        common::{generic_address::GenericAddress, salt::Salt, transfer::Transfer},
         ethereum_types::u256::U256,
         mock::{
             block_builder::MockBlockBuilder, local_manager::LocalManager,
@@ -383,7 +380,7 @@ mod tests {
         let mut sync_prover = SyncValidityProver::<F, C, D>::new();
 
         let transfer = Transfer {
-            recipient: GenericAddress::from_pubkey(KeySet::rand(&mut rng).pubkey_x),
+            recipient: GenericAddress::rand_pubkey(&mut rng),
             token_index: 0,
             amount: U256::<u32>::rand_small(&mut rng),
             salt: Salt::rand(&mut rng),

@@ -35,7 +35,7 @@ pub struct LocalManager {
     pub nonce: u32,
     pub salt: Salt,
     pub public_state: PublicState,
-    pub sent_tx: Vec<SendWitness>,
+    pub send_witnesses: Vec<SendWitness>,
 }
 
 impl LocalManager {
@@ -48,7 +48,7 @@ impl LocalManager {
             nonce: 0,
             salt: Salt::default(),
             public_state: PublicState::genesis(),
-            sent_tx: Vec::new(),
+            send_witnesses: Vec::new(),
         }
     }
 
@@ -62,7 +62,22 @@ impl LocalManager {
     }
 
     pub fn get_last_send_witness(&self) -> Option<SendWitness> {
-        self.sent_tx.last().cloned()
+        self.send_witnesses.last().cloned()
+    }
+
+    /// Get all block numbers that contain transactions sent by this manager.
+    pub fn get_all_block_numbers(&self) -> Vec<u32> {
+        self.send_witnesses
+            .iter()
+            .map(|w| w.get_included_block_number())
+            .collect()
+    }
+
+    pub fn get_send_witness(&self, block_number: u32) -> Option<SendWitness> {
+        self.send_witnesses
+            .iter()
+            .find(|w| w.get_included_block_number() == block_number)
+            .cloned()
     }
 
     pub fn get_pubkey(&self) -> U256<u32> {
@@ -193,7 +208,7 @@ impl LocalManager {
             tx_witness: tx_witness.clone(),
             new_salt,
         };
-        self.sent_tx.push(send_witness.clone());
+        self.send_witnesses.push(send_witness.clone());
         send_witness
     }
 
@@ -234,7 +249,7 @@ mod tests {
 
         local_manager.forced_fund(0, U256::<u32>::rand(&mut rng));
         let transfer = Transfer {
-            recipient: GenericAddress::from_pubkey(KeySet::rand(&mut rng).pubkey_x),
+            recipient: GenericAddress::rand_pubkey(&mut rng),
             token_index: 0,
             amount: U256::<u32>::rand_small(&mut rng),
             salt: Salt::rand(&mut rng),
@@ -253,7 +268,7 @@ mod tests {
 
         local_manager.forced_fund(0, U256::<u32>::rand(&mut rng));
         let transfer = Transfer {
-            recipient: GenericAddress::from_pubkey(KeySet::rand(&mut rng).pubkey_x),
+            recipient: GenericAddress::rand_pubkey(&mut rng),
             token_index: 0,
             amount: U256::<u32>::rand_small(&mut rng),
             salt: Salt::rand(&mut rng),

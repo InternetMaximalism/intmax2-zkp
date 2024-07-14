@@ -78,18 +78,11 @@ mod tests {
     };
 
     use crate::{
-        circuits::{
-            balance::balance_pis::BalancePublicInputs,
-            validity::validity_processor::ValidityProcessor,
-        },
-        common::{
-            generic_address::GenericAddress, salt::Salt, signature::key_set::KeySet,
-            transfer::Transfer,
-        },
-        ethereum_types::u256::U256,
+        circuits::validity::validity_processor::ValidityProcessor,
+        common::transfer::Transfer,
         mock::{
             block_builder::MockBlockBuilder, local_manager::LocalManager,
-            sync_validity_prover::SyncValidityProver,
+            sync_sender_prover::SyncSenderProver, sync_validity_prover::SyncValidityProver,
         },
     };
 
@@ -110,36 +103,22 @@ mod tests {
         let mut rng = rand::thread_rng();
         let mut block_builder = MockBlockBuilder::new();
         let mut local_manager = LocalManager::new_rand(&mut rng);
-        let mut sync_prover = SyncValidityProver::<F, C, D>::new();
-
-        let transfer = Transfer {
-            recipient: GenericAddress::from_pubkey(KeySet::rand(&mut rng).pubkey_x),
-            token_index: 0,
-            amount: U256::<u32>::rand_small(&mut rng),
-            salt: Salt::rand(&mut rng),
-        };
+        let mut sync_validity_prover = SyncValidityProver::<F, C, D>::new();
+        let mut sync_sender_prover = SyncSenderProver::<F, C, D>::new();
+        let balance_processor = BalanceProcessor::new(sync_validity_prover.validity_circuit());
 
         // send tx
-        let send_witness =
-            local_manager.send_tx_and_update(&mut rng, &mut block_builder, &[transfer]);
-        sync_prover.sync(&block_builder);
+        let transfer0 = Transfer::rand(&mut rng);
+        local_manager.send_tx_and_update(&mut rng, &mut block_builder, &[transfer0]);
 
-        let block_number = send_witness.get_included_block_number();
-        let prev_block_number = send_witness.get_prev_block_number();
-        let update_public_state_witness = sync_prover.get_update_public_state_witness(
+        let transfer1 = Transfer::rand(&mut rng);
+        local_manager.send_tx_and_update(&mut rng, &mut block_builder, &[transfer1]);
+
+        sync_sender_prover.sync(
+            &mut sync_validity_prover,
+            &balance_processor,
             &block_builder,
-            block_number,
-            prev_block_number,
-        );
-        let balance_processor = BalanceProcessor::new(sync_prover.validity_circuit());
-        dbg!(&send_witness.prev_balance_pis);
-        dbg!(BalancePublicInputs::new(local_manager.get_pubkey()));
-        let _balance_proof = balance_processor.prove_send(
-            sync_prover.validity_circuit(),
-            local_manager.get_pubkey(),
-            &send_witness,
-            &update_public_state_witness,
-            &None,
+            &local_manager,
         );
     }
 }

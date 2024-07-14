@@ -383,7 +383,7 @@ mod tests {
         };
         let transfers = (0..NUM_TRANSFERS_IN_TX)
             .map(|i| Transfer {
-                recipient: GenericAddress::rand(&mut rng),
+                recipient: GenericAddress::rand_pubkey(&mut rng),
                 token_index: i as u32,
                 amount: U256::rand_small(&mut rng), // small amount to avoid overflow
                 salt: Salt::rand(&mut rng),

@@ -69,13 +69,12 @@ impl GenericAddress {
         Ok(Address::<u32>::from_limbs(&limbs[0..ADDRESS_LEN]))
     }
 
-    pub fn rand<R: Rng>(rng: &mut R) -> Self {
-        let is_pubkey = rng.gen();
-        if is_pubkey {
-            Self::from_address(Address::rand(rng))
-        } else {
-            Self::from_pubkey(KeySet::rand(rng).pubkey_x)
-        }
+    pub fn rand_pubkey<R: Rng>(rng: &mut R) -> Self {
+        Self::from_pubkey(KeySet::rand(rng).pubkey_x)
+    }
+
+    pub fn rand_address<R: Rng>(rng: &mut R) -> Self {
+        Self::from_address(Address::rand(rng))
     }
 }
 

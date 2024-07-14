@@ -59,7 +59,7 @@ impl Transfer {
 
     pub fn rand<R: Rng>(rng: &mut R) -> Self {
         Self {
-            recipient: GenericAddress::rand(rng),
+            recipient: GenericAddress::rand_pubkey(rng),
             token_index: rng.gen(),
             amount: U256::rand_small(rng),
             salt: Salt::rand(rng),

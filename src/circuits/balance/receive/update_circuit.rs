@@ -215,7 +215,6 @@ where
             new_public_state: target.new_public_state.clone(),
         };
         builder.register_public_inputs(&pis.to_vec());
-        dbg!(builder.num_gates());
         let data = builder.build();
         let dummy_proof = DummyProof::new(&data.common);
         Self {
