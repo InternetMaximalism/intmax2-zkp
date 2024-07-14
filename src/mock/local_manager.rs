@@ -165,6 +165,7 @@ impl LocalManager {
                 }
             })
             .collect::<Vec<_>>();
+
         (tx_witness, transfer_witnesses)
     }
 
@@ -180,6 +181,7 @@ impl LocalManager {
         assert_eq!(tx_witness.tx.nonce, self.nonce);
         self.nonce += 1;
         self.salt = new_salt;
+        self.public_state = tx_witness.block_witness.to_validity_pis().public_state;
         let transfers = transfer_witness
             .iter()
             .map(|w| w.transfer.clone())

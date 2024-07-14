@@ -55,7 +55,6 @@ where
             .sorted()
             .collect();
         for block_number in not_synced_block_numbers {
-            dbg!(block_number);
             let send_witness = local_manager
                 .get_send_witness(block_number)
                 .expect("send witness not found");

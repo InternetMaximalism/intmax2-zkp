@@ -1,5 +1,8 @@
 use plonky2::{
-    field::{extension::Extendable, types::Field},
+    field::{
+        extension::Extendable,
+        types::{Field, PrimeField64},
+    },
     hash::hash_types::RichField,
     iop::{
         target::{BoolTarget, Target},
@@ -18,7 +21,10 @@ use crate::{
         u256::{U256, U256_LEN},
         u32limb_trait::{U32LimbTargetTrait as _, U32LimbTrait as _},
     },
-    utils::poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget, POSEIDON_HASH_OUT_LEN},
+    utils::{
+        conversion::ToU64 as _,
+        poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget, POSEIDON_HASH_OUT_LEN},
+    },
 };
 
 pub const BALANCE_PUBLIC_INPUTS_LEN: usize =
@@ -83,6 +89,10 @@ impl BalancePublicInputs {
             last_tx_insufficient_flags,
             public_state,
         }
+    }
+
+    pub fn from_pis<F: PrimeField64>(pis: &[F]) -> Self {
+        Self::from_u64_vec(&pis[0..BALANCE_PUBLIC_INPUTS_LEN].to_u64_vec())
     }
 
     pub fn commitment(&self) -> PoseidonHashOut {

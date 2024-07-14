@@ -140,6 +140,18 @@ where
         transition_proof: &ProofWithPublicInputs<F, C, D>,
         prev_proof: &Option<ProofWithPublicInputs<F, C, D>>,
     ) -> Result<ProofWithPublicInputs<F, C, D>> {
+        // assertion of public inputs equivalence
+        let transition_prev_balance_pis =
+            BalancePublicInputs::from_pis(&transition_proof.public_inputs);
+        if prev_proof.is_some() {
+            let prev_balance_pis =
+                BalancePublicInputs::from_pis(&prev_proof.as_ref().unwrap().public_inputs);
+            assert_eq!(transition_prev_balance_pis, prev_balance_pis);
+        } else {
+            let initial_balance_pis = BalancePublicInputs::new(pubkey);
+            assert_eq!(transition_prev_balance_pis, initial_balance_pis);
+        }
+
         let mut pw = PartialWitness::<F>::new();
         pw.set_verifier_data_target(&self.verifier_data_target, &self.data.verifier_only);
         pw.set_proof_with_pis_target(&self.transition_proof, transition_proof);
