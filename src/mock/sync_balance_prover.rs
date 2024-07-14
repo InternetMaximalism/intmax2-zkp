@@ -16,7 +16,7 @@ use super::{
     sync_validity_prover::SyncValidityProver,
 };
 
-pub struct SyncSenderProver<F, C, const D: usize>
+pub struct SyncBalanceProver<F, C, const D: usize>
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
@@ -26,7 +26,7 @@ where
     pub balance_proofs: HashMap<u32, ProofWithPublicInputs<F, C, D>>,
 }
 
-impl<F, C, const D: usize> SyncSenderProver<F, C, D>
+impl<F, C, const D: usize> SyncBalanceProver<F, C, D>
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F> + 'static,
@@ -40,7 +40,7 @@ where
         }
     }
 
-    pub fn sync(
+    pub fn sync_send(
         &mut self,
         sync_validity_prover: &mut SyncValidityProver<F, C, D>,
         balance_processor: &BalanceProcessor<F, C, D>,

@@ -97,7 +97,7 @@ where
             new_private_commitment,
             pubkey,
             public_state,
-            balance_circuit_vd: balance_circuit_vd,
+            balance_circuit_vd,
         }
     }
 }
@@ -186,12 +186,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     {
         // verify balance proof
         let balance_common_data = common_data_for_balance_circuit::<F, C, D>();
-        let balance_pis = BalancePublicInputs::from_u64_vec(
-            &balance_proof.public_inputs[0..BALANCE_PUBLIC_INPUTS_LEN]
-                .into_iter()
-                .map(|x| x.to_canonical_u64())
-                .collect::<Vec<_>>(),
-        );
+        let balance_pis = BalancePublicInputs::from_pis(&balance_proof.public_inputs);
         let balance_circuit_vd =
             vd_from_pis_slice::<F, C, D>(&balance_proof.public_inputs, &balance_common_data.config)
                 .expect("Failed to parse balance vd");

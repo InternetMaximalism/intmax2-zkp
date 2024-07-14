@@ -82,7 +82,7 @@ mod tests {
         common::transfer::Transfer,
         mock::{
             block_builder::MockBlockBuilder, local_manager::LocalManager,
-            sync_sender_prover::SyncSenderProver, sync_validity_prover::SyncValidityProver,
+            sync_balance_prover::SyncBalanceProver, sync_validity_prover::SyncValidityProver,
         },
     };
 
@@ -104,17 +104,18 @@ mod tests {
         let mut block_builder = MockBlockBuilder::new();
         let mut local_manager = LocalManager::new_rand(&mut rng);
         let mut sync_validity_prover = SyncValidityProver::<F, C, D>::new();
-        let mut sync_sender_prover = SyncSenderProver::<F, C, D>::new();
+        let mut sync_sender_prover = SyncBalanceProver::<F, C, D>::new();
         let balance_processor = BalanceProcessor::new(sync_validity_prover.validity_circuit());
 
-        // send tx
+        // send tx0
         let transfer0 = Transfer::rand(&mut rng);
         local_manager.send_tx_and_update(&mut rng, &mut block_builder, &[transfer0]);
 
+        // send tx1
         let transfer1 = Transfer::rand(&mut rng);
         local_manager.send_tx_and_update(&mut rng, &mut block_builder, &[transfer1]);
 
-        sync_sender_prover.sync(
+        sync_sender_prover.sync_send(
             &mut sync_validity_prover,
             &balance_processor,
             &block_builder,
