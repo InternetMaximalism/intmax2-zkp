@@ -20,7 +20,7 @@ use crate::{
         },
     },
     constants::{ASSET_TREE_HEIGHT, NUM_TRANSFERS_IN_TX, TRANSFER_TREE_HEIGHT},
-    ethereum_types::u256::U256,
+    ethereum_types::{u256::U256, u32limb_trait::U32LimbTrait},
     mock::tx_request::TxRequest,
     utils::poseidon_hash_out::PoseidonHashOut,
 };
@@ -46,7 +46,7 @@ impl LocalManager {
             asset_tree: AssetTree::new(ASSET_TREE_HEIGHT),
             nullifier_tree: NullifierTree::new(),
             nonce: 0,
-            salt: Salt::rand(rng),
+            salt: Salt::default(),
             public_state: PublicState::genesis(),
             sent_tx: Vec::new(),
         }
@@ -63,6 +63,10 @@ impl LocalManager {
 
     pub fn get_last_send_witness(&self) -> Option<SendWitness> {
         self.sent_tx.last().cloned()
+    }
+
+    pub fn get_pubkey(&self) -> U256<u32> {
+        self.key_set.pubkey_x
     }
 
     pub fn get_balance_pis(&self) -> BalancePublicInputs {
@@ -151,6 +155,7 @@ impl LocalManager {
 
     fn update(
         &mut self,
+        new_salt: Salt,
         tx_witness: &TxWitness,
         transfer_witness: &[TransferWitness],
     ) -> SendWitness {
@@ -159,12 +164,14 @@ impl LocalManager {
 
         assert_eq!(tx_witness.tx.nonce, self.nonce);
         self.nonce += 1;
+        self.salt = new_salt;
         let transfers = transfer_witness
             .iter()
             .map(|w| w.transfer.clone())
             .collect::<Vec<_>>();
         let mut asset_merkle_proofs = vec![];
         let mut prev_balances = vec![];
+        let mut insufficient_bits = vec![];
         for transfer in &transfers {
             let prev_balance = self.asset_tree.get_leaf(transfer.token_index as usize);
             let proof = self.asset_tree.prove(transfer.token_index as usize);
@@ -173,26 +180,32 @@ impl LocalManager {
                 .update(transfer.token_index as usize, new_balance);
             prev_balances.push(prev_balance);
             asset_merkle_proofs.push(proof);
+            insufficient_bits.push(new_balance.is_insufficient);
         }
+        let insufficient_flags = InsufficientFlags::from_bits_le(&insufficient_bits);
         let send_witness = SendWitness {
             prev_balance_pis,
             prev_private_state,
             prev_balances,
             asset_merkle_proofs,
+            insufficient_flags,
             transfers,
             tx_witness: tx_witness.clone(),
+            new_salt,
         };
         self.sent_tx.push(send_witness.clone());
         send_witness
     }
 
-    pub fn send_tx_and_update(
+    pub fn send_tx_and_update<R: Rng>(
         &mut self,
+        rng: &mut R,
         block_builder: &mut MockBlockBuilder,
         transfers: &[Transfer],
     ) -> SendWitness {
         let (tx_witness, transfer_witnesses) = self.send_tx(block_builder, transfers);
-        self.update(&tx_witness, &transfer_witnesses)
+        let new_salt = Salt::rand(rng);
+        self.update(new_salt, &tx_witness, &transfer_witnesses)
     }
 }
 
@@ -247,7 +260,8 @@ mod tests {
         };
 
         for block_number in 1..3 {
-            let send_witness = local_manager.send_tx_and_update(&mut block_builder, &[transfer]);
+            let send_witness =
+                local_manager.send_tx_and_update(&mut rng, &mut block_builder, &[transfer]);
             assert_eq!(send_witness.get_included_block_number(), block_number);
         }
 

@@ -4,10 +4,17 @@ use plonky2::{
     plonk::{
         circuit_data::VerifierOnlyCircuitData,
         config::{AlgebraicHasher, GenericConfig},
+        proof::ProofWithPublicInputs,
     },
 };
 
-use crate::circuits::validity::validity_circuit::ValidityCircuit;
+use crate::{
+    circuits::validity::validity_circuit::ValidityCircuit,
+    common::witness::{
+        send_witness::SendWitness, update_public_state_witness::UpdatePublicStateWitness,
+    },
+    ethereum_types::u256::U256,
+};
 
 use super::{
     balance_circuit::BalanceCircuit, transition::transition_processor::BalanceTransitionProcessor,
@@ -42,7 +49,26 @@ where
         self.balance_circuit.get_verifier_only_data()
     }
 
-    pub fn prove(&self) {}
+    pub fn prove_send(
+        &self,
+        validity_circuit: &ValidityCircuit<F, C, D>,
+        pubkey: U256<u32>,
+        send_witness: &SendWitness,
+        update_public_state_witness: &UpdatePublicStateWitness<F, C, D>,
+        prev_proof: &Option<ProofWithPublicInputs<F, C, D>>,
+    ) -> ProofWithPublicInputs<F, C, D> {
+        let transition_proof = self.balance_transition_processor.prove_send(
+            validity_circuit,
+            &self.get_verifier_only_data(),
+            send_witness,
+            update_public_state_witness,
+        );
+        let proof = self
+            .balance_circuit
+            .prove(pubkey, &transition_proof, prev_proof)
+            .unwrap();
+        proof
+    }
 }
 
 #[cfg(test)]
@@ -51,7 +77,21 @@ mod tests {
         field::goldilocks_field::GoldilocksField, plonk::config::PoseidonGoldilocksConfig,
     };
 
-    use crate::circuits::validity::validity_processor::ValidityProcessor;
+    use crate::{
+        circuits::{
+            balance::balance_pis::BalancePublicInputs,
+            validity::validity_processor::ValidityProcessor,
+        },
+        common::{
+            generic_address::GenericAddress, salt::Salt, signature::key_set::KeySet,
+            transfer::Transfer,
+        },
+        ethereum_types::u256::U256,
+        mock::{
+            block_builder::MockBlockBuilder, local_manager::LocalManager,
+            sync_validity_prover::SyncValidityProver,
+        },
+    };
 
     use super::BalanceProcessor;
 
@@ -63,5 +103,43 @@ mod tests {
     fn test_balance_processor() {
         let validity_processor = ValidityProcessor::<F, C, D>::new();
         let _balance_processor = BalanceProcessor::new(&validity_processor.validity_circuit);
+    }
+
+    #[test]
+    fn balance_processor_send() {
+        let mut rng = rand::thread_rng();
+        let mut block_builder = MockBlockBuilder::new();
+        let mut local_manager = LocalManager::new_rand(&mut rng);
+        let mut sync_prover = SyncValidityProver::<F, C, D>::new();
+
+        let transfer = Transfer {
+            recipient: GenericAddress::from_pubkey(KeySet::rand(&mut rng).pubkey_x),
+            token_index: 0,
+            amount: U256::<u32>::rand_small(&mut rng),
+            salt: Salt::rand(&mut rng),
+        };
+
+        // send tx
+        let send_witness =
+            local_manager.send_tx_and_update(&mut rng, &mut block_builder, &[transfer]);
+        sync_prover.sync(&block_builder);
+
+        let block_number = send_witness.get_included_block_number();
+        let prev_block_number = send_witness.get_prev_block_number();
+        let update_public_state_witness = sync_prover.get_update_public_state_witness(
+            &block_builder,
+            block_number,
+            prev_block_number,
+        );
+        let balance_processor = BalanceProcessor::new(sync_prover.validity_circuit());
+        dbg!(&send_witness.prev_balance_pis);
+        dbg!(BalancePublicInputs::new(local_manager.get_pubkey()));
+        let _balance_proof = balance_processor.prove_send(
+            sync_prover.validity_circuit(),
+            local_manager.get_pubkey(),
+            &send_witness,
+            &update_public_state_witness,
+            &None,
+        );
     }
 }

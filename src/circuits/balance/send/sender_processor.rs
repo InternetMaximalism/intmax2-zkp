@@ -65,6 +65,7 @@ where
         let spent_value = SpentValue::new(
             &send_witness.prev_private_state,
             &send_witness.prev_balances,
+            send_witness.new_salt,
             &send_witness.transfers,
             &send_witness.asset_merkle_proofs,
             send_witness.tx_witness.tx.nonce,
@@ -142,7 +143,8 @@ mod tests {
         };
 
         // send tx
-        let send_witness = local_manager.send_tx_and_update(&mut block_builder, &[transfer]);
+        let send_witness =
+            local_manager.send_tx_and_update(&mut rng, &mut block_builder, &[transfer]);
         sync_prover.sync(&block_builder);
 
         let block_number = send_witness.get_included_block_number();

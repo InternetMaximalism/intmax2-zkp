@@ -192,7 +192,8 @@ mod tests {
         };
 
         // send tx
-        let send_witness = local_manager.send_tx_and_update(&mut block_builder, &[transfer]);
+        let send_witness =
+            local_manager.send_tx_and_update(&mut rng, &mut block_builder, &[transfer]);
         sync_prover.sync(&block_builder);
 
         let block_number = send_witness.get_included_block_number();

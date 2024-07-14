@@ -3,6 +3,7 @@ use crate::{
     common::{
         insufficient_flags::InsufficientFlags,
         private_state::PrivateState,
+        salt::Salt,
         transfer::Transfer,
         trees::asset_tree::{AssetLeaf, AssetMerkleProof},
     },
@@ -18,8 +19,10 @@ pub struct SendWitness {
     pub prev_private_state: PrivateState,
     pub prev_balances: Vec<AssetLeaf>,
     pub asset_merkle_proofs: Vec<AssetMerkleProof>,
+    pub insufficient_flags: InsufficientFlags,
     pub transfers: Vec<Transfer>,
     pub tx_witness: TxWitness,
+    pub new_salt: Salt,
 }
 
 #[derive(Debug, Clone)]
@@ -47,6 +50,7 @@ impl SendWitness {
         let spent_value = SpentValue::new(
             &self.prev_private_state,
             &self.prev_balances,
+            self.new_salt,
             &self.transfers,
             &self.asset_merkle_proofs,
             self.tx_witness.tx.nonce,

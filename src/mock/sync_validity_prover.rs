@@ -9,7 +9,9 @@ use plonky2::{
 };
 
 use crate::{
-    circuits::validity::validity_processor::ValidityProcessor,
+    circuits::validity::{
+        validity_circuit::ValidityCircuit, validity_processor::ValidityProcessor,
+    },
     common::witness::update_public_state_witness::UpdatePublicStateWitness,
 };
 
@@ -79,5 +81,9 @@ where
             validity_proof,
             block_merkle_proof,
         }
+    }
+
+    pub fn validity_circuit(&self) -> &ValidityCircuit<F, C, D> {
+        &self.validity_processor.validity_circuit
     }
 }
