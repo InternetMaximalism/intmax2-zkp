@@ -11,6 +11,7 @@ use plonky2::{
 use crate::{
     circuits::{
         balance::{
+            balance_circuit::common_data_for_balance_circuit,
             balance_pis::BalancePublicInputs,
             receive::{
                 receive_deposit_circuit::ReceiveDepositCircuit,
@@ -49,7 +50,8 @@ where
     <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
 {
     pub fn new(validity_circuit: &ValidityCircuit<F, C, D>) -> Self {
-        let receive_transfer_circuit = ReceiveTransferCircuit::new();
+        let balance_common_data = common_data_for_balance_circuit::<F, C, D>();
+        let receive_transfer_circuit = ReceiveTransferCircuit::new(&balance_common_data);
         let receive_deposit_circuit = ReceiveDepositCircuit::new();
         let update_circuit = UpdateCircuit::new(validity_circuit);
         let sender_processor = SenderProcessor::new(validity_circuit);

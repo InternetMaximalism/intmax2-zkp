@@ -61,6 +61,14 @@ impl SaltTarget {
         self.0.to_vec()
     }
 
+    pub fn connect<F: RichField + Extendable<D>, const D: usize>(
+        &self,
+        builder: &mut CircuitBuilder<F, D>,
+        other: Self,
+    ) {
+        self.0.connect(builder, other.0)
+    }
+
     pub fn constant<F: RichField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
         value: Salt,

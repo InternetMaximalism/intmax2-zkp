@@ -18,6 +18,7 @@ use crate::{
         utils::cyclic::{vd_from_pis_slice, vd_from_pis_slice_target},
     },
     common::{
+        public_state::{PublicState, PublicStateTarget},
         transfer::{Transfer, TransferTarget},
         trees::transfer_tree::{TransferMerkleProof, TransferMerkleProofTarget},
         tx::{Tx, TxTarget},
@@ -37,8 +38,9 @@ pub struct TransferInclusionValue<
     pub transfer_index: usize,
     pub transfer_merkle_proof: TransferMerkleProof,
     pub tx: Tx,
-    pub balance_circuit_vd: VerifierOnlyCircuitData<C, D>,
     pub balance_proof: ProofWithPublicInputs<F, C, D>,
+    pub balance_circuit_vd: VerifierOnlyCircuitData<C, D>,
+    pub public_state: PublicState,
 }
 
 impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
@@ -82,8 +84,9 @@ where
             transfer_index,
             transfer_merkle_proof: transfer_merkle_proof.clone(),
             tx: tx.clone(),
-            balance_circuit_vd,
             balance_proof: balance_proof.clone(),
+            balance_circuit_vd,
+            public_state: balance_pis.public_state.clone(),
         }
     }
 }
@@ -94,8 +97,9 @@ pub struct TransferInclusionTarget<const D: usize> {
     pub transfer_index: Target,
     pub transfer_merkle_proof: TransferMerkleProofTarget,
     pub tx: TxTarget,
-    pub balance_circuit_vd: VerifierCircuitTarget,
     pub balance_proof: ProofWithPublicInputsTarget<D>,
+    pub balance_circuit_vd: VerifierCircuitTarget,
+    pub public_state: PublicStateTarget,
 }
 
 impl<const D: usize> TransferInclusionTarget<D> {
@@ -138,8 +142,9 @@ impl<const D: usize> TransferInclusionTarget<D> {
             transfer_index,
             transfer_merkle_proof,
             tx,
-            balance_circuit_vd,
             balance_proof,
+            balance_circuit_vd,
+            public_state: balance_pis.public_state,
         }
     }
 
@@ -162,12 +167,14 @@ impl<const D: usize> TransferInclusionTarget<D> {
         self.transfer_merkle_proof
             .set_witness(witness, &value.transfer_merkle_proof);
         self.tx.set_witness(witness, value.tx);
-        witness.set_verifier_data_target(&self.balance_circuit_vd, &value.balance_circuit_vd);
         witness.set_proof_with_pis_target(&self.balance_proof, &value.balance_proof);
+        witness.set_verifier_data_target(&self.balance_circuit_vd, &value.balance_circuit_vd);
+        self.public_state.set_witness(witness, &value.public_state);
     }
 }
 
 #[cfg(test)]
+#[cfg(feature = "skip_insufficient_check")]
 mod tests {
     use plonky2::{
         field::goldilocks_field::GoldilocksField,

@@ -97,6 +97,17 @@ impl TransferTarget {
         }
     }
 
+    pub fn connect<F: RichField + Extendable<D>, const D: usize>(
+        &self,
+        builder: &mut CircuitBuilder<F, D>,
+        other: &Self,
+    ) {
+        self.recipient.connect(builder, other.recipient);
+        builder.connect(self.token_index, other.token_index);
+        self.amount.connect(builder, other.amount);
+        self.salt.connect(builder, other.salt);
+    }
+
     pub fn constant<F: RichField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
         value: Transfer,

@@ -26,7 +26,7 @@ pub struct GenericAddress {
     pub data: U256<u32>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub struct GenericAddressTarget {
     pub is_pubkey: BoolTarget,
     pub data: U256<Target>,
@@ -100,6 +100,15 @@ impl GenericAddressTarget {
             is_pubkey,
             data: U256::<Target>::new(builder, is_checked),
         }
+    }
+
+    pub fn connect<F: RichField + Extendable<D>, const D: usize>(
+        &self,
+        builder: &mut CircuitBuilder<F, D>,
+        other: Self,
+    ) {
+        builder.connect(self.is_pubkey.target, other.is_pubkey.target);
+        self.data.connect(builder, other.data);
     }
 
     pub fn constant<F: RichField + Extendable<D>, const D: usize>(

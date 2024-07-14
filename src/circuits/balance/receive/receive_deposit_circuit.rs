@@ -1,18 +1,13 @@
 use crate::{
     common::{
         hash::{get_pubkey_salt_hash, get_pubkey_salt_hash_circuit},
-        private_state::{PrivateState, PrivateStateTarget},
         public_state::{PublicState, PublicStateTarget, PUBLIC_STATE_LEN},
         salt::{Salt, SaltTarget},
-        trees::{
-            asset_tree::{AssetLeaf, AssetLeafTarget, AssetMerkleProof, AssetMerkleProofTarget},
-            deposit_tree::{
-                DepositLeaf, DepositLeafTarget, DepositMerkleProof, DepositMerkleProofTarget,
-            },
-            nullifier_tree::{NullifierInsersionProof, NullifierInsersionProofTarget},
+        trees::deposit_tree::{
+            DepositLeaf, DepositLeafTarget, DepositMerkleProof, DepositMerkleProofTarget,
         },
     },
-    constants::{ASSET_TREE_HEIGHT, DEPOSIT_TREE_HEIGHT},
+    constants::DEPOSIT_TREE_HEIGHT,
     ethereum_types::{
         bytes32::Bytes32,
         u256::{U256, U256_LEN},
@@ -38,6 +33,10 @@ use plonky2::{
         config::{AlgebraicHasher, GenericConfig},
         proof::ProofWithPublicInputs,
     },
+};
+
+use super::receive_targets::private_state_transition::{
+    PrivateStateTransitionTarget, PrivateStateTransitionValue,
 };
 
 pub const RECEIVE_DEPOSIT_PUBLIC_INPUTS_LEN: usize =
@@ -121,13 +120,9 @@ pub struct ReceiveDepositValue {
     pub deposit: DepositLeaf,
     pub deposit_merkle_proof: DepositMerkleProof,
     pub public_state: PublicState,
-    pub prev_private_state: PrivateState,
-    pub new_private_state: PrivateState,
+    pub private_state_transition: PrivateStateTransitionValue,
     pub prev_private_commitment: PoseidonHashOut,
     pub new_private_commitment: PoseidonHashOut,
-    pub nullifier_proof: NullifierInsersionProof,
-    pub prev_asset_leaf: AssetLeaf,
-    pub asset_merkle_proof: AssetMerkleProof,
 }
 
 impl ReceiveDepositValue {
@@ -135,13 +130,10 @@ impl ReceiveDepositValue {
         pubkey: U256<u32>,
         deposit_salt: Salt,
         deposit_index: usize,
-        deposit: DepositLeaf,
-        deposit_merkle_proof: DepositMerkleProof,
-        public_state: PublicState,
-        prev_private_state: PrivateState,
-        nullifier_proof: NullifierInsersionProof,
-        prev_asset_leaf: AssetLeaf,
-        asset_merkle_proof: AssetMerkleProof,
+        deposit: &DepositLeaf,
+        deposit_merkle_proof: &DepositMerkleProof,
+        public_state: &PublicState,
+        private_state_transition: &PrivateStateTransitionValue,
     ) -> Self {
         // verify deposit inclusion
         let pubkey_salt_hash = get_pubkey_salt_hash(pubkey, deposit_salt);
@@ -150,47 +142,24 @@ impl ReceiveDepositValue {
             .verify(&deposit, deposit_index, public_state.deposit_tree_root)
             .expect("Invalid deposit merkle proof");
 
-        // verify private_state update
         let nullifier: Bytes32<u32> = deposit.poseidon_hash().into();
-        let new_nullifier_tree_root = nullifier_proof
-            .get_new_root(prev_private_state.nullifier_tree_root, nullifier)
-            .expect("Invalid nullifier proof");
-        asset_merkle_proof
-            .verify(
-                &prev_asset_leaf,
-                deposit.token_index as usize,
-                prev_private_state.asset_tree_root,
-            )
-            .expect("Invalid asset merkle proof");
-        let new_asset_leaf = AssetLeaf {
-            is_insufficient: prev_asset_leaf.is_insufficient,
-            amount: prev_asset_leaf.amount + deposit.amount,
-        };
-        let new_asset_tree_root =
-            asset_merkle_proof.get_root(&new_asset_leaf, deposit.token_index as usize);
+        assert_eq!(deposit.token_index, private_state_transition.token_index);
+        assert_eq!(deposit.amount, private_state_transition.amount);
+        assert_eq!(nullifier, private_state_transition.nullifier);
 
-        let new_private_state = PrivateState {
-            asset_tree_root: new_asset_tree_root,
-            nullifier_tree_root: new_nullifier_tree_root,
-            ..prev_private_state
-        };
-        let prev_private_commitment = prev_private_state.commitment();
-        let new_private_commitment = new_private_state.commitment();
+        let prev_private_commitment = private_state_transition.prev_private_state.commitment();
+        let new_private_commitment = private_state_transition.new_private_state.commitment();
 
         ReceiveDepositValue {
             pubkey,
             deposit_salt,
             deposit_index,
-            deposit,
-            deposit_merkle_proof,
-            public_state,
-            prev_private_state,
-            new_private_state,
+            deposit: deposit.clone(),
+            deposit_merkle_proof: deposit_merkle_proof.clone(),
+            public_state: public_state.clone(),
+            private_state_transition: private_state_transition.clone(),
             prev_private_commitment,
             new_private_commitment,
-            nullifier_proof,
-            prev_asset_leaf,
-            asset_merkle_proof,
         }
     }
 }
@@ -203,13 +172,9 @@ pub struct ReceiveDepositTarget {
     pub deposit: DepositLeafTarget,
     pub deposit_merkle_proof: DepositMerkleProofTarget,
     pub public_state: PublicStateTarget,
-    pub prev_private_state: PrivateStateTarget,
-    pub new_private_state: PrivateStateTarget,
+    pub private_state_transition: PrivateStateTransitionTarget,
     pub prev_private_commitment: PoseidonHashOutTarget,
     pub new_private_commitment: PoseidonHashOutTarget,
-    pub nullifier_proof: NullifierInsersionProofTarget,
-    pub prev_asset_leaf: AssetLeafTarget,
-    pub asset_merkle_proof: AssetMerkleProofTarget,
 }
 
 impl ReceiveDepositTarget {
@@ -226,10 +191,8 @@ impl ReceiveDepositTarget {
         let deposit = DepositLeafTarget::new(builder, is_checked);
         let deposit_merkle_proof = DepositMerkleProofTarget::new(builder, DEPOSIT_TREE_HEIGHT);
         let public_state = PublicStateTarget::new(builder, is_checked);
-        let prev_private_state = PrivateStateTarget::new(builder);
-        let nullifier_proof = NullifierInsersionProofTarget::new(builder, is_checked);
-        let prev_asset_leaf = AssetLeafTarget::new(builder, is_checked);
-        let asset_merkle_proof = AssetMerkleProofTarget::new(builder, ASSET_TREE_HEIGHT);
+        let private_state_transition =
+            PrivateStateTransitionTarget::new::<F, C, D>(builder, is_checked);
 
         // verify deposit inclusion
         let pubkey_salt_hash = get_pubkey_salt_hash_circuit(builder, pubkey, deposit_salt);
@@ -244,32 +207,17 @@ impl ReceiveDepositTarget {
         // verify private_state update
         let deposit_hash = deposit.poseidon_hash(builder);
         let nullifier: Bytes32<Target> = Bytes32::<Target>::from_hash_out(builder, deposit_hash);
-        let new_nullifier_tree_root = nullifier_proof.get_new_root::<F, C, D>(
-            builder,
-            prev_private_state.nullifier_tree_root,
-            nullifier,
-        );
-        asset_merkle_proof.verify::<F, C, D>(
-            builder,
-            &prev_asset_leaf,
-            deposit.token_index,
-            prev_private_state.asset_tree_root,
-        );
-        let new_asset_leaf = AssetLeafTarget {
-            is_insufficient: prev_asset_leaf.is_insufficient,
-            amount: prev_asset_leaf.amount.add(builder, &deposit.amount),
-        };
-        let new_asset_tree_root =
-            asset_merkle_proof.get_root::<F, C, D>(builder, &new_asset_leaf, deposit.token_index);
-
-        let new_private_state = PrivateStateTarget {
-            asset_tree_root: new_asset_tree_root,
-            nullifier_tree_root: new_nullifier_tree_root,
-            ..prev_private_state
-        };
-        let prev_private_commitment = prev_private_state.commitment(builder);
-        let new_private_commitment = new_private_state.commitment(builder);
-
+        builder.connect(deposit.token_index, private_state_transition.token_index);
+        deposit
+            .amount
+            .connect(builder, private_state_transition.amount);
+        nullifier.connect(builder, private_state_transition.nullifier);
+        let prev_private_commitment = private_state_transition
+            .prev_private_state
+            .commitment(builder);
+        let new_private_commitment = private_state_transition
+            .new_private_state
+            .commitment(builder);
         ReceiveDepositTarget {
             pubkey,
             deposit_salt,
@@ -277,13 +225,9 @@ impl ReceiveDepositTarget {
             deposit,
             deposit_merkle_proof,
             public_state,
-            prev_private_state,
-            new_private_state,
+            private_state_transition,
             prev_private_commitment,
             new_private_commitment,
-            nullifier_proof,
-            prev_asset_leaf,
-            asset_merkle_proof,
         }
     }
 
@@ -302,20 +246,12 @@ impl ReceiveDepositTarget {
         self.deposit_merkle_proof
             .set_witness(witness, &value.deposit_merkle_proof);
         self.public_state.set_witness(witness, &value.public_state);
-        self.prev_private_state
-            .set_witness(witness, &value.prev_private_state);
-        self.new_private_state
-            .set_witness(witness, &value.new_private_state);
+        self.private_state_transition
+            .set_witness(witness, &value.private_state_transition);
         self.prev_private_commitment
             .set_witness(witness, value.prev_private_commitment);
         self.new_private_commitment
             .set_witness(witness, value.new_private_commitment);
-        self.nullifier_proof
-            .set_witness(witness, &value.nullifier_proof);
-        self.prev_asset_leaf
-            .set_witness(witness, value.prev_asset_leaf);
-        self.asset_merkle_proof
-            .set_witness(witness, &value.asset_merkle_proof);
     }
 }
 

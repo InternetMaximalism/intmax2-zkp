@@ -11,7 +11,6 @@ use plonky2::{
 use crate::{
     common::{
         private_state::{PrivateState, PrivateStateTarget},
-        transfer::{Transfer, TransferTarget},
         trees::{
             asset_tree::{AssetLeaf, AssetLeafTarget, AssetMerkleProof, AssetMerkleProofTarget},
             nullifier_tree::{NullifierInsersionProof, NullifierInsersionProofTarget},
@@ -24,8 +23,9 @@ use crate::{
 // update private state assuming that the transfer is valid
 #[derive(Debug, Clone)]
 pub struct PrivateStateTransitionValue {
-    pub pubkey: U256<u32>,
-    pub transfer: Transfer,
+    pub token_index: u32,
+    pub amount: U256<u32>,
+    pub nullifier: Bytes32<u32>,
     pub prev_private_state: PrivateState,
     pub nullifier_proof: NullifierInsersionProof,
     pub prev_asset_leaf: AssetLeaf,
@@ -35,40 +35,36 @@ pub struct PrivateStateTransitionValue {
 
 impl PrivateStateTransitionValue {
     pub fn new(
-        pubkey: U256<u32>,
-        transfer: Transfer,
+        token_index: u32,
+        amount: U256<u32>,
+        nullifier: Bytes32<u32>,
         prev_private_state: PrivateState,
         nullifier_proof: NullifierInsersionProof,
         prev_asset_leaf: AssetLeaf,
         asset_merkle_proof: AssetMerkleProof,
     ) -> Self {
-        let recipient = transfer
-            .recipient
-            .to_pubkey()
-            .expect("recipient is not a pubkey");
-        assert_eq!(pubkey, recipient);
-        let nullifier: Bytes32<u32> = transfer.commitment().into();
         let new_nullifier_tree_root = nullifier_proof
             .get_new_root(prev_private_state.nullifier_tree_root, nullifier)
             .expect("Invalid nullifier proof");
         asset_merkle_proof
             .verify(
                 &prev_asset_leaf,
-                transfer.token_index as usize,
+                token_index as usize,
                 prev_private_state.asset_tree_root,
             )
             .expect("Invalid asset merkle proof");
-        let new_asset_leaf = prev_asset_leaf.add(transfer.amount);
+        let new_asset_leaf = prev_asset_leaf.add(amount);
         let new_asset_tree_root =
-            asset_merkle_proof.get_root(&new_asset_leaf, transfer.token_index as usize);
+            asset_merkle_proof.get_root(&new_asset_leaf, token_index as usize);
         let new_private_state = PrivateState {
             asset_tree_root: new_asset_tree_root,
             nullifier_tree_root: new_nullifier_tree_root,
             ..prev_private_state
         };
         Self {
-            pubkey,
-            transfer,
+            token_index,
+            amount,
+            nullifier,
             prev_private_state,
             nullifier_proof,
             prev_asset_leaf,
@@ -80,8 +76,9 @@ impl PrivateStateTransitionValue {
 
 #[derive(Debug, Clone)]
 pub struct PrivateStateTransitionTarget {
-    pub pubkey: U256<Target>,
-    pub transfer: TransferTarget,
+    pub token_index: Target,
+    pub amount: U256<Target>,
+    pub nullifier: Bytes32<Target>,
     pub prev_private_state: PrivateStateTarget,
     pub nullifier_proof: NullifierInsersionProofTarget,
     pub prev_asset_leaf: AssetLeafTarget,
@@ -97,17 +94,14 @@ impl PrivateStateTransitionTarget {
     where
         <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
     {
-        let pubkey = U256::<Target>::new(builder, is_checked);
-        let transfer = TransferTarget::new(builder, is_checked);
+        let token_index = builder.add_virtual_target();
+        let amount = U256::<Target>::new(builder, is_checked);
+        let nullifier = Bytes32::<Target>::new(builder, is_checked);
         let prev_private_state = PrivateStateTarget::new(builder);
         let nullifier_proof = NullifierInsersionProofTarget::new(builder, is_checked);
         let prev_asset_leaf = AssetLeafTarget::new(builder, is_checked);
         let asset_merkle_proof = AssetMerkleProofTarget::new(builder, ASSET_TREE_HEIGHT);
 
-        let recipient = transfer.recipient.to_pubkey(builder);
-        pubkey.connect(builder, recipient);
-        let transfer_commitment = transfer.commitment(builder);
-        let nullifier: Bytes32<Target> = Bytes32::from_hash_out(builder, transfer_commitment);
         let new_nullifier_tree_root = nullifier_proof.get_new_root::<F, C, D>(
             builder,
             prev_private_state.nullifier_tree_root,
@@ -116,20 +110,21 @@ impl PrivateStateTransitionTarget {
         asset_merkle_proof.verify::<F, C, D>(
             builder,
             &prev_asset_leaf,
-            transfer.token_index,
+            token_index,
             prev_private_state.asset_tree_root,
         );
-        let new_asset_leaf = prev_asset_leaf.add(builder, transfer.amount);
+        let new_asset_leaf = prev_asset_leaf.add(builder, amount);
         let new_asset_tree_root =
-            asset_merkle_proof.get_root::<F, C, D>(builder, &new_asset_leaf, transfer.token_index);
+            asset_merkle_proof.get_root::<F, C, D>(builder, &new_asset_leaf, token_index);
         let new_private_state = PrivateStateTarget {
             asset_tree_root: new_asset_tree_root,
             nullifier_tree_root: new_nullifier_tree_root,
             ..prev_private_state
         };
         Self {
-            pubkey,
-            transfer,
+            token_index,
+            amount,
+            nullifier,
             prev_private_state,
             nullifier_proof,
             prev_asset_leaf,
@@ -143,8 +138,9 @@ impl PrivateStateTransitionTarget {
         witness: &mut W,
         value: &PrivateStateTransitionValue,
     ) {
-        self.pubkey.set_witness(witness, value.pubkey);
-        self.transfer.set_witness(witness, value.transfer);
+        witness.set_target(self.token_index, F::from_canonical_u32(value.token_index));
+        self.amount.set_witness(witness, value.amount);
+        self.nullifier.set_witness(witness, value.nullifier);
         self.prev_private_state
             .set_witness(witness, &value.prev_private_state);
         self.nullifier_proof
@@ -192,7 +188,7 @@ mod tests {
     fn private_state_transition() {
         let mut rng = rand::thread_rng();
         let transfer = Transfer::rand(&mut rng);
-        let pubkey = transfer.recipient.to_pubkey().unwrap();
+        let _pubkey = transfer.recipient.to_pubkey().unwrap();
 
         let mut asset_tree = AssetTree::new(ASSET_TREE_HEIGHT);
         let mut nullifier_tree = NullifierTree::new();
@@ -212,8 +208,9 @@ mod tests {
         let nullifier_proof = nullifier_tree.prove_and_insert(nullifier).unwrap();
 
         let value = PrivateStateTransitionValue::new(
-            pubkey,
-            transfer,
+            transfer.token_index,
+            transfer.amount,
+            nullifier,
             prev_private_state.clone(),
             nullifier_proof.clone(),
             prev_asset_leaf,
