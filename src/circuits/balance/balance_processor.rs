@@ -13,7 +13,9 @@ use crate::{
         balance::balance_pis::BalancePublicInputs, validity::validity_circuit::ValidityCircuit,
     },
     common::witness::{
-        send_witness::SendWitness, update_public_state_witness::UpdatePublicStateWitness,
+        balance_incoming_witness::BalanceIncomingWitness,
+        private_state_transition_witness::PrivateStateTransitionWitness, send_witness::SendWitness,
+        transfer_witness::TransferWitness, update_public_state_witness::UpdatePublicStateWitness,
     },
     ethereum_types::u256::U256,
 };
@@ -51,7 +53,7 @@ where
         self.balance_circuit.get_verifier_only_data()
     }
 
-     pub fn get_verifier_data(&self) -> VerifierCircuitData<F, C, D> {
+    pub fn get_verifier_data(&self) -> VerifierCircuitData<F, C, D> {
         self.balance_circuit.get_verifier_data()
     }
 
@@ -93,6 +95,33 @@ where
             &self.get_verifier_only_data(),
             &prev_balance_pis,
             update_public_state_witness,
+        );
+        let proof = self
+            .balance_circuit
+            .prove(pubkey, &transition_proof, prev_proof)
+            .unwrap();
+        proof
+    }
+
+    pub fn prove_receive_transfer(
+        &self,
+        pubkey: U256<u32>,
+        transfer_witness: &TransferWitness,
+        private_transition_witness: &PrivateStateTransitionWitness,
+        balance_incoming_witness: &BalanceIncomingWitness<F, C, D>,
+        prev_proof: &Option<ProofWithPublicInputs<F, C, D>>,
+    ) -> ProofWithPublicInputs<F, C, D> {
+        let prev_balance_pis = if prev_proof.is_some() {
+            BalancePublicInputs::from_pis(&prev_proof.as_ref().unwrap().public_inputs)
+        } else {
+            BalancePublicInputs::new(pubkey)
+        };
+        let transition_proof = self.balance_transition_processor.prove_receive_transfer(
+            &self.get_verifier_data(),
+            &prev_balance_pis,
+            transfer_witness,
+            private_transition_witness,
+            balance_incoming_witness,
         );
         let proof = self
             .balance_circuit

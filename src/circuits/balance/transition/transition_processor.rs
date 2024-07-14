@@ -231,7 +231,7 @@ where
 
         let balance_transition_value = BalanceTransitionValue::new(
             &CircuitConfig::default(),
-            BalanceTransitionType::Update,
+            BalanceTransitionType::ReceiveTransfer,
             &self.receive_transfer_circuit,
             &self.receive_deposit_circuit,
             &self.update_circuit,
