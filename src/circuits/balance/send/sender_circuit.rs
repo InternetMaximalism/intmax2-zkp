@@ -22,6 +22,7 @@ use crate::{
             tx_inclusion_circuit::TxInclusionPublicInputsTarget,
         },
     },
+    common::insufficient_flags::InsufficientFlagsTarget,
     ethereum_types::u32limb_trait::U32LimbTargetTrait as _,
     utils::{
         conversion::ToU64,
@@ -144,6 +145,12 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         } else {
             prev_balance_pis.last_tx_hash
         };
+        let last_tx_insufficient_flags = if is_valid {
+            spent_pis.insufficient_flags
+        } else {
+            prev_balance_pis.last_tx_insufficient_flags
+        };
+
         // check prev balance pis
         assert_eq!(prev_balance_pis.pubkey, tx_inclusion_pis.pubkey);
         assert_eq!(
@@ -154,6 +161,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
             pubkey: tx_inclusion_pis.pubkey,
             private_commitment: new_private_commitment,
             last_tx_hash,
+            last_tx_insufficient_flags,
             public_state: tx_inclusion_pis.new_public_state,
         };
         Self {
@@ -208,6 +216,12 @@ impl<const D: usize> SenderTarget<D> {
             tx_hash,
             prev_balance_pis.last_tx_hash,
         );
+        let last_tx_insufficient_flags = InsufficientFlagsTarget::select(
+            builder,
+            is_valid,
+            spent_pis.insufficient_flags,
+            prev_balance_pis.last_tx_insufficient_flags,
+        );
 
         // check prev balance pis
         prev_balance_pis
@@ -220,6 +234,7 @@ impl<const D: usize> SenderTarget<D> {
             pubkey: tx_inclusion_pis.pubkey,
             private_commitment: new_private_commitment,
             last_tx_hash,
+            last_tx_insufficient_flags,
             public_state: tx_inclusion_pis.new_public_state,
         };
         Self {

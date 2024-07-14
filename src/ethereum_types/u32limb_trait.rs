@@ -210,6 +210,19 @@ pub trait U32LimbTargetTrait<const NUM_LIMBS: usize>: Clone + Copy {
             .collect::<Vec<_>>()
     }
 
+    fn from_bits_le<F: RichField + Extendable<D>, const D: usize>(
+        builder: &mut CircuitBuilder<F, D>,
+        bits: &[BoolTarget],
+    ) -> Self {
+        assert_eq!(bits.len(), 32 * NUM_LIMBS);
+        let limbs = bits
+            .chunks(32)
+            .map(|chunk| builder.le_sum(chunk.into_iter()))
+            .rev()
+            .collect::<Vec<_>>();
+        Self::from_limbs(&limbs)
+    }
+
     fn mul_bool<F: RichField + Extendable<D>, const D: usize>(
         &self,
         builder: &mut CircuitBuilder<F, D>,

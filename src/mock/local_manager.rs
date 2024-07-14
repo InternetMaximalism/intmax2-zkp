@@ -3,6 +3,7 @@ use rand::Rng;
 use crate::{
     circuits::balance::balance_pis::BalancePublicInputs,
     common::{
+        insufficient_flags::InsufficientFlags,
         private_state::PrivateState,
         public_state::PublicState,
         salt::Salt,
@@ -21,7 +22,7 @@ use crate::{
     constants::{ASSET_TREE_HEIGHT, NUM_TRANSFERS_IN_TX, TRANSFER_TREE_HEIGHT},
     ethereum_types::u256::U256,
     mock::tx_request::TxRequest,
-    utils::{leafable::Leafable, poseidon_hash_out::PoseidonHashOut},
+    utils::poseidon_hash_out::PoseidonHashOut,
 };
 
 use super::block_builder::MockBlockBuilder;
@@ -60,15 +61,24 @@ impl LocalManager {
         }
     }
 
+    pub fn get_last_send_witness(&self) -> Option<SendWitness> {
+        self.sent_tx.last().cloned()
+    }
+
     pub fn get_balance_pis(&self) -> BalancePublicInputs {
+        let last_send_witness = self.get_last_send_witness();
+
         BalancePublicInputs {
             pubkey: self.key_set.pubkey_x,
             private_commitment: self.get_private_state().commitment(),
-            last_tx_hash: self
-                .sent_tx
-                .last()
+            last_tx_hash: last_send_witness
+                .clone()
                 .map_or(PoseidonHashOut::default(), |send_witness| {
-                    send_witness.tx_witness.tx.hash()
+                    send_witness.get_next_last_tx().last_tx_hash
+                }),
+            last_tx_insufficient_flags: last_send_witness
+                .map_or(InsufficientFlags::default(), |send_witness| {
+                    send_witness.get_next_last_tx().last_tx_insufficient_flags
                 }),
             public_state: self.public_state.clone(),
         }

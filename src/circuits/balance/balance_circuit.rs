@@ -24,6 +24,7 @@ use plonky2::{
 use crate::{
     circuits::{balance::balance_pis::BalancePublicInputsTarget, utils::cyclic::vd_vec_len},
     common::{
+        insufficient_flags::{InsufficientFlags, InsufficientFlagsTarget},
         private_state::PrivateState,
         public_state::{PublicState, PublicStateTarget},
     },
@@ -107,11 +108,14 @@ where
             PoseidonHashOutTarget::constant(&mut builder, PoseidonHashOut::default());
         let intitial_public_state =
             PublicStateTarget::constant(&mut builder, &PublicState::genesis());
+        let initial_last_tx_insufficient_flags =
+            InsufficientFlagsTarget::constant(&mut builder, InsufficientFlags::default());
         let pubkey = U256::<Target>::new(&mut builder, true);
         let initial_balance_pis = BalancePublicInputsTarget {
             pubkey,
             private_commitment: initial_private_commitment,
             last_tx_hash: initial_last_tx_hash,
+            last_tx_insufficient_flags: initial_last_tx_insufficient_flags,
             public_state: intitial_public_state,
         };
         prev_pis.conditional_assert_eq(&mut builder, &initial_balance_pis, is_first_step);

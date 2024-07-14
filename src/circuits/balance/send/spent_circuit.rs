@@ -15,12 +15,14 @@ use plonky2::{
 
 use crate::{
     common::{
+        insufficient_flags::{InsufficientFlags, InsufficientFlagsTarget, INSUFFICIENT_FLAGS_LEN},
         private_state::{PrivateState, PrivateStateTarget},
         transfer::{Transfer, TransferTarget},
         trees::asset_tree::{AssetLeaf, AssetLeafTarget, AssetMerkleProof, AssetMerkleProofTarget},
         tx::{Tx, TxTarget, TX_LEN},
     },
     constants::{ASSET_TREE_HEIGHT, NUM_TRANSFERS_IN_TX, TRANSFER_TREE_HEIGHT},
+    ethereum_types::u32limb_trait::{U32LimbTargetTrait, U32LimbTrait as _},
     utils::{
         poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget, POSEIDON_HASH_OUT_LEN},
         recursivable::Recursivable,
@@ -28,13 +30,15 @@ use crate::{
     },
 };
 
-pub const SPENT_PUBLIC_INPUTS_LEN: usize = POSEIDON_HASH_OUT_LEN * 2 + TX_LEN + 1;
+pub const SPENT_PUBLIC_INPUTS_LEN: usize =
+    POSEIDON_HASH_OUT_LEN * 2 + TX_LEN + INSUFFICIENT_FLAGS_LEN + 1;
 
 #[derive(Clone, Debug)]
 pub struct SpentPublicInputs {
     pub prev_private_commitment: PoseidonHashOut,
     pub new_private_commitment: PoseidonHashOut,
     pub tx: Tx,
+    pub insufficient_flags: InsufficientFlags,
     pub is_valid: bool,
 }
 
@@ -47,11 +51,16 @@ impl SpentPublicInputs {
             PoseidonHashOut::from_u64_vec(&input[POSEIDON_HASH_OUT_LEN..2 * POSEIDON_HASH_OUT_LEN]);
         let tx =
             Tx::from_u64_vec(&input[2 * POSEIDON_HASH_OUT_LEN..2 * POSEIDON_HASH_OUT_LEN + TX_LEN]);
-        let is_valid = input[2 * POSEIDON_HASH_OUT_LEN + TX_LEN] == 1;
+        let insufficient_flags = InsufficientFlags::from_u64_vec(
+            &input[2 * POSEIDON_HASH_OUT_LEN + TX_LEN
+                ..2 * POSEIDON_HASH_OUT_LEN + TX_LEN + INSUFFICIENT_FLAGS_LEN],
+        );
+        let is_valid = input[2 * POSEIDON_HASH_OUT_LEN + TX_LEN + INSUFFICIENT_FLAGS_LEN] == 1;
         Self {
             prev_private_commitment,
             new_private_commitment,
             tx,
+            insufficient_flags,
             is_valid,
         }
     }
@@ -62,6 +71,7 @@ pub struct SpentPublicInputsTarget {
     pub prev_private_commitment: PoseidonHashOutTarget,
     pub new_private_commitment: PoseidonHashOutTarget,
     pub tx: TxTarget,
+    pub insufficient_flags: InsufficientFlagsTarget,
     pub is_valid: BoolTarget,
 }
 
@@ -71,6 +81,7 @@ impl SpentPublicInputsTarget {
             self.prev_private_commitment.to_vec(),
             self.new_private_commitment.to_vec(),
             self.tx.to_vec(),
+            self.insufficient_flags.to_vec(),
             vec![self.is_valid.target],
         ]
         .concat();
@@ -88,11 +99,18 @@ impl SpentPublicInputsTarget {
         let tx = TxTarget::from_vec(
             &input[2 * POSEIDON_HASH_OUT_LEN..2 * POSEIDON_HASH_OUT_LEN + TX_LEN],
         );
-        let is_valid = BoolTarget::new_unsafe(input[2 * POSEIDON_HASH_OUT_LEN + TX_LEN]);
+        let insufficient_flags = InsufficientFlagsTarget::from_limbs(
+            &input[2 * POSEIDON_HASH_OUT_LEN + TX_LEN
+                ..2 * POSEIDON_HASH_OUT_LEN + TX_LEN + INSUFFICIENT_FLAGS_LEN],
+        );
+        let is_valid = BoolTarget::new_unsafe(
+            input[2 * POSEIDON_HASH_OUT_LEN + TX_LEN + INSUFFICIENT_FLAGS_LEN],
+        );
         Self {
             prev_private_commitment,
             new_private_commitment,
             tx,
+            insufficient_flags,
             is_valid,
         }
     }
@@ -107,6 +125,7 @@ pub struct SpentValue {
     pub prev_private_commitment: PoseidonHashOut,
     pub new_private_commitment: PoseidonHashOut,
     pub tx: Tx,
+    pub insufficient_flags: InsufficientFlags,
     pub is_valid: bool,
 }
 
@@ -119,6 +138,7 @@ pub struct SpentTarget {
     pub prev_private_commitment: PoseidonHashOutTarget,
     pub new_private_commitment: PoseidonHashOutTarget,
     pub tx: TxTarget,
+    pub insufficient_flags: InsufficientFlagsTarget,
     pub is_valid: BoolTarget,
 }
 
@@ -133,6 +153,7 @@ impl SpentValue {
         assert_eq!(prev_balances.len(), NUM_TRANSFERS_IN_TX);
         assert_eq!(transfers.len(), NUM_TRANSFERS_IN_TX);
         assert_eq!(asset_merkle_proofs.len(), NUM_TRANSFERS_IN_TX);
+        let mut insufficient_bits = vec![];
         let mut asset_tree_root = prev_private_state.asset_tree_root;
         for ((transfer, proof), prev_balance) in transfers
             .iter()
@@ -144,7 +165,9 @@ impl SpentValue {
                 .expect("asset merkle proof verification failed");
             let new_balance = prev_balance.sub(transfer.amount);
             asset_tree_root = proof.get_root(&new_balance, transfer.token_index as usize);
+            insufficient_bits.push(new_balance.is_insufficient);
         }
+        let insufficient_flags = InsufficientFlags::from_bits_le(&insufficient_bits);
         let is_valid = tx_nonce == prev_private_state.nonce;
         let new_private_state = PrivateState {
             asset_tree_root,
@@ -166,6 +189,7 @@ impl SpentValue {
             prev_private_commitment,
             new_private_commitment,
             tx,
+            insufficient_flags,
             is_valid,
         }
     }
@@ -189,6 +213,7 @@ impl SpentTarget {
         let asset_merkle_proofs = (0..NUM_TRANSFERS_IN_TX)
             .map(|_| AssetMerkleProofTarget::new(builder, ASSET_TREE_HEIGHT))
             .collect::<Vec<_>>();
+        let mut insufficient_bits = vec![];
         let mut asset_tree_root = prev_private_state.asset_tree_root;
         for ((transfer, proof), prev_balance) in transfers
             .iter()
@@ -199,7 +224,9 @@ impl SpentTarget {
             let new_balance = prev_balance.sub(builder, transfer.amount);
             asset_tree_root =
                 proof.get_root::<F, C, D>(builder, &new_balance, transfer.token_index);
+            insufficient_bits.push(new_balance.is_insufficient);
         }
+        let insufficient_flags = InsufficientFlagsTarget::from_bits_le(builder, &insufficient_bits);
         let is_valid = builder.is_equal(prev_private_state.nonce, tx_nonce);
         let one = builder.one();
         let new_private_state = PrivateStateTarget {
@@ -226,6 +253,7 @@ impl SpentTarget {
             prev_private_commitment,
             new_private_commitment,
             tx,
+            insufficient_flags,
             is_valid,
         }
     }
@@ -278,6 +306,7 @@ where
             prev_private_commitment: target.prev_private_commitment,
             new_private_commitment: target.new_private_commitment,
             tx: target.tx.clone(),
+            insufficient_flags: target.insufficient_flags,
             is_valid: target.is_valid,
         };
         builder.register_public_inputs(&pis.to_vec());
@@ -372,7 +401,7 @@ mod tests {
         let instant = std::time::Instant::now();
         let _proof = circuit.prove(&value).unwrap();
         dbg!(instant.elapsed());
-
+        dbg!(value.insufficient_flags);
         dbg!(circuit.data.common.degree_bits());
     }
 }

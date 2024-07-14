@@ -10,6 +10,7 @@ use plonky2::{
 
 use crate::{
     common::{
+        insufficient_flags::{InsufficientFlags, InsufficientFlagsTarget, INSUFFICIENT_FLAGS_LEN},
         private_state::PrivateState,
         public_state::{PublicState, PublicStateTarget, PUBLIC_STATE_LEN},
     },
@@ -21,13 +22,14 @@ use crate::{
 };
 
 pub const BALANCE_PUBLIC_INPUTS_LEN: usize =
-    U256_LEN + POSEIDON_HASH_OUT_LEN * 2 + PUBLIC_STATE_LEN;
+    U256_LEN + POSEIDON_HASH_OUT_LEN * 2 + INSUFFICIENT_FLAGS_LEN + PUBLIC_STATE_LEN;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct BalancePublicInputs {
     pub pubkey: U256<u32>,
     pub private_commitment: PoseidonHashOut,
     pub last_tx_hash: PoseidonHashOut,
+    pub last_tx_insufficient_flags: InsufficientFlags,
     pub public_state: PublicState,
 }
 
@@ -35,11 +37,13 @@ impl BalancePublicInputs {
     pub fn new(pubkey: U256<u32>) -> Self {
         let private_commitment = PrivateState::new().commitment();
         let last_tx_hash = PoseidonHashOut::default();
+        let last_tx_insufficient_flags = InsufficientFlags::default();
         let public_state = PublicState::genesis();
         Self {
             pubkey,
             private_commitment,
             last_tx_hash,
+            last_tx_insufficient_flags,
             public_state,
         }
     }
@@ -49,6 +53,7 @@ impl BalancePublicInputs {
             self.pubkey.to_u64_vec(),
             self.private_commitment.to_u64_vec(),
             self.last_tx_hash.to_u64_vec(),
+            self.last_tx_insufficient_flags.to_u64_vec(),
             self.public_state.to_u64_vec(),
         ]
         .concat();
@@ -64,12 +69,18 @@ impl BalancePublicInputs {
         let last_tx_hash = PoseidonHashOut::from_u64_vec(
             &input[U256_LEN + POSEIDON_HASH_OUT_LEN..U256_LEN + 2 * POSEIDON_HASH_OUT_LEN],
         );
-        let public_state =
-            PublicState::from_u64_vec(&input[U256_LEN + 2 * POSEIDON_HASH_OUT_LEN..]);
+        let last_tx_insufficient_flags = InsufficientFlags::from_u64_vec(
+            &input[U256_LEN + 2 * POSEIDON_HASH_OUT_LEN
+                ..U256_LEN + 2 * POSEIDON_HASH_OUT_LEN + INSUFFICIENT_FLAGS_LEN],
+        );
+        let public_state = PublicState::from_u64_vec(
+            &input[U256_LEN + 2 * POSEIDON_HASH_OUT_LEN + INSUFFICIENT_FLAGS_LEN..],
+        );
         Self {
             pubkey,
             private_commitment,
             last_tx_hash,
+            last_tx_insufficient_flags,
             public_state,
         }
     }
@@ -84,6 +95,7 @@ pub struct BalancePublicInputsTarget {
     pub pubkey: U256<Target>,
     pub private_commitment: PoseidonHashOutTarget,
     pub last_tx_hash: PoseidonHashOutTarget,
+    pub last_tx_insufficient_flags: InsufficientFlagsTarget,
     pub public_state: PublicStateTarget,
 }
 
@@ -96,6 +108,7 @@ impl BalancePublicInputsTarget {
             pubkey: U256::<Target>::new(builder, is_checked),
             private_commitment: PoseidonHashOutTarget::new(builder),
             last_tx_hash: PoseidonHashOutTarget::new(builder),
+            last_tx_insufficient_flags: InsufficientFlagsTarget::new(builder, is_checked),
             public_state: PublicStateTarget::new(builder, is_checked),
         }
     }
@@ -109,6 +122,8 @@ impl BalancePublicInputsTarget {
         self.private_commitment
             .connect(builder, other.private_commitment);
         self.last_tx_hash.connect(builder, other.last_tx_hash);
+        self.last_tx_insufficient_flags
+            .connect(builder, other.last_tx_insufficient_flags);
         self.public_state.connect(builder, &other.public_state);
     }
 
@@ -124,6 +139,11 @@ impl BalancePublicInputsTarget {
             .conditional_assert_eq(builder, other.private_commitment, condition);
         self.last_tx_hash
             .conditional_assert_eq(builder, other.last_tx_hash, condition);
+        self.last_tx_insufficient_flags.conditional_assert_eq(
+            builder,
+            other.last_tx_insufficient_flags,
+            condition,
+        );
         self.public_state
             .conditional_assert_eq(builder, &other.public_state, condition);
     }
@@ -137,6 +157,8 @@ impl BalancePublicInputsTarget {
         self.private_commitment
             .set_witness(witness, value.private_commitment);
         self.last_tx_hash.set_witness(witness, value.last_tx_hash);
+        self.last_tx_insufficient_flags
+            .set_witness(witness, value.last_tx_insufficient_flags);
         self.public_state.set_witness(witness, &value.public_state);
     }
 
@@ -145,6 +167,7 @@ impl BalancePublicInputsTarget {
             self.pubkey.to_vec(),
             self.private_commitment.to_vec(),
             self.last_tx_hash.to_vec(),
+            self.last_tx_insufficient_flags.to_vec(),
             self.public_state.to_vec(),
         ]
         .concat();
@@ -160,12 +183,18 @@ impl BalancePublicInputsTarget {
         let last_tx_hash = PoseidonHashOutTarget::from_vec(
             &input[U256_LEN + POSEIDON_HASH_OUT_LEN..U256_LEN + 2 * POSEIDON_HASH_OUT_LEN],
         );
-        let public_state =
-            PublicStateTarget::from_vec(&input[U256_LEN + 2 * POSEIDON_HASH_OUT_LEN..]);
+        let last_tx_insufficient_flags = InsufficientFlagsTarget::from_limbs(
+            &input[U256_LEN + 2 * POSEIDON_HASH_OUT_LEN
+                ..U256_LEN + 2 * POSEIDON_HASH_OUT_LEN + INSUFFICIENT_FLAGS_LEN],
+        );
+        let public_state = PublicStateTarget::from_vec(
+            &input[U256_LEN + 2 * POSEIDON_HASH_OUT_LEN + INSUFFICIENT_FLAGS_LEN..],
+        );
         Self {
             pubkey,
             private_commitment,
             last_tx_hash,
+            last_tx_insufficient_flags,
             public_state,
         }
     }

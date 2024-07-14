@@ -9,7 +9,7 @@ use plonky2::{
     plonk::circuit_builder::CircuitBuilder,
 };
 
-const INSUFFICIENT_FLAGS_LEN: usize = NUM_TRANSFERS_IN_TX / 32;
+pub const INSUFFICIENT_FLAGS_LEN: usize = NUM_TRANSFERS_IN_TX / 32;
 
 #[derive(Clone, Copy, Debug, PartialEq, Default)]
 pub struct InsufficientFlags {
