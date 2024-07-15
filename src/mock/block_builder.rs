@@ -63,13 +63,23 @@ impl MockBlockBuilder {
         block_tree.push(Block::genesis().hash());
         let deposit_tree = DepositTree::new(DEPOSIT_TREE_HEIGHT);
         let validity_witness = ValidityWitness::genesis();
+        let mut aux_info = HashMap::new();
+        aux_info.insert(
+            0,
+            AuxInfo {
+                tx_tree: TxTree::new(TX_TREE_HEIGHT),
+                validity_witness: validity_witness.clone(),
+                account_tree: account_tree.clone(),
+                block_tree: block_tree.clone(),
+            },
+        );
         MockBlockBuilder {
             last_block_number: 0,
             last_validity_witness: validity_witness,
             account_tree,
             block_tree,
             deposit_tree,
-            aux_info: HashMap::new(),
+            aux_info,
         }
     }
 }
@@ -162,7 +172,6 @@ impl MockBlockBuilder {
 
     // Generate transition witness from the prev block to the current block
     fn generate_validity_witness(&mut self, block_witness: &BlockWitness) -> ValidityWitness {
-        dbg!(block_witness.block.block_number);
         // assertion
         {
             assert!(

@@ -54,7 +54,7 @@ where
         update_public_state_witness: &UpdatePublicStateWitness<F, C, D>,
     ) -> ProofWithPublicInputs<F, C, D> {
         // assert validity proof pis for debug
-        let validity_pis = ValidityPublicInputs::from_pis(
+        let _validity_pis = ValidityPublicInputs::from_pis(
             &update_public_state_witness.validity_proof.public_inputs,
         );
         // assert_eq!(

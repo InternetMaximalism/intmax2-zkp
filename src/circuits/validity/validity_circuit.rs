@@ -218,9 +218,12 @@ mod tests {
         let mut rng = rand::thread_rng();
         let mut block_builder = MockBlockBuilder::new();
 
-        let transition_processor = TransitionProcessor::<F, C, D>::new();
         let txs = generate_random_tx_requests(&mut rng);
         let validity_witness = block_builder.post_block(true, txs);
+        assert!(validity_witness
+            .validity_transition_witness
+            .account_registoration_proofs
+            .is_some());
         let prev_block_number = validity_witness.get_block_number() - 1;
         let prev_pis = block_builder
             .aux_info
@@ -228,6 +231,8 @@ mod tests {
             .unwrap()
             .validity_witness
             .to_validity_pis();
+
+        let transition_processor = TransitionProcessor::<F, C, D>::new();
         let transition_proof = transition_processor
             .prove(&prev_pis, &validity_witness)
             .unwrap();

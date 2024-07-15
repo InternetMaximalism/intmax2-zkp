@@ -64,30 +64,34 @@ where
         prev_pis: &ValidityPublicInputs,
         validity_witness: &ValidityWitness,
     ) -> Result<ProofWithPublicInputs<F, C, D>> {
-        let account_registoration_proof =
-            if prev_pis.is_valid_block && prev_pis.is_registoration_block {
-                let account_registoration_proofs = validity_witness
-                    .validity_transition_witness
-                    .account_registoration_proofs
-                    .clone()
-                    .expect("Account registoration proofs are missing");
-                let sender_leaves = get_sender_leaves(
-                    &validity_witness.block_witness.pubkeys,
-                    validity_witness.block_witness.signature.sender_flag,
-                );
-                let value = AccountRegistorationValue::new(
-                    prev_pis.public_state.account_tree_root,
-                    prev_pis.public_state.block_number,
-                    sender_leaves.clone(),
-                    account_registoration_proofs,
-                );
-                let proof = self.account_registoration_circuit.prove(&value)?;
-                Some(proof)
-            } else {
-                None
-            };
-        let account_update_proof = if prev_pis.is_valid_block && (!prev_pis.is_registoration_block)
+        let prev_account_tree_root = validity_witness.block_witness.prev_account_tree_root;
+        let prev_block_tree_root = validity_witness.block_witness.prev_block_tree_root;
+
+        let block_pis = validity_witness.block_witness.to_main_validation_pis();
+
+        let account_registoration_proof = if block_pis.is_valid && block_pis.is_registoration_block
         {
+            let account_registoration_proofs = validity_witness
+                .validity_transition_witness
+                .account_registoration_proofs
+                .clone()
+                .expect("Account registoration proofs are missing");
+            let sender_leaves = get_sender_leaves(
+                &validity_witness.block_witness.pubkeys,
+                validity_witness.block_witness.signature.sender_flag,
+            );
+            let value = AccountRegistorationValue::new(
+                prev_account_tree_root,
+                block_pis.block_number,
+                sender_leaves.clone(),
+                account_registoration_proofs,
+            );
+            let proof = self.account_registoration_circuit.prove(&value)?;
+            Some(proof)
+        } else {
+            None
+        };
+        let account_update_proof = if block_pis.is_valid && (!block_pis.is_registoration_block) {
             let account_update_proofs = validity_witness
                 .validity_transition_witness
                 .account_update_proofs
@@ -98,8 +102,8 @@ where
                 validity_witness.block_witness.signature.sender_flag,
             );
             let value = AccountUpdateValue::new(
-                prev_pis.public_state.account_tree_root,
-                prev_pis.public_state.block_number,
+                prev_account_tree_root,
+                block_pis.block_number,
                 prev_sender_leaves.clone(),
                 account_update_proofs,
             );
@@ -112,8 +116,8 @@ where
             &self.account_registoration_circuit,
             &self.account_update_circuit,
             validity_witness.block_witness.to_main_validation_pis(),
-            prev_pis.public_state.account_tree_root,
-            prev_pis.public_state.block_tree_root,
+            prev_account_tree_root,
+            prev_block_tree_root,
             account_registoration_proof,
             account_update_proof,
             validity_witness
@@ -135,34 +139,41 @@ where
     }
 }
 
-// #[cfg(test)]
-// mod tests {
-//     use crate::{
-//         mock::block_builder::MockBlockBuilder, test_utils::tx::generate_random_tx_requests,
-//     };
-//     use plonky2::{
-//         field::goldilocks_field::GoldilocksField, plonk::config::PoseidonGoldilocksConfig,
-//     };
+#[cfg(test)]
+mod tests {
+    use crate::{
+        mock::block_builder::MockBlockBuilder, test_utils::tx::generate_random_tx_requests,
+    };
+    use plonky2::{
+        field::goldilocks_field::GoldilocksField, plonk::config::PoseidonGoldilocksConfig,
+    };
 
-//     use super::TransitionProcessor;
+    use super::TransitionProcessor;
 
-//     type F = GoldilocksField;
-//     type C = PoseidonGoldilocksConfig;
-//     const D: usize = 2;
+    type F = GoldilocksField;
+    type C = PoseidonGoldilocksConfig;
+    const D: usize = 2;
 
-//     #[test]
-//     fn test_transition_processor() {
-//         let mut rng = rand::thread_rng();
-//         let mut block_builder = MockBlockBuilder::new();
-//         block_builder.post_block(true, generate_random_tx_requests(&mut rng));
+    #[test]
+    fn test_transition_processor() {
+        let mut rng = rand::thread_rng();
+        let mut block_builder = MockBlockBuilder::new();
+        block_builder.post_block(true, generate_random_tx_requests(&mut rng));
 
-//         let transition_processor = TransitionProcessor::<F, C, D>::new();
-//         let txs = generate_random_tx_requests(&mut rng);
-//         let validity_witness = block_builder.generate_block_and_witness(true, txs).0;
-//         let prev_block_witness = block_builder.get_last_block_witness();
+        let transition_processor = TransitionProcessor::<F, C, D>::new();
+        let txs = generate_random_tx_requests(&mut rng);
+        let validity_witness = block_builder.post_block(true, txs);
 
-//         let _proof = transition_processor
-//             .prove(&prev_block_witness, &validity_witness)
-//             .unwrap();
-//     }
-// }
+        let prev_block_number = validity_witness.get_block_number() - 1;
+        let prev_pis = block_builder
+            .aux_info
+            .get(&prev_block_number)
+            .unwrap()
+            .validity_witness
+            .to_validity_pis();
+
+        let _proof = transition_processor
+            .prove(&prev_pis, &validity_witness)
+            .unwrap();
+    }
+}
