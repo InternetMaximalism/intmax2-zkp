@@ -160,7 +160,12 @@ impl BlockInfo {
             .map(|(tx_index, tx)| {
                 let tx_merkle_proof = self.tx_tree.prove(tx_index);
                 TxWitness {
-                    validity_witness: self.validity_witness.clone(),
+                    validity_pis: self.validity_witness.to_validity_pis(),
+                    sender_leaves: self
+                        .validity_witness
+                        .block_witness
+                        .get_sender_tree()
+                        .leaves(),
                     tx: tx.clone(),
                     tx_index,
                     tx_merkle_proof,

@@ -35,11 +35,7 @@ pub struct SendWitnessResult {
 impl SendWitness {
     /// get block number of the block that contains the tx.
     pub fn get_included_block_number(&self) -> u32 {
-        self.tx_witness
-            .validity_witness
-            .block_witness
-            .block
-            .block_number
+        self.tx_witness.validity_pis.public_state.block_number
     }
 
     /// get block number of the previous balance pis

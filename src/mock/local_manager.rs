@@ -163,7 +163,8 @@ impl LocalManager {
         let tx_index = tx_tree.get_tx_index(&tx).unwrap();
         let tx_merkle_proof = tx_tree.prove(tx_index);
         let tx_witness = TxWitness {
-            validity_witness,
+            validity_pis: validity_witness.to_validity_pis(),
+            sender_leaves: validity_witness.block_witness.get_sender_tree().leaves(),
             tx,
             tx_index,
             tx_merkle_proof,
@@ -246,7 +247,7 @@ impl LocalManager {
         assert_eq!(tx_witness.tx.nonce, self.nonce);
         self.nonce += 1;
         self.salt = new_salt;
-        self.public_state = tx_witness.validity_witness.to_validity_pis().public_state;
+        self.public_state = tx_witness.validity_pis.public_state.clone();
         let transfers = transfer_witness
             .iter()
             .map(|w| w.transfer.clone())
