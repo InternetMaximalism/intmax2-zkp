@@ -1,4 +1,4 @@
-use crate::ethereum_types::u32limb_trait::{U32LimbTargetTrait as _, U32LimbTrait as _};
+use crate::ethereum_types::{bytes32::Bytes32Target, u32limb_trait::{U32LimbTargetTrait as _, U32LimbTrait as _}};
 use anyhow::ensure;
 use core::fmt::Display;
 use plonky2::{
@@ -211,7 +211,7 @@ impl<F: PrimeField64> From<HashOut<F>> for PoseidonHashOut {
     }
 }
 
-impl From<PoseidonHashOut> for Bytes32<u32> {
+impl From<PoseidonHashOut> for Bytes32 {
     /// Convert HashOut to Bytes32.
     fn from(value: PoseidonHashOut) -> Self {
         let limbs = value
@@ -227,7 +227,7 @@ impl From<PoseidonHashOut> for Bytes32<u32> {
     }
 }
 
-impl Bytes32<u32> {
+impl Bytes32 {
     pub fn reduce_to_hash_out(&self) -> PoseidonHashOut {
         let elements = self
             .limbs()
@@ -244,19 +244,19 @@ impl Bytes32<u32> {
     }
 }
 
-impl TryFrom<Bytes32<u32>> for PoseidonHashOut {
+impl TryFrom<Bytes32> for PoseidonHashOut {
     type Error = anyhow::Error;
     // Convert Bytes32 to HashOut.
     /// Bytes32 has a larger representation space than HashOut, so this might fail.
-    fn try_from(value: Bytes32<u32>) -> Result<Self, Self::Error> {
+    fn try_from(value: Bytes32) -> Result<Self, Self::Error> {
         let hash_out = value.reduce_to_hash_out();
-        let recovered: Bytes32<u32> = hash_out.into();
+        let recovered: Bytes32 = hash_out.into();
         ensure!(value == recovered, "Failed to recover HashOut from Bytes32");
         Ok(hash_out)
     }
 }
 
-impl Bytes32<Target> {
+impl Bytes32Target {
     pub fn from_hash_out<F: RichField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
         input: PoseidonHashOutTarget,
@@ -292,7 +292,7 @@ impl Bytes32<Target> {
         builder: &mut CircuitBuilder<F, D>,
     ) -> PoseidonHashOutTarget {
         let hash_out = self.reduce_to_hash_out(builder);
-        let recovered = Bytes32::<Target>::from_hash_out(builder, hash_out);
+        let recovered = Bytes32Target::from_hash_out(builder, hash_out);
         self.connect(builder, recovered);
         hash_out
     }
@@ -300,21 +300,21 @@ impl Bytes32<Target> {
 
 impl Serialize for PoseidonHashOut {
     fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        let bytes32: Bytes32<u32> = (*self).into();
+        let bytes32: Bytes32 = (*self).into();
         bytes32.serialize(serializer)
     }
 }
 
 impl<'de> Deserialize<'de> for PoseidonHashOut {
     fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        let bytes32 = Bytes32::<u32>::deserialize(deserializer)?;
+        let bytes32 = Bytes32::deserialize(deserializer)?;
         bytes32.try_into().map_err(serde::de::Error::custom)
     }
 }
 
 impl Display for PoseidonHashOut {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let bytes32: Bytes32<u32> = (*self).into();
+        let bytes32: Bytes32 = (*self).into();
         write!(f, "{}", bytes32)
     }
 }

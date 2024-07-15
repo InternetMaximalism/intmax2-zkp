@@ -1,8 +1,8 @@
 use crate::{
     constants::NULLIFIER_TREE_HEIGHT,
     ethereum_types::{
-        bytes32::Bytes32,
-        u256::U256,
+        bytes32::{Bytes32, Bytes32Target},
+        u256::{U256Target, U256},
         u32limb_trait::{U32LimbTargetTrait, U32LimbTrait},
     },
     utils::{
@@ -17,7 +17,7 @@ use anyhow::{ensure, Result};
 use plonky2::{
     field::{extension::Extendable, types::Field},
     hash::hash_types::RichField,
-    iop::{target::Target, witness::WitnessWrite},
+    iop::witness::WitnessWrite,
     plonk::{
         circuit_builder::CircuitBuilder,
         config::{AlgebraicHasher, GenericConfig},
@@ -39,10 +39,10 @@ impl NullifierTree {
         self.0.get_root()
     }
 
-    pub fn prove_and_insert(&mut self, nullifier: Bytes32<u32>) -> Result<NullifierInsersionProof> {
+    pub fn prove_and_insert(&mut self, nullifier: Bytes32) -> Result<NullifierInsersionProof> {
         let proof = self
             .0
-            .prove_and_insert(U256::<u32>::from_limbs(&nullifier.limbs()), 0)?;
+            .prove_and_insert(U256::from_limbs(&nullifier.limbs()), 0)?;
         Ok(NullifierInsersionProof(proof))
     }
 }
@@ -51,11 +51,11 @@ impl NullifierInsersionProof {
     pub fn get_new_root(
         &self,
         prev_root: PoseidonHashOut,
-        nullifier: Bytes32<u32>,
+        nullifier: Bytes32,
     ) -> Result<PoseidonHashOut> {
-        let root =
-            self.0
-                .get_new_root(U256::<u32>::from_limbs(&nullifier.limbs()), 0, prev_root)?;
+        let root = self
+            .0
+            .get_new_root(U256::from_limbs(&nullifier.limbs()), 0, prev_root)?;
         Ok(root)
     }
 
@@ -63,7 +63,7 @@ impl NullifierInsersionProof {
         &self,
         prev_root: PoseidonHashOut,
         new_root: PoseidonHashOut,
-        nullifier: Bytes32<u32>,
+        nullifier: Bytes32,
     ) -> Result<()> {
         let expected_new_root = self.get_new_root(prev_root, nullifier)?;
         ensure!(
@@ -109,7 +109,7 @@ impl NullifierInsersionProofTarget {
         &self,
         builder: &mut CircuitBuilder<F, D>,
         prev_root: PoseidonHashOutTarget,
-        nullifier: Bytes32<Target>,
+        nullifier: Bytes32Target,
     ) -> PoseidonHashOutTarget
     where
         <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
@@ -117,7 +117,7 @@ impl NullifierInsersionProofTarget {
         let zero = builder.zero();
         self.0.get_new_root::<F, C, D>(
             builder,
-            U256::<Target>::from_limbs(&nullifier.limbs()),
+            U256Target::from_limbs(&nullifier.limbs()),
             zero,
             prev_root,
         )
@@ -132,7 +132,7 @@ impl NullifierInsersionProofTarget {
         builder: &mut CircuitBuilder<F, D>,
         prev_root: PoseidonHashOutTarget,
         new_root: PoseidonHashOutTarget,
-        nullifier: Bytes32<Target>,
+        nullifier: Bytes32Target,
     ) where
         <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
     {

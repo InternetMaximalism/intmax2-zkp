@@ -4,7 +4,7 @@ use num::BigUint;
 use plonky2::{
     field::{extension::Extendable, goldilocks_field::GoldilocksField, types::Field as _},
     hash::hash_types::RichField,
-    iop::target::{BoolTarget, Target},
+    iop::target::BoolTarget,
     plonk::{
         circuit_builder::CircuitBuilder,
         config::{AlgebraicHasher, GenericConfig},
@@ -21,7 +21,7 @@ use crate::{
     constants::NUM_SENDERS_IN_BLOCK,
     ethereum_types::{
         u128::U128,
-        u256::U256,
+        u256::{U256Target, U256},
         u32limb_trait::{U32LimbTargetTrait as _, U32LimbTrait as _},
     },
 };
@@ -34,7 +34,7 @@ impl SignatureContent {
     /// correctness of pubkey hash and account id hash is not checked here
     /// pubkeys are given as witnesses
     /// - pubkeys are in the correct order, unused pubkeys are one
-    pub fn is_valid_format(&self, pubkeys: &[U256<u32>]) -> Result<()> {
+    pub fn is_valid_format(&self, pubkeys: &[U256]) -> Result<()> {
         assert_eq!(
             pubkeys.len(),
             NUM_SENDERS_IN_BLOCK,
@@ -48,7 +48,7 @@ impl SignatureContent {
         let mut cur_pubkey = pubkeys[0];
         for pubkey in pubkeys.iter().skip(1) {
             ensure!(
-                cur_pubkey > *pubkey || *pubkey == U256::<u32>::one(),
+                cur_pubkey > *pubkey || *pubkey == U256::one(),
                 "pubkey order check failed"
             );
             cur_pubkey = *pubkey;
@@ -96,7 +96,7 @@ impl SignatureContentTarget {
     >(
         &self,
         builder: &mut CircuitBuilder<F, D>,
-        pubkeys: &[U256<Target>],
+        pubkeys: &[U256Target],
     ) -> BoolTarget
     where
         <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
@@ -109,7 +109,7 @@ impl SignatureContentTarget {
         let mut result = builder.constant_bool(true);
 
         // sender flag check
-        let is_sender_flag_zero = self.sender_flag.is_zero::<F, D, U128<u32>>(builder);
+        let is_sender_flag_zero = self.sender_flag.is_zero::<F, D, U128>(builder);
         let is_not_sender_flag_zero = builder.not(is_sender_flag_zero);
         result = builder.and(result, is_not_sender_flag_zero);
 
@@ -117,7 +117,7 @@ impl SignatureContentTarget {
         let mut cur_pubkey = pubkeys[0];
         for pubkey in pubkeys.iter().skip(1) {
             let is_pubkey_lt = pubkey.is_lt(builder, &cur_pubkey);
-            let is_pubkey_one = pubkey.is_one::<F, D, U256<u32>>(builder);
+            let is_pubkey_one = pubkey.is_one::<F, D, U256>(builder);
             let is_pubkey_order_valid = builder.or(is_pubkey_lt, is_pubkey_one);
             result = builder.and(result, is_pubkey_order_valid);
             cur_pubkey = pubkey.clone();
@@ -164,10 +164,7 @@ mod tests {
     use ark_bn254::{Fq, G1Affine};
     use plonky2::{
         field::goldilocks_field::GoldilocksField,
-        iop::{
-            target::Target,
-            witness::{PartialWitness, WitnessWrite},
-        },
+        iop::witness::{PartialWitness, WitnessWrite},
         plonk::{
             circuit_builder::CircuitBuilder, circuit_data::CircuitConfig,
             config::PoseidonGoldilocksConfig,
@@ -177,7 +174,7 @@ mod tests {
 
     use crate::{
         common::signature::{SignatureContent, SignatureContentTarget},
-        ethereum_types::{u256::U256, u32limb_trait::U32LimbTargetTrait as _},
+        ethereum_types::{u256::U256Target, u32limb_trait::U32LimbTargetTrait as _},
     };
 
     type F = GoldilocksField;
@@ -202,7 +199,7 @@ mod tests {
         let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::default());
         let pubkeys_t = pubkeys
             .iter()
-            .map(|x| U256::<Target>::constant(&mut builder, *x))
+            .map(|x| U256Target::constant(&mut builder, *x))
             .collect::<Vec<_>>();
         let signature_t = SignatureContentTarget::constant(&mut builder, &signature);
         let result = signature_t.is_valid_format::<F, C, D>(&mut builder, &pubkeys_t);

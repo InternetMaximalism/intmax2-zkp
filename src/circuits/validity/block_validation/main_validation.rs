@@ -3,7 +3,7 @@ use crate::{
         signature::utils::get_pubkey_hash_circuit,
         trees::sender_tree::{get_sender_tree_root, get_sender_tree_root_circuit},
     },
-    ethereum_types::{bytes32::BYTES32_LEN, u32limb_trait::U32LimbTrait as _},
+    ethereum_types::{bytes32::{Bytes32Target, BYTES32_LEN}, u256::U256Target, u32limb_trait::U32LimbTrait as _},
     utils::{
         conversion::ToU64,
         dummy::DummyProof,
@@ -55,11 +55,11 @@ pub const MAIN_VALIDATION_PUBLIC_INPUT_LEN: usize = 4 * BYTES32_LEN + 2 * 4 + 3;
 
 #[derive(Clone, Debug)]
 pub struct MainValidationPublicInputs {
-    pub prev_block_hash: Bytes32<u32>,
-    pub block_hash: Bytes32<u32>,
-    pub deposit_tree_root: Bytes32<u32>,
+    pub prev_block_hash: Bytes32,
+    pub block_hash: Bytes32,
+    pub deposit_tree_root: Bytes32,
     pub account_tree_root: PoseidonHashOut,
-    pub tx_tree_root: Bytes32<u32>,
+    pub tx_tree_root: Bytes32,
     pub sender_tree_root: PoseidonHashOut,
     pub block_number: u32,
     pub is_registoration_block: bool,
@@ -68,11 +68,11 @@ pub struct MainValidationPublicInputs {
 
 #[derive(Clone, Debug)]
 pub struct MainValidationPublicInputsTarget {
-    pub prev_block_hash: Bytes32<Target>,
-    pub block_hash: Bytes32<Target>,
-    pub deposit_tree_root: Bytes32<Target>,
+    pub prev_block_hash: Bytes32Target,
+    pub block_hash: Bytes32Target,
+    pub deposit_tree_root: Bytes32Target,
     pub account_tree_root: PoseidonHashOutTarget,
-    pub tx_tree_root: Bytes32<Target>,
+    pub tx_tree_root: Bytes32Target,
     pub sender_tree_root: PoseidonHashOutTarget,
     pub block_number: Target,
     pub is_registoration_block: BoolTarget,
@@ -82,11 +82,11 @@ pub struct MainValidationPublicInputsTarget {
 impl MainValidationPublicInputs {
     pub fn from_u64_vec(input: &[u64]) -> Self {
         assert_eq!(input.len(), MAIN_VALIDATION_PUBLIC_INPUT_LEN);
-        let prev_block_hash = Bytes32::<u32>::from_u64_vec(&input[0..8]);
-        let block_hash = Bytes32::<u32>::from_u64_vec(&input[8..16]);
-        let deposit_tree_root = Bytes32::<u32>::from_u64_vec(&input[16..24]);
+        let prev_block_hash = Bytes32::from_u64_vec(&input[0..8]);
+        let block_hash = Bytes32::from_u64_vec(&input[8..16]);
+        let deposit_tree_root = Bytes32::from_u64_vec(&input[16..24]);
         let account_tree_root = PoseidonHashOut::from_u64_vec(&input[24..28]);
-        let tx_tree_root = Bytes32::<u32>::from_u64_vec(&input[28..36]);
+        let tx_tree_root = Bytes32::from_u64_vec(&input[28..36]);
         let sender_tree_root = PoseidonHashOut::from_u64_vec(&input[36..40]);
         let block_number = input[40] as u32;
         let is_registoration_block = input[41] == 1;
@@ -119,11 +119,11 @@ impl MainValidationPublicInputsTarget {
             builder.assert_bool(is_valid);
         }
         Self {
-            prev_block_hash: Bytes32::<Target>::new(builder, is_checked),
-            block_hash: Bytes32::<Target>::new(builder, is_checked),
-            deposit_tree_root: Bytes32::<Target>::new(builder, is_checked),
+            prev_block_hash: Bytes32Target::new(builder, is_checked),
+            block_hash: Bytes32Target::new(builder, is_checked),
+            deposit_tree_root: Bytes32Target::new(builder, is_checked),
             account_tree_root: PoseidonHashOutTarget::new(builder),
-            tx_tree_root: Bytes32::<Target>::new(builder, is_checked),
+            tx_tree_root: Bytes32Target::new(builder, is_checked),
             sender_tree_root: PoseidonHashOutTarget::new(builder),
             block_number,
             is_registoration_block,
@@ -153,11 +153,11 @@ impl MainValidationPublicInputsTarget {
 
     pub fn from_vec(input: &[Target]) -> Self {
         assert_eq!(input.len(), MAIN_VALIDATION_PUBLIC_INPUT_LEN);
-        let prev_block_hash = Bytes32::<Target>::from_limbs(&input[0..8]);
-        let block_hash = Bytes32::<Target>::from_limbs(&input[8..16]);
-        let deposit_tree_root = Bytes32::<Target>::from_limbs(&input[16..24]);
+        let prev_block_hash = Bytes32Target::from_limbs(&input[0..8]);
+        let block_hash = Bytes32Target::from_limbs(&input[8..16]);
+        let deposit_tree_root = Bytes32Target::from_limbs(&input[16..24]);
         let account_tree_root = PoseidonHashOutTarget::from_vec(&input[24..28]);
-        let tx_tree_root = Bytes32::<Target>::from_limbs(&input[28..36]);
+        let tx_tree_root = Bytes32Target::from_limbs(&input[28..36]);
         let sender_tree_root = PoseidonHashOutTarget::from_vec(&input[36..40]);
         let block_number = input[40];
         let is_registoration_block = BoolTarget::new_unsafe(input[41]);
@@ -203,7 +203,7 @@ pub struct MainValidationValue<
 > {
     block: Block,
     signature: SignatureContent,
-    pubkeys: Vec<U256<u32>>,
+    pubkeys: Vec<U256>,
     account_tree_root: PoseidonHashOut,
     account_inclusion_proof: Option<ProofWithPublicInputs<F, C, D>>,
     account_exclusion_proof: Option<ProofWithPublicInputs<F, C, D>>,
@@ -212,8 +212,8 @@ pub struct MainValidationValue<
     block_commitment: PoseidonHashOut,
     signature_commitment: PoseidonHashOut,
     pubkey_commitment: PoseidonHashOut,
-    prev_block_hash: Bytes32<u32>,
-    block_hash: Bytes32<u32>,
+    prev_block_hash: Bytes32,
+    block_hash: Bytes32,
     sender_tree_root: PoseidonHashOut,
     is_registoration_block: bool,
     is_valid: bool,
@@ -229,7 +229,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         aggregation_circuit: &AggregationCircuit<F, C, D>,
         block: Block,
         signature: SignatureContent,
-        pubkeys: Vec<U256<u32>>,
+        pubkeys: Vec<U256>,
         account_tree_root: PoseidonHashOut,
         account_inclusion_proof: Option<ProofWithPublicInputs<F, C, D>>,
         account_exclusion_proof: Option<ProofWithPublicInputs<F, C, D>>,
@@ -385,7 +385,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
 pub struct MainValidationTarget<const D: usize> {
     block: BlockTarget,
     signature: SignatureContentTarget,
-    pubkeys: Vec<U256<Target>>,
+    pubkeys: Vec<U256Target>,
     account_tree_root: PoseidonHashOutTarget,
     account_inclusion_proof: ProofWithPublicInputsTarget<D>,
     account_exclusion_proof: ProofWithPublicInputsTarget<D>,
@@ -394,8 +394,8 @@ pub struct MainValidationTarget<const D: usize> {
     block_commitment: PoseidonHashOutTarget,
     signature_commitment: PoseidonHashOutTarget,
     pubkey_commitment: PoseidonHashOutTarget,
-    prev_block_hash: Bytes32<Target>,
-    block_hash: Bytes32<Target>,
+    prev_block_hash: Bytes32Target,
+    block_hash: Bytes32Target,
     sender_tree_root: PoseidonHashOutTarget,
     is_registoration_block: BoolTarget,
     is_valid: BoolTarget,
@@ -416,7 +416,7 @@ impl<const D: usize> MainValidationTarget<D> {
         let block = BlockTarget::new(builder, true);
         let signature = SignatureContentTarget::new(builder, true);
         let pubkeys = (0..NUM_SENDERS_IN_BLOCK)
-            .map(|_| U256::<Target>::new(builder, true))
+            .map(|_| U256Target::new(builder, true))
             .collect::<Vec<_>>();
         let pubkey_commitment = get_pubkey_commitment_circuit(builder, &pubkeys);
         let pubkey_hash = get_pubkey_hash_circuit::<F, C, D>(builder, &pubkeys);

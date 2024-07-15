@@ -15,7 +15,7 @@ use super::{
 };
 use crate::{
     ethereum_types::{
-        u256::{U256, U256_LEN},
+        u256::{U256Target, U256, U256_LEN},
         u32limb_trait::{U32LimbTargetTrait as _, U32LimbTrait as _},
     },
     utils::{
@@ -31,7 +31,7 @@ pub const TRANSFER_LEN: usize = GENERIC_ADDRESS_LEN + 1 + U256_LEN + SALT_LEN;
 pub struct Transfer {
     pub recipient: GenericAddress,
     pub token_index: u32,
-    pub amount: U256<u32>,
+    pub amount: U256,
     pub salt: Salt,
 }
 
@@ -39,7 +39,7 @@ pub struct Transfer {
 pub struct TransferTarget {
     pub recipient: GenericAddressTarget,
     pub token_index: Target,
-    pub amount: U256<Target>,
+    pub amount: U256Target,
     pub salt: SaltTarget,
 }
 
@@ -66,7 +66,7 @@ impl Transfer {
         }
     }
 
-    pub fn rand_to<R: Rng>(rng: &mut R, to: U256<u32>) -> Self {
+    pub fn rand_to<R: Rng>(rng: &mut R, to: U256) -> Self {
         Self {
             recipient: GenericAddress::from_pubkey(to),
             token_index: rng.gen(),
@@ -110,7 +110,7 @@ impl TransferTarget {
         Self {
             recipient: GenericAddressTarget::new(builder, is_checked),
             token_index: builder.add_virtual_target(),
-            amount: U256::<Target>::new(builder, is_checked),
+            amount: U256Target::new(builder, is_checked),
             salt: SaltTarget::new(builder),
         }
     }
@@ -133,7 +133,7 @@ impl TransferTarget {
         Self {
             recipient: GenericAddressTarget::constant(builder, value.recipient),
             token_index: builder.add_virtual_target(),
-            amount: U256::<Target>::constant(builder, value.amount),
+            amount: U256Target::constant(builder, value.amount),
             salt: SaltTarget::constant(builder, value.salt),
         }
     }

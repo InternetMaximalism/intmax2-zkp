@@ -41,7 +41,7 @@ impl IndexedMerkleTree {
         self.0.prove(index)
     }
 
-    pub(crate) fn low_index(&self, key: U256<u32>) -> Result<usize> {
+    pub(crate) fn low_index(&self, key: U256) -> Result<usize> {
         let low_leaf_candidates = self
             .0
             .leaves()
@@ -60,7 +60,7 @@ impl IndexedMerkleTree {
         Ok(low_leaf_index)
     }
 
-    pub(crate) fn index(&self, key: U256<u32>) -> Option<usize> {
+    pub(crate) fn index(&self, key: U256) -> Option<usize> {
         let leaf_candidates = self
             .0
             .leaves()
@@ -79,11 +79,11 @@ impl IndexedMerkleTree {
         Some(leaf_index)
     }
 
-    pub fn key(&self, index: usize) -> U256<u32> {
+    pub fn key(&self, index: usize) -> U256 {
         self.0.get_leaf(index).key
     }
 
-    pub fn update(&mut self, key: U256<u32>, value: u64) -> Result<()> {
+    pub fn update(&mut self, key: U256, value: u64) -> Result<()> {
         let index = self
             .index(key)
             .ok_or_else(|| anyhow!("Error: key doesn't exist"))?;

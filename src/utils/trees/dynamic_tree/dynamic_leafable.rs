@@ -21,5 +21,5 @@ where
 }
 
 pub trait DynamicLeafable: Clone + Display {
-    fn hash(&self) -> Bytes32<u32>;
+    fn hash(&self) -> Bytes32;
 }

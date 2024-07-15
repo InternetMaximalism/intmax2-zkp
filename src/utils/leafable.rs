@@ -1,13 +1,12 @@
 use crate::ethereum_types::{
-    bytes32::Bytes32,
-    u256::U256,
+    bytes32::{Bytes32, Bytes32Target},
+    u256::{U256Target, U256},
     u32limb_trait::{U32LimbTargetTrait as _, U32LimbTrait},
 };
 use plonky2::{
     self,
     field::extension::Extendable,
     hash::hash_types::RichField,
-    iop::target::Target,
     plonk::{
         circuit_builder::CircuitBuilder,
         config::{AlgebraicHasher, GenericConfig},
@@ -84,9 +83,9 @@ impl LeafableTarget for PoseidonHashOutTarget {
 }
 
 /*
- * Leafable for Bytes32<u32>
+ * Leafable for Bytes32
  */
-impl Leafable for Bytes32<u32> {
+impl Leafable for Bytes32 {
     type LeafableHasher = PoseidonLeafableHasher;
 
     fn empty_leaf() -> Self {
@@ -99,13 +98,13 @@ impl Leafable for Bytes32<u32> {
     }
 }
 
-impl LeafableTarget for Bytes32<Target> {
-    type Leaf = Bytes32<u32>;
+impl LeafableTarget for Bytes32Target {
+    type Leaf = Bytes32;
 
     fn empty_leaf<F: RichField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
     ) -> Self {
-        Bytes32::<Target>::constant(builder, Bytes32::default())
+        Bytes32Target::constant(builder, Bytes32::default())
     }
 
     fn hash<F: RichField + Extendable<D>, C: GenericConfig<D, F = F> + 'static, const D: usize>(
@@ -119,9 +118,9 @@ impl LeafableTarget for Bytes32<Target> {
     }
 }
 /*
- * Leafable for U256<u32>
+ * Leafable for U256
  */
-impl Leafable for U256<u32> {
+impl Leafable for U256 {
     type LeafableHasher = PoseidonLeafableHasher;
 
     fn empty_leaf() -> Self {
@@ -134,13 +133,13 @@ impl Leafable for U256<u32> {
     }
 }
 
-impl LeafableTarget for U256<Target> {
-    type Leaf = U256<u32>;
+impl LeafableTarget for U256Target {
+    type Leaf = U256;
 
     fn empty_leaf<F: RichField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
     ) -> Self {
-        U256::<Target>::constant(builder, Bytes32::default())
+        U256Target::constant(builder, Bytes32::default())
     }
 
     fn hash<F: RichField + Extendable<D>, C: GenericConfig<D, F = F> + 'static, const D: usize>(

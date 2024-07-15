@@ -71,7 +71,7 @@ impl AccountRegistorationValue {
             } else {
                 0
             };
-            let is_not_dummy_pubkey = sender_leaf.sender != U256::<u32>::one();
+            let is_not_dummy_pubkey = sender_leaf.sender != U256::one();
             account_tree_root = account_registoration_proof
                 .conditional_get_new_root(
                     is_not_dummy_pubkey,
@@ -132,7 +132,7 @@ impl AccountRegistorationTarget {
             .zip(account_registoration_proofs.iter())
         {
             let last_block_number = builder.select(sender_leaf.is_valid, block_number, zero);
-            let is_dummy_pubkey = sender_leaf.sender.is_one::<F, D, U256<u32>>(builder);
+            let is_dummy_pubkey = sender_leaf.sender.is_one::<F, D, U256>(builder);
             let is_not_dummy_pubkey = builder.not(is_dummy_pubkey);
             account_tree_root = account_registoration_proof.conditional_get_new_root::<F, C, D>(
                 builder,
@@ -266,11 +266,9 @@ mod tests {
         add_random_accounts(&mut rng, &mut tree, 1000);
         let prev_account_tree_root = tree.get_root();
 
-        let mut pubkeys = (0..10)
-            .map(|_| U256::<u32>::rand(&mut rng))
-            .collect::<Vec<_>>();
-        pubkeys.resize(NUM_SENDERS_IN_BLOCK, U256::<u32>::one()); // pad with dummy pubkeys
-        let sender_flag = U128::<u32>::rand(&mut rng);
+        let mut pubkeys = (0..10).map(|_| U256::rand(&mut rng)).collect::<Vec<_>>();
+        pubkeys.resize(NUM_SENDERS_IN_BLOCK, U256::one()); // pad with dummy pubkeys
+        let sender_flag = U128::rand(&mut rng);
         let sender_leaves = get_sender_leaves(&pubkeys, sender_flag);
         let block_number: u32 = 1000;
         let mut account_registoration_proofs = Vec::new();
@@ -280,7 +278,7 @@ mod tests {
             } else {
                 0
             };
-            let is_dummy_pubkey = sender_leaf.sender == U256::<u32>::one();
+            let is_dummy_pubkey = sender_leaf.sender == U256::one();
             let proof = if is_dummy_pubkey {
                 AccountRegistorationProof::dummy(ACCOUNT_TREE_HEIGHT)
             } else {

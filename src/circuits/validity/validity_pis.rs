@@ -11,7 +11,7 @@ use plonky2::{
 use crate::{
     common::public_state::{PublicState, PublicStateTarget, PUBLIC_STATE_LEN},
     ethereum_types::{
-        bytes32::{Bytes32, BYTES32_LEN},
+        bytes32::{Bytes32, Bytes32Target, BYTES32_LEN},
         u32limb_trait::{U32LimbTargetTrait as _, U32LimbTrait as _},
     },
     utils::{
@@ -27,7 +27,7 @@ pub const VALIDITY_PUBLIC_INPUTS_LEN: usize =
 #[derive(Debug, Clone, PartialEq)]
 pub struct ValidityPublicInputs {
     pub public_state: PublicState,
-    pub tx_tree_root: Bytes32<u32>,
+    pub tx_tree_root: Bytes32,
     pub sender_tree_root: PoseidonHashOut,
     pub is_valid_block: bool,
 }
@@ -35,7 +35,7 @@ pub struct ValidityPublicInputs {
 #[derive(Debug, Clone)]
 pub struct ValidityPublicInputsTarget {
     pub public_state: PublicStateTarget,
-    pub tx_tree_root: Bytes32<Target>,
+    pub tx_tree_root: Bytes32Target,
     pub sender_tree_root: PoseidonHashOutTarget,
     pub is_valid_block: BoolTarget,
 }
@@ -43,7 +43,7 @@ pub struct ValidityPublicInputsTarget {
 impl ValidityPublicInputs {
     pub fn genesis() -> Self {
         // We don't have to construct the tx tree and the sender tree, because they will be skipped.
-        let tx_tree_root = Bytes32::<u32>::default();
+        let tx_tree_root = Bytes32::default();
         let sender_tree_root = PoseidonHashOut::default();
         let is_valid_block = false;
         Self {
@@ -108,7 +108,7 @@ impl ValidityPublicInputsTarget {
         assert_eq!(input.len(), VALIDITY_PUBLIC_INPUTS_LEN);
         let public_state = PublicStateTarget::from_vec(&input[0..PUBLIC_STATE_LEN]);
         let tx_tree_root =
-            Bytes32::<Target>::from_limbs(&input[PUBLIC_STATE_LEN..PUBLIC_STATE_LEN + BYTES32_LEN]);
+            Bytes32Target::from_limbs(&input[PUBLIC_STATE_LEN..PUBLIC_STATE_LEN + BYTES32_LEN]);
         let sender_tree_root = PoseidonHashOutTarget::from_vec(
             &input[PUBLIC_STATE_LEN + BYTES32_LEN
                 ..PUBLIC_STATE_LEN + BYTES32_LEN + POSEIDON_HASH_OUT_LEN],
@@ -139,7 +139,7 @@ impl ValidityPublicInputsTarget {
         }
         Self {
             public_state: PublicStateTarget::new(builder, is_checked),
-            tx_tree_root: Bytes32::new(builder, is_checked),
+            tx_tree_root: Bytes32Target::new(builder, is_checked),
             sender_tree_root: PoseidonHashOutTarget::new(builder),
             is_valid_block,
         }
@@ -151,7 +151,7 @@ impl ValidityPublicInputsTarget {
     ) -> Self {
         Self {
             public_state: PublicStateTarget::constant(builder, &value.public_state),
-            tx_tree_root: Bytes32::constant(builder, value.tx_tree_root),
+            tx_tree_root: Bytes32Target::constant(builder, value.tx_tree_root),
             sender_tree_root: PoseidonHashOutTarget::constant(builder, value.sender_tree_root),
             is_valid_block: builder.constant_bool(value.is_valid_block),
         }

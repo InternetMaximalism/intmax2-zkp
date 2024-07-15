@@ -1,6 +1,9 @@
 use crate::{
     constants::{NUM_SENDERS_IN_BLOCK, SENDER_TREE_HEIGHT},
-    ethereum_types::u128::U128,
+    ethereum_types::{
+        u128::{U128Target, U128},
+        u256::U256Target,
+    },
     utils::{
         leafable_hasher::PoseidonLeafableHasher,
         poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget},
@@ -41,13 +44,13 @@ pub const SENDER_LEAF_LEN: usize = U256_LEN + 1;
 
 #[derive(Default, Debug, Clone)]
 pub struct SenderLeaf {
-    pub sender: U256<u32>,
+    pub sender: U256,
     pub is_valid: bool,
 }
 
 #[derive(Debug, Clone)]
 pub struct SenderLeafTarget {
-    pub sender: U256<Target>,
+    pub sender: U256Target,
     pub is_valid: BoolTarget,
 }
 
@@ -86,7 +89,7 @@ impl SenderLeafTarget {
             builder.assert_bool(is_valid);
         }
         Self {
-            sender: U256::<Target>::new(builder, is_checked),
+            sender: U256Target::new(builder, is_checked),
             is_valid,
         }
     }
@@ -107,7 +110,7 @@ impl SenderLeafTarget {
         value: &SenderLeaf,
     ) -> Self {
         Self {
-            sender: U256::constant(builder, value.sender),
+            sender: U256Target::constant(builder, value.sender),
             is_valid: builder.constant_bool(value.is_valid),
         }
     }
@@ -143,7 +146,7 @@ impl LeafableTarget for SenderLeafTarget {
     }
 }
 
-pub fn get_sender_leaves(pubkeys: &[U256<u32>], sender_flag: U128<u32>) -> Vec<SenderLeaf> {
+pub fn get_sender_leaves(pubkeys: &[U256], sender_flag: U128) -> Vec<SenderLeaf> {
     assert_eq!(pubkeys.len(), NUM_SENDERS_IN_BLOCK);
     let sender_bits = sender_flag.to_bits_le();
     let leaves = pubkeys
@@ -155,8 +158,8 @@ pub fn get_sender_leaves(pubkeys: &[U256<u32>], sender_flag: U128<u32>) -> Vec<S
 }
 pub fn get_sender_leaves_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
-    pubkeys: &[U256<Target>],
-    sender_flag: U128<Target>,
+    pubkeys: &[U256Target],
+    sender_flag: U128Target,
 ) -> Vec<SenderLeafTarget> {
     assert_eq!(pubkeys.len(), NUM_SENDERS_IN_BLOCK);
     let sender_bits = sender_flag.to_bits_le(builder);
@@ -168,7 +171,7 @@ pub fn get_sender_leaves_circuit<F: RichField + Extendable<D>, const D: usize>(
     leaves
 }
 
-pub fn get_sender_tree_root(pubkeys: &[U256<u32>], sender_flag: U128<u32>) -> PoseidonHashOut {
+pub fn get_sender_tree_root(pubkeys: &[U256], sender_flag: U128) -> PoseidonHashOut {
     get_merkle_root_from_leaves(SENDER_TREE_HEIGHT, &get_sender_leaves(pubkeys, sender_flag))
 }
 
@@ -178,8 +181,8 @@ pub fn get_sender_tree_root_circuit<
     const D: usize,
 >(
     builder: &mut CircuitBuilder<F, D>,
-    pubkeys: &[U256<Target>],
-    sender_flag: U128<Target>,
+    pubkeys: &[U256Target],
+    sender_flag: U128Target,
 ) -> PoseidonHashOutTarget
 where
     <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,

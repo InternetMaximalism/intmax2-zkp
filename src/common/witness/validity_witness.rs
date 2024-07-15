@@ -61,7 +61,7 @@ impl ValidityWitness {
                 } else {
                     0
                 };
-                let is_not_dummy = sender_leaf.sender != U256::<u32>::one();
+                let is_not_dummy = sender_leaf.sender != U256::one();
                 account_tree_root = account_registoration_proof
                     .conditional_get_new_root(
                         is_not_dummy,

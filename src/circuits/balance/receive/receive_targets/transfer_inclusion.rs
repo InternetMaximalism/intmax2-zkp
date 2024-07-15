@@ -219,7 +219,7 @@ mod tests {
         let transfer = Transfer {
             recipient: GenericAddress::from_pubkey(bob.get_pubkey()),
             token_index: 0,
-            amount: U256::<u32>::rand_small(&mut rng),
+            amount: U256::rand_small(&mut rng),
             salt: Salt::rand(&mut rng),
         };
         let send_witness = alice.send_tx_and_update(&mut rng, &mut block_builder, &[transfer]);

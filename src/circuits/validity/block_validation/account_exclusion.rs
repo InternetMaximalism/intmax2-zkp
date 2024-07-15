@@ -17,7 +17,7 @@ use crate::{
     common::trees::account_tree::{AccountMembershipProof, AccountMembershipProofTarget},
     constants::{ACCOUNT_TREE_HEIGHT, NUM_SENDERS_IN_BLOCK},
     ethereum_types::{
-        u256::U256,
+        u256::{U256Target, U256},
         u32limb_trait::{U32LimbTargetTrait as _, U32LimbTrait},
     },
     utils::{
@@ -89,7 +89,7 @@ impl AccountExclusionPublicInputsTarget {
 pub struct AccountExclusionValue {
     pub account_tree_root: PoseidonHashOut,
     pub account_membership_proofs: Vec<AccountMembershipProof>,
-    pub pubkeys: Vec<U256<u32>>,
+    pub pubkeys: Vec<U256>,
     pub pubkey_commitment: PoseidonHashOut,
     pub is_valid: bool,
 }
@@ -98,12 +98,12 @@ impl AccountExclusionValue {
     pub fn new(
         account_tree_root: PoseidonHashOut,
         account_membership_proofs: Vec<AccountMembershipProof>,
-        pubkeys: Vec<U256<u32>>,
+        pubkeys: Vec<U256>,
     ) -> Self {
         let mut result = true;
         for (pubkey, proof) in pubkeys.iter().zip(account_membership_proofs.iter()) {
             proof.verify(*pubkey, account_tree_root).unwrap();
-            let is_dummy = pubkey == &U256::<u32>::one();
+            let is_dummy = pubkey == &U256::one();
             let is_excluded = !proof.is_included || is_dummy; // ignore dummy pubkey
             result = result && is_excluded;
         }
@@ -122,7 +122,7 @@ impl AccountExclusionValue {
 pub struct AccountExclusionTarget {
     pub account_tree_root: PoseidonHashOutTarget,
     pub account_membership_proofs: Vec<AccountMembershipProofTarget>,
-    pub pubkeys: Vec<U256<Target>>,
+    pub pubkeys: Vec<U256Target>,
     pub pubkey_commitment: PoseidonHashOutTarget,
     pub is_valid: BoolTarget,
 }
@@ -141,12 +141,12 @@ impl AccountExclusionTarget {
             .map(|_| AccountMembershipProofTarget::new(builder, ACCOUNT_TREE_HEIGHT, true))
             .collect::<Vec<_>>();
         let pubkeys = (0..NUM_SENDERS_IN_BLOCK)
-            .map(|_| U256::<Target>::new(builder, true))
+            .map(|_| U256Target::new(builder, true))
             .collect::<Vec<_>>();
 
         for (pubkey, proof) in pubkeys.iter().zip(account_membership_proofs.iter()) {
             proof.verify::<F, C, D>(builder, *pubkey, account_tree_root);
-            let is_dummy = pubkey.is_one::<F, D, U256<u32>>(builder);
+            let is_dummy = pubkey.is_one::<F, D, U256>(builder);
             let is_not_included = builder.not(proof.is_included);
             let is_excluded = builder.or(is_not_included, is_dummy);
             result = builder.and(result, is_excluded);
@@ -264,10 +264,8 @@ mod tests {
         add_random_accounts(&mut rng, &mut tree, 1000);
         let account_tree_root = tree.get_root();
 
-        let mut pubkeys = (0..10)
-            .map(|_| U256::<u32>::rand(&mut rng))
-            .collect::<Vec<_>>();
-        pubkeys.resize(NUM_SENDERS_IN_BLOCK, U256::<u32>::one());
+        let mut pubkeys = (0..10).map(|_| U256::rand(&mut rng)).collect::<Vec<_>>();
+        pubkeys.resize(NUM_SENDERS_IN_BLOCK, U256::one());
         let mut account_membership_proofs = Vec::new();
         for pubkey in pubkeys.iter() {
             let proof = tree.prove_membership(*pubkey);

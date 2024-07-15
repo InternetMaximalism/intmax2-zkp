@@ -27,8 +27,8 @@ impl SignatureContent {
             .map(|keyset| keyset.pubkey_x)
             .collect::<Vec<_>>();
         let pubkey_hash = get_pubkey_hash(&pubkeys);
-        let account_id_hash = Bytes32::<u32>::rand(rng);
-        let tx_tree_root = Bytes32::<u32>::rand(rng);
+        let account_id_hash = Bytes32::rand(rng);
+        let tx_tree_root = Bytes32::rand(rng);
         let is_registoration_block = rng.gen();
         let sender_flag = U128::rand(rng);
         let sender_flag_bits = sender_flag.to_bits_le();

@@ -108,7 +108,7 @@ impl MockBlockBuilder {
             if is_registoration_block {
                 let mut account_membership_proofs = Vec::new();
                 for pubkey in pubkeys.iter() {
-                    let is_dummy = *pubkey == U256::<u32>::one();
+                    let is_dummy = *pubkey == U256::one();
                     assert!(
                         self.account_tree.index(*pubkey).is_none() || is_dummy,
                         "account already exists"
@@ -136,7 +136,7 @@ impl MockBlockBuilder {
         for tx in txs.iter() {
             tx_tree.push(tx.tx.clone());
         }
-        let tx_tree_root: Bytes32<u32> = tx_tree.get_root().into();
+        let tx_tree_root: Bytes32 = tx_tree.get_root().into();
 
         let signature = construct_signature(
             tx_tree_root,
@@ -206,7 +206,7 @@ impl MockBlockBuilder {
                     } else {
                         0
                     };
-                    let is_dummy_pubkey = sender_leaf.sender == U256::<u32>::one();
+                    let is_dummy_pubkey = sender_leaf.sender == U256::one();
                     let proof = if is_dummy_pubkey {
                         AccountRegistorationProof::dummy(ACCOUNT_TREE_HEIGHT)
                     } else {
@@ -281,9 +281,9 @@ impl MockBlockBuilder {
 }
 
 fn construct_signature(
-    tx_tree_root: Bytes32<u32>,
-    pubkey_hash: Bytes32<u32>,
-    account_id_hash: Bytes32<u32>,
+    tx_tree_root: Bytes32,
+    pubkey_hash: Bytes32,
+    account_id_hash: Bytes32,
     is_registoration_block: bool,
     sorted_txs: &[TxRequest],
 ) -> SignatureContent {

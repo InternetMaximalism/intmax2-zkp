@@ -1,6 +1,6 @@
 use crate::ethereum_types::{
-    address::{Address, ADDRESS_LEN},
-    u256::{U256, U256_LEN},
+    address::{Address, AddressTarget, ADDRESS_LEN},
+    u256::{U256Target, U256, U256_LEN},
     u32limb_trait::{U32LimbTargetTrait as _, U32LimbTrait},
 };
 use anyhow::{ensure, Result};
@@ -23,13 +23,13 @@ pub const GENERIC_ADDRESS_LEN: usize = 1 + U256_LEN;
 #[derive(Debug, Default, Copy, Clone, Eq, PartialEq)]
 pub struct GenericAddress {
     pub is_pubkey: bool,
-    pub data: U256<u32>,
+    pub data: U256,
 }
 
 #[derive(Debug, Copy, Clone)]
 pub struct GenericAddressTarget {
     pub is_pubkey: BoolTarget,
-    pub data: U256<Target>,
+    pub data: U256Target,
 }
 
 impl GenericAddress {
@@ -42,31 +42,31 @@ impl GenericAddress {
         vec
     }
 
-    pub fn from_pubkey(pubkey: U256<u32>) -> Self {
+    pub fn from_pubkey(pubkey: U256) -> Self {
         Self {
             is_pubkey: true,
             data: pubkey,
         }
     }
 
-    pub fn from_address(address: Address<u32>) -> Self {
+    pub fn from_address(address: Address) -> Self {
         let mut limbs = address.limbs();
         limbs.resize(U256_LEN, 0);
         Self {
             is_pubkey: false,
-            data: U256::<u32>::from_limbs(&limbs),
+            data: U256::from_limbs(&limbs),
         }
     }
 
-    pub fn to_pubkey(&self) -> Result<U256<u32>> {
+    pub fn to_pubkey(&self) -> Result<U256> {
         ensure!(self.is_pubkey, "not a pubkey");
         Ok(self.data)
     }
 
-    pub fn to_address(&self) -> Result<Address<u32>> {
+    pub fn to_address(&self) -> Result<Address> {
         ensure!(!self.is_pubkey, "not an address");
         let limbs = self.data.limbs();
-        Ok(Address::<u32>::from_limbs(&limbs[0..ADDRESS_LEN]))
+        Ok(Address::from_limbs(&limbs[0..ADDRESS_LEN]))
     }
 
     pub fn rand_pubkey<R: Rng>(rng: &mut R) -> Self {
@@ -98,7 +98,7 @@ impl GenericAddressTarget {
         }
         Self {
             is_pubkey,
-            data: U256::<Target>::new(builder, is_checked),
+            data: U256Target::new(builder, is_checked),
         }
     }
 
@@ -117,23 +117,23 @@ impl GenericAddressTarget {
     ) -> Self {
         Self {
             is_pubkey: builder.constant_bool(value.is_pubkey),
-            data: U256::<Target>::constant(builder, value.data),
+            data: U256Target::constant(builder, value.data),
         }
     }
 
     pub fn to_address<F: RichField + Extendable<D>, const D: usize>(
         &self,
         builder: &mut CircuitBuilder<F, D>,
-    ) -> Address<Target> {
+    ) -> AddressTarget {
         builder.assert_zero(self.is_pubkey.target);
         let limbs = self.data.limbs();
-        Address::<Target>::from_limbs(&limbs[0..ADDRESS_LEN])
+        AddressTarget::from_limbs(&limbs[0..ADDRESS_LEN])
     }
 
     pub fn to_pubkey<F: RichField + Extendable<D>, const D: usize>(
         &self,
         builder: &mut CircuitBuilder<F, D>,
-    ) -> U256<Target> {
+    ) -> U256Target {
         builder.assert_one(self.is_pubkey.target);
         self.data.clone()
     }

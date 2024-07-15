@@ -18,7 +18,7 @@ use crate::{
     circuits::validity::block_validation::utils::get_pubkey_commitment_circuit,
     common::signature::{SignatureContent, SignatureContentTarget},
     constants::NUM_SENDERS_IN_BLOCK,
-    ethereum_types::{u256::U256, u32limb_trait::U32LimbTargetTrait},
+    ethereum_types::{u256::{U256Target, U256}, u32limb_trait::U32LimbTargetTrait},
     utils::{
         dummy::DummyProof,
         poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget},
@@ -85,7 +85,7 @@ impl AggregationPublicInputsTarget {
 }
 
 pub struct AggregationValue {
-    pub pubkeys: Vec<U256<u32>>,
+    pub pubkeys: Vec<U256>,
     pub signature: SignatureContent,
     pub pubkey_commitment: PoseidonHashOut,
     pub signature_commitment: PoseidonHashOut,
@@ -93,7 +93,7 @@ pub struct AggregationValue {
 }
 
 pub struct AggregationTarget {
-    pub pubkeys: Vec<U256<Target>>,
+    pub pubkeys: Vec<U256Target>,
     pub signature: SignatureContentTarget,
     pub pubkey_commitment: PoseidonHashOutTarget,
     pub signature_commitment: PoseidonHashOutTarget,
@@ -101,7 +101,7 @@ pub struct AggregationTarget {
 }
 
 impl AggregationValue {
-    pub fn new(pubkeys: Vec<U256<u32>>, signature: SignatureContent) -> Self {
+    pub fn new(pubkeys: Vec<U256>, signature: SignatureContent) -> Self {
         let pubkey_commitment = get_pubkey_commitment(&pubkeys);
         let signature_commitment = signature.commitment();
         let is_valid = signature.verify_aggregation(&pubkeys).is_ok();
@@ -123,7 +123,7 @@ impl AggregationTarget {
         <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
     {
         let pubkeys = (0..NUM_SENDERS_IN_BLOCK)
-            .map(|_| U256::<Target>::new(builder, true))
+            .map(|_| U256Target::new(builder, true))
             .collect::<Vec<_>>();
         let pubkey_commitment = get_pubkey_commitment_circuit(builder, &pubkeys);
         let signature = SignatureContentTarget::new(builder, true);

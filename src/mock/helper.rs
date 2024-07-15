@@ -27,7 +27,7 @@ impl MockBlockBuilder {
     pub fn get_account_membership_proof(
         &self,
         current_block_number: u32,
-        pubkey: U256<u32>,
+        pubkey: U256,
     ) -> AccountMembershipProof {
         let account_tree = &self
             .aux_info

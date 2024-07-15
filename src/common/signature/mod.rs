@@ -24,9 +24,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     ethereum_types::{
-        bytes32::{Bytes32, BYTES32_LEN},
-        u128::{U128, U128_LEN},
-        u256::{U256, U256_LEN},
+        bytes32::{Bytes32, Bytes32Target, BYTES32_LEN},
+        u128::{U128Target, U128, U128_LEN},
+        u256::{U256Target, U256, U256_LEN},
         u32limb_trait::{U32LimbTargetTrait, U32LimbTrait},
     },
     utils::poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget},
@@ -41,25 +41,25 @@ pub const SIGNATURE_LEN: usize = 1 + U128_LEN + 3 * BYTES32_LEN + 10 * U256_LEN;
 #[serde(rename_all = "camelCase")]
 pub struct SignatureContent {
     pub is_registoration_block: bool,
-    pub tx_tree_root: Bytes32<u32>,
-    pub sender_flag: U128<u32>,
-    pub pubkey_hash: Bytes32<u32>,
-    pub account_id_hash: Bytes32<u32>,
-    pub agg_pubkey: [U256<u32>; 2],
-    pub agg_signature: [U256<u32>; 4],
-    pub message_point: [U256<u32>; 4],
+    pub tx_tree_root: Bytes32,
+    pub sender_flag: U128,
+    pub pubkey_hash: Bytes32,
+    pub account_id_hash: Bytes32,
+    pub agg_pubkey: [U256; 2],
+    pub agg_signature: [U256; 4],
+    pub message_point: [U256; 4],
 }
 
 #[derive(Clone, Debug)]
 pub struct SignatureContentTarget {
     pub is_registoration_block: BoolTarget,
-    pub tx_tree_root: Bytes32<Target>,
-    pub sender_flag: U128<Target>,
-    pub pubkey_hash: Bytes32<Target>,
-    pub account_id_hash: Bytes32<Target>,
-    pub agg_pubkey: [U256<Target>; 2],
-    pub agg_signature: [U256<Target>; 4],
-    pub message_point: [U256<Target>; 4],
+    pub tx_tree_root: Bytes32Target,
+    pub sender_flag: U128Target,
+    pub pubkey_hash: Bytes32Target,
+    pub account_id_hash: Bytes32Target,
+    pub agg_pubkey: [U256Target; 2],
+    pub agg_signature: [U256Target; 4],
+    pub message_point: [U256Target; 4],
 }
 
 impl SignatureContent {
@@ -89,8 +89,8 @@ impl SignatureContent {
         PoseidonHashOut::hash_inputs_u32(&self.to_u32_vec())
     }
 
-    pub fn hash(&self) -> Bytes32<u32> {
-        Bytes32::<u32>::from_limbs(&solidity_keccak256(&self.to_u32_vec()))
+    pub fn hash(&self) -> Bytes32 {
+        Bytes32::from_limbs(&solidity_keccak256(&self.to_u32_vec()))
     }
 }
 
@@ -127,26 +127,26 @@ impl SignatureContentTarget {
             builder.assert_bool(is_registoration_block);
         }
         Self {
-            tx_tree_root: Bytes32::new(builder, is_checked),
+            tx_tree_root: Bytes32Target::new(builder, is_checked),
             is_registoration_block,
-            sender_flag: U128::<Target>::new(builder, is_checked),
-            pubkey_hash: Bytes32::<Target>::new(builder, is_checked),
-            account_id_hash: Bytes32::<Target>::new(builder, is_checked),
+            sender_flag: U128Target::new(builder, is_checked),
+            pubkey_hash: Bytes32Target::new(builder, is_checked),
+            account_id_hash: Bytes32Target::new(builder, is_checked),
             agg_pubkey: [
-                U256::<Target>::new(builder, is_checked),
-                U256::<Target>::new(builder, is_checked),
+                U256Target::new(builder, is_checked),
+                U256Target::new(builder, is_checked),
             ],
             agg_signature: [
-                U256::<Target>::new(builder, is_checked),
-                U256::<Target>::new(builder, is_checked),
-                U256::<Target>::new(builder, is_checked),
-                U256::<Target>::new(builder, is_checked),
+                U256Target::new(builder, is_checked),
+                U256Target::new(builder, is_checked),
+                U256Target::new(builder, is_checked),
+                U256Target::new(builder, is_checked),
             ],
             message_point: [
-                U256::<Target>::new(builder, is_checked),
-                U256::<Target>::new(builder, is_checked),
-                U256::<Target>::new(builder, is_checked),
-                U256::<Target>::new(builder, is_checked),
+                U256Target::new(builder, is_checked),
+                U256Target::new(builder, is_checked),
+                U256Target::new(builder, is_checked),
+                U256Target::new(builder, is_checked),
             ],
         }
     }
@@ -156,26 +156,26 @@ impl SignatureContentTarget {
         value: &SignatureContent,
     ) -> Self {
         Self {
-            tx_tree_root: Bytes32::<Target>::constant(builder, value.tx_tree_root),
+            tx_tree_root: Bytes32Target::constant(builder, value.tx_tree_root),
             is_registoration_block: builder.constant_bool(value.is_registoration_block),
-            sender_flag: U128::<Target>::constant(builder, value.sender_flag),
-            pubkey_hash: Bytes32::<Target>::constant(builder, value.pubkey_hash),
-            account_id_hash: Bytes32::<Target>::constant(builder, value.account_id_hash),
+            sender_flag: U128Target::constant(builder, value.sender_flag),
+            pubkey_hash: Bytes32Target::constant(builder, value.pubkey_hash),
+            account_id_hash: Bytes32Target::constant(builder, value.account_id_hash),
             agg_pubkey: [
-                U256::<Target>::constant(builder, value.agg_pubkey[0]),
-                U256::<Target>::constant(builder, value.agg_pubkey[1]),
+                U256Target::constant(builder, value.agg_pubkey[0]),
+                U256Target::constant(builder, value.agg_pubkey[1]),
             ],
             agg_signature: [
-                U256::<Target>::constant(builder, value.agg_signature[0]),
-                U256::<Target>::constant(builder, value.agg_signature[1]),
-                U256::<Target>::constant(builder, value.agg_signature[2]),
-                U256::<Target>::constant(builder, value.agg_signature[3]),
+                U256Target::constant(builder, value.agg_signature[0]),
+                U256Target::constant(builder, value.agg_signature[1]),
+                U256Target::constant(builder, value.agg_signature[2]),
+                U256Target::constant(builder, value.agg_signature[3]),
             ],
             message_point: [
-                U256::<Target>::constant(builder, value.message_point[0]),
-                U256::<Target>::constant(builder, value.message_point[1]),
-                U256::<Target>::constant(builder, value.message_point[2]),
-                U256::<Target>::constant(builder, value.message_point[3]),
+                U256Target::constant(builder, value.message_point[0]),
+                U256Target::constant(builder, value.message_point[1]),
+                U256Target::constant(builder, value.message_point[2]),
+                U256Target::constant(builder, value.message_point[3]),
             ],
         }
     }
@@ -217,28 +217,28 @@ impl SignatureContentTarget {
     >(
         &self,
         builder: &mut CircuitBuilder<F, D>,
-    ) -> Bytes32<Target>
+    ) -> Bytes32Target
     where
         <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
     {
-        Bytes32::<Target>::from_limbs(&builder.keccak256::<C>(&self.to_vec::<F>()))
+        Bytes32Target::from_limbs(&builder.keccak256::<C>(&self.to_vec::<F>()))
     }
 }
 
-pub(super) fn pubkey_range_check(pubkey: U256<u32>) -> bool {
+pub(super) fn pubkey_range_check(pubkey: U256) -> bool {
     let pubky_bg: BigUint = pubkey.into();
     let modulus = BigUint::from(Fq::from(-1)) + 1u32;
     pubky_bg < modulus
 }
 
 pub(super) fn u256_to_fq_target<F: RichField + Extendable<D>, const D: usize>(
-    x: U256<Target>,
+    x: U256Target,
 ) -> FqTarget<F, D> {
     FqTarget::from_vec(&x.limbs().into_iter().rev().collect::<Vec<_>>())
 }
 
 pub(super) fn fq_to_u256_target<F: RichField + Extendable<D>, const D: usize>(
     x: FqTarget<F, D>,
-) -> U256<Target> {
-    U256::<Target>::from_limbs(&x.to_vec().into_iter().rev().collect::<Vec<_>>())
+) -> U256Target {
+    U256Target::from_limbs(&x.to_vec().into_iter().rev().collect::<Vec<_>>())
 }

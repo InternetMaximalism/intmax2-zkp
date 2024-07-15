@@ -133,7 +133,7 @@ mod tests {
         let transfer = Transfer {
             recipient: GenericAddress::rand_pubkey(&mut rng),
             token_index: 0,
-            amount: U256::<u32>::rand_small(&mut rng),
+            amount: U256::rand_small(&mut rng),
             salt: Salt::rand(&mut rng),
         };
 

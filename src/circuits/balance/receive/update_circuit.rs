@@ -29,7 +29,7 @@ use crate::{
     },
     constants::{ACCOUNT_TREE_HEIGHT, BLOCK_HASH_TREE_HEIGHT},
     ethereum_types::{
-        u256::{U256, U256_LEN},
+        u256::{U256Target, U256, U256_LEN},
         u32limb_trait::{U32LimbTargetTrait, U32LimbTrait},
     },
     utils::{dummy::DummyProof, recursivable::Recursivable},
@@ -39,14 +39,14 @@ pub const UPDATE_PUBLIC_INPUTS_LEN: usize = U256_LEN + PUBLIC_STATE_LEN * 2;
 
 #[derive(Debug, Clone)]
 pub struct UpdatePublicInputs {
-    pub pubkey: U256<u32>,
+    pub pubkey: U256,
     pub prev_public_state: PublicState,
     pub new_public_state: PublicState,
 }
 
 #[derive(Debug, Clone)]
 pub struct UpdatePublicInputsTarget {
-    pub pubkey: U256<Target>,
+    pub pubkey: U256Target,
     pub prev_public_state: PublicStateTarget,
     pub new_public_state: PublicStateTarget,
 }
@@ -91,7 +91,7 @@ impl UpdatePublicInputsTarget {
 
     pub fn from_vec(input: &[Target]) -> Self {
         assert_eq!(input.len(), UPDATE_PUBLIC_INPUTS_LEN);
-        let pubkey = U256::<Target>::from_limbs(&input[0..U256_LEN]);
+        let pubkey = U256Target::from_limbs(&input[0..U256_LEN]);
         let prev_public_state =
             PublicStateTarget::from_vec(&input[U256_LEN..U256_LEN + PUBLIC_STATE_LEN]);
         let new_public_state = PublicStateTarget::from_vec(&input[U256_LEN + PUBLIC_STATE_LEN..]);
@@ -111,7 +111,7 @@ pub struct UpdateValue<
 > where
     <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
 {
-    pub pubkey: U256<u32>,
+    pub pubkey: U256,
     pub prev_public_state: PublicState,
     pub new_public_state: PublicState,
     pub validity_proof: ProofWithPublicInputs<F, C, D>,
@@ -126,7 +126,7 @@ where
 {
     pub fn new(
         validity_circuit: &ValidityCircuit<F, C, D>,
-        pubkey: U256<u32>,
+        pubkey: U256,
         validity_proof: &ProofWithPublicInputs<F, C, D>,
         prev_public_state: &PublicState,
         block_merkle_proof: &BlockHashMerkleProof,
@@ -161,7 +161,7 @@ where
 
 #[derive(Debug, Clone)]
 pub struct UpdateTarget<const D: usize> {
-    pub pubkey: U256<Target>,
+    pub pubkey: U256Target,
     pub prev_public_state: PublicStateTarget,
     pub new_public_state: PublicStateTarget,
     pub validity_proof: ProofWithPublicInputsTarget<D>,
@@ -178,7 +178,7 @@ impl<const D: usize> UpdateTarget<D> {
     where
         <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
     {
-        let pubkey = U256::<Target>::new(builder, is_checked);
+        let pubkey = U256Target::new(builder, is_checked);
         let block_merkle_proof = BlockHashMerkleProofTarget::new(builder, BLOCK_HASH_TREE_HEIGHT);
         let prev_public_state = PublicStateTarget::new(builder, is_checked);
         let validity_proof = validity_circuit.add_proof_target_and_verify(builder);

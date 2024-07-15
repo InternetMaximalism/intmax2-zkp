@@ -9,8 +9,8 @@ use crate::{
     },
     constants::DEPOSIT_TREE_HEIGHT,
     ethereum_types::{
-        bytes32::Bytes32,
-        u256::{U256, U256_LEN},
+        bytes32::{Bytes32, Bytes32Target},
+        u256::{U256Target, U256, U256_LEN},
         u32limb_trait::{U32LimbTargetTrait as _, U32LimbTrait as _},
     },
     utils::{
@@ -46,7 +46,7 @@ pub const RECEIVE_DEPOSIT_PUBLIC_INPUTS_LEN: usize =
 pub struct ReceiveDepositPublicInputs {
     pub prev_private_commitment: PoseidonHashOut,
     pub new_private_commitment: PoseidonHashOut,
-    pub pubkey: U256<u32>,
+    pub pubkey: U256,
     pub public_state: PublicState,
 }
 
@@ -81,7 +81,7 @@ impl ReceiveDepositPublicInputs {
 pub struct ReceiveDepositPublicInputsTarget {
     pub prev_private_commitment: PoseidonHashOutTarget,
     pub new_private_commitment: PoseidonHashOutTarget,
-    pub pubkey: U256<Target>,
+    pub pubkey: U256Target,
     pub public_state: PublicStateTarget,
 }
 
@@ -101,7 +101,7 @@ impl ReceiveDepositPublicInputsTarget {
     pub fn from_vec(input: &[Target]) -> Self {
         let prev_private_commitment = PoseidonHashOutTarget::from_vec(&input[0..4]);
         let new_private_commitment = PoseidonHashOutTarget::from_vec(&input[4..8]);
-        let pubkey = U256::<Target>::from_limbs(&input[8..16]);
+        let pubkey = U256Target::from_limbs(&input[8..16]);
         let public_state = PublicStateTarget::from_vec(&input[16..16 + PUBLIC_STATE_LEN]);
         ReceiveDepositPublicInputsTarget {
             prev_private_commitment,
@@ -114,7 +114,7 @@ impl ReceiveDepositPublicInputsTarget {
 
 #[derive(Debug, Clone)]
 pub struct ReceiveDepositValue {
-    pub pubkey: U256<u32>,
+    pub pubkey: U256,
     pub deposit_salt: Salt,
     pub deposit_index: usize,
     pub deposit: DepositLeaf,
@@ -127,7 +127,7 @@ pub struct ReceiveDepositValue {
 
 impl ReceiveDepositValue {
     pub fn new(
-        pubkey: U256<u32>,
+        pubkey: U256,
         deposit_salt: Salt,
         deposit_index: usize,
         deposit: &DepositLeaf,
@@ -142,7 +142,7 @@ impl ReceiveDepositValue {
             .verify(&deposit, deposit_index, public_state.deposit_tree_root)
             .expect("Invalid deposit merkle proof");
 
-        let nullifier: Bytes32<u32> = deposit.poseidon_hash().into();
+        let nullifier: Bytes32 = deposit.poseidon_hash().into();
         assert_eq!(deposit.token_index, private_state_transition.token_index);
         assert_eq!(deposit.amount, private_state_transition.amount);
         assert_eq!(nullifier, private_state_transition.nullifier);
@@ -166,7 +166,7 @@ impl ReceiveDepositValue {
 
 #[derive(Debug, Clone)]
 pub struct ReceiveDepositTarget {
-    pub pubkey: U256<Target>,
+    pub pubkey: U256Target,
     pub deposit_salt: SaltTarget,
     pub deposit_index: Target,
     pub deposit: DepositLeafTarget,
@@ -185,7 +185,7 @@ impl ReceiveDepositTarget {
     where
         <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
     {
-        let pubkey = U256::<Target>::new(builder, is_checked);
+        let pubkey = U256Target::new(builder, is_checked);
         let deposit_salt = SaltTarget::new(builder);
         let deposit_index = builder.add_virtual_target();
         let deposit = DepositLeafTarget::new(builder, is_checked);
@@ -206,7 +206,7 @@ impl ReceiveDepositTarget {
 
         // verify private_state update
         let deposit_hash = deposit.poseidon_hash(builder);
-        let nullifier: Bytes32<Target> = Bytes32::<Target>::from_hash_out(builder, deposit_hash);
+        let nullifier: Bytes32Target = Bytes32Target::from_hash_out(builder, deposit_hash);
         builder.connect(deposit.token_index, private_state_transition.token_index);
         deposit
             .amount

@@ -1,6 +1,6 @@
 use crate::ethereum_types::{
-    bytes32::Bytes32,
-    u256::U256,
+    bytes32::{Bytes32, Bytes32Target},
+    u256::{U256Target, U256},
     u32limb_trait::{U32LimbTargetTrait as _, U32LimbTrait as _},
 };
 use ark_bn254::{Fr, G1Affine, G2Affine};
@@ -20,13 +20,9 @@ use plonky2_bn254::{
 };
 use plonky2_u32::gadgets::arithmetic_u32::U32Target;
 
-pub fn sign_to_tx_root(
-    privkey: Fr,
-    tx_tree_root: Bytes32<u32>,
-    pubkey_hash: Bytes32<u32>,
-) -> G2Affine {
+pub fn sign_to_tx_root(privkey: Fr, tx_tree_root: Bytes32, pubkey_hash: Bytes32) -> G2Affine {
     let pubkey: G1Affine = (G1Affine::generator() * privkey).into();
-    let pubkey_x: U256<u32> = pubkey.x.into();
+    let pubkey_x: U256 = pubkey.x.into();
     let weight = hash_to_weight(pubkey_x, pubkey_hash);
 
     // message point
@@ -39,7 +35,7 @@ pub fn sign_to_tx_root(
     (message_point * privkey * Fr::from(BigUint::from(weight))).into()
 }
 
-pub(crate) fn hash_to_weight(my_pubkey: U256<u32>, pubkey_hash: Bytes32<u32>) -> U256<u32> {
+pub(crate) fn hash_to_weight(my_pubkey: U256, pubkey_hash: Bytes32) -> U256 {
     type F = GoldilocksField;
     let flattened = my_pubkey
         .limbs()
@@ -55,9 +51,9 @@ pub(crate) fn hash_to_weight(my_pubkey: U256<u32>, pubkey_hash: Bytes32<u32>) ->
 
 pub(crate) fn hash_to_weight_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
-    my_pubkey: U256<Target>,
-    pubkey_hash: Bytes32<Target>,
-) -> U256<Target> {
+    my_pubkey: U256Target,
+    pubkey_hash: Bytes32Target,
+) -> U256Target {
     let flattened = my_pubkey
         .limbs()
         .into_iter()
@@ -69,7 +65,7 @@ pub(crate) fn hash_to_weight_circuit<F: RichField + Extendable<D>, const D: usiz
     let output = challenger.get_n_challenges(builder, 8);
     let output = target_slice_to_biguint_target(builder, &output);
 
-    U256::<Target>::from_limbs(
+    U256Target::from_limbs(
         &output
             .limbs
             .into_iter()
@@ -116,7 +112,7 @@ mod tests {
     use ark_ff::UniformRand;
     use plonky2::{
         field::goldilocks_field::GoldilocksField,
-        iop::{target::Target, witness::PartialWitness},
+        iop::witness::PartialWitness,
         plonk::{
             circuit_builder::CircuitBuilder, circuit_data::CircuitConfig,
             config::PoseidonGoldilocksConfig,
@@ -126,7 +122,9 @@ mod tests {
     use crate::{
         common::signature::utils::get_pubkey_hash,
         constants::NUM_SENDERS_IN_BLOCK,
-        ethereum_types::{bytes32::Bytes32, u256::U256, u32limb_trait::U32LimbTargetTrait},
+        ethereum_types::{
+            bytes32::Bytes32Target, u256::U256Target, u32limb_trait::U32LimbTargetTrait,
+        },
     };
 
     use super::{hash_to_weight, hash_to_weight_circuit};
@@ -146,8 +144,8 @@ mod tests {
         let my_pubkey = pubkeys[0];
         let weight = hash_to_weight(my_pubkey, pubkey_hash);
         let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::default());
-        let my_pubkey_t = U256::<Target>::constant(&mut builder, my_pubkey);
-        let pubkey_hash_t = Bytes32::<Target>::constant(&mut builder, pubkey_hash);
+        let my_pubkey_t = U256Target::constant(&mut builder, my_pubkey);
+        let pubkey_hash_t = Bytes32Target::constant(&mut builder, pubkey_hash);
         let weight_t = hash_to_weight_circuit(&mut builder, my_pubkey_t, pubkey_hash_t);
         let mut pw = PartialWitness::new();
         weight_t.set_witness(&mut pw, weight);

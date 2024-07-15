@@ -1,7 +1,7 @@
 use plonky2::{
     field::extension::Extendable,
     hash::hash_types::RichField,
-    iop::{target::Target, witness::PartialWitness},
+    iop::witness::PartialWitness,
     plonk::{
         circuit_builder::CircuitBuilder,
         circuit_data::{CircuitConfig, CircuitData},
@@ -18,7 +18,10 @@ use crate::{
         },
     },
     common::withdrawal::{get_withdrawal_nullifier_circuit, WithdrawalTarget},
-    ethereum_types::{bytes32::Bytes32, u32limb_trait::U32LimbTargetTrait},
+    ethereum_types::{
+        bytes32::{Bytes32, Bytes32Target},
+        u32limb_trait::U32LimbTargetTrait,
+    },
     utils::recursivable::Recursivable,
 };
 
@@ -29,7 +32,7 @@ where
     C: GenericConfig<D, F = F>,
 {
     data: CircuitData<F, C, D>,
-    prev_withdral_hash: Bytes32<Target>,
+    prev_withdral_hash: Bytes32Target,
     transfer_inclusion_target: TransferInclusionTarget<D>,
 }
 
@@ -49,7 +52,7 @@ where
         let transfer = transfer_inclusion_target.transfer.clone();
         let nullifier = get_withdrawal_nullifier_circuit(&mut builder, &transfer);
         let recipient = transfer.recipient.to_address(&mut builder);
-        let prev_withdral_hash = Bytes32::<Target>::new(&mut builder, false); // connect later
+        let prev_withdral_hash = Bytes32Target::new(&mut builder, false); // connect later
         let withdrawal = WithdrawalTarget {
             prev_withdral_hash,
             recipient,
@@ -71,7 +74,7 @@ where
 
     pub fn prove(
         &self,
-        prev_withdrawal_hash: Bytes32<u32>,
+        prev_withdrawal_hash: Bytes32,
         transition_inclusion_value: &TransferInclusionValue<F, C, D>,
     ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
         let mut pw = PartialWitness::<F>::new();

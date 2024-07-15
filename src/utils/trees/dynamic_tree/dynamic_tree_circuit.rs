@@ -5,7 +5,7 @@ use plonky2::{
     gates::{noop::NoopGate, random_access::RandomAccessGate},
     hash::hash_types::RichField,
     iop::{
-        target::{BoolTarget, Target},
+        target::BoolTarget,
         witness::{PartialWitness, WitnessWrite},
     },
     plonk::{
@@ -20,7 +20,7 @@ use plonky2_keccak::builder::BuilderKeccak256 as _;
 
 use crate::{
     ethereum_types::{
-        bytes32::{Bytes32, BYTES32_LEN},
+        bytes32::{Bytes32Target, BYTES32_LEN},
         u32limb_trait::U32LimbTargetTrait as _,
     },
     utils::dummy::DummyProof,
@@ -55,7 +55,7 @@ where
 {
     pub fn new(inner_circuit: &InnerCircuit, common_data: &mut CommonCircuitData<F, D>) -> Self {
         let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::default());
-        let cur_hash = Bytes32::<Target>::new(&mut builder, false);
+        let cur_hash = Bytes32Target::new(&mut builder, false);
         builder.register_public_inputs(&cur_hash.to_vec());
 
         let vd = builder.add_verifier_data_public_inputs();
@@ -84,18 +84,16 @@ where
             .unwrap();
 
         // in the case of leaf
-        let leaf_hash = Bytes32::<Target>::from_limbs(&leaf_proof.public_inputs);
+        let leaf_hash = Bytes32Target::from_limbs(&leaf_proof.public_inputs);
 
         // in the case of non-leaf
-        let left_hash =
-            Bytes32::<Target>::from_limbs(&prev_left_proof.public_inputs[0..BYTES32_LEN]);
-        let right_hash =
-            Bytes32::<Target>::from_limbs(&prev_right_proof.public_inputs[0..BYTES32_LEN]);
-        let node_hash = Bytes32::<Target>::from_limbs(
+        let left_hash = Bytes32Target::from_limbs(&prev_left_proof.public_inputs[0..BYTES32_LEN]);
+        let right_hash = Bytes32Target::from_limbs(&prev_right_proof.public_inputs[0..BYTES32_LEN]);
+        let node_hash = Bytes32Target::from_limbs(
             &builder.keccak256::<C>(&vec![left_hash.to_vec(), right_hash.to_vec()].concat()),
         );
 
-        let next_hash = Bytes32::select(&mut builder, is_first_step, leaf_hash, node_hash);
+        let next_hash = Bytes32Target::select(&mut builder, is_first_step, leaf_hash, node_hash);
         cur_hash.connect(&mut builder, next_hash);
 
         let (data, success) = builder.try_build_with_options(true);
@@ -210,7 +208,7 @@ mod tests {
     };
 
     use crate::{
-        ethereum_types::{bytes32::Bytes32, u32limb_trait::U32LimbTargetTrait as _},
+        ethereum_types::{bytes32::Bytes32Target, u32limb_trait::U32LimbTargetTrait as _},
         utils::{
             dummy::DummyProof, poseidon_hash_out::PoseidonHashOutTarget,
             recursivable::Recursivable,
@@ -244,7 +242,7 @@ mod tests {
             let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::default());
             let target = builder.add_virtual_target();
             let hash_out = PoseidonHashOutTarget::hash_inputs(&mut builder, &[target]);
-            let hash = Bytes32::from_hash_out(&mut builder, hash_out);
+            let hash = Bytes32Target::from_hash_out(&mut builder, hash_out);
             builder.register_public_inputs(&hash.to_vec());
             let data = builder.build::<C>();
             Self { data, target }

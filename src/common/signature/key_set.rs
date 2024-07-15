@@ -11,7 +11,7 @@ pub struct KeySet {
     pub is_dummy: bool,
     pub privkey: Fr,
     pub pubkey: G1Affine,
-    pub pubkey_x: U256<u32>,
+    pub pubkey_x: U256,
 }
 
 impl KeySet {
@@ -23,7 +23,7 @@ impl KeySet {
             privkey = -privkey.clone();
             pubkey = -pubkey;
         }
-        let pubkey_x: U256<u32> = pubkey.x.into();
+        let pubkey_x: U256 = pubkey.x.into();
         #[cfg(debug_assert)]
         {
             use plonky2_bn254::fields::recover::RecoverFromX;
@@ -59,7 +59,7 @@ impl KeySet {
             privkey: Fr::ZERO,
             pubkey: G1Affine::zero(),
             // this is the smallest possible pubkey_x, which is recoverable from x
-            pubkey_x: U256::<u32>::one(),
+            pubkey_x: U256::one(),
         }
     }
 }

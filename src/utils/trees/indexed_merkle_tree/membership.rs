@@ -13,7 +13,10 @@ use plonky2::{
 };
 
 use crate::{
-    ethereum_types::{u256::U256, u32limb_trait::U32LimbTargetTrait as _},
+    ethereum_types::{
+        u256::{U256Target, U256},
+        u32limb_trait::U32LimbTargetTrait as _,
+    },
     utils::{
         logic::BuilderLogic,
         poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget},
@@ -46,7 +49,7 @@ pub struct MembershipProofTarget {
 
 impl IndexedMerkleTree {
     /// Prove membership or non-membership of a key
-    pub fn prove_membership(&self, key: U256<u32>) -> MembershipProof {
+    pub fn prove_membership(&self, key: U256) -> MembershipProof {
         if let Some(index) = self.index(key) {
             // inclusion proof
             return MembershipProof {
@@ -70,7 +73,7 @@ impl IndexedMerkleTree {
 
 impl MembershipProof {
     /// Verify the membership/non-membership proof
-    pub fn verify(&self, key: U256<u32>, root: PoseidonHashOut) -> Result<()> {
+    pub fn verify(&self, key: U256, root: PoseidonHashOut) -> Result<()> {
         self.leaf_proof.verify(&self.leaf, self.leaf_index, root)?;
         if self.is_included {
             ensure!(self.leaf.key == key);
@@ -141,7 +144,7 @@ impl MembershipProofTarget {
     >(
         &self,
         builder: &mut CircuitBuilder<F, D>,
-        key: U256<Target>,
+        key: U256Target,
         root: PoseidonHashOutTarget,
     ) where
         <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
@@ -157,7 +160,7 @@ impl MembershipProofTarget {
         // exclusion case
         let is_exclusion = builder.not(self.is_included);
         let key_lt = self.leaf.key.is_lt(builder, &key);
-        let is_next_key_zero = self.leaf.next_key.is_zero::<F, D, U256<u32>>(builder);
+        let is_next_key_zero = self.leaf.next_key.is_zero::<F, D, U256>(builder);
         let is_key_lt_or_next_key_zero = builder.or(key_lt, is_next_key_zero);
         builder.conditional_assert_true(is_exclusion, is_key_lt_or_next_key_zero);
     }
@@ -175,7 +178,7 @@ impl MembershipProofTarget {
 mod tests {
     use plonky2::{
         field::goldilocks_field::GoldilocksField,
-        iop::{target::Target, witness::PartialWitness},
+        iop::witness::PartialWitness,
         plonk::{
             circuit_builder::CircuitBuilder, circuit_data::CircuitConfig,
             config::PoseidonGoldilocksConfig,
@@ -184,7 +187,10 @@ mod tests {
     use rand::Rng;
 
     use crate::{
-        ethereum_types::{u256::U256, u32limb_trait::U32LimbTargetTrait},
+        ethereum_types::{
+            u256::{U256Target, U256},
+            u32limb_trait::U32LimbTargetTrait,
+        },
         utils::poseidon_hash_out::PoseidonHashOutTarget,
     };
 
@@ -233,7 +239,7 @@ mod tests {
 
         let root_t = PoseidonHashOutTarget::constant(&mut builder, root);
         for (key, proof) in keys_and_proofs {
-            let key_t = U256::<Target>::constant(&mut builder, key);
+            let key_t = U256Target::constant(&mut builder, key);
             let proof_t = MembershipProofTarget::constant(&mut builder, &proof);
             proof_t.verify::<F, C, D>(&mut builder, key_t, root_t);
         }

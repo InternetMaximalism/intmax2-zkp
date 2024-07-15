@@ -96,7 +96,7 @@ impl LocalManager {
         self.transfer_witnesses.get(&block_number).cloned()
     }
 
-    pub fn get_pubkey(&self) -> U256<u32> {
+    pub fn get_pubkey(&self) -> U256 {
         self.key_set.pubkey_x
     }
 
@@ -121,7 +121,7 @@ impl LocalManager {
 
     /// Fund the account with the given amount.
     /// This is only used for testing.
-    pub fn forced_fund(&mut self, token_index: u32, amount: U256<u32>) {
+    pub fn forced_fund(&mut self, token_index: u32, amount: U256) {
         self.asset_tree.update(
             token_index as usize,
             AssetLeaf {
@@ -190,7 +190,7 @@ impl LocalManager {
         rng: &mut R,
         block_builder: &mut MockBlockBuilder,
         token_index: u32,
-        amount: U256<u32>,
+        amount: U256,
     ) {
         let pubkey = self.get_pubkey();
         let salt = Salt::rand(rng);
@@ -225,7 +225,7 @@ impl LocalManager {
             deposit: deposit_case.deposit,
         };
         let deposit = deposit_witness.deposit.clone();
-        let nullifier: Bytes32<u32> = deposit.poseidon_hash().into();
+        let nullifier: Bytes32 = deposit.poseidon_hash().into();
         let private_witness =
             self.generate_witness_for_receive(rng, deposit.token_index, deposit.amount, nullifier);
         ReceiveDepositWitness {
@@ -298,8 +298,8 @@ impl LocalManager {
         &self,
         rng: &mut R,
         token_index: u32,
-        amount: U256<u32>,
-        nullifier: Bytes32<u32>,
+        amount: U256,
+        nullifier: Bytes32,
     ) -> PrivateStateTransitionWitness {
         let new_salt = Salt::rand(rng);
         let mut asset_tree = self.asset_tree.clone();
@@ -335,7 +335,7 @@ impl LocalManager {
             self.get_pubkey(),
             "recipient pubkey"
         );
-        let nullifier: Bytes32<u32> = transfer.commitment().into();
+        let nullifier: Bytes32 = transfer.commitment().into();
         self.generate_witness_for_receive(rng, transfer.token_index, transfer.amount, nullifier)
     }
 
@@ -391,11 +391,11 @@ mod tests {
         let mut local_manager = LocalManager::new_rand(&mut rng);
         let mut block_builder = MockBlockBuilder::new();
 
-        local_manager.forced_fund(0, U256::<u32>::rand(&mut rng));
+        local_manager.forced_fund(0, U256::rand(&mut rng));
         let transfer = Transfer {
             recipient: GenericAddress::rand_pubkey(&mut rng),
             token_index: 0,
-            amount: U256::<u32>::rand_small(&mut rng),
+            amount: U256::rand_small(&mut rng),
             salt: Salt::rand(&mut rng),
         };
         // post register block
@@ -412,11 +412,11 @@ mod tests {
         let mut local_manager = LocalManager::new_rand(&mut rng);
         let mut block_builder = MockBlockBuilder::new();
 
-        local_manager.forced_fund(0, U256::<u32>::rand(&mut rng));
+        local_manager.forced_fund(0, U256::rand(&mut rng));
         let transfer = Transfer {
             recipient: GenericAddress::rand_pubkey(&mut rng),
             token_index: 0,
-            amount: U256::<u32>::rand_small(&mut rng),
+            amount: U256::rand_small(&mut rng),
             salt: Salt::rand(&mut rng),
         };
 

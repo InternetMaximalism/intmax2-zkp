@@ -10,7 +10,10 @@ use plonky2::{
 };
 
 use crate::{
-    ethereum_types::{u256::U256, u32limb_trait::U32LimbTargetTrait as _},
+    ethereum_types::{
+        u256::{U256Target, U256},
+        u32limb_trait::U32LimbTargetTrait as _,
+    },
     utils::poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget},
 };
 
@@ -37,7 +40,7 @@ pub struct UpdateProofTarget {
 
 impl IndexedMerkleTree {
     /// Prove update of a key
-    pub fn prove_and_update(&mut self, key: U256<u32>, new_value: u64) -> UpdateProof {
+    pub fn prove_and_update(&mut self, key: U256, new_value: u64) -> UpdateProof {
         let index = self.index(key).expect("key does not exist");
         let prev_leaf = self.0.get_leaf(index);
         let new_leaf = IndexedMerkleLeaf {
@@ -56,7 +59,7 @@ impl IndexedMerkleTree {
 impl UpdateProof {
     pub fn get_new_root(
         &self,
-        key: U256<u32>,
+        key: U256,
         prev_value: u64,
         new_value: u64,
         prev_root: PoseidonHashOut,
@@ -75,7 +78,7 @@ impl UpdateProof {
 
     pub fn verify(
         &self,
-        key: U256<u32>,
+        key: U256,
         prev_value: u64,
         new_value: u64,
         prev_root: PoseidonHashOut,
@@ -124,7 +127,7 @@ impl UpdateProofTarget {
     >(
         &self,
         builder: &mut CircuitBuilder<F, D>,
-        key: U256<Target>,
+        key: U256Target,
         prev_value: Target,
         new_value: Target,
         prev_root: PoseidonHashOutTarget,
@@ -151,7 +154,7 @@ impl UpdateProofTarget {
     >(
         &self,
         builder: &mut CircuitBuilder<F, D>,
-        key: U256<Target>,
+        key: U256Target,
         prev_value: Target,
         new_value: Target,
         prev_root: PoseidonHashOutTarget,
@@ -169,7 +172,7 @@ impl UpdateProofTarget {
 mod tests {
     use plonky2::{
         field::{goldilocks_field::GoldilocksField, types::Field},
-        iop::{target::Target, witness::PartialWitness},
+        iop::witness::PartialWitness,
         plonk::{
             circuit_builder::CircuitBuilder, circuit_data::CircuitConfig,
             config::PoseidonGoldilocksConfig,
@@ -178,7 +181,10 @@ mod tests {
     use rand::Rng;
 
     use crate::{
-        ethereum_types::{u256::U256, u32limb_trait::U32LimbTargetTrait},
+        ethereum_types::{
+            u256::{U256Target, U256},
+            u32limb_trait::U32LimbTargetTrait,
+        },
         utils::poseidon_hash_out::PoseidonHashOutTarget,
     };
 
@@ -221,7 +227,7 @@ mod tests {
         let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::default());
 
         for (key, prev_value, new_value, prev_root, new_root, proof) in proofs {
-            let key_t = U256::<Target>::constant(&mut builder, key);
+            let key_t = U256Target::constant(&mut builder, key);
             let prev_value_t = builder.constant(F::from_canonical_u64(prev_value));
             let new_value_t = builder.constant(F::from_canonical_u64(new_value));
             let prev_root_t = PoseidonHashOutTarget::constant(&mut builder, prev_root);

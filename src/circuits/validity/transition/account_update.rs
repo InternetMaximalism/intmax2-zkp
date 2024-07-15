@@ -253,14 +253,14 @@ mod tests {
         let mut rng = rand::thread_rng();
         let mut tree = AccountTree::initialize();
         let pubkeys = (0..NUM_SENDERS_IN_BLOCK)
-            .map(|_| U256::<u32>::rand(&mut rng))
+            .map(|_| U256::rand(&mut rng))
             .collect::<Vec<_>>();
         for punkey in &pubkeys {
             tree.insert(*punkey, 10).unwrap();
         }
         let prev_account_tree_root = tree.get_root();
 
-        let sender_flag = U128::<u32>::rand(&mut rng);
+        let sender_flag = U128::rand(&mut rng);
         let sender_leaves = get_sender_leaves(&pubkeys, sender_flag);
         let block_number: u32 = 1000;
         let mut account_update_proofs = Vec::new();

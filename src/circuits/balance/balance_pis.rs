@@ -18,7 +18,7 @@ use crate::{
         public_state::{PublicState, PublicStateTarget, PUBLIC_STATE_LEN},
     },
     ethereum_types::{
-        u256::{U256, U256_LEN},
+        u256::{U256Target, U256, U256_LEN},
         u32limb_trait::{U32LimbTargetTrait as _, U32LimbTrait as _},
     },
     utils::{
@@ -32,7 +32,7 @@ pub const BALANCE_PUBLIC_INPUTS_LEN: usize =
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct BalancePublicInputs {
-    pub pubkey: U256<u32>,
+    pub pubkey: U256,
     pub private_commitment: PoseidonHashOut,
     pub last_tx_hash: PoseidonHashOut,
     pub last_tx_insufficient_flags: InsufficientFlags,
@@ -40,7 +40,7 @@ pub struct BalancePublicInputs {
 }
 
 impl BalancePublicInputs {
-    pub fn new(pubkey: U256<u32>) -> Self {
+    pub fn new(pubkey: U256) -> Self {
         let private_commitment = PrivateState::new().commitment();
         let last_tx_hash = PoseidonHashOut::default();
         let last_tx_insufficient_flags = InsufficientFlags::default();
@@ -102,7 +102,7 @@ impl BalancePublicInputs {
 
 #[derive(Debug, Clone)]
 pub struct BalancePublicInputsTarget {
-    pub pubkey: U256<Target>,
+    pub pubkey: U256Target,
     pub private_commitment: PoseidonHashOutTarget,
     pub last_tx_hash: PoseidonHashOutTarget,
     pub last_tx_insufficient_flags: InsufficientFlagsTarget,
@@ -115,7 +115,7 @@ impl BalancePublicInputsTarget {
         is_checked: bool,
     ) -> Self {
         Self {
-            pubkey: U256::<Target>::new(builder, is_checked),
+            pubkey: U256Target::new(builder, is_checked),
             private_commitment: PoseidonHashOutTarget::new(builder),
             last_tx_hash: PoseidonHashOutTarget::new(builder),
             last_tx_insufficient_flags: InsufficientFlagsTarget::new(builder, is_checked),
@@ -187,7 +187,7 @@ impl BalancePublicInputsTarget {
 
     pub fn from_vec(input: &[Target]) -> Self {
         assert_eq!(input.len(), BALANCE_PUBLIC_INPUTS_LEN);
-        let pubkey = U256::<Target>::from_limbs(&input[0..U256_LEN]);
+        let pubkey = U256Target::from_limbs(&input[0..U256_LEN]);
         let private_commitment =
             PoseidonHashOutTarget::from_vec(&input[U256_LEN..U256_LEN + POSEIDON_HASH_OUT_LEN]);
         let last_tx_hash = PoseidonHashOutTarget::from_vec(

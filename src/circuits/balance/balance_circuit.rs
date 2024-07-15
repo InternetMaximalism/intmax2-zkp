@@ -4,7 +4,7 @@ use plonky2::{
     gates::noop::NoopGate,
     hash::hash_types::RichField,
     iop::{
-        target::{BoolTarget, Target},
+        target::BoolTarget,
         witness::{PartialWitness, WitnessWrite as _},
     },
     plonk::{
@@ -29,7 +29,10 @@ use crate::{
         public_state::{PublicState, PublicStateTarget},
     },
     constants::BALANCE_CIRCUIT_PADDING_DEGREE,
-    ethereum_types::{u256::U256, u32limb_trait::U32LimbTargetTrait},
+    ethereum_types::{
+        u256::{U256Target, U256},
+        u32limb_trait::U32LimbTargetTrait,
+    },
     utils::{
         conversion::ToField as _,
         cyclic::vd_vec_len,
@@ -53,7 +56,7 @@ where
 {
     data: CircuitData<F, C, D>,
     is_first_step: BoolTarget,
-    pubkey: U256<Target>,
+    pubkey: U256Target,
     transition_proof: ProofWithPublicInputsTarget<D>,
     prev_proof: ProofWithPublicInputsTarget<D>,
     verifier_data_target: VerifierCircuitTarget,
@@ -111,7 +114,7 @@ where
             PublicStateTarget::constant(&mut builder, &PublicState::genesis());
         let initial_last_tx_insufficient_flags =
             InsufficientFlagsTarget::constant(&mut builder, InsufficientFlags::default());
-        let pubkey = U256::<Target>::new(&mut builder, true);
+        let pubkey = U256Target::new(&mut builder, true);
         let initial_balance_pis = BalancePublicInputsTarget {
             pubkey,
             private_commitment: initial_private_commitment,
@@ -136,7 +139,7 @@ where
 
     pub fn prove(
         &self,
-        pubkey: U256<u32>,
+        pubkey: U256,
         transition_proof: &ProofWithPublicInputs<F, C, D>,
         prev_proof: &Option<ProofWithPublicInputs<F, C, D>>,
     ) -> Result<ProofWithPublicInputs<F, C, D>> {

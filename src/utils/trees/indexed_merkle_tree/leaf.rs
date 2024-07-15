@@ -1,5 +1,8 @@
 use crate::{
-    ethereum_types::u32limb_trait::{U32LimbTargetTrait as _, U32LimbTrait as _},
+    ethereum_types::{
+        u256::U256Target,
+        u32limb_trait::{U32LimbTargetTrait as _, U32LimbTrait as _},
+    },
     utils::{
         leafable::LeafableTarget,
         leafable_hasher::PoseidonLeafableHasher,
@@ -22,8 +25,8 @@ use crate::{ethereum_types::u256::U256, utils::leafable::Leafable};
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct IndexedMerkleLeaf {
     pub(crate) next_index: usize,
-    pub(crate) key: U256<u32>,
-    pub(crate) next_key: U256<u32>,
+    pub(crate) key: U256,
+    pub(crate) next_key: U256,
     pub(crate) value: u64, // last block number for accout tree or just zero for nullifier
 }
 
@@ -50,11 +53,11 @@ impl Leafable for IndexedMerkleLeaf {
     }
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Debug, Clone)]
 pub struct IndexedMerkleLeafTarget {
     pub(crate) next_index: Target,
-    pub(crate) key: U256<Target>,
-    pub(crate) next_key: U256<Target>,
+    pub(crate) key: U256Target,
+    pub(crate) next_key: U256Target,
     pub(crate) value: Target, // last block number for accout tree or just zero for nullifier
 }
 
@@ -65,8 +68,8 @@ impl IndexedMerkleLeafTarget {
     ) -> Self {
         Self {
             next_index: builder.add_virtual_target(),
-            key: U256::new(builder, is_checked),
-            next_key: U256::new(builder, is_checked),
+            key: U256Target::new(builder, is_checked),
+            next_key: U256Target::new(builder, is_checked),
             value: builder.add_virtual_target(),
         }
     }
@@ -85,8 +88,8 @@ impl IndexedMerkleLeafTarget {
         value: &IndexedMerkleLeaf,
     ) -> Self {
         let next_index = builder.constant(F::from_canonical_usize(value.next_index));
-        let key = U256::constant(builder, value.key);
-        let next_key = U256::constant(builder, value.next_key);
+        let key = U256Target::constant(builder, value.key);
+        let next_key = U256Target::constant(builder, value.next_key);
         let value = builder.constant(F::from_canonical_u64(value.value));
         Self {
             next_index,

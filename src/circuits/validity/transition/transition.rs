@@ -1,7 +1,7 @@
 use plonky2::{
     field::extension::Extendable,
     hash::hash_types::RichField,
-    iop::{target::Target, witness::Witness},
+    iop::witness::Witness,
     plonk::{
         circuit_builder::CircuitBuilder,
         config::{AlgebraicHasher, GenericConfig},
@@ -18,7 +18,10 @@ use crate::{
     },
     common::trees::block_hash_tree::{BlockHashMerkleProof, BlockHashMerkleProofTarget},
     constants::BLOCK_HASH_TREE_HEIGHT,
-    ethereum_types::{bytes32::Bytes32, u32limb_trait::U32LimbTargetTrait as _},
+    ethereum_types::{
+        bytes32::{Bytes32, Bytes32Target},
+        u32limb_trait::U32LimbTargetTrait as _,
+    },
     utils::{
         conversion::ToU64,
         dummy::DummyProof,
@@ -213,7 +216,7 @@ impl<const D: usize> ValidityTransitionTarget<D> {
         );
 
         let prev_block_number = block_pis.block_number;
-        let empty_leaf = Bytes32::<Target>::zero::<F, D, Bytes32<u32>>(builder);
+        let empty_leaf = Bytes32Target::zero::<F, D, Bytes32>(builder);
         block_hash_merkle_proof.verify::<F, C, D>(
             builder,
             &empty_leaf,

@@ -63,7 +63,7 @@ where
     pub fn get_update_witness(
         &self,
         block_builder: &MockBlockBuilder,
-        pubkey: U256<u32>,
+        pubkey: U256,
         target_block_number: u32,
         is_prev_account_tree: bool,
     ) -> UpdateWitness<F, C, D> {

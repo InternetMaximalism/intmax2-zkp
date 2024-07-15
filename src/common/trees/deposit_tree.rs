@@ -12,8 +12,8 @@ use rand::Rng;
 
 use crate::{
     ethereum_types::{
-        bytes32::Bytes32,
-        u256::U256,
+        bytes32::{Bytes32, Bytes32Target},
+        u256::{U256Target, U256},
         u32limb_trait::{U32LimbTargetTrait as _, U32LimbTrait},
     },
     utils::{
@@ -31,16 +31,16 @@ pub type DepositMerkleProofTarget = MerkleProofWithLeavesTarget<DepositLeafTarge
 
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct DepositLeaf {
-    pub pubkey_salt_hash: Bytes32<u32>,
+    pub pubkey_salt_hash: Bytes32,
     pub token_index: u32,
-    pub amount: U256<u32>,
+    pub amount: U256,
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct DepositLeafTarget {
-    pub pubkey_salt_hash: Bytes32<Target>,
+    pub pubkey_salt_hash: Bytes32Target,
     pub token_index: Target,
-    pub amount: U256<Target>,
+    pub amount: U256Target,
 }
 
 impl DepositLeaf {
@@ -82,9 +82,9 @@ impl DepositLeafTarget {
         builder: &mut CircuitBuilder<F, D>,
         is_checked: bool,
     ) -> Self {
-        let pubkey_salt_hash = Bytes32::new(builder, is_checked);
+        let pubkey_salt_hash = Bytes32Target::new(builder, is_checked);
         let token_index = builder.add_virtual_target();
-        let amount = U256::new(builder, is_checked);
+        let amount = U256Target::new(builder, is_checked);
         Self {
             pubkey_salt_hash,
             token_index,
@@ -96,9 +96,9 @@ impl DepositLeafTarget {
         builder: &mut CircuitBuilder<F, D>,
         value: &DepositLeaf,
     ) -> Self {
-        let pubkey_salt_hash = Bytes32::constant(builder, value.pubkey_salt_hash);
+        let pubkey_salt_hash = Bytes32Target::constant(builder, value.pubkey_salt_hash);
         let token_index = builder.constant(F::from_canonical_u32(value.token_index));
-        let amount = U256::constant(builder, value.amount);
+        let amount = U256Target::constant(builder, value.amount);
         Self {
             pubkey_salt_hash,
             token_index,
@@ -128,8 +128,8 @@ impl Leafable for DepositLeaf {
         Self::default()
     }
 
-    fn hash(&self) -> Bytes32<u32> {
-        Bytes32::<u32>::from_limbs(&solidity_keccak256(&self.to_u32_vec()))
+    fn hash(&self) -> Bytes32 {
+        Bytes32::from_limbs(&solidity_keccak256(&self.to_u32_vec()))
     }
 }
 
@@ -145,11 +145,11 @@ impl LeafableTarget for DepositLeafTarget {
     fn hash<F: RichField + Extendable<D>, C: GenericConfig<D, F = F> + 'static, const D: usize>(
         &self,
         builder: &mut CircuitBuilder<F, D>,
-    ) -> Bytes32<Target>
+    ) -> Bytes32Target
     where
         <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
     {
         let limbs = self.to_vec();
-        Bytes32::<Target>::from_limbs(&builder.keccak256::<C>(&limbs))
+        Bytes32Target::from_limbs(&builder.keccak256::<C>(&limbs))
     }
 }

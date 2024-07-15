@@ -1,7 +1,7 @@
 use crate::{
     constants::ACCOUNT_TREE_HEIGHT,
     ethereum_types::{
-        u256::U256,
+        u256::{U256Target, U256},
         u32limb_trait::{U32LimbTargetTrait, U32LimbTrait},
     },
     utils::{
@@ -42,7 +42,7 @@ pub type AccountUpdateProofTarget = UpdateProofTarget;
 impl AccountTree {
     pub fn initialize() -> Self {
         let mut tree = IndexedMerkleTree::new(ACCOUNT_TREE_HEIGHT);
-        tree.insert(U256::<u32>::one(), 0).unwrap(); // add default account
+        tree.insert(U256::one(), 0).unwrap(); // add default account
         tree
     }
 
@@ -63,7 +63,7 @@ pub struct AccountMerkleProof {
 impl AccountMerkleProof {
     /// id is already registered. Account id range check is assumed already
     /// done.
-    pub fn verify(&self, root: PoseidonHashOut, account_id: usize, pubkey: U256<u32>) -> bool {
+    pub fn verify(&self, root: PoseidonHashOut, account_id: usize, pubkey: U256) -> bool {
         let mut result = true;
         let is_not_pubkey_zero = pubkey != U256::default();
         result = result && is_not_pubkey_zero;
@@ -102,14 +102,14 @@ impl AccountMerkleProofTarget {
         builder: &mut CircuitBuilder<F, D>,
         root: PoseidonHashOutTarget,
         account_id: Target,
-        pubkey: U256<Target>,
+        pubkey: U256Target,
     ) -> BoolTarget
     where
         <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
     {
         let mut result = builder._true();
 
-        let is_pubkey_zero = pubkey.is_zero::<F, D, U256<u32>>(builder);
+        let is_pubkey_zero = pubkey.is_zero::<F, D, U256>(builder);
         let is_not_pubkey_zero = builder.not(is_pubkey_zero);
         result = builder.and(result, is_not_pubkey_zero);
 

@@ -196,7 +196,7 @@ where
     ) -> ProofWithPublicInputs<F, C, D> {
         // assertion
         let transfer = transfer_witness.transfer;
-        let nullifier: Bytes32<u32> = transfer.commitment().into();
+        let nullifier: Bytes32 = transfer.commitment().into();
         assert_eq!(nullifier, private_transition_witness.nullifier);
         assert_eq!(transfer.token_index, private_transition_witness.token_index);
         assert_eq!(transfer.amount, private_transition_witness.amount);
@@ -266,7 +266,7 @@ where
 
         // assertion
         let deposit = deposit_witness.deposit.clone();
-        let nullifier: Bytes32<u32> = deposit.poseidon_hash().into();
+        let nullifier: Bytes32 = deposit.poseidon_hash().into();
         assert_eq!(nullifier, private_transition_witness.nullifier);
         assert_eq!(deposit.token_index, private_transition_witness.token_index);
         assert_eq!(deposit.amount, private_transition_witness.amount);
@@ -351,7 +351,7 @@ mod tests {
         let validity_processor = ValidityProcessor::<F, C, D>::new();
         let balance_processor = BalanceProcessor::new(&validity_processor.validity_circuit);
 
-        let pubkey = U256::<u32>::rand(&mut rand::thread_rng());
+        let pubkey = U256::rand(&mut rand::thread_rng());
         let balance_pis = BalancePublicInputs::new(pubkey);
         let balance_circuit_vd = balance_processor.get_verifier_only_data();
 
@@ -370,7 +370,7 @@ mod tests {
         let transfer = Transfer {
             recipient: GenericAddress::rand_pubkey(&mut rng),
             token_index: 0,
-            amount: U256::<u32>::rand_small(&mut rng),
+            amount: U256::rand_small(&mut rng),
             salt: Salt::rand(&mut rng),
         };
 

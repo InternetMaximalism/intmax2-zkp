@@ -169,7 +169,7 @@ impl<VT: LeafableTarget> SparseMerkleProofTarget<VT> {
 mod tests {
     use crate::{
         ethereum_types::{
-            bytes32::Bytes32,
+            bytes32::{Bytes32, Bytes32Target},
             u32limb_trait::{U32LimbTargetTrait, U32LimbTrait as _},
         },
         utils::poseidon_hash_out::PoseidonHashOutTarget,
@@ -195,7 +195,7 @@ mod tests {
         let mut rng = rand::thread_rng();
         let height = 10;
 
-        type V = Bytes32<u32>;
+        type V = Bytes32;
         let mut tree = SparseMerkleTree::<V>::new(height);
 
         for i in 0..100 {
@@ -217,8 +217,8 @@ mod tests {
         let mut rng = rand::thread_rng();
         let height = 10;
 
-        type V = Bytes32<u32>;
-        type VT = Bytes32<Target>;
+        type V = Bytes32;
+        type VT = Bytes32Target;
         let mut tree = SparseMerkleTree::<V>::new(height);
         for i in 0..1 << height {
             let new_leaf = V::rand(&mut rng);

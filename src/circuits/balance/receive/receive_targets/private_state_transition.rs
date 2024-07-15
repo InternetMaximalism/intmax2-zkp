@@ -18,15 +18,19 @@ use crate::{
         },
     },
     constants::ASSET_TREE_HEIGHT,
-    ethereum_types::{bytes32::Bytes32, u256::U256, u32limb_trait::U32LimbTargetTrait as _},
+    ethereum_types::{
+        bytes32::{Bytes32, Bytes32Target},
+        u256::{U256Target, U256},
+        u32limb_trait::U32LimbTargetTrait as _,
+    },
 };
 
 // update private state assuming that the transfer is valid
 #[derive(Debug, Clone)]
 pub struct PrivateStateTransitionValue {
     pub token_index: u32,
-    pub amount: U256<u32>,
-    pub nullifier: Bytes32<u32>,
+    pub amount: U256,
+    pub nullifier: Bytes32,
     pub new_salt: Salt,
     pub prev_private_state: PrivateState,
     pub nullifier_proof: NullifierInsersionProof,
@@ -38,8 +42,8 @@ pub struct PrivateStateTransitionValue {
 impl PrivateStateTransitionValue {
     pub fn new(
         token_index: u32,
-        amount: U256<u32>,
-        nullifier: Bytes32<u32>,
+        amount: U256,
+        nullifier: Bytes32,
         new_salt: Salt,
         prev_private_state: &PrivateState,
         nullifier_proof: &NullifierInsersionProof,
@@ -82,8 +86,8 @@ impl PrivateStateTransitionValue {
 #[derive(Debug, Clone)]
 pub struct PrivateStateTransitionTarget {
     pub token_index: Target,
-    pub amount: U256<Target>,
-    pub nullifier: Bytes32<Target>,
+    pub amount: U256Target,
+    pub nullifier: Bytes32Target,
     pub new_salt: SaltTarget,
     pub prev_private_state: PrivateStateTarget,
     pub nullifier_proof: NullifierInsersionProofTarget,
@@ -101,8 +105,8 @@ impl PrivateStateTransitionTarget {
         <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
     {
         let token_index = builder.add_virtual_target();
-        let amount = U256::<Target>::new(builder, is_checked);
-        let nullifier = Bytes32::<Target>::new(builder, is_checked);
+        let amount = U256Target::new(builder, is_checked);
+        let nullifier = Bytes32Target::new(builder, is_checked);
         let new_salt = SaltTarget::new(builder);
         let prev_private_state = PrivateStateTarget::new(builder);
         let nullifier_proof = NullifierInsersionProofTarget::new(builder, is_checked);
@@ -214,7 +218,7 @@ mod tests {
         let new_asset_leaf = prev_asset_leaf.add(transfer.amount);
         asset_tree.update(transfer.token_index as usize, new_asset_leaf);
 
-        let nullifier: Bytes32<u32> = transfer.commitment().into();
+        let nullifier: Bytes32 = transfer.commitment().into();
         let nullifier_proof = nullifier_tree.prove_and_insert(nullifier).unwrap();
 
         let new_salt = Salt::rand(&mut rng);

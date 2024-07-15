@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     constants::DEPOSIT_TREE_HEIGHT,
     ethereum_types::{
-        bytes32::Bytes32,
+        bytes32::{Bytes32, Bytes32Target},
         u32limb_trait::{U32LimbTargetTrait as _, U32LimbTrait},
     },
     utils::poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget},
@@ -24,17 +24,17 @@ use super::trees::deposit_tree::DepositTree;
 #[derive(Clone, Default, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Block {
-    pub prev_block_hash: Bytes32<u32>,
-    pub deposit_tree_root: Bytes32<u32>,
-    pub signature_hash: Bytes32<u32>,
+    pub prev_block_hash: Bytes32,
+    pub deposit_tree_root: Bytes32,
+    pub signature_hash: Bytes32,
     pub block_number: u32,
 }
 
 #[derive(Clone, Debug)]
 pub struct BlockTarget {
-    pub prev_block_hash: Bytes32<Target>,
-    pub deposit_tree_root: Bytes32<Target>,
-    pub signature_hash: Bytes32<Target>,
+    pub prev_block_hash: Bytes32Target,
+    pub deposit_tree_root: Bytes32Target,
+    pub signature_hash: Bytes32Target,
     pub block_number: Target,
 }
 
@@ -64,8 +64,8 @@ impl Block {
         PoseidonHashOut::hash_inputs_u32(&self.to_u32_vec())
     }
 
-    pub fn hash(&self) -> Bytes32<u32> {
-        Bytes32::<u32>::from_limbs(&solidity_keccak256(&self.to_u32_vec()))
+    pub fn hash(&self) -> Bytes32 {
+        Bytes32::from_limbs(&solidity_keccak256(&self.to_u32_vec()))
     }
 }
 
@@ -79,9 +79,9 @@ impl BlockTarget {
             builder.range_check(block_number, 32);
         }
         Self {
-            prev_block_hash: Bytes32::new(builder, is_checked),
-            deposit_tree_root: Bytes32::new(builder, is_checked),
-            signature_hash: Bytes32::new(builder, is_checked),
+            prev_block_hash: Bytes32Target::new(builder, is_checked),
+            deposit_tree_root: Bytes32Target::new(builder, is_checked),
+            signature_hash: Bytes32Target::new(builder, is_checked),
             block_number,
         }
     }
@@ -110,11 +110,11 @@ impl BlockTarget {
     >(
         &self,
         builder: &mut CircuitBuilder<F, D>,
-    ) -> Bytes32<Target>
+    ) -> Bytes32Target
     where
         <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
     {
-        Bytes32::<Target>::from_limbs(&builder.keccak256::<C>(&self.to_vec()))
+        Bytes32Target::from_limbs(&builder.keccak256::<C>(&self.to_vec()))
     }
 
     pub fn set_witness<F: RichField, W: Witness<F>>(&self, witness: &mut W, value: &Block) {

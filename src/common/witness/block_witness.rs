@@ -29,10 +29,10 @@ use super::{tx_witness::TxWitness, validity_witness::ValidityWitness};
 pub struct BlockWitness {
     pub block: Block,
     pub signature: SignatureContent,
-    pub pubkeys: Vec<U256<u32>>,
+    pub pubkeys: Vec<U256>,
     pub prev_account_tree_root: PoseidonHashOut,
     pub prev_block_tree_root: PoseidonHashOut,
-    pub account_id_packed: Option<AccountIdPacked<u32>>, // in account id case
+    pub account_id_packed: Option<AccountIdPacked>, // in account id case
     pub account_merkle_proofs: Option<Vec<AccountMerkleProof>>, // in account id case
     pub account_membership_proofs: Option<Vec<AccountMembershipProof>>, // in pubkey case
 }

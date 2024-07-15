@@ -13,7 +13,10 @@ use plonky2::{
 };
 
 use crate::{
-    ethereum_types::{u256::U256, u32limb_trait::U32LimbTargetTrait as _},
+    ethereum_types::{
+        u256::{U256Target, U256},
+        u32limb_trait::U32LimbTargetTrait as _,
+    },
     utils::{
         leafable::{Leafable, LeafableTarget},
         poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget},
@@ -44,7 +47,7 @@ pub struct IndexedInsertionProofTarget {
 }
 
 impl IndexedMerkleTree {
-    pub fn insert(&mut self, key: U256<u32>, value: u64) -> Result<()> {
+    pub fn insert(&mut self, key: U256, value: u64) -> Result<()> {
         let index = self.0.leaves().len();
         let low_index = self.low_index(key)?;
         let prev_low_leaf = self.0.get_leaf(low_index);
@@ -64,11 +67,7 @@ impl IndexedMerkleTree {
         Ok(())
     }
 
-    pub fn prove_and_insert(
-        &mut self,
-        key: U256<u32>,
-        value: u64,
-    ) -> Result<IndexedInsertionProof> {
+    pub fn prove_and_insert(&mut self, key: U256, value: u64) -> Result<IndexedInsertionProof> {
         let index = self.0.leaves().len();
         let low_index = self.low_index(key)?;
         let prev_low_leaf = self.0.get_leaf(low_index);
@@ -123,7 +122,7 @@ impl IndexedInsertionProof {
 
     pub fn get_new_root(
         &self,
-        key: U256<u32>,
+        key: U256,
         value: u64,
         prev_root: PoseidonHashOut,
     ) -> Result<PoseidonHashOut> {
@@ -159,7 +158,7 @@ impl IndexedInsertionProof {
     pub fn conditional_get_new_root(
         &self,
         condition: bool,
-        key: U256<u32>,
+        key: U256,
         value: u64,
         prev_root: PoseidonHashOut,
     ) -> Result<PoseidonHashOut> {
@@ -172,7 +171,7 @@ impl IndexedInsertionProof {
 
     pub fn verify(
         &self,
-        key: U256<u32>,
+        key: U256,
         value: u64,
         prev_root: PoseidonHashOut, // merkle root before insertion
         new_root: PoseidonHashOut,  // merkle root after insertion
@@ -238,7 +237,7 @@ impl IndexedInsertionProofTarget {
     >(
         &self,
         builder: &mut CircuitBuilder<F, D>,
-        key: U256<Target>,
+        key: U256Target,
         value: Target,
         prev_root: PoseidonHashOutTarget,
         new_root: PoseidonHashOutTarget,
@@ -256,7 +255,7 @@ impl IndexedInsertionProofTarget {
     >(
         &self,
         builder: &mut CircuitBuilder<F, D>,
-        key: U256<Target>,
+        key: U256Target,
         value: Target,
         prev_root: PoseidonHashOutTarget,
     ) -> PoseidonHashOutTarget
@@ -269,10 +268,7 @@ impl IndexedInsertionProofTarget {
         // assert key < self.prev_low_leaf.next_key || self.prev_low_leaf.next_key ==
         // U256::default()
         let is_key_upper_bounded = key.is_lt(builder, &self.prev_low_leaf.next_key);
-        let is_next_key_zero = self
-            .prev_low_leaf
-            .next_key
-            .is_zero::<F, D, U256<u32>>(builder);
+        let is_next_key_zero = self.prev_low_leaf.next_key.is_zero::<F, D, U256>(builder);
         let is_key_upper_bounded_or_next_key_zero =
             builder.or(is_key_upper_bounded, is_next_key_zero);
         builder.assert_one(is_key_upper_bounded_or_next_key_zero.target);
@@ -312,7 +308,7 @@ impl IndexedInsertionProofTarget {
         &self,
         builder: &mut CircuitBuilder<F, D>,
         condition: BoolTarget,
-        key: U256<Target>,
+        key: U256Target,
         value: Target,
         prev_root: PoseidonHashOutTarget,
     ) -> PoseidonHashOutTarget
@@ -326,10 +322,7 @@ impl IndexedInsertionProofTarget {
         // assert key < self.prev_low_leaf.next_key
         // || self.prev_low_leaf.next_key == U256::default()
         let is_key_upper_bounded = key.is_lt(builder, &self.prev_low_leaf.next_key);
-        let is_next_key_zero = self
-            .prev_low_leaf
-            .next_key
-            .is_zero::<F, D, U256<u32>>(builder);
+        let is_next_key_zero = self.prev_low_leaf.next_key.is_zero::<F, D, U256>(builder);
         let is_key_upper_bounded_or_next_key_zero =
             builder.or(is_key_upper_bounded, is_next_key_zero);
         builder.conditional_assert_eq(
@@ -377,7 +370,7 @@ impl IndexedInsertionProofTarget {
 mod tests {
     use plonky2::{
         field::{goldilocks_field::GoldilocksField, types::Field},
-        iop::{target::Target, witness::PartialWitness},
+        iop::witness::PartialWitness,
         plonk::{
             circuit_builder::CircuitBuilder, circuit_data::CircuitConfig,
             config::PoseidonGoldilocksConfig,
@@ -387,7 +380,7 @@ mod tests {
 
     use crate::{
         ethereum_types::{
-            u256::U256,
+            u256::{U256Target, U256},
             u32limb_trait::{U32LimbTargetTrait, U32LimbTrait as _},
         },
         utils::poseidon_hash_out::PoseidonHashOutTarget,
@@ -417,7 +410,7 @@ mod tests {
 
         let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::default());
         for (key, value, prev_root, new_root, proof) in info {
-            let key_t = U256::<Target>::constant(&mut builder, key);
+            let key_t = U256Target::constant(&mut builder, key);
             let value_t = builder.constant(F::from_canonical_u64(value));
             let prev_root_t = PoseidonHashOutTarget::constant(&mut builder, prev_root);
             let new_root_t = PoseidonHashOutTarget::constant(&mut builder, new_root);
@@ -432,17 +425,17 @@ mod tests {
     fn test_dummy_insertion() {
         let height = 40;
         let mut tree = IndexedMerkleTree::new(height);
-        tree.prove_and_insert(U256::<u32>::one(), 0).unwrap();
+        tree.prove_and_insert(U256::one(), 0).unwrap();
 
         let prev_root = tree.get_root();
         let dummy = IndexedInsertionProof::dummy(height);
         dummy
-            .conditional_get_new_root(false, U256::<u32>::one(), 0, prev_root)
+            .conditional_get_new_root(false, U256::one(), 0, prev_root)
             .unwrap();
 
         let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::default());
         let dummy_t = IndexedInsertionProofTarget::constant(&mut builder, &dummy);
-        let key_t = U256::<Target>::constant(&mut builder, U256::<u32>::one());
+        let key_t = U256Target::constant(&mut builder, U256::one());
         let value_t = builder.constant(F::from_canonical_u64(0));
         let prev_root_t = PoseidonHashOutTarget::constant(&mut builder, prev_root);
         let condition = builder._false();

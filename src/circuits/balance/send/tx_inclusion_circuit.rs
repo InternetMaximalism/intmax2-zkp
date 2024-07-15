@@ -34,7 +34,7 @@ use crate::{
     },
     constants::{ACCOUNT_TREE_HEIGHT, BLOCK_HASH_TREE_HEIGHT, SENDER_TREE_HEIGHT, TX_TREE_HEIGHT},
     ethereum_types::{
-        u256::{U256, U256_LEN},
+        u256::{U256Target, U256, U256_LEN},
         u32limb_trait::{U32LimbTargetTrait, U32LimbTrait},
     },
     utils::{
@@ -50,7 +50,7 @@ pub const TX_INCLUSION_PUBLIC_INPUTS_LEN: usize = PUBLIC_STATE_LEN * 2 + U256_LE
 pub struct TxInclusionPublicInputs {
     pub prev_public_state: PublicState,
     pub new_public_state: PublicState,
-    pub pubkey: U256<u32>,
+    pub pubkey: U256,
     pub tx: Tx,
     pub is_valid: bool,
 }
@@ -61,9 +61,8 @@ impl TxInclusionPublicInputs {
         let prev_public_state = PublicState::from_u64_vec(&input[0..PUBLIC_STATE_LEN]);
         let new_public_state =
             PublicState::from_u64_vec(&input[PUBLIC_STATE_LEN..PUBLIC_STATE_LEN * 2]);
-        let pubkey = U256::<u32>::from_u64_vec(
-            &input[PUBLIC_STATE_LEN * 2..PUBLIC_STATE_LEN * 2 + U256_LEN],
-        );
+        let pubkey =
+            U256::from_u64_vec(&input[PUBLIC_STATE_LEN * 2..PUBLIC_STATE_LEN * 2 + U256_LEN]);
         let tx = Tx::from_u64_vec(
             &input[PUBLIC_STATE_LEN * 2 + U256_LEN..PUBLIC_STATE_LEN * 2 + U256_LEN + TX_LEN],
         );
@@ -82,7 +81,7 @@ impl TxInclusionPublicInputs {
 pub struct TxInclusionPublicInputsTarget {
     pub prev_public_state: PublicStateTarget,
     pub new_public_state: PublicStateTarget,
-    pub pubkey: U256<Target>,
+    pub pubkey: U256Target,
     pub tx: TxTarget,
     pub is_valid: BoolTarget,
 }
@@ -104,9 +103,8 @@ impl TxInclusionPublicInputsTarget {
         let prev_public_state = PublicStateTarget::from_vec(&input[0..PUBLIC_STATE_LEN]);
         let new_public_state =
             PublicStateTarget::from_vec(&input[PUBLIC_STATE_LEN..PUBLIC_STATE_LEN * 2]);
-        let pubkey = U256::<Target>::from_limbs(
-            &input[PUBLIC_STATE_LEN * 2..PUBLIC_STATE_LEN * 2 + U256_LEN],
-        );
+        let pubkey =
+            U256Target::from_limbs(&input[PUBLIC_STATE_LEN * 2..PUBLIC_STATE_LEN * 2 + U256_LEN]);
         let tx = TxTarget::from_vec(
             &input[PUBLIC_STATE_LEN * 2 + U256_LEN..PUBLIC_STATE_LEN * 2 + U256_LEN + TX_LEN],
         );
@@ -128,7 +126,7 @@ pub struct TxInclusionValue<
 > where
     <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
 {
-    pub pubkey: U256<u32>,
+    pub pubkey: U256,
     pub prev_public_state: PublicState,
     pub new_public_state: PublicState,
     pub validity_proof: ProofWithPublicInputs<F, C, D>,
@@ -149,7 +147,7 @@ where
 {
     pub fn new(
         validity_circuit: &ValidityCircuit<F, C, D>,
-        pubkey: U256<u32>,
+        pubkey: U256,
         prev_public_state: &PublicState, // public state of balance proof(old)
         validity_proof: &ProofWithPublicInputs<F, C, D>, // new public state
         block_merkle_proof: &BlockHashMerkleProof,
@@ -211,7 +209,7 @@ where
 }
 
 pub struct TxInclusionTarget<const D: usize> {
-    pub pubkey: U256<Target>,
+    pub pubkey: U256Target,
     pub prev_public_state: PublicStateTarget,
     pub new_public_state: PublicStateTarget,
     pub validity_proof: ProofWithPublicInputsTarget<D>,
@@ -234,7 +232,7 @@ impl<const D: usize> TxInclusionTarget<D> {
     where
         <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
     {
-        let pubkey = U256::<Target>::new(builder, is_checked);
+        let pubkey = U256Target::new(builder, is_checked);
         let prev_public_state = PublicStateTarget::new(builder, is_checked);
         let block_merkle_proof = BlockHashMerkleProofTarget::new(builder, BLOCK_HASH_TREE_HEIGHT);
         let prev_account_membership_proof =
@@ -407,7 +405,7 @@ mod tests {
         let transfer = Transfer {
             recipient: GenericAddress::rand_pubkey(&mut rng),
             token_index: 0,
-            amount: U256::<u32>::rand_small(&mut rng),
+            amount: U256::rand_small(&mut rng),
             salt: Salt::rand(&mut rng),
         };
 

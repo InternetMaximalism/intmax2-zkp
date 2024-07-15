@@ -1,11 +1,11 @@
 use crate::ethereum_types::{
-    u256::U256,
+    u256::{U256Target, U256},
     u32limb_trait::{U32LimbTargetTrait, U32LimbTrait},
 };
 use plonky2::{
     field::extension::Extendable,
     hash::hash_types::{HashOutTarget, RichField},
-    iop::target::{BoolTarget, Target},
+    iop::target::BoolTarget,
     plonk::circuit_builder::CircuitBuilder,
 };
 use plonky2_u32::gadgets::arithmetic_u32::U32Target;
@@ -30,7 +30,7 @@ impl KeyLike for u32 {
     }
 }
 
-impl KeyLike for U256<u32> {
+impl KeyLike for U256 {
     fn to_bits(&self) -> Vec<bool> {
         self.to_bits_le()
     }
@@ -62,7 +62,7 @@ impl KeyLikeTarget for U32Target {
     }
 }
 
-impl KeyLikeTarget for U256<Target> {
+impl KeyLikeTarget for U256Target {
     fn to_bits<F: RichField + Extendable<D>, const D: usize>(
         &self,
         builder: &mut CircuitBuilder<F, D>,
@@ -95,12 +95,12 @@ fn u8_to_le_bits(num: u8) -> Vec<bool> {
 
 #[cfg(test)]
 mod tests {
-    use crate::ethereum_types::{u256::U256, u32limb_trait::U32LimbTargetTrait};
+    use crate::ethereum_types::{
+        u256::{U256Target, U256},
+        u32limb_trait::U32LimbTargetTrait,
+    };
     use plonky2::{
-        iop::{
-            target::Target,
-            witness::{PartialWitness, WitnessWrite},
-        },
+        iop::witness::{PartialWitness, WitnessWrite},
         plonk::{
             circuit_builder::CircuitBuilder,
             circuit_data::CircuitConfig,
@@ -143,7 +143,7 @@ mod tests {
         let bits = index.to_bits_trimed(length);
 
         let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::default());
-        let index_t = U256::<Target>::new(&mut builder, false);
+        let index_t = U256Target::new(&mut builder, false);
         let bits_t = index_t.to_bits_trimed(&mut builder, length);
 
         let data = builder.build::<C>();

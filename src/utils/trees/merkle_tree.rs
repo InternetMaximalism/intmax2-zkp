@@ -297,7 +297,7 @@ pub fn usize_le_bits(num: usize, length: usize) -> Vec<bool> {
 mod tests {
     use crate::{
         ethereum_types::{
-            bytes32::Bytes32,
+            bytes32::{Bytes32, Bytes32Target},
             u32limb_trait::{U32LimbTargetTrait, U32LimbTrait as _},
         },
         utils::poseidon_hash_out::PoseidonHashOutTarget,
@@ -306,10 +306,7 @@ mod tests {
     use super::*;
     use plonky2::{
         field::types::Field,
-        iop::{
-            target::Target,
-            witness::{PartialWitness, WitnessWrite},
-        },
+        iop::witness::{PartialWitness, WitnessWrite},
         plonk::{
             circuit_data::CircuitConfig,
             config::{GenericConfig, PoseidonGoldilocksConfig},
@@ -324,12 +321,12 @@ mod tests {
 
     #[test]
     fn merkle_tree_update_prove_verify() {
-        type V = Bytes32<u32>;
+        type V = Bytes32;
 
         let mut rng = rand::thread_rng();
         let height = 10;
         let empty_leaf_hash = V::default().hash();
-        let mut tree = MerkleTree::<Bytes32<u32>>::new(height, empty_leaf_hash);
+        let mut tree = MerkleTree::<Bytes32>::new(height, empty_leaf_hash);
 
         for _ in 0..100 {
             let index = rng.gen_range(0..1 << height);
@@ -346,8 +343,8 @@ mod tests {
 
     #[test]
     fn merkle_proof_target() {
-        type V = Bytes32<u32>;
-        type VT = Bytes32<Target>;
+        type V = Bytes32;
+        type VT = Bytes32Target;
 
         let mut rng = rand::thread_rng();
         let height = 10;
@@ -364,7 +361,7 @@ mod tests {
 
         let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::default());
         let proof_t = MerkleProofTarget::<VT>::new(&mut builder, height);
-        let leaf_t = Bytes32::new(&mut builder, false);
+        let leaf_t = Bytes32Target::new(&mut builder, false);
         let root_t = PoseidonHashOutTarget::new(&mut builder);
         let index_t = builder.add_virtual_target();
         let index_bits_t = builder.split_le(index_t, height);

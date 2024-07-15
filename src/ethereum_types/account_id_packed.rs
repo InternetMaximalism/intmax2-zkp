@@ -1,5 +1,5 @@
 use super::{
-    bytes32::Bytes32,
+    bytes32::{Bytes32, Bytes32Target},
     u32limb_trait::{U32LimbTargetTrait, U32LimbTrait},
 };
 use crate::constants::{ACCOUNT_ID_BITS, NUM_SENDERS_IN_BLOCK};
@@ -19,30 +19,35 @@ use plonky2_keccak::{builder::BuilderKeccak256 as _, utils::solidity_keccak256};
 
 /// A packed account ID.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub struct AccountIdPacked<T: Clone + Copy> {
-    limbs: [T; ACCOUNT_ID_PACKED_LEN],
+pub struct AccountIdPacked {
+    limbs: [u32; ACCOUNT_ID_PACKED_LEN],
 }
 
-impl std::fmt::Display for AccountIdPacked<u32> {
+#[derive(Clone, Copy, Debug)]
+pub struct AccountIdPackedTarget {
+    limbs: [Target; ACCOUNT_ID_PACKED_LEN],
+}
+
+impl std::fmt::Display for AccountIdPacked {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.to_hex())
     }
 }
 
-impl Serialize for AccountIdPacked<u32> {
+impl Serialize for AccountIdPacked {
     fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         serializer.serialize_str(&self.to_hex())
     }
 }
 
-impl<'de> Deserialize<'de> for AccountIdPacked<u32> {
+impl<'de> Deserialize<'de> for AccountIdPacked {
     fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         let s = String::deserialize(deserializer)?;
         Ok(Self::from_hex(&s))
     }
 }
 
-impl U32LimbTrait<ACCOUNT_ID_PACKED_LEN> for AccountIdPacked<u32> {
+impl U32LimbTrait<ACCOUNT_ID_PACKED_LEN> for AccountIdPacked {
     fn limbs(&self) -> Vec<u32> {
         self.limbs.to_vec()
     }
@@ -54,7 +59,7 @@ impl U32LimbTrait<ACCOUNT_ID_PACKED_LEN> for AccountIdPacked<u32> {
     }
 }
 
-impl U32LimbTargetTrait<ACCOUNT_ID_PACKED_LEN> for AccountIdPacked<Target> {
+impl U32LimbTargetTrait<ACCOUNT_ID_PACKED_LEN> for AccountIdPackedTarget {
     fn limbs(&self) -> Vec<Target> {
         self.limbs.to_vec()
     }
@@ -66,7 +71,7 @@ impl U32LimbTargetTrait<ACCOUNT_ID_PACKED_LEN> for AccountIdPacked<Target> {
     }
 }
 
-impl AccountIdPacked<u32> {
+impl AccountIdPacked {
     pub fn pack(account_ids: &[usize]) -> Self {
         assert_eq!(account_ids.len(), NUM_SENDERS_IN_BLOCK);
         let account_id_bits = account_ids
@@ -91,12 +96,12 @@ impl AccountIdPacked<u32> {
         account_ids
     }
 
-    pub fn hash(&self) -> Bytes32<u32> {
-        Bytes32::<u32>::from_limbs(&solidity_keccak256(&self.limbs()))
+    pub fn hash(&self) -> Bytes32 {
+        Bytes32::from_limbs(&solidity_keccak256(&self.limbs()))
     }
 }
 
-impl AccountIdPacked<Target> {
+impl AccountIdPackedTarget {
     pub fn unpack<F: RichField + Extendable<D>, const D: usize>(
         &self,
         builder: &mut CircuitBuilder<F, D>,
@@ -118,11 +123,11 @@ impl AccountIdPacked<Target> {
     >(
         &self,
         builder: &mut CircuitBuilder<F, D>,
-    ) -> Bytes32<Target>
+    ) -> Bytes32Target
     where
         <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
     {
-        Bytes32::<Target>::from_limbs(&builder.keccak256::<C>(&self.limbs()))
+        Bytes32Target::from_limbs(&builder.keccak256::<C>(&self.limbs()))
     }
 }
 

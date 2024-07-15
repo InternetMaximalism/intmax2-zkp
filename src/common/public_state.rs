@@ -11,7 +11,7 @@ use plonky2::{
 use crate::{
     constants::{BLOCK_HASH_TREE_HEIGHT, DEPOSIT_TREE_HEIGHT},
     ethereum_types::{
-        bytes32::{Bytes32, BYTES32_LEN},
+        bytes32::{Bytes32, Bytes32Target, BYTES32_LEN},
         u32limb_trait::{U32LimbTargetTrait as _, U32LimbTrait},
     },
     utils::poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget, POSEIDON_HASH_OUT_LEN},
@@ -30,8 +30,8 @@ pub struct PublicState {
     pub block_tree_root: PoseidonHashOut,
     pub prev_account_tree_root: PoseidonHashOut,
     pub account_tree_root: PoseidonHashOut,
-    pub deposit_tree_root: Bytes32<u32>,
-    pub block_hash: Bytes32<u32>,
+    pub deposit_tree_root: Bytes32,
+    pub block_hash: Bytes32,
     pub block_number: u32,
 }
 
@@ -72,8 +72,8 @@ impl PublicState {
         let block_tree_root = PoseidonHashOut::from_u64_vec(&input[0..4]);
         let prev_account_tree_root = PoseidonHashOut::from_u64_vec(&input[4..8]);
         let account_tree_root = PoseidonHashOut::from_u64_vec(&input[8..12]);
-        let deposit_tree_root = Bytes32::<u32>::from_u64_vec(&input[12..20]);
-        let block_hash = Bytes32::<u32>::from_u64_vec(&input[20..28]);
+        let deposit_tree_root = Bytes32::from_u64_vec(&input[12..20]);
+        let block_hash = Bytes32::from_u64_vec(&input[20..28]);
         let block_number = input[28] as u32;
         Self {
             block_tree_root,
@@ -91,8 +91,8 @@ pub struct PublicStateTarget {
     pub block_tree_root: PoseidonHashOutTarget,
     pub prev_account_tree_root: PoseidonHashOutTarget,
     pub account_tree_root: PoseidonHashOutTarget,
-    pub deposit_tree_root: Bytes32<Target>,
-    pub block_hash: Bytes32<Target>,
+    pub deposit_tree_root: Bytes32Target,
+    pub block_hash: Bytes32Target,
     pub block_number: Target,
 }
 
@@ -105,8 +105,8 @@ impl PublicStateTarget {
             block_tree_root: PoseidonHashOutTarget::new(builder),
             prev_account_tree_root: PoseidonHashOutTarget::new(builder),
             account_tree_root: PoseidonHashOutTarget::new(builder),
-            deposit_tree_root: Bytes32::<Target>::new(builder, is_checked),
-            block_hash: Bytes32::<Target>::new(builder, is_checked),
+            deposit_tree_root: Bytes32Target::new(builder, is_checked),
+            block_hash: Bytes32Target::new(builder, is_checked),
             block_number: builder.add_virtual_target(),
         }
     }
@@ -130,8 +130,8 @@ impl PublicStateTarget {
         let block_tree_root = PoseidonHashOutTarget::from_vec(&input[0..4]);
         let prev_account_tree_root = PoseidonHashOutTarget::from_vec(&input[4..8]);
         let account_tree_root = PoseidonHashOutTarget::from_vec(&input[8..12]);
-        let deposit_tree_root = Bytes32::<Target>::from_limbs(&input[12..20]);
-        let block_hash = Bytes32::<Target>::from_limbs(&input[20..28]);
+        let deposit_tree_root = Bytes32Target::from_limbs(&input[12..20]);
+        let block_hash = Bytes32Target::from_limbs(&input[20..28]);
         let block_number = input[28];
         Self {
             block_tree_root,
@@ -154,8 +154,8 @@ impl PublicStateTarget {
                 value.prev_account_tree_root,
             ),
             account_tree_root: PoseidonHashOutTarget::constant(builder, value.account_tree_root),
-            deposit_tree_root: Bytes32::constant(builder, value.deposit_tree_root),
-            block_hash: Bytes32::constant(builder, value.block_hash),
+            deposit_tree_root: Bytes32Target::constant(builder, value.deposit_tree_root),
+            block_hash: Bytes32Target::constant(builder, value.block_hash),
             block_number: builder.constant(F::from_canonical_u32(value.block_number)),
         }
     }

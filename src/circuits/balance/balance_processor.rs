@@ -61,7 +61,7 @@ where
     pub fn prove_send(
         &self,
         validity_circuit: &ValidityCircuit<F, C, D>,
-        pubkey: U256<u32>,
+        pubkey: U256,
         send_witness: &SendWitness,
         update_witness: &UpdateWitness<F, C, D>,
         prev_proof: &Option<ProofWithPublicInputs<F, C, D>>,
@@ -82,7 +82,7 @@ where
     pub fn prove_update(
         &self,
         validity_circuit: &ValidityCircuit<F, C, D>,
-        pubkey: U256<u32>,
+        pubkey: U256,
         update_witness: &UpdateWitness<F, C, D>,
         prev_proof: &Option<ProofWithPublicInputs<F, C, D>>,
     ) -> ProofWithPublicInputs<F, C, D> {
@@ -106,7 +106,7 @@ where
 
     pub fn prove_receive_transfer(
         &self,
-        pubkey: U256<u32>,
+        pubkey: U256,
         transfer_witness: &TransferWitness,
         private_transition_witness: &PrivateStateTransitionWitness,
         balance_incoming_witness: &BalanceIncomingWitness<F, C, D>,
@@ -133,7 +133,7 @@ where
 
     pub fn prove_receive_deposit(
         &self,
-        pubkey: U256<u32>,
+        pubkey: U256,
         receive_deposit_witness: &ReceiveDepositWitness,
         prev_proof: &Option<ProofWithPublicInputs<F, C, D>>,
     ) -> ProofWithPublicInputs<F, C, D> {
@@ -298,7 +298,7 @@ mod tests {
         // alice deposit
         let mut alice = LocalManager::new_rand(rng);
         let mut alice_balance_prover = SyncBalanceProver::<F, C, D>::new();
-        let deposit_amount = U256::<u32>::rand_small(rng);
+        let deposit_amount = U256::rand_small(rng);
         alice.deposit(rng, &mut block_builder, 0, deposit_amount);
         alice.deposit(rng, &mut block_builder, 1, deposit_amount);
         alice.deposit(rng, &mut block_builder, 2, deposit_amount);

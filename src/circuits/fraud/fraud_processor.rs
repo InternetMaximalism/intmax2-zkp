@@ -4,7 +4,8 @@ use plonky2::{
 };
 
 use crate::{
-    circuits::validity::validity_circuit::ValidityCircuit, ethereum_types::address::Address, utils::wrapper::WrapperCircuit, wrapper_config::plonky2_config::PoseidonBN128GoldilocksConfig
+    circuits::validity::validity_circuit::ValidityCircuit, ethereum_types::address::Address,
+    utils::wrapper::WrapperCircuit, wrapper_config::plonky2_config::PoseidonBN128GoldilocksConfig,
 };
 use anyhow::Result;
 
@@ -35,7 +36,7 @@ impl FraudProcessor {
 
     pub fn prove(
         &self,
-        challenger: Address<u32>,
+        challenger: Address,
         validity_proof: &ProofWithPublicInputs<F, C, D>,
     ) -> Result<ProofWithPublicInputs<F, OuterC, D>> {
         let fraud_proof = self.fraud_circuit.prove(challenger, validity_proof)?;

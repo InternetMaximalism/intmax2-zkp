@@ -1,10 +1,7 @@
 use plonky2::{
     field::{extension::Extendable, types::Field},
     hash::hash_types::RichField,
-    iop::{
-        target::{BoolTarget, Target},
-        witness::WitnessWrite,
-    },
+    iop::{target::BoolTarget, witness::WitnessWrite},
     plonk::{
         circuit_builder::CircuitBuilder,
         config::{AlgebraicHasher, GenericConfig},
@@ -14,7 +11,7 @@ use plonky2_keccak::{builder::BuilderKeccak256 as _, utils::solidity_keccak256};
 
 use super::poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget};
 use crate::ethereum_types::{
-    bytes32::Bytes32,
+    bytes32::{Bytes32, Bytes32Target},
     u32limb_trait::{U32LimbTargetTrait as _, U32LimbTrait as _},
 };
 use core::fmt::Debug;
@@ -171,12 +168,12 @@ impl LeafableHasher for PoseidonLeafableHasher {
 pub struct KeccakLeafableHasher;
 
 impl LeafableHasher for KeccakLeafableHasher {
-    type HashOut = Bytes32<u32>;
-    type HashOutTarget = Bytes32<Target>;
+    type HashOut = Bytes32;
+    type HashOutTarget = Bytes32Target;
 
     fn two_to_one(left: Self::HashOut, right: Self::HashOut) -> Self::HashOut {
         let inputs = vec![left.limbs(), right.limbs()].concat();
-        Bytes32::<u32>::from_limbs(&solidity_keccak256(&inputs))
+        Bytes32::from_limbs(&solidity_keccak256(&inputs))
     }
 
     fn connect_hash<F: RichField + Extendable<D>, const D: usize>(
@@ -209,7 +206,7 @@ impl LeafableHasher for KeccakLeafableHasher {
         <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
     {
         let input = vec![left.limbs(), right.limbs()].concat();
-        Bytes32::<Target>::from_limbs(&builder.keccak256::<C>(&input))
+        Bytes32Target::from_limbs(&builder.keccak256::<C>(&input))
     }
 
     fn two_to_one_swapped<
@@ -225,22 +222,22 @@ impl LeafableHasher for KeccakLeafableHasher {
     where
         <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
     {
-        let left_swapped = Bytes32::<Target>::select(builder, swap, *right, *left);
-        let right_swapped = Bytes32::<Target>::select(builder, swap, *left, *right);
+        let left_swapped = Bytes32Target::select(builder, swap, *right, *left);
+        let right_swapped = Bytes32Target::select(builder, swap, *left, *right);
         Self::two_to_one_target::<F, C, D>(builder, &left_swapped, &right_swapped)
     }
 
     fn hash_out_target<F: RichField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
     ) -> Self::HashOutTarget {
-        Bytes32::<Target>::new(builder, false)
+        Bytes32Target::new(builder, false)
     }
 
     fn constant_hash_out_target<F: RichField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
         value: Self::HashOut,
     ) -> Self::HashOutTarget {
-        Bytes32::<Target>::constant(builder, value)
+        Bytes32Target::constant(builder, value)
     }
 
     fn set_hash_out_target<

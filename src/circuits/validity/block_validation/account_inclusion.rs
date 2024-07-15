@@ -3,9 +3,9 @@ use crate::{
     common::trees::account_tree::{AccountMerkleProof, AccountMerkleProofTarget},
     constants::NUM_SENDERS_IN_BLOCK,
     ethereum_types::{
-        account_id_packed::AccountIdPacked,
-        bytes32::{Bytes32, BYTES32_LEN},
-        u256::U256,
+        account_id_packed::{AccountIdPacked, AccountIdPackedTarget},
+        bytes32::{Bytes32, Bytes32Target, BYTES32_LEN},
+        u256::{U256Target, U256},
         u32limb_trait::{U32LimbTargetTrait, U32LimbTrait},
     },
     utils::{
@@ -36,7 +36,7 @@ const ACCOUNT_INCLUSION_PUBLIC_INPUTS_LEN: usize = BYTES32_LEN + 4 + 4 + 1;
 
 #[derive(Clone, Debug)]
 pub struct AccountInclusionPublicInputs {
-    pub account_id_hash: Bytes32<u32>,
+    pub account_id_hash: Bytes32,
     pub account_tree_root: PoseidonHashOut,
     pub pubkey_commitment: PoseidonHashOut,
     pub is_valid: bool,
@@ -44,7 +44,7 @@ pub struct AccountInclusionPublicInputs {
 
 #[derive(Clone, Debug)]
 pub struct AccountInclusionPublicInputsTarget {
-    pub account_id_hash: Bytes32<Target>,
+    pub account_id_hash: Bytes32Target,
     pub account_tree_root: PoseidonHashOutTarget,
     pub pubkey_commitment: PoseidonHashOutTarget,
     pub is_valid: BoolTarget,
@@ -82,7 +82,7 @@ impl AccountInclusionPublicInputsTarget {
 
     pub fn from_vec(input: &[Target]) -> Self {
         assert_eq!(input.len(), ACCOUNT_INCLUSION_PUBLIC_INPUTS_LEN);
-        let account_id_hash = Bytes32::<Target>::from_limbs(&input[0..8]);
+        let account_id_hash = Bytes32Target::from_limbs(&input[0..8]);
         let account_tree_root = PoseidonHashOutTarget {
             elements: input[8..12].try_into().unwrap(),
         };
@@ -101,11 +101,11 @@ impl AccountInclusionPublicInputsTarget {
 
 #[derive(Clone, Debug)]
 pub struct AccountInclusionValue {
-    pub account_id_packed: AccountIdPacked<u32>,
-    pub account_id_hash: Bytes32<u32>,
+    pub account_id_packed: AccountIdPacked,
+    pub account_id_hash: Bytes32,
     pub account_tree_root: PoseidonHashOut,
     pub account_merkle_proofs: Vec<AccountMerkleProof>,
-    pub pubkeys: Vec<U256<u32>>,
+    pub pubkeys: Vec<U256>,
     pub pubkey_commitment: PoseidonHashOut,
     pub is_valid: bool,
 }
@@ -113,9 +113,9 @@ pub struct AccountInclusionValue {
 impl AccountInclusionValue {
     pub fn new(
         account_tree_root: PoseidonHashOut,
-        account_id_packed: AccountIdPacked<u32>,
+        account_id_packed: AccountIdPacked,
         account_merkle_proofs: Vec<AccountMerkleProof>,
-        pubkeys: Vec<U256<u32>>,
+        pubkeys: Vec<U256>,
     ) -> Self {
         assert_eq!(account_merkle_proofs.len(), NUM_SENDERS_IN_BLOCK);
         assert_eq!(pubkeys.len(), NUM_SENDERS_IN_BLOCK);
@@ -145,11 +145,11 @@ impl AccountInclusionValue {
 
 #[derive(Clone, Debug)]
 pub struct AccountInclusionTarget {
-    pub account_id_packed: AccountIdPacked<Target>,
+    pub account_id_packed: AccountIdPackedTarget,
     pub account_tree_root: PoseidonHashOutTarget,
     pub account_merkle_proofs: Vec<AccountMerkleProofTarget>,
-    pub pubkeys: Vec<U256<Target>>,
-    pub account_id_hash: Bytes32<Target>,
+    pub pubkeys: Vec<U256Target>,
+    pub account_id_hash: Bytes32Target,
     pub pubkey_commitment: PoseidonHashOutTarget,
     pub is_valid: BoolTarget,
 }
@@ -163,14 +163,14 @@ impl AccountInclusionTarget {
     {
         let mut result = builder._true();
         let account_tree_root = PoseidonHashOutTarget::new(builder);
-        let account_id_packed = AccountIdPacked::new(builder, true);
+        let account_id_packed = AccountIdPackedTarget::new(builder, true);
         let account_merkle_proofs = (0..NUM_SENDERS_IN_BLOCK)
             .map(|_| AccountMerkleProofTarget::new(builder, true))
             .collect::<Vec<_>>();
         // The pubkey already exists in the account tree, so it has already been range
         // checked.
         let pubkeys = (0..NUM_SENDERS_IN_BLOCK)
-            .map(|_| U256::<Target>::new(builder, false))
+            .map(|_| U256Target::new(builder, false))
             .collect::<Vec<_>>();
         let account_id_hash = account_id_packed.hash::<F, C, D>(builder);
         let account_ids = account_id_packed.unpack(builder);

@@ -12,9 +12,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     ethereum_types::{
-        address::Address,
-        bytes32::Bytes32,
-        u256::U256,
+        address::{Address, AddressTarget},
+        bytes32::{Bytes32, Bytes32Target},
+        u256::{U256Target, U256},
         u32limb_trait::{U32LimbTargetTrait as _, U32LimbTrait},
     },
     utils::poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget},
@@ -25,21 +25,21 @@ use super::transfer::{Transfer, TransferTarget};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Withdrawal {
-    pub prev_withdral_hash: Bytes32<u32>,
-    pub recipient: Address<u32>,
+    pub prev_withdral_hash: Bytes32,
+    pub recipient: Address,
     pub token_index: u32,
-    pub amount: U256<u32>,
-    pub nullifier: Bytes32<u32>,
-    pub block_hash: Bytes32<u32>,
+    pub amount: U256,
+    pub nullifier: Bytes32,
+    pub block_hash: Bytes32,
 }
 
 pub struct WithdrawalTarget {
-    pub prev_withdral_hash: Bytes32<Target>,
-    pub recipient: Address<Target>,
+    pub prev_withdral_hash: Bytes32Target,
+    pub recipient: AddressTarget,
     pub token_index: Target,
-    pub amount: U256<Target>,
-    pub nullifier: Bytes32<Target>,
-    pub block_hash: Bytes32<Target>,
+    pub amount: U256Target,
+    pub nullifier: Bytes32Target,
+    pub block_hash: Bytes32Target,
 }
 
 impl Withdrawal {
@@ -55,8 +55,8 @@ impl Withdrawal {
         .concat()
     }
 
-    pub fn hash(&self) -> Bytes32<u32> {
-        Bytes32::<u32>::from_limbs(&solidity_keccak256(&self.to_u32_vec()))
+    pub fn hash(&self) -> Bytes32 {
+        Bytes32::from_limbs(&solidity_keccak256(&self.to_u32_vec()))
     }
 }
 
@@ -80,29 +80,29 @@ impl WithdrawalTarget {
     >(
         &self,
         builder: &mut CircuitBuilder<F, D>,
-    ) -> Bytes32<Target>
+    ) -> Bytes32Target
     where
         <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
     {
-        Bytes32::<Target>::from_limbs(&builder.keccak256::<C>(&self.to_vec()))
+        Bytes32Target::from_limbs(&builder.keccak256::<C>(&self.to_vec()))
     }
 }
 
-pub fn get_withdrawal_nullifier(transfer: &Transfer) -> Bytes32<u32> {
+pub fn get_withdrawal_nullifier(transfer: &Transfer) -> Bytes32 {
     let transfer_commitment = transfer.commitment();
     let input = [transfer_commitment.to_u64_vec(), transfer.salt.to_u64_vec()].concat();
     let input_hash = PoseidonHashOut::hash_inputs_u64(&input);
-    let nullifier: Bytes32<u32> = input_hash.into();
+    let nullifier: Bytes32 = input_hash.into();
     nullifier
 }
 
 pub fn get_withdrawal_nullifier_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     transfer: &TransferTarget,
-) -> Bytes32<Target> {
+) -> Bytes32Target {
     let transfer_commitment = transfer.commitment(builder);
     let input = [transfer_commitment.to_vec(), transfer.salt.to_vec()].concat();
     let input_hash = PoseidonHashOutTarget::hash_inputs(builder, &input);
-    let nullifier = Bytes32::<Target>::from_hash_out(builder, input_hash);
+    let nullifier = Bytes32Target::from_hash_out(builder, input_hash);
     nullifier
 }

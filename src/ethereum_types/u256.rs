@@ -24,11 +24,16 @@ pub const U256_LEN: usize = 8;
 // `T` is either `u32` or `U32Target`.
 // The value is stored in big endian format.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default, Hash)]
-pub struct U256<T: Clone + Copy> {
-    limbs: [T; U256_LEN],
+pub struct U256 {
+    limbs: [u32; U256_LEN],
 }
 
-impl std::fmt::Display for U256<u32> {
+#[derive(Clone, Copy, Debug)]
+pub struct U256Target {
+    limbs: [Target; U256_LEN],
+}
+
+impl std::fmt::Display for U256 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let b: BigUint = (*self).into();
         let s = b.to_str_radix(10);
@@ -36,7 +41,7 @@ impl std::fmt::Display for U256<u32> {
     }
 }
 
-impl Serialize for U256<u32> {
+impl Serialize for U256 {
     fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         let b: BigUint = (*self).into();
         let s = b.to_str_radix(10);
@@ -44,30 +49,30 @@ impl Serialize for U256<u32> {
     }
 }
 
-impl<'de> Deserialize<'de> for U256<u32> {
+impl<'de> Deserialize<'de> for U256 {
     fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         let s = String::deserialize(deserializer)?;
         let b = BigUint::from_str_radix(&s, 10).map_err(serde::de::Error::custom)?;
-        let u: U256<u32> = b.try_into().unwrap();
+        let u: U256 = b.try_into().unwrap();
         Ok(u)
     }
 }
 
-impl PartialOrd for U256<u32> {
+impl PartialOrd for U256 {
     #[inline]
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         Some(self.limbs.cmp(&other.limbs))
     }
 }
 
-impl Ord for U256<u32> {
+impl Ord for U256 {
     #[inline]
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         Iterator::cmp(self.limbs.iter(), other.limbs.iter())
     }
 }
 
-impl TryFrom<BigUint> for U256<u32> {
+impl TryFrom<BigUint> for U256 {
     type Error = anyhow::Error;
     fn try_from(value: BigUint) -> anyhow::Result<Self> {
         let mut digits = value.to_u32_digits();
@@ -80,8 +85,8 @@ impl TryFrom<BigUint> for U256<u32> {
     }
 }
 
-impl From<U256<u32>> for BigUint {
-    fn from(value: U256<u32>) -> Self {
+impl From<U256> for BigUint {
+    fn from(value: U256) -> Self {
         let mut sum = BigUint::zero();
         for (i, digit) in value.limbs.iter().rev().enumerate() {
             sum += BigUint::from(digit) << (32 * i);
@@ -90,22 +95,22 @@ impl From<U256<u32>> for BigUint {
     }
 }
 
-impl From<Fq> for U256<u32> {
+impl From<Fq> for U256 {
     fn from(value: Fq) -> Self {
         // Fq is less than 256 bits, so we can safely convert it to U256
-        U256::<u32>::try_from(BigUint::from(value)).unwrap()
+        U256::try_from(BigUint::from(value)).unwrap()
     }
 }
 
-impl From<U256<u32>> for Fq {
-    fn from(value: U256<u32>) -> Self {
+impl From<U256> for Fq {
+    fn from(value: U256) -> Self {
         Fq::from(BigUint::from(value))
     }
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> From<FqTarget<F, D>> for U256<Target> {
+impl<F: RichField + Extendable<D>, const D: usize> From<FqTarget<F, D>> for U256Target {
     fn from(value: FqTarget<F, D>) -> Self {
-        U256::<Target>::from_limbs(
+        U256Target::from_limbs(
             value
                 .value()
                 .limbs
@@ -118,14 +123,14 @@ impl<F: RichField + Extendable<D>, const D: usize> From<FqTarget<F, D>> for U256
     }
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> From<U256<Target>> for FqTarget<F, D> {
-    fn from(value: U256<Target>) -> Self {
+impl<F: RichField + Extendable<D>, const D: usize> From<U256Target> for FqTarget<F, D> {
+    fn from(value: U256Target) -> Self {
         FqTarget::from_vec(&value.limbs().into_iter().rev().collect::<Vec<_>>())
     }
 }
 
-impl From<U256<Target>> for BigUintTarget {
-    fn from(value: U256<Target>) -> Self {
+impl From<U256Target> for BigUintTarget {
+    fn from(value: U256Target) -> Self {
         let limbs = value
             .limbs()
             .into_iter()
@@ -136,7 +141,7 @@ impl From<U256<Target>> for BigUintTarget {
     }
 }
 
-impl U32LimbTrait<U256_LEN> for U256<u32> {
+impl U32LimbTrait<U256_LEN> for U256 {
     fn limbs(&self) -> Vec<u32> {
         self.limbs.to_vec()
     }
@@ -147,7 +152,7 @@ impl U32LimbTrait<U256_LEN> for U256<u32> {
     }
 }
 
-impl U256<u32> {
+impl U256 {
     // generate small random value for testing
     pub fn rand_small<R: Rng>(rng: &mut R) -> Self {
         let mut limbs = rng.gen::<[u32; 6]>().to_vec();
@@ -157,7 +162,7 @@ impl U256<u32> {
     }
 }
 
-impl std::ops::Add for U256<u32> {
+impl std::ops::Add for U256 {
     type Output = Self;
 
     fn add(self, rhs: Self) -> Self::Output {
@@ -181,13 +186,13 @@ impl std::ops::Add for U256<u32> {
     }
 }
 
-impl std::ops::AddAssign for U256<u32> {
+impl std::ops::AddAssign for U256 {
     fn add_assign(&mut self, rhs: Self) {
         *self = *self + rhs;
     }
 }
 
-impl std::ops::Sub for U256<u32> {
+impl std::ops::Sub for U256 {
     type Output = Self;
 
     fn sub(self, rhs: Self) -> Self::Output {
@@ -212,19 +217,19 @@ impl std::ops::Sub for U256<u32> {
     }
 }
 
-impl std::ops::SubAssign for U256<u32> {
+impl std::ops::SubAssign for U256 {
     fn sub_assign(&mut self, rhs: Self) {
         *self = *self - rhs;
     }
 }
 
-impl U256<u32> {
+impl U256 {
     pub fn rand<T: Rng>(rng: &mut T) -> Self {
         Self { limbs: rng.gen() }
     }
 }
 
-impl U32LimbTargetTrait<U256_LEN> for U256<Target> {
+impl U32LimbTargetTrait<U256_LEN> for U256Target {
     fn limbs(&self) -> Vec<Target> {
         self.limbs.to_vec()
     }
@@ -235,7 +240,7 @@ impl U32LimbTargetTrait<U256_LEN> for U256<Target> {
     }
 }
 
-impl U256<Target> {
+impl U256Target {
     pub fn add<F: RichField + Extendable<D>, const D: usize>(
         &self,
         builder: &mut CircuitBuilder<F, D>,
@@ -323,10 +328,7 @@ mod tests {
     use num_bigint::BigUint;
     use plonky2::{
         field::goldilocks_field::GoldilocksField,
-        iop::{
-            target::Target,
-            witness::{PartialWitness, WitnessWrite},
-        },
+        iop::witness::{PartialWitness, WitnessWrite},
         plonk::{
             circuit_builder::CircuitBuilder, circuit_data::CircuitConfig,
             config::PoseidonGoldilocksConfig,
@@ -337,6 +339,8 @@ mod tests {
         u256::U256,
         u32limb_trait::{U32LimbTargetTrait, U32LimbTrait as _},
     };
+
+    use super::U256Target;
 
     type F = GoldilocksField;
     const D: usize = 2;
@@ -350,17 +354,17 @@ mod tests {
 
     #[test]
     fn u256_order() {
-        let a = U256::<u32>::from_limbs(&[0, 0, 0, 0, 2, 0, 0, 0]);
-        let b = U256::<u32>::from_limbs(&[0, 0, 0, 1, 1, 0, 0, 0]);
+        let a = U256::from_limbs(&[0, 0, 0, 0, 2, 0, 0, 0]);
+        let b = U256::from_limbs(&[0, 0, 0, 1, 1, 0, 0, 0]);
         assert!(a < b);
     }
 
     #[test]
     fn u256_add_sub() {
-        let a = U256::<u32>::from_limbs(&[0, 0, 0, 1, 2, 0, 0, 0]);
-        let b = U256::<u32>::from_limbs(&[0, 0, 0, 0, u32::MAX, 0, 0, 0]);
-        let c = U256::<u32>::from_limbs(&[0, 0, 0, 2, 1, 0, 0, 0]);
-        let d = U256::<u32>::from_limbs(&[0, 0, 0, 0, 3, 0, 0, 0]);
+        let a = U256::from_limbs(&[0, 0, 0, 1, 2, 0, 0, 0]);
+        let b = U256::from_limbs(&[0, 0, 0, 0, u32::MAX, 0, 0, 0]);
+        let c = U256::from_limbs(&[0, 0, 0, 2, 1, 0, 0, 0]);
+        let d = U256::from_limbs(&[0, 0, 0, 0, 3, 0, 0, 0]);
         assert_eq!(a + b, c);
         assert_eq!(a - b, d);
     }
@@ -368,20 +372,20 @@ mod tests {
     #[test]
     #[should_panic]
     fn u256_sub_underflow() {
-        let a = U256::<u32>::from_limbs(&[0, 0, 0, 1, 2, 0, 0, 0]);
-        let b = U256::<u32>::from_limbs(&[0, 0, 0, 0, u32::MAX, 0, 0, 0]);
+        let a = U256::from_limbs(&[0, 0, 0, 1, 2, 0, 0, 0]);
+        let b = U256::from_limbs(&[0, 0, 0, 0, u32::MAX, 0, 0, 0]);
 
         _ = b - a;
     }
 
     #[test]
     fn u256_le() {
-        let a = U256::<u32>::from_limbs(&[0, 0, 0, 1, 2, 0, 0, 0]);
-        let b = U256::<u32>::from_limbs(&[0, 0, 0, 0, u32::MAX, 0, 0, 0]);
+        let a = U256::from_limbs(&[0, 0, 0, 1, 2, 0, 0, 0]);
+        let b = U256::from_limbs(&[0, 0, 0, 0, u32::MAX, 0, 0, 0]);
 
         let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::default());
-        let a_t = U256::<Target>::constant(&mut builder, a);
-        let b_t = U256::<Target>::constant(&mut builder, b);
+        let a_t = U256Target::constant(&mut builder, a);
+        let b_t = U256Target::constant(&mut builder, b);
         let le_ab = a_t.is_le(&mut builder, &b_t);
         let le_aa = a_t.is_le(&mut builder, &a_t);
 
@@ -395,14 +399,14 @@ mod tests {
     #[test]
     fn u256_add_sub_circuit() {
         let mut rng = rand::thread_rng();
-        let a = U256::<u32>::rand(&mut rng);
-        let b = U256::<u32>::try_from(BigUint::from(1u64)).unwrap();
+        let a = U256::rand(&mut rng);
+        let b = U256::try_from(BigUint::from(1u64)).unwrap();
         let a_plus_b = a + b;
         let a_minus_b = a - b;
 
         let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::default());
-        let a_t = U256::<Target>::constant(&mut builder, a);
-        let b_t = U256::<Target>::constant(&mut builder, b);
+        let a_t = U256Target::constant(&mut builder, a);
+        let b_t = U256Target::constant(&mut builder, b);
         let a_plus_b_t = a_t.add(&mut builder, &b_t);
         let a_minus_b_t = a_t.sub(&mut builder, &b_t);
         let mut pw = PartialWitness::new();

@@ -136,7 +136,7 @@ where
 #[cfg(test)]
 mod tests {
     use plonky2::{
-        iop::{target::Target, witness::PartialWitness},
+        iop::witness::PartialWitness,
         plonk::{
             circuit_builder::CircuitBuilder,
             circuit_data::CircuitConfig,
@@ -146,7 +146,7 @@ mod tests {
 
     use crate::{
         ethereum_types::{
-            bytes32::Bytes32,
+            bytes32::{Bytes32, Bytes32Target},
             u32limb_trait::{U32LimbTargetTrait, U32LimbTrait},
         },
         utils::{
@@ -170,7 +170,7 @@ mod tests {
         let mut rng = rand::thread_rng();
         let height = 15;
         let num_leaves = 800;
-        type V = Bytes32<u32>;
+        type V = Bytes32;
         let mut tree = MerkleTreeWithLeaves::<V>::new(height);
         let leaves = (0..num_leaves)
             .map(|_| V::rand(&mut rng))
@@ -187,8 +187,8 @@ mod tests {
 
     #[test]
     fn test_get_merkle_root_target_from_full_leaves_circuit() {
-        type V = Bytes32<u32>;
-        type VT = Bytes32<Target>;
+        type V = Bytes32;
+        type VT = Bytes32Target;
 
         let mut rng = rand::thread_rng();
         let height = 10;
@@ -215,8 +215,8 @@ mod tests {
 
     #[test]
     fn test_get_merkle_root_target_from_leaves_circuit() {
-        type V = Bytes32<u32>;
-        type VT = Bytes32<Target>;
+        type V = Bytes32;
+        type VT = Bytes32Target;
 
         let mut rng = rand::thread_rng();
         let height = 10;

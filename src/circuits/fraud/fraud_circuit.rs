@@ -20,8 +20,8 @@ use crate::{
         validity_circuit::ValidityCircuit, validity_pis::ValidityPublicInputsTarget,
     },
     ethereum_types::{
-        address::{Address, ADDRESS_LEN},
-        bytes32::{Bytes32, BYTES32_LEN},
+        address::{Address, AddressTarget, ADDRESS_LEN},
+        bytes32::{Bytes32, Bytes32Target, BYTES32_LEN},
         u32limb_trait::{U32LimbTargetTrait as _, U32LimbTrait},
     },
     utils::recursivable::Recursivable,
@@ -31,9 +31,9 @@ pub const FRAUD_PROOF_PUBLIC_INPUTS_LEN: usize = BYTES32_LEN + 1 + ADDRESS_LEN;
 
 #[derive(Clone, Debug)]
 pub struct FraudProofPublicInputs {
-    pub block_hash: Bytes32<u32>,
+    pub block_hash: Bytes32,
     pub block_number: u32,
-    pub challenger: Address<u32>,
+    pub challenger: Address,
 }
 
 impl FraudProofPublicInputs {
@@ -48,16 +48,16 @@ impl FraudProofPublicInputs {
         vec
     }
 
-    pub fn hash(&self) -> Bytes32<u32> {
-        Bytes32::<u32>::from_limbs(&solidity_keccak256(&self.to_u32_vec()))
+    pub fn hash(&self) -> Bytes32 {
+        Bytes32::from_limbs(&solidity_keccak256(&self.to_u32_vec()))
     }
 }
 
 #[derive(Clone, Debug)]
 pub struct FraudProofPublicInputsTarget {
-    pub block_hash: Bytes32<Target>,
+    pub block_hash: Bytes32Target,
     pub block_number: Target,
-    pub challenger: Address<Target>,
+    pub challenger: AddressTarget,
 }
 
 impl FraudProofPublicInputsTarget {
@@ -79,17 +79,17 @@ impl FraudProofPublicInputsTarget {
     >(
         &self,
         builder: &mut CircuitBuilder<F, D>,
-    ) -> Bytes32<Target>
+    ) -> Bytes32Target
     where
         <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
     {
-        Bytes32::<Target>::from_limbs(&builder.keccak256::<C>(&self.to_vec()))
+        Bytes32Target::from_limbs(&builder.keccak256::<C>(&self.to_vec()))
     }
 }
 
 pub struct FraudCircuit<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> {
     pub validity_proof: ProofWithPublicInputsTarget<D>,
-    pub challenger: Address<Target>,
+    pub challenger: AddressTarget,
     pub data: CircuitData<F, C, D>,
 }
 
@@ -102,7 +102,7 @@ where
         let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::default());
         let validity_proof = validity_circuit.add_proof_target_and_verify(&mut builder);
         let validity_pis = ValidityPublicInputsTarget::from_pis(&validity_proof.public_inputs);
-        let challenger = Address::<Target>::new(&mut builder, true);
+        let challenger = AddressTarget::new(&mut builder, true);
         builder.assert_zero(validity_pis.is_valid_block.target);
         let pis = FraudProofPublicInputsTarget {
             block_hash: validity_pis.public_state.block_hash,
@@ -121,7 +121,7 @@ where
 
     pub fn prove(
         &self,
-        challenger: Address<u32>,
+        challenger: Address,
         validity_proof: &ProofWithPublicInputs<F, C, D>,
     ) -> Result<ProofWithPublicInputs<F, C, D>> {
         let mut pw = PartialWitness::<F>::new();

@@ -5,8 +5,8 @@ use crate::{
     },
     constants::BLOCK_HASH_TREE_HEIGHT,
     ethereum_types::{
-        bytes32::Bytes32,
-        u256::U256,
+        bytes32::{Bytes32, Bytes32Target},
+        u256::{U256Target, U256},
         u32limb_trait::{U32LimbTargetTrait as _, U32LimbTrait},
     },
     utils::{
@@ -48,7 +48,7 @@ pub struct ReceiveTransferPublicInputs<
 > {
     pub prev_private_commitment: PoseidonHashOut,
     pub new_private_commitment: PoseidonHashOut,
-    pub pubkey: U256<u32>,
+    pub pubkey: U256,
     pub public_state: PublicState,
     pub balance_circuit_vd: VerifierOnlyCircuitData<C, D>,
 }
@@ -94,7 +94,7 @@ where
 pub struct ReceiveTransferPublicInputsTarget {
     pub prev_private_commitment: PoseidonHashOutTarget,
     pub new_private_commitment: PoseidonHashOutTarget,
-    pub pubkey: U256<Target>,
+    pub pubkey: U256Target,
     pub public_state: PublicStateTarget,
     pub balance_circuit_vd: VerifierCircuitTarget,
 }
@@ -115,7 +115,7 @@ impl ReceiveTransferPublicInputsTarget {
     pub fn from_vec(config: &CircuitConfig, input: &[Target]) -> Self {
         let prev_private_commitment = PoseidonHashOutTarget::from_vec(&input[0..4]);
         let new_private_commitment = PoseidonHashOutTarget::from_vec(&input[4..8]);
-        let pubkey = U256::<Target>::from_limbs(&input[8..16]);
+        let pubkey = U256Target::from_limbs(&input[8..16]);
         let public_state = PublicStateTarget::from_vec(&input[16..16 + PUBLIC_STATE_LEN]);
         let balance_circuit_vd = vd_from_pis_slice_target(input, config).unwrap();
         ReceiveTransferPublicInputsTarget {
@@ -134,7 +134,7 @@ pub struct ReceiveTransferValue<
     C: GenericConfig<D, F = F> + 'static,
     const D: usize,
 > {
-    pub pubkey: U256<u32>,
+    pub pubkey: U256,
     pub public_state: PublicState,
     pub block_merkle_proof: BlockHashMerkleProof,
     pub transfer_inclusion: TransferInclusionValue<F, C, D>,
@@ -166,7 +166,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
             .expect("Invalid block merkle proof");
 
         let transfer = transfer_inclusion.transfer;
-        let nullifier: Bytes32<u32> = transfer.commitment().into();
+        let nullifier: Bytes32 = transfer.commitment().into();
         let pubkey = transfer.recipient.to_pubkey().expect("Invalid recipient");
         assert_eq!(private_state_transition.token_index, transfer.token_index);
         assert_eq!(private_state_transition.amount, transfer.amount);
@@ -189,7 +189,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
 
 #[derive(Debug, Clone)]
 pub struct ReceiveTransferTarget<const D: usize> {
-    pub pubkey: U256<Target>,
+    pub pubkey: U256Target,
     pub public_state: PublicStateTarget,
     pub block_merkle_proof: BlockHashMerkleProofTarget,
     pub transfer_inclusion: TransferInclusionTarget<D>,
@@ -223,7 +223,7 @@ impl<const D: usize> ReceiveTransferTarget<D> {
 
         let transfer = transfer_inclusion.transfer.clone();
         let transfer_commitment = transfer.commitment(builder);
-        let nullifier: Bytes32<Target> = Bytes32::from_hash_out(builder, transfer_commitment);
+        let nullifier: Bytes32Target = Bytes32Target::from_hash_out(builder, transfer_commitment);
         let pubkey = transfer.recipient.to_pubkey(builder);
         builder.connect(private_state_transition.token_index, transfer.token_index);
         private_state_transition

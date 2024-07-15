@@ -13,8 +13,8 @@ use crate::{
 #[derive(Debug, Clone)]
 pub struct PrivateStateTransitionWitness {
     pub token_index: u32,
-    pub amount: U256<u32>,
-    pub nullifier: Bytes32<u32>,
+    pub amount: U256,
+    pub nullifier: Bytes32,
     pub new_salt: Salt,
     pub prev_private_state: PrivateState,
     pub nullifier_proof: NullifierInsersionProof,

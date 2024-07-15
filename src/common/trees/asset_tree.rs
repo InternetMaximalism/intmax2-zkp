@@ -1,6 +1,9 @@
-use crate::utils::{
-    leafable_hasher::PoseidonLeafableHasher,
-    trees::sparse_merkle_tree::{SparseMerkleProof, SparseMerkleProofTarget, SparseMerkleTree},
+use crate::{
+    ethereum_types::u256::U256Target,
+    utils::{
+        leafable_hasher::PoseidonLeafableHasher,
+        trees::sparse_merkle_tree::{SparseMerkleProof, SparseMerkleProofTarget, SparseMerkleTree},
+    },
 };
 use plonky2::{
     field::{extension::Extendable, types::Field},
@@ -34,17 +37,17 @@ pub type AssetMerkleProofTarget = SparseMerkleProofTarget<AssetLeafTarget>;
 #[derive(Clone, Debug, Default, Copy, PartialEq)]
 pub struct AssetLeaf {
     pub is_insufficient: bool,
-    pub amount: U256<u32>,
+    pub amount: U256,
 }
 
 #[derive(Clone, Debug)]
 pub struct AssetLeafTarget {
     pub is_insufficient: BoolTarget,
-    pub amount: U256<Target>,
+    pub amount: U256Target,
 }
 
 impl AssetLeaf {
-    pub fn sub(&self, amount: U256<u32>) -> Self {
+    pub fn sub(&self, amount: U256) -> Self {
         let is_insufficient = (self.amount < amount) || self.is_insufficient;
         let substract_amount = if is_insufficient { self.amount } else { amount };
         let amount = self.amount - substract_amount;
@@ -54,7 +57,7 @@ impl AssetLeaf {
         }
     }
 
-    pub fn add(&self, amount: U256<u32>) -> Self {
+    pub fn add(&self, amount: U256) -> Self {
         Self {
             is_insufficient: self.is_insufficient,
             amount: self.amount + amount,
@@ -88,19 +91,18 @@ impl AssetLeafTarget {
         }
         Self {
             is_insufficient,
-            amount: U256::new(builder, is_checked),
+            amount: U256Target::new(builder, is_checked),
         }
     }
 
     pub fn sub<F: RichField + Extendable<D>, const D: usize>(
         &self,
         builder: &mut CircuitBuilder<F, D>,
-        amount: U256<Target>,
+        amount: U256Target,
     ) -> Self {
         let amount_cmp = self.amount.is_lt(builder, &amount);
         let is_insufficient = builder.or(amount_cmp, self.is_insufficient);
-        let substract_amount =
-            U256::<Target>::select(builder, is_insufficient, self.amount, amount);
+        let substract_amount = U256Target::select(builder, is_insufficient, self.amount, amount);
         Self {
             is_insufficient,
             amount: self.amount.sub(builder, &substract_amount),
@@ -110,7 +112,7 @@ impl AssetLeafTarget {
     pub fn add<F: RichField + Extendable<D>, const D: usize>(
         &self,
         builder: &mut CircuitBuilder<F, D>,
-        amount: U256<Target>,
+        amount: U256Target,
     ) -> Self {
         Self {
             is_insufficient: self.is_insufficient,
@@ -124,7 +126,7 @@ impl AssetLeafTarget {
     ) -> Self {
         Self {
             is_insufficient: builder.constant_bool(value.is_insufficient),
-            amount: U256::constant(builder, value.amount),
+            amount: U256Target::constant(builder, value.amount),
         }
     }
 
