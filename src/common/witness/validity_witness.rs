@@ -13,11 +13,19 @@ pub struct ValidityWitness {
 }
 
 impl ValidityWitness {
+    pub fn genesis() -> Self {
+        Self {
+            block_witness: BlockWitness::genesis(),
+            validity_transition_witness: ValidityTransitionWitness::genesis(),
+        }
+    }
+
     pub fn to_validity_pis(&self) -> ValidityPublicInputs {
         // calculate new roots
         let prev_block_tree_root = self.block_witness.prev_block_tree_root;
 
-        let block = self.block_witness.block;
+        // transition block tree root
+        let block = self.block_witness.block.clone();
         self.validity_transition_witness
             .block_merkle_proof
             .verify(
@@ -31,8 +39,9 @@ impl ValidityWitness {
             .block_merkle_proof
             .get_root(&block.hash(), block.block_number as usize);
 
-        let prev_account_tree_root = self.block_witness.prev_account_tree_root;
         let main_validation_pis = self.block_witness.to_main_validation_pis();
+
+        // transition account tree root
         let mut account_tree_root = self.block_witness.prev_account_tree_root;
         if main_validation_pis.is_valid && main_validation_pis.is_registoration_block {
             let account_registoration_proofs = self

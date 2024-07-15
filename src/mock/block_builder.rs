@@ -38,17 +38,17 @@ use crate::{
 use super::tx_request::TxRequest;
 
 pub struct MockBlockBuilder {
+    pub last_block_number: u32,
     pub account_tree: AccountTree, // current account tree
     pub block_tree: BlockHashTree, // current block hash tree
     pub deposit_tree: DepositTree, // current deposit tree
-    pub block_witnesses: Vec<BlockWitness>,
+    pub last_validity_witness: ValidityWitness,
     pub aux_info: HashMap<u32, AuxInfo>,
 }
 
 /// Information not required for validity proof but required for balance proof construction
 pub struct AuxInfo {
     pub tx_tree: TxTree,
-    pub prev_block_witness: BlockWitness,
     pub validity_witness: ValidityWitness,
     pub account_tree: AccountTree,
     pub block_tree: BlockHashTree,
@@ -62,18 +62,15 @@ impl MockBlockBuilder {
         let mut block_tree = BlockHashTree::new(BLOCK_HASH_TREE_HEIGHT);
         block_tree.push(Block::genesis().hash());
         let deposit_tree = DepositTree::new(DEPOSIT_TREE_HEIGHT);
-        let block_witness = BlockWitness::genesis();
+        let validity_witness = ValidityWitness::genesis();
         MockBlockBuilder {
+            last_block_number: 0,
+            last_validity_witness: validity_witness,
             account_tree,
             block_tree,
             deposit_tree,
-            block_witnesses: vec![block_witness],
             aux_info: HashMap::new(),
         }
-    }
-
-    pub fn get_last_block_witness(&self) -> BlockWitness {
-        self.block_witnesses.last().unwrap().clone()
     }
 }
 
@@ -140,7 +137,7 @@ impl MockBlockBuilder {
         );
         let signature_hash = signature.hash();
 
-        let prev_block = self.get_last_block_witness().block;
+        let prev_block = self.last_validity_witness.block_witness.block.clone();
         let block = Block {
             prev_block_hash: prev_block.hash(),
             deposit_tree_root: self.deposit_tree.get_root(),
@@ -164,48 +161,37 @@ impl MockBlockBuilder {
     }
 
     // Generate transition witness from the prev block to the current block
-    fn generate_transition_witness(
-        &self,
-        block_witness: &BlockWitness,
-    ) -> ValidityTransitionWitness {
-        if block_witness.block.block_number == 0 {
-            // prev block is genesis block
-            assert_eq!(
-                self.prev_block_tree.get_root(),
-                block_witness.prev_block_tree_root
+    fn generate_validity_witness(&mut self, block_witness: &BlockWitness) -> ValidityWitness {
+        // assertion
+        {
+            assert!(
+                block_witness.to_main_validation_pis().block_number == self.last_block_number + 1
             );
-            return ValidityTransitionWitness {
-                prev_pis: ValidityPublicInputs::genesis(),
-                prev_sender_leaves: Vec::new(),
-                block_merkle_proof: self.prev_block_tree.prove(0),
-                account_registoration_proofs: None,
-                account_update_proofs: None,
-            };
+            let prev_pis = self.last_validity_witness.to_validity_pis();
+            assert_eq!(
+                prev_pis.public_state.account_tree_root,
+                self.account_tree.get_root()
+            );
+            assert_eq!(
+                prev_pis.public_state.block_tree_root,
+                self.block_tree.get_root()
+            );
         }
-        let prev_pis = prev_block_witness.to_validity_pis();
-        let block_merkle_proof = self
-            .prev_block_tree
-            .prove(prev_block_witness.block.block_number as usize);
-        assert_eq!(
-            prev_pis.public_state.account_tree_root,
-            self.prev_account_tree.get_root()
-        );
-        assert_eq!(
-            prev_pis.public_state.block_tree_root,
-            self.prev_block_tree.get_root()
-        );
 
-        let prev_sender_leaves = get_sender_leaves(
-            &prev_block_witness.pubkeys,
-            prev_block_witness.signature.sender_flag,
-        );
+        let block_merkle_proof = self
+            .block_tree
+            .prove(block_witness.block.block_number as usize);
+
+        let sender_leaves =
+            get_sender_leaves(&block_witness.pubkeys, block_witness.signature.sender_flag);
+        let block_pis = block_witness.to_main_validation_pis();
+
         let account_registoration_proofs = {
-            if prev_pis.is_valid_block && prev_pis.is_registoration_block {
+            if block_pis.is_valid && block_pis.is_registoration_block {
                 let mut account_registoration_proofs = Vec::new();
-                let mut prev_account_tree = self.prev_account_tree.clone();
-                for sender_leaf in &prev_sender_leaves {
+                for sender_leaf in &sender_leaves {
                     let last_block_number = if sender_leaf.is_valid {
-                        prev_pis.public_state.block_number
+                        block_pis.block_number
                     } else {
                         0
                     };
@@ -213,7 +199,7 @@ impl MockBlockBuilder {
                     let proof = if is_dummy_pubkey {
                         AccountRegistorationProof::dummy(ACCOUNT_TREE_HEIGHT)
                     } else {
-                        prev_account_tree
+                        self.account_tree
                             .prove_and_insert(sender_leaf.sender, last_block_number as u64)
                             .unwrap()
                     };
@@ -226,20 +212,20 @@ impl MockBlockBuilder {
         };
 
         let account_update_proofs = {
-            if prev_pis.is_valid_block && (!prev_pis.is_registoration_block) {
+            if block_pis.is_valid && (!block_pis.is_registoration_block) {
                 let mut account_update_proofs = Vec::new();
-                let mut prev_account_tree = self.prev_account_tree.clone();
-                let block_number = prev_pis.public_state.block_number;
-                for sender_leaf in prev_sender_leaves.iter() {
-                    let account_id = prev_account_tree.index(sender_leaf.sender).unwrap();
-                    let prev_leaf = prev_account_tree.get_leaf(account_id);
+                let block_number = block_pis.block_number;
+                for sender_leaf in sender_leaves.iter() {
+                    let account_id = self.account_tree.index(sender_leaf.sender).unwrap();
+                    let prev_leaf = self.account_tree.get_leaf(account_id);
                     let prev_last_block_number = prev_leaf.value as u32;
                     let last_block_number = if sender_leaf.is_valid {
                         block_number
                     } else {
                         prev_last_block_number
                     };
-                    let proof = prev_account_tree
+                    let proof = self
+                        .account_tree
                         .prove_and_update(sender_leaf.sender, last_block_number as u64);
                     account_update_proofs.push(proof);
                 }
@@ -248,94 +234,16 @@ impl MockBlockBuilder {
                 None
             }
         };
-        ValidityTransitionWitness {
-            prev_pis,
-            prev_sender_leaves,
+        let validity_transition_witness = ValidityTransitionWitness {
+            sender_leaves,
             block_merkle_proof,
             account_registoration_proofs,
             account_update_proofs,
+        };
+        ValidityWitness {
+            validity_transition_witness,
+            block_witness: block_witness.clone(),
         }
-    }
-
-    pub fn generate_block_and_witness(
-        &self,
-        is_registoration_block: bool,
-        txs: Vec<TxRequest>,
-    ) -> (ValidityWitness, TxTree) {
-        let (block_witness, tx_tree) = self.generate_block(is_registoration_block, txs);
-        let validity_transition_witness = self.generate_transition_witness();
-        // assertion
-        let new_roots = validity_transition_witness.new_roots();
-        assert_eq!(
-            block_witness.prev_account_tree_root,
-            new_roots.account_tree_root
-        );
-        assert_eq!(
-            block_witness.prev_block_tree_root,
-            new_roots.block_tree_root
-        );
-        (
-            ValidityWitness {
-                validity_transition_witness,
-                block_witness,
-            },
-            tx_tree,
-        )
-    }
-
-    pub fn save_aux_info(
-        &mut self,
-        block_number: u32,
-        tx_tree: TxTree,
-        validity_witness: ValidityWitness,
-    ) {
-        assert_eq!(self.block_witnesses.len(), block_number as usize);
-        self.aux_info.insert(
-            block_number,
-            AuxInfo {
-                tx_tree,
-                prev_block_witness: self.get_last_block_witness(),
-                validity_witness: validity_witness.clone(),
-                account_tree: self.account_tree.clone(),
-                block_tree: self.block_tree.clone(),
-            },
-        );
-    }
-
-    pub fn update(&mut self, block_witness: &BlockWitness) {
-        self.block_witnesses.push(block_witness.clone());
-        self.prev_account_tree = self.account_tree.clone();
-        self.prev_block_tree = self.block_tree.clone();
-        let sender_flag_bits = block_witness.signature.sender_flag.to_bits_le();
-        if block_witness.signature.is_registoration_block {
-            for (&pubkey, &b) in block_witness.pubkeys.iter().zip(sender_flag_bits.iter()) {
-                let last_block_number = if b {
-                    block_witness.block.block_number
-                } else {
-                    0
-                };
-                let is_dummy_pubkey = pubkey == U256::<u32>::one();
-                if !is_dummy_pubkey {
-                    self.account_tree
-                        .insert(pubkey, last_block_number as u64)
-                        .expect("insert failed");
-                }
-            }
-        } else {
-            for (&pubkey, &b) in block_witness.pubkeys.iter().zip(sender_flag_bits.iter()) {
-                let account_id = self.account_tree.index(pubkey).expect("account not found");
-                let prev_last_block_number = self.account_tree.get_leaf(account_id).value as u32;
-                let last_block_number = if b {
-                    block_witness.block.block_number
-                } else {
-                    prev_last_block_number
-                };
-                self.account_tree
-                    .update(pubkey, last_block_number as u64)
-                    .expect("update failed");
-            }
-        }
-        self.block_tree.push(block_witness.block.hash());
     }
 
     pub fn post_block(
@@ -343,14 +251,20 @@ impl MockBlockBuilder {
         is_registoration_block: bool,
         txs: Vec<TxRequest>,
     ) -> ValidityWitness {
-        let (validity_witness, tx_tree) =
-            self.generate_block_and_witness(is_registoration_block, txs);
-        self.save_aux_info(
-            validity_witness.block_witness.block.block_number,
-            tx_tree,
-            validity_witness.clone(),
+        let (block_witness, tx_tree) = self.generate_block(is_registoration_block, txs);
+        let validity_witness = self.generate_validity_witness(&block_witness);
+        self.aux_info.insert(
+            block_witness.block.block_number,
+            AuxInfo {
+                tx_tree,
+                validity_witness: validity_witness.clone(),
+                account_tree: self.account_tree.clone(),
+                block_tree: self.block_tree.clone(),
+            },
         );
-        self.update(&validity_witness.block_witness);
+        self.last_block_number = block_witness.block.block_number;
+        self.last_validity_witness = validity_witness.clone();
+
         validity_witness
     }
 }

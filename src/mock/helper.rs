@@ -19,6 +19,6 @@ impl MockBlockBuilder {
     }
 
     pub fn last_block_number(&self) -> u32 {
-        self.block_witnesses.len() as u32 - 1
+        self.last_block_number
     }
 }

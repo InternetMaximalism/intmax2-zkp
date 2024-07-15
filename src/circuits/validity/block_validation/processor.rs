@@ -150,9 +150,9 @@ mod tests {
     fn main_validation_processor() {
         let main_validation_processor = MainValidationProcessor::<F, C, D>::new();
         let mut rng = rand::thread_rng();
-        let block_builder = MockBlockBuilder::new();
+        let mut block_builder = MockBlockBuilder::new();
         let txs = generate_random_tx_requests(&mut rng);
-        let validity_witness = block_builder.generate_block_and_witness(true, txs).0;
+        let validity_witness = block_builder.post_block(true, txs);
         let instant = std::time::Instant::now();
         let _main_validation_proof = main_validation_processor
             .prove(&validity_witness.block_witness)
