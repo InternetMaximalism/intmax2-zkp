@@ -29,8 +29,7 @@ use crate::{
     common::witness::{
         balance_incoming_witness::BalanceIncomingWitness,
         private_state_transition_witness::PrivateStateTransitionWitness, send_witness::SendWitness,
-        transfer_witness::TransferWitness, update_public_state_witness::UpdatePublicStateWitness,
-        update_witness::UpdateWitness,
+        transfer_witness::TransferWitness, update_witness::UpdateWitness,
     },
     ethereum_types::bytes32::Bytes32,
 };
@@ -114,13 +113,11 @@ where
         validity_circuit: &ValidityCircuit<F, C, D>,
         balance_circuit_vd: &VerifierOnlyCircuitData<C, D>,
         send_witness: &SendWitness,
-        update_public_state_witness: &UpdatePublicStateWitness<F, C, D>,
+        update_witness: &UpdateWitness<F, C, D>,
     ) -> ProofWithPublicInputs<F, C, D> {
-        let sender_proof = self.sender_processor.prove(
-            validity_circuit,
-            send_witness,
-            update_public_state_witness,
-        );
+        let sender_proof =
+            self.sender_processor
+                .prove(validity_circuit, send_witness, update_witness);
 
         let balance_transition_value = BalanceTransitionValue::new(
             &CircuitConfig::default(),
@@ -314,12 +311,12 @@ mod tests {
             local_manager.send_tx_and_update(&mut rng, &mut block_builder, &[transfer]);
         sync_prover.sync(&block_builder);
 
-        let block_number = send_witness.get_included_block_number();
         let prev_block_number = send_witness.get_prev_block_number();
-        let update_public_state_witness = sync_prover.get_update_public_state_witness(
+        let update_witness = sync_prover.get_update_witness(
             &block_builder,
-            block_number,
+            local_manager.get_pubkey(),
             prev_block_number,
+            true,
         );
         let balance_processor =
             BalanceProcessor::new(&sync_prover.validity_processor.validity_circuit);
@@ -329,7 +326,7 @@ mod tests {
             &sync_prover.validity_processor.validity_circuit,
             &balance_circuit_vd,
             &send_witness,
-            &update_public_state_witness,
+            &update_witness,
         );
     }
 }

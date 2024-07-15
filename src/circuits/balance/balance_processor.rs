@@ -15,8 +15,7 @@ use crate::{
     common::witness::{
         balance_incoming_witness::BalanceIncomingWitness,
         private_state_transition_witness::PrivateStateTransitionWitness, send_witness::SendWitness,
-        transfer_witness::TransferWitness, update_public_state_witness::UpdatePublicStateWitness,
-        update_witness::UpdateWitness,
+        transfer_witness::TransferWitness, update_witness::UpdateWitness,
     },
     ethereum_types::u256::U256,
 };
@@ -63,14 +62,14 @@ where
         validity_circuit: &ValidityCircuit<F, C, D>,
         pubkey: U256<u32>,
         send_witness: &SendWitness,
-        update_public_state_witness: &UpdatePublicStateWitness<F, C, D>,
+        update_witness: &UpdateWitness<F, C, D>,
         prev_proof: &Option<ProofWithPublicInputs<F, C, D>>,
     ) -> ProofWithPublicInputs<F, C, D> {
         let transition_proof = self.balance_transition_processor.prove_send(
             validity_circuit,
             &self.get_verifier_only_data(),
             send_witness,
-            update_public_state_witness,
+            update_witness,
         );
         let proof = self
             .balance_circuit

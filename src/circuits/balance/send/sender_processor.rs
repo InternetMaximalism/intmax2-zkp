@@ -9,9 +9,7 @@ use plonky2::{
 
 use crate::{
     circuits::validity::{validity_circuit::ValidityCircuit, validity_pis::ValidityPublicInputs},
-    common::witness::{
-        send_witness::SendWitness, update_public_state_witness::UpdatePublicStateWitness,
-    },
+    common::witness::{send_witness::SendWitness, update_witness::UpdateWitness},
 };
 
 use super::{
@@ -51,12 +49,11 @@ where
         &self,
         validity_circuit: &ValidityCircuit<F, C, D>,
         send_witness: &SendWitness,
-        update_public_state_witness: &UpdatePublicStateWitness<F, C, D>,
+        update_witness: &UpdateWitness<F, C, D>,
     ) -> ProofWithPublicInputs<F, C, D> {
         // assert validity proof pis for debug
-        let validity_pis = ValidityPublicInputs::from_pis(
-            &update_public_state_witness.validity_proof.public_inputs,
-        );
+        let validity_pis =
+            ValidityPublicInputs::from_pis(&update_witness.validity_proof.public_inputs);
         assert_eq!(
             validity_pis,
             send_witness.tx_witness.validity_witness.to_validity_pis(),
@@ -78,8 +75,9 @@ where
             validity_circuit,
             send_witness.prev_balance_pis.pubkey,
             &send_witness.prev_balance_pis.public_state,
-            &update_public_state_witness.validity_proof,
-            &update_public_state_witness.block_merkle_proof,
+            &update_witness.validity_proof,
+            &update_witness.block_merkle_proof,
+            &update_witness.account_membership_proof,
             tx_witness.tx_index,
             &tx_witness.tx,
             &tx_witness.tx_merkle_proof,
@@ -150,16 +148,17 @@ mod tests {
             "block_number: {}, prev_block_number: {}",
             block_number, prev_block_number
         );
-        let update_public_state_witness = sync_prover.get_update_public_state_witness(
+        let update_witness = sync_prover.get_update_witness(
             &block_builder,
-            block_number,
+            local_manager.get_pubkey(),
             prev_block_number,
+            true,
         );
 
         sender_processor.prove(
             &sync_prover.validity_processor.validity_circuit,
             &send_witness,
-            &update_public_state_witness,
+            &update_witness,
         );
     }
 }

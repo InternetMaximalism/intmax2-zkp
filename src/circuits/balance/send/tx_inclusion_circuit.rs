@@ -23,6 +23,7 @@ use crate::{
     common::{
         public_state::{PublicState, PublicStateTarget, PUBLIC_STATE_LEN},
         trees::{
+            account_tree::{AccountMembershipProof, AccountMembershipProofTarget},
             block_hash_tree::{BlockHashMerkleProof, BlockHashMerkleProofTarget},
             sender_tree::{
                 SenderLeaf, SenderLeafTarget, SenderMerkleProof, SenderMerkleProofTarget,
@@ -31,7 +32,7 @@ use crate::{
         },
         tx::{Tx, TxTarget, TX_LEN},
     },
-    constants::{BLOCK_HASH_TREE_HEIGHT, SENDER_TREE_HEIGHT, TX_TREE_HEIGHT},
+    constants::{ACCOUNT_TREE_HEIGHT, BLOCK_HASH_TREE_HEIGHT, SENDER_TREE_HEIGHT, TX_TREE_HEIGHT},
     ethereum_types::{
         u256::{U256, U256_LEN},
         u32limb_trait::{U32LimbTargetTrait, U32LimbTrait},
@@ -132,6 +133,7 @@ pub struct TxInclusionValue<
     pub new_public_state: PublicState,
     pub validity_proof: ProofWithPublicInputs<F, C, D>,
     pub block_merkle_proof: BlockHashMerkleProof,
+    pub prev_account_membership_proof: AccountMembershipProof,
     pub sender_index: usize,
     pub tx: Tx,
     pub tx_merkle_proof: TxMerkleProof,
@@ -151,6 +153,7 @@ where
         prev_public_state: &PublicState, // public state of balance proof(old)
         validity_proof: &ProofWithPublicInputs<F, C, D>, // new public state
         block_merkle_proof: &BlockHashMerkleProof,
+        prev_account_membership_proof: &AccountMembershipProof,
         sender_index: usize,
         tx: &Tx,
         tx_merkle_proof: &TxMerkleProof,
@@ -170,6 +173,12 @@ where
                 validity_pis.public_state.block_tree_root,
             )
             .expect("block merkle proof is invalid");
+        prev_account_membership_proof
+            .verify(pubkey, validity_pis.public_state.prev_account_tree_root)
+            .expect("prev account membership proof is invalid");
+        let last_block_number = prev_account_membership_proof.get_value() as u32;
+        assert!(last_block_number <= prev_public_state.block_number); // no send tx till one before the last block
+
         let tx_tree_root: PoseidonHashOut = validity_pis
             .tx_tree_root
             .try_into()
@@ -190,6 +199,7 @@ where
             new_public_state: validity_pis.public_state.clone(),
             validity_proof: validity_proof.clone(),
             block_merkle_proof: block_merkle_proof.clone(),
+            prev_account_membership_proof: prev_account_membership_proof.clone(),
             sender_index,
             tx: tx.clone(),
             tx_merkle_proof: tx_merkle_proof.clone(),
@@ -206,6 +216,7 @@ pub struct TxInclusionTarget<const D: usize> {
     pub new_public_state: PublicStateTarget,
     pub validity_proof: ProofWithPublicInputsTarget<D>,
     pub block_merkle_proof: BlockHashMerkleProofTarget,
+    pub prev_account_membership_proof: AccountMembershipProofTarget,
     pub sender_index: Target,
     pub tx: TxTarget,
     pub tx_merkle_proof: TxMerkleProofTarget,
@@ -226,6 +237,8 @@ impl<const D: usize> TxInclusionTarget<D> {
         let pubkey = U256::<Target>::new(builder, is_checked);
         let prev_public_state = PublicStateTarget::new(builder, is_checked);
         let block_merkle_proof = BlockHashMerkleProofTarget::new(builder, BLOCK_HASH_TREE_HEIGHT);
+        let prev_account_membership_proof =
+            AccountMembershipProofTarget::new(builder, ACCOUNT_TREE_HEIGHT, is_checked);
         let sender_index = builder.add_virtual_target();
         let tx = TxTarget::new(builder);
         let tx_merkle_proof = TxMerkleProofTarget::new(builder, TX_TREE_HEIGHT);
@@ -242,6 +255,15 @@ impl<const D: usize> TxInclusionTarget<D> {
             prev_public_state.block_number,
             validity_pis.public_state.block_tree_root,
         );
+        prev_account_membership_proof.verify::<F, C, D>(
+            builder,
+            pubkey,
+            validity_pis.public_state.prev_account_tree_root,
+        );
+        let last_block_number = prev_account_membership_proof.get_value(builder);
+        let diff = builder.sub(prev_public_state.block_number, last_block_number);
+        builder.range_check(diff, 32);
+
         let tx_tree_root: PoseidonHashOutTarget =
             validity_pis.tx_tree_root.reduce_to_hash_out(builder);
         tx_merkle_proof.verify::<F, C, D>(builder, &tx, sender_index, tx_tree_root);
@@ -259,6 +281,7 @@ impl<const D: usize> TxInclusionTarget<D> {
             new_public_state: validity_pis.public_state,
             validity_proof,
             block_merkle_proof,
+            prev_account_membership_proof,
             sender_index,
             tx,
             tx_merkle_proof,
@@ -286,6 +309,8 @@ impl<const D: usize> TxInclusionTarget<D> {
         witness.set_proof_with_pis_target(&self.validity_proof, &value.validity_proof);
         self.block_merkle_proof
             .set_witness(witness, &value.block_merkle_proof);
+        self.prev_account_membership_proof
+            .set_witness(witness, &value.prev_account_membership_proof);
         witness.set_target(
             self.sender_index,
             F::from_canonical_usize(value.sender_index),
@@ -392,9 +417,8 @@ mod tests {
         sync_prover.sync(&block_builder);
 
         let prev_public_state = local_manager.get_balance_pis().public_state;
-        let block_number = block_builder.last_block_number();
-        let update_public_state_witness =
-            sync_prover.get_update_public_state_witness(&block_builder, block_number, 0);
+        let update_witness =
+            sync_prover.get_update_witness(&block_builder, local_manager.get_pubkey(), 0, true);
 
         let pubkey = local_manager.key_set.pubkey_x;
         let tx_index = tx_witness.tx_index;
@@ -405,8 +429,9 @@ mod tests {
             &sync_prover.validity_processor.validity_circuit,
             pubkey,
             &prev_public_state,
-            &update_public_state_witness.validity_proof,
-            &update_public_state_witness.block_merkle_proof,
+            &update_witness.validity_proof,
+            &update_witness.block_merkle_proof,
+            &update_witness.account_membership_proof,
             tx_witness.tx_index,
             &tx_witness.tx,
             &tx_witness.tx_merkle_proof,

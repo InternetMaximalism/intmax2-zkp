@@ -12,9 +12,7 @@ use crate::{
     circuits::validity::{
         validity_circuit::ValidityCircuit, validity_processor::ValidityProcessor,
     },
-    common::witness::{
-        update_public_state_witness::UpdatePublicStateWitness, update_witness::UpdateWitness,
-    },
+    common::witness::update_witness::UpdateWitness,
     ethereum_types::u256::U256,
 };
 
@@ -62,31 +60,12 @@ where
         self.last_block_number = current_block_number;
     }
 
-    pub fn get_update_public_state_witness(
-        &self,
-        block_builder: &MockBlockBuilder,
-        current_block_number: u32,
-        target_block_number: u32,
-    ) -> UpdatePublicStateWitness<F, C, D> {
-        assert!(current_block_number <= self.last_block_number, "sync first");
-        let validity_proof = self
-            .validity_proofs
-            .get(&current_block_number)
-            .unwrap()
-            .clone();
-        let block_merkle_proof =
-            block_builder.get_block_merkle_proof(current_block_number, target_block_number);
-        UpdatePublicStateWitness {
-            validity_proof,
-            block_merkle_proof,
-        }
-    }
-
     pub fn get_update_witness(
         &self,
         block_builder: &MockBlockBuilder,
         pubkey: U256<u32>,
         target_block_number: u32,
+        is_prev_account_tree: bool,
     ) -> UpdateWitness<F, C, D> {
         let current_block_number = block_builder.last_block_number();
         let validity_proof = self
@@ -96,8 +75,11 @@ where
             .clone();
         let block_merkle_proof =
             block_builder.get_block_merkle_proof(current_block_number, target_block_number);
-        let account_membership_proof =
-            block_builder.get_account_membership_proof(current_block_number, pubkey);
+        let account_membership_proof = if !is_prev_account_tree {
+            block_builder.get_account_membership_proof(current_block_number, pubkey)
+        } else {
+            block_builder.get_account_membership_proof(current_block_number - 1, pubkey)
+        };
         UpdateWitness {
             validity_proof,
             block_merkle_proof,

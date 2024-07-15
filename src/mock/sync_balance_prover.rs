@@ -57,16 +57,17 @@ where
                 .expect("send witness not found");
             let block_number = send_witness.get_included_block_number();
             let prev_block_number = send_witness.get_prev_block_number();
-            let update_public_state_witness = sync_validity_prover.get_update_public_state_witness(
+            let update_witness = sync_validity_prover.get_update_witness(
                 block_builder,
-                block_number,
+                local_manager.get_pubkey(),
                 prev_block_number,
+                true,
             );
             let balance_proof = balance_processor.prove_send(
                 sync_validity_prover.validity_circuit(),
                 local_manager.get_pubkey(),
                 &send_witness,
-                &update_public_state_witness,
+                &update_witness,
                 &self.last_balance_proof,
             );
             self.last_block_number = block_number;
@@ -96,6 +97,7 @@ where
             block_builder,
             local_manager.get_pubkey(),
             self.last_block_number,
+            false,
         );
         let balance_proof = balance_processor.prove_update(
             sync_validity_prover.validity_circuit(),
