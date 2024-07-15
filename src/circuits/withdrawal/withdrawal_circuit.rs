@@ -2,7 +2,7 @@ use anyhow::Result;
 use hashbrown::HashMap;
 use plonky2::{
     field::extension::Extendable,
-    gates::{noop::NoopGate, random_access::RandomAccessGate},
+    gates::noop::NoopGate,
     hash::hash_types::RichField,
     iop::{
         target::{BoolTarget, Target},
@@ -18,16 +18,7 @@ use plonky2::{
 };
 
 use crate::{
-    circuits::{
-        balance::{
-            balance_circuit::BalanceCircuit,
-            receive::receive_targets::transfer_inclusion::{
-                TransferInclusionTarget, TransferInclusionValue,
-            },
-        },
-        utils::cyclic::vd_vec_len,
-    },
-    common::withdrawal::{get_withdrawal_nullifier_circuit, WithdrawalTarget},
+    circuits::utils::cyclic::{vd_from_pis_slice_target, vd_vec_len},
     constants::WITHDRAWAL_CIRCUIT_PADDING_DEGREE,
     ethereum_types::{
         bytes32::{Bytes32, BYTES32_LEN},
@@ -35,6 +26,8 @@ use crate::{
     },
     utils::recursivable::Recursivable,
 };
+
+use super::withdrawal_inner_circuit::WithdrawalInnerCircuit;
 
 #[derive(Debug)]
 pub struct WithdrawalCircuit<F, C, const D: usize>
@@ -44,7 +37,7 @@ where
 {
     data: CircuitData<F, C, D>,
     is_first_step: BoolTarget,
-    transfer_inclusion_target: TransferInclusionTarget<D>,
+    withdrawal_inner_proof: ProofWithPublicInputsTarget<D>,
     prev_proof: ProofWithPublicInputsTarget<D>,
     verifier_data_target: VerifierCircuitTarget,
 }
@@ -55,29 +48,16 @@ where
     C: GenericConfig<D, F = F> + 'static,
     C::Hasher: AlgebraicHasher<F>,
 {
-    pub fn new(balance_circuit: &BalanceCircuit<F, C, D>) -> Self {
+    pub fn new(withdrawal_innser_circuit: &WithdrawalInnerCircuit<F, C, D>) -> Self {
         let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::default());
         let is_first_step = builder.add_virtual_bool_target_safe();
         let is_not_first_step = builder.not(is_first_step);
-
-        let transfer_inclusion_target = TransferInclusionTarget::new::<F, C>(
-            &balance_circuit.get_verifier_data().common,
-            &mut builder,
-            true,
-        );
-        let transfer = transfer_inclusion_target.transfer.clone();
-        let nullifier = get_withdrawal_nullifier_circuit(&mut builder, &transfer);
-        let recipient = transfer.recipient.to_address(&mut builder);
-        let prev_withdral_hash = Bytes32::<Target>::new(&mut builder, true); // connect later
-        let withdrawal = WithdrawalTarget {
-            prev_withdral_hash,
-            recipient,
-            token_index: transfer.token_index,
-            amount: transfer.amount,
-            nullifier,
-            block_hash: transfer_inclusion_target.public_state.block_hash,
-        };
-        let withdrawal_hash = withdrawal.hash::<F, C, D>(&mut builder);
+        let withdrawal_inner_proof =
+            withdrawal_innser_circuit.add_proof_target_and_verify(&mut builder);
+        let prev_withdrawal_hash =
+            Bytes32::<Target>::from_limbs(&withdrawal_inner_proof.public_inputs[0..BYTES32_LEN]);
+        let withdrawal_hash =
+            Bytes32::<Target>::from_limbs(&withdrawal_inner_proof.public_inputs[BYTES32_LEN..]);
         builder.register_public_inputs(&withdrawal_hash.to_vec());
 
         let common_data = common_data_for_withdrawal_circuit::<F, C, D>();
@@ -92,10 +72,10 @@ where
             )
             .unwrap();
         let prev_pis = Bytes32::<Target>::from_limbs(&prev_proof.public_inputs[0..BYTES32_LEN]);
-        prev_pis.connect(&mut builder, prev_withdral_hash);
+        prev_pis.connect(&mut builder, prev_withdrawal_hash);
         // initial condition
         let zero = Bytes32::<Target>::zero::<F, D, Bytes32<u32>>(&mut builder);
-        prev_pis.conditional_assert_eq(&mut builder, zero, is_first_step);
+        prev_withdrawal_hash.conditional_assert_eq(&mut builder, zero, is_first_step);
 
         let (data, success) = builder.try_build_with_options::<C>(true);
         assert_eq!(data.common, common_data);
@@ -103,7 +83,7 @@ where
         Self {
             data,
             is_first_step,
-            transfer_inclusion_target,
+            withdrawal_inner_proof,
             prev_proof,
             verifier_data_target,
         }
@@ -111,13 +91,12 @@ where
 
     pub fn prove(
         &self,
-        transition_inclusion_value: &TransferInclusionValue<F, C, D>,
+        withdrawal_inner_proof: &ProofWithPublicInputs<F, C, D>,
         prev_proof: &Option<ProofWithPublicInputs<F, C, D>>,
     ) -> Result<ProofWithPublicInputs<F, C, D>> {
         let mut pw = PartialWitness::<F>::new();
         pw.set_verifier_data_target(&self.verifier_data_target, &self.data.verifier_only);
-        self.transfer_inclusion_target
-            .set_witness(&mut pw, transition_inclusion_value);
+        pw.set_proof_with_pis_target(&self.withdrawal_inner_proof, withdrawal_inner_proof);
         if prev_proof.is_none() {
             let dummy_proof =
                 cyclic_base_proof(&self.data.common, &self.data.verifier_only, HashMap::new());
@@ -158,10 +137,6 @@ where
         constants_sigmas_cap: builder.add_virtual_cap(data.common.config.fri_config.cap_height),
         circuit_digest: builder.add_virtual_hash(),
     };
-    let random_access_gate1 = RandomAccessGate::new_from_config(&CircuitConfig::default(), 1);
-    let random_access_gate5 = RandomAccessGate::new_from_config(&CircuitConfig::default(), 5);
-    builder.add_gate(random_access_gate5, vec![]);
-    builder.add_gate(random_access_gate1, vec![]);
     builder.verify_proof::<C>(&proof, &verifier_data, &data.common);
     while builder.num_gates() < 1 << WITHDRAWAL_CIRCUIT_PADDING_DEGREE {
         builder.add_gate(NoopGate, vec![]);
@@ -179,6 +154,31 @@ where
     fn circuit_data(&self) -> &CircuitData<F, C, D> {
         &self.data
     }
+
+    fn add_proof_target_and_verify(
+        &self,
+        builder: &mut CircuitBuilder<F, D>,
+    ) -> ProofWithPublicInputsTarget<D> {
+        let proof = builder.add_virtual_proof_with_pis(&self.data.common);
+        let vd_target = builder.constant_verifier_data(&self.data.verifier_only);
+        let inner_vd_target =
+            vd_from_pis_slice_target(&proof.public_inputs, &self.data.common.config).unwrap();
+        builder.connect_hashes(vd_target.circuit_digest, inner_vd_target.circuit_digest);
+        builder.connect_merkle_caps(
+            &vd_target.constants_sigmas_cap,
+            &inner_vd_target.constants_sigmas_cap,
+        );
+        builder.verify_proof::<C>(&proof, &vd_target, &self.data.common);
+        proof
+    }
+
+    fn add_proof_target_and_conditionally_verify(
+        &self,
+        _builder: &mut CircuitBuilder<F, D>,
+        _condition: BoolTarget,
+    ) -> ProofWithPublicInputsTarget<D> {
+        unimplemented!()
+    }
 }
 
 #[cfg(test)]
@@ -188,11 +188,15 @@ mod tests {
     };
 
     use crate::{
-        circuits::balance::{
-            balance_processor::BalanceProcessor,
-            receive::receive_targets::transfer_inclusion::TransferInclusionValue,
+        circuits::{
+            balance::{
+                balance_processor::BalanceProcessor,
+                receive::receive_targets::transfer_inclusion::TransferInclusionValue,
+            },
+            withdrawal::withdrawal_inner_circuit::WithdrawalInnerCircuit,
         },
         common::transfer::Transfer,
+        ethereum_types::bytes32::Bytes32,
         mock::{
             block_builder::MockBlockBuilder, local_manager::LocalManager,
             sync_balance_prover::SyncBalanceProver, sync_validity_prover::SyncValidityProver,
@@ -238,12 +242,16 @@ mod tests {
             &balance_proof,
         );
 
-        let withdrawal_circuit = WithdrawalCircuit::new(&balance_processor.balance_circuit);
-        let withdrawal_proof0 = withdrawal_circuit
-            .prove(&transfer_inclusion_value, &None)
+        let prev_withdrawal_hash = Bytes32::<u32>::default();
+        let withdrawal_inner_circuit =
+            WithdrawalInnerCircuit::new(&balance_processor.balance_circuit);
+        let withdrawal_circuit = WithdrawalCircuit::new(&withdrawal_inner_circuit);
+
+        let withdrawal_inner_proof0 = withdrawal_inner_circuit
+            .prove(prev_withdrawal_hash, &transfer_inclusion_value)
             .unwrap();
-        let _withdrawal_proof1 = withdrawal_circuit
-            .prove(&transfer_inclusion_value, &Some(withdrawal_proof0))
+        let _withdrawal_proof0 = withdrawal_circuit
+            .prove(&withdrawal_inner_proof0, &None)
             .unwrap();
     }
 }
