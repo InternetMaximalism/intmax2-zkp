@@ -91,6 +91,4 @@ where
     fn circuit_data(&self) -> &CircuitData<F, C, D> {
         &self.data
     }
-
-    
 }
