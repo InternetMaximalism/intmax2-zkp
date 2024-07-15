@@ -78,37 +78,6 @@ where
         }
     }
 
-    pub fn prove_dummy(
-        &self,
-        balance_circuit_vd: &VerifierOnlyCircuitData<C, D>,
-        prev_balance_pis: &BalancePublicInputs,
-    ) -> ProofWithPublicInputs<F, C, D> {
-        let config = CircuitConfig::default();
-        let balance_transition_value = BalanceTransitionValue::new(
-            &config,
-            BalanceTransitionType::Dummy,
-            &self.receive_transfer_circuit,
-            &self.receive_deposit_circuit,
-            &self.update_circuit,
-            &self.sender_processor.sender_circuit,
-            None,
-            None,
-            None,
-            None,
-            prev_balance_pis.clone(),
-            balance_circuit_vd.clone(),
-        );
-        self.balance_transition_circuit
-            .prove(
-                &self.receive_transfer_circuit,
-                &self.receive_deposit_circuit,
-                &self.update_circuit,
-                &self.sender_processor.sender_circuit,
-                &balance_transition_value,
-            )
-            .unwrap()
-    }
-
     pub fn prove_send(
         &self,
         validity_circuit: &ValidityCircuit<F, C, D>,
@@ -330,10 +299,7 @@ mod tests {
     };
 
     use crate::{
-        circuits::{
-            balance::{balance_pis::BalancePublicInputs, balance_processor::BalanceProcessor},
-            validity::validity_processor::ValidityProcessor,
-        },
+        circuits::balance::balance_processor::BalanceProcessor,
         common::{generic_address::GenericAddress, salt::Salt, transfer::Transfer},
         ethereum_types::u256::U256,
         mock::{
@@ -345,20 +311,6 @@ mod tests {
     type F = GoldilocksField;
     type C = PoseidonGoldilocksConfig;
     const D: usize = 2;
-
-    #[test]
-    fn balance_transition_processor_prove_dummy() {
-        let validity_processor = ValidityProcessor::<F, C, D>::new();
-        let balance_processor = BalanceProcessor::new(&validity_processor.validity_circuit);
-
-        let pubkey = U256::rand(&mut rand::thread_rng());
-        let balance_pis = BalancePublicInputs::new(pubkey);
-        let balance_circuit_vd = balance_processor.get_verifier_only_data();
-
-        let _ = balance_processor
-            .balance_transition_processor
-            .prove_dummy(&balance_circuit_vd, &balance_pis);
-    }
 
     #[test]
     fn balance_transition_processor_prove_send() {
