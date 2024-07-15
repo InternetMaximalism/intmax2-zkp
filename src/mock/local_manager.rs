@@ -174,7 +174,7 @@ impl LocalManager {
             .map(|(transfer_index, transfer)| {
                 let transfer_merkle_proof = transfer_tree.prove(transfer_index);
                 TransferWitness {
-                    tx_witness: tx_witness.clone(),
+                    tx: tx_witness.tx.clone(),
                     transfer: transfer.clone(),
                     transfer_index,
                     transfer_merkle_proof,

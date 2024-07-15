@@ -240,7 +240,7 @@ mod tests {
             &transfer_witness.transfer,
             transfer_witness.transfer_index,
             &transfer_witness.transfer_merkle_proof,
-            &transfer_witness.tx_witness.tx,
+            &transfer_witness.tx,
             &balance_proof,
         );
 

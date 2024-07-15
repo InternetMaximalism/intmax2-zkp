@@ -30,7 +30,7 @@ impl TxInfo {
             .map(|(transfer_index, transfer)| {
                 let transfer_merkle_proof = self.transfer_tree.prove(transfer_index);
                 TransferWitness {
-                    tx_witness: self.tx_witness.clone(),
+                    tx: self.tx_witness.tx.clone(),
                     transfer: transfer.clone(),
                     transfer_index,
                     transfer_merkle_proof,
