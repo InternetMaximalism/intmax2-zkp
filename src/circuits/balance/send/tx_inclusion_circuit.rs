@@ -148,8 +148,8 @@ where
     pub fn new(
         validity_circuit: &ValidityCircuit<F, C, D>,
         pubkey: U256<u32>,
-        prev_public_state: &PublicState,
-        validity_proof: &ProofWithPublicInputs<F, C, D>,
+        prev_public_state: &PublicState, // public state of balance proof(old)
+        validity_proof: &ProofWithPublicInputs<F, C, D>, // new public state
         block_merkle_proof: &BlockHashMerkleProof,
         sender_index: usize,
         tx: &Tx,

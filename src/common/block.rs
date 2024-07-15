@@ -43,7 +43,7 @@ impl Block {
         let deposit_tree_root = DepositTree::new(DEPOSIT_TREE_HEIGHT).get_root();
         Self {
             prev_block_hash: Bytes32::default(),
-            deposit_tree_root: deposit_tree_root,
+            deposit_tree_root,
             signature_hash: Bytes32::default(),
             block_number: 0,
         }

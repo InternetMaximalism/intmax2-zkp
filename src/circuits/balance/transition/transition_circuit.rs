@@ -44,7 +44,7 @@ use crate::{
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum BalanceTransitionType {
-    Dummy = 0,
+    Dummy = 0, // todo: consider remove
     ReceiveTransfer = 1,
     ReceiveDeposit = 2,
     Update = 3,
@@ -465,6 +465,7 @@ where
         .concat();
         builder.register_public_inputs(&pis);
         let balance_circuit_vd = builder.add_verifier_data_public_inputs();
+        builder.connect_verifier_data(&balance_circuit_vd, &target.balance_circuit_vd);
         let data = builder.build();
 
         Self {

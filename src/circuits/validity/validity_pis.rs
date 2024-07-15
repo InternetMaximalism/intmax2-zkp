@@ -29,7 +29,7 @@ pub struct ValidityPublicInputs {
     pub public_state: PublicState,
     pub tx_tree_root: Bytes32<u32>,
     pub sender_tree_root: PoseidonHashOut,
-    pub is_registoration_block: bool,
+    pub is_registoration_block: bool, // todo remove
     pub is_valid_block: bool,
 }
 
