@@ -114,4 +114,8 @@ impl ValidityWitness {
             is_valid_block: main_validation_pis.is_valid,
         }
     }
+
+    pub fn get_block_number(&self) -> u32 {
+        self.block_witness.block.block_number
+    }
 }

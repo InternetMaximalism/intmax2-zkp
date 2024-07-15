@@ -197,57 +197,61 @@ where
     common
 }
 
-// #[cfg(test)]
-// mod tests {
-//     type F = GoldilocksField;
-//     type C = PoseidonGoldilocksConfig;
-//     const D: usize = 2;
-//     use crate::{
-//         mock::block_builder::MockBlockBuilder, test_utils::tx::generate_random_tx_requests,
-//     };
-//     use plonky2::{
-//         field::goldilocks_field::GoldilocksField, plonk::config::PoseidonGoldilocksConfig,
-//     };
+#[cfg(test)]
+mod tests {
+    type F = GoldilocksField;
+    type C = PoseidonGoldilocksConfig;
+    const D: usize = 2;
+    use crate::{
+        mock::block_builder::MockBlockBuilder, test_utils::tx::generate_random_tx_requests,
+    };
+    use plonky2::{
+        field::goldilocks_field::GoldilocksField, plonk::config::PoseidonGoldilocksConfig,
+    };
 
-//     use super::ValidityCircuit;
+    use super::ValidityCircuit;
 
-//     #[cfg(not(feature = "dummy_validity_proof"))]
-//     #[test]
-//     fn validity_circuit() {
-//         use crate::circuits::validity::transition::processor::TransitionProcessor;
-//         let mut rng = rand::thread_rng();
-//         let block_builder = MockBlockBuilder::new();
+    #[cfg(not(feature = "dummy_validity_proof"))]
+    #[test]
+    fn validity_circuit() {
+        use crate::circuits::validity::transition::processor::TransitionProcessor;
+        let mut rng = rand::thread_rng();
+        let mut block_builder = MockBlockBuilder::new();
 
-//         let transition_processor = TransitionProcessor::<F, C, D>::new();
-//         let txs = generate_random_tx_requests(&mut rng);
-//         let validity_witness = block_builder.generate_block_and_witness(true, txs).0;
-//         let prev_block_witness = block_builder.get_last_block_witness();
+        let transition_processor = TransitionProcessor::<F, C, D>::new();
+        let txs = generate_random_tx_requests(&mut rng);
+        let validity_witness = block_builder.post_block(true, txs);
+        let prev_block_number = validity_witness.get_block_number() - 1;
+        let prev_pis = block_builder
+            .aux_info
+            .get(&prev_block_number)
+            .unwrap()
+            .validity_witness
+            .to_validity_pis();
+        let transition_proof = transition_processor
+            .prove(&prev_pis, &validity_witness)
+            .unwrap();
+        let validity_circuit =
+            ValidityCircuit::<F, C, D>::new(&transition_processor.transition_wrapper_circuit);
+        validity_circuit.prove(&transition_proof, &None).unwrap();
+    }
 
-//         let transition_proof = transition_processor
-//             .prove(&prev_block_witness, &validity_witness)
-//             .unwrap();
+    #[cfg(feature = "dummy_validity_proof")]
+    #[test]
+    fn dummy_validity_circuit() {
+        use crate::circuits::validity::transition::dummy_wrapper::DummyTransitionWrapperCircuit;
 
-//         let validity_circuit =
-//             ValidityCircuit::<F, C, D>::new(&transition_processor.transition_wrapper_circuit);
-//         validity_circuit.prove(&transition_proof, &None).unwrap();
-//     }
+        let mut rng = rand::thread_rng();
+        let block_builder = MockBlockBuilder::new();
+        let txs = generate_random_tx_requests(&mut rng);
+        let validity_witness = block_builder.generate_block_and_witness(true, txs).0;
+        let prev_block_witness = block_builder.get_last_block_witness();
 
-//     #[cfg(feature = "dummy_validity_proof")]
-//     #[test]
-//     fn dummy_validity_circuit() {
-//         use crate::circuits::validity::transition::dummy_wrapper::DummyTransitionWrapperCircuit;
-
-//         let mut rng = rand::thread_rng();
-//         let block_builder = MockBlockBuilder::new();
-//         let txs = generate_random_tx_requests(&mut rng);
-//         let validity_witness = block_builder.generate_block_and_witness(true, txs).0;
-//         let prev_block_witness = block_builder.get_last_block_witness();
-
-//         let dummy_transition_wrapper = DummyTransitionWrapperCircuit::<F, C, D>::new();
-//         let transition_proof = dummy_transition_wrapper
-//             .prove(&prev_block_witness, &validity_witness)
-//             .unwrap();
-//         let validity_circuit = ValidityCircuit::<F, C, D>::new(&dummy_transition_wrapper);
-//         validity_circuit.prove(&transition_proof, &None).unwrap();
-//     }
-// }
+        let dummy_transition_wrapper = DummyTransitionWrapperCircuit::<F, C, D>::new();
+        let transition_proof = dummy_transition_wrapper
+            .prove(&prev_block_witness, &validity_witness)
+            .unwrap();
+        let validity_circuit = ValidityCircuit::<F, C, D>::new(&dummy_transition_wrapper);
+        validity_circuit.prove(&transition_proof, &None).unwrap();
+    }
+}

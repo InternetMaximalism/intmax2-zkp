@@ -144,14 +144,14 @@ impl MockBlockBuilder {
             signature_hash,
             block_number: prev_block.block_number + 1,
         };
-        let account_tree_root = self.account_tree.get_root();
-        let block_tree_root = self.block_tree.get_root();
+        let prev_account_tree_root = self.account_tree.get_root();
+        let prev_block_tree_root = self.block_tree.get_root();
         let block_witness = BlockWitness {
             block,
             signature: signature.clone(),
             pubkeys: pubkeys.clone(),
-            prev_account_tree_root: account_tree_root,
-            prev_block_tree_root: block_tree_root,
+            prev_account_tree_root,
+            prev_block_tree_root,
             account_id_packed,
             account_merkle_proofs,
             account_membership_proofs,
@@ -162,6 +162,7 @@ impl MockBlockBuilder {
 
     // Generate transition witness from the prev block to the current block
     fn generate_validity_witness(&mut self, block_witness: &BlockWitness) -> ValidityWitness {
+        dbg!(block_witness.block.block_number);
         // assertion
         {
             assert!(
@@ -181,6 +182,7 @@ impl MockBlockBuilder {
         let block_merkle_proof = self
             .block_tree
             .prove(block_witness.block.block_number as usize);
+        self.block_tree.push(block_witness.block.hash());
 
         let sender_leaves =
             get_sender_leaves(&block_witness.pubkeys, block_witness.signature.sender_flag);
