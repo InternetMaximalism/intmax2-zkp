@@ -1,7 +1,4 @@
 use crate::{
-    circuits::utils::cyclic::{
-        vd_from_pis_slice, vd_from_pis_slice_target, vd_to_vec, vd_to_vec_target,
-    },
     common::{
         public_state::{PublicState, PublicStateTarget, PUBLIC_STATE_LEN},
         trees::block_hash_tree::{BlockHashMerkleProof, BlockHashMerkleProofTarget},
@@ -14,6 +11,7 @@ use crate::{
     },
     utils::{
         conversion::ToU64 as _,
+        cyclic::{vd_from_pis_slice, vd_from_pis_slice_target, vd_to_vec, vd_to_vec_target},
         dummy::DummyProof,
         poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget},
         recursivable::Recursivable,

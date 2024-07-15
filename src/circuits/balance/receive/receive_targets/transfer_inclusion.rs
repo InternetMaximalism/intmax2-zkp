@@ -1,3 +1,17 @@
+use crate::{
+    circuits::balance::balance_pis::{BalancePublicInputs, BalancePublicInputsTarget},
+    common::{
+        public_state::{PublicState, PublicStateTarget},
+        transfer::{Transfer, TransferTarget},
+        trees::transfer_tree::{TransferMerkleProof, TransferMerkleProofTarget},
+        tx::{Tx, TxTarget},
+    },
+    constants::TRANSFER_TREE_HEIGHT,
+    utils::{
+        cyclic::{vd_from_pis_slice, vd_from_pis_slice_target},
+        leafable::{Leafable as _, LeafableTarget},
+    },
+};
 use plonky2::{
     field::extension::Extendable,
     hash::hash_types::RichField,
@@ -10,21 +24,6 @@ use plonky2::{
         config::{AlgebraicHasher, GenericConfig},
         proof::{ProofWithPublicInputs, ProofWithPublicInputsTarget},
     },
-};
-
-use crate::{
-    circuits::{
-        balance::balance_pis::{BalancePublicInputs, BalancePublicInputsTarget},
-        utils::cyclic::{vd_from_pis_slice, vd_from_pis_slice_target},
-    },
-    common::{
-        public_state::{PublicState, PublicStateTarget},
-        transfer::{Transfer, TransferTarget},
-        trees::transfer_tree::{TransferMerkleProof, TransferMerkleProofTarget},
-        tx::{Tx, TxTarget},
-    },
-    constants::TRANSFER_TREE_HEIGHT,
-    utils::leafable::{Leafable as _, LeafableTarget},
 };
 
 // Data to verify that the balance proof includes the transfer and that the transfer is valid

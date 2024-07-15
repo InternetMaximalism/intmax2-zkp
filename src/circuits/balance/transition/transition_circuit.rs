@@ -16,27 +16,24 @@ use plonky2::{
 };
 
 use crate::{
-    circuits::{
-        balance::{
-            balance_pis::{BalancePublicInputs, BalancePublicInputsTarget},
-            receive::{
-                receive_deposit_circuit::{
-                    ReceiveDepositCircuit, ReceiveDepositPublicInputs,
-                    ReceiveDepositPublicInputsTarget,
-                },
-                receive_transfer_circuit::{
-                    ReceiveTransferCircuit, ReceiveTransferPublicInputs,
-                    ReceiveTransferPublicInputsTarget,
-                },
-                update_circuit::{UpdateCircuit, UpdatePublicInputs, UpdatePublicInputsTarget},
+    circuits::balance::{
+        balance_pis::{BalancePublicInputs, BalancePublicInputsTarget},
+        receive::{
+            receive_deposit_circuit::{
+                ReceiveDepositCircuit, ReceiveDepositPublicInputs, ReceiveDepositPublicInputsTarget,
             },
-            send::sender_circuit::{SenderCircuit, SenderPublicInputs, SenderPublicInputsTarget},
+            receive_transfer_circuit::{
+                ReceiveTransferCircuit, ReceiveTransferPublicInputs,
+                ReceiveTransferPublicInputsTarget,
+            },
+            update_circuit::{UpdateCircuit, UpdatePublicInputs, UpdatePublicInputsTarget},
         },
-        utils::cyclic::conditionally_connect_vd,
+        send::sender_circuit::{SenderCircuit, SenderPublicInputs, SenderPublicInputsTarget},
     },
     ethereum_types::u32limb_trait::U32LimbTargetTrait as _,
     utils::{
         conversion::ToU64,
+        cyclic::conditionally_connect_vd,
         poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget},
         recursivable::Recursivable,
     },

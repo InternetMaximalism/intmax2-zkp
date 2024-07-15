@@ -4,9 +4,7 @@ use plonky2::{
 };
 
 use crate::{
-    circuits::{utils::wrapper::WrapperCircuit, validity::validity_circuit::ValidityCircuit},
-    ethereum_types::address::Address,
-    wrapper_config::plonky2_config::PoseidonBN128GoldilocksConfig,
+    circuits::validity::validity_circuit::ValidityCircuit, ethereum_types::address::Address, utils::wrapper::WrapperCircuit, wrapper_config::plonky2_config::PoseidonBN128GoldilocksConfig
 };
 use anyhow::Result;
 

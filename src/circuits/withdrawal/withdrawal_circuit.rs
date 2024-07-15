@@ -18,13 +18,15 @@ use plonky2::{
 };
 
 use crate::{
-    circuits::utils::cyclic::{vd_from_pis_slice_target, vd_vec_len},
     constants::WITHDRAWAL_CIRCUIT_PADDING_DEGREE,
     ethereum_types::{
         bytes32::{Bytes32, BYTES32_LEN},
         u32limb_trait::U32LimbTargetTrait,
     },
-    utils::recursivable::Recursivable,
+    utils::{
+        cyclic::{vd_from_pis_slice_target, vd_vec_len},
+        recursivable::Recursivable,
+    },
 };
 
 use super::withdrawal_inner_circuit::WithdrawalInnerCircuit;

@@ -22,7 +22,7 @@ use plonky2::{
 };
 
 use crate::{
-    circuits::{balance::balance_pis::BalancePublicInputsTarget, utils::cyclic::vd_vec_len},
+    circuits::balance::balance_pis::BalancePublicInputsTarget,
     common::{
         insufficient_flags::{InsufficientFlags, InsufficientFlagsTarget},
         private_state::PrivateState,
@@ -32,6 +32,7 @@ use crate::{
     ethereum_types::{u256::U256, u32limb_trait::U32LimbTargetTrait},
     utils::{
         conversion::ToField as _,
+        cyclic::vd_vec_len,
         poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget},
         recursivable::Recursivable as _,
     },
@@ -42,7 +43,7 @@ use super::{
     transition::transition_circuit::BalanceTransitionCircuit,
 };
 
-use crate::circuits::utils::cyclic::vd_from_pis_slice_target;
+use crate::utils::cyclic::vd_from_pis_slice_target;
 
 #[derive(Debug)]
 pub struct BalanceCircuit<F, C, const D: usize>

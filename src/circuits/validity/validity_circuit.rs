@@ -1,3 +1,14 @@
+use crate::{
+    circuits::validity::validity_pis::{
+        ValidityPublicInputs, ValidityPublicInputsTarget, VALIDITY_PUBLIC_INPUTS_LEN,
+    },
+    constants::VALIDITY_CIRCUIT_PADDING_DEGREE,
+    utils::{
+        conversion::ToField,
+        cyclic::{vd_from_pis_slice_target, vd_vec_len},
+        recursivable::Recursivable as _,
+    },
+};
 use anyhow::Result;
 use plonky2::{
     field::extension::Extendable,
@@ -16,17 +27,6 @@ use plonky2::{
     recursion::{
         cyclic_recursion::check_cyclic_proof_verifier_data, dummy_circuit::cyclic_base_proof,
     },
-};
-
-use crate::{
-    circuits::{
-        utils::cyclic::{vd_from_pis_slice_target, vd_vec_len},
-        validity::validity_pis::{
-            ValidityPublicInputs, ValidityPublicInputsTarget, VALIDITY_PUBLIC_INPUTS_LEN,
-        },
-    },
-    constants::VALIDITY_CIRCUIT_PADDING_DEGREE,
-    utils::{conversion::ToField, recursivable::Recursivable as _},
 };
 
 #[cfg(not(feature = "dummy_validity_proof"))]

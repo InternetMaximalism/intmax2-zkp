@@ -5,18 +5,15 @@ use plonky2::{
 };
 
 use crate::{
-    circuits::{
-        balance::{
-            balance_circuit::BalanceCircuit,
-            receive::receive_targets::transfer_inclusion::TransferInclusionValue,
-        },
-        utils::wrapper::WrapperCircuit,
+    circuits::balance::{
+        balance_circuit::BalanceCircuit,
+        receive::receive_targets::transfer_inclusion::TransferInclusionValue,
     },
     ethereum_types::{
         bytes32::{Bytes32, BYTES32_LEN},
         u32limb_trait::U32LimbTrait as _,
     },
-    utils::conversion::ToU64,
+    utils::{conversion::ToU64, wrapper::WrapperCircuit},
     wrapper_config::plonky2_config::PoseidonBN128GoldilocksConfig,
 };
 
