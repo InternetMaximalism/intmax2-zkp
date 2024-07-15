@@ -139,6 +139,10 @@ impl ValidityPublicInputsTarget {
             is_valid_block,
         }
     }
+
+    pub fn from_pis(pis: &[Target]) -> Self {
+        Self::from_vec(&pis[0..VALIDITY_PUBLIC_INPUTS_LEN])
+    }
 }
 
 impl ValidityPublicInputsTarget {
