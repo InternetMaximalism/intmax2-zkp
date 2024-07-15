@@ -12,7 +12,10 @@ use crate::{
     circuits::validity::{
         validity_circuit::ValidityCircuit, validity_processor::ValidityProcessor,
     },
-    common::witness::update_public_state_witness::UpdatePublicStateWitness,
+    common::witness::{
+        update_public_state_witness::UpdatePublicStateWitness, update_witness::UpdateWitness,
+    },
+    ethereum_types::u256::U256,
 };
 
 use super::block_builder::MockBlockBuilder;
@@ -76,6 +79,29 @@ where
         UpdatePublicStateWitness {
             validity_proof,
             block_merkle_proof,
+        }
+    }
+
+    pub fn get_update_witness(
+        &self,
+        block_builder: &MockBlockBuilder,
+        pubkey: U256<u32>,
+        target_block_number: u32,
+    ) -> UpdateWitness<F, C, D> {
+        let current_block_number = block_builder.last_block_number();
+        let validity_proof = self
+            .validity_proofs
+            .get(&current_block_number)
+            .unwrap()
+            .clone();
+        let block_merkle_proof =
+            block_builder.get_block_merkle_proof(current_block_number, target_block_number);
+        let account_membership_proof =
+            block_builder.get_account_membership_proof(current_block_number, pubkey);
+        UpdateWitness {
+            validity_proof,
+            block_merkle_proof,
+            account_membership_proof,
         }
     }
 

@@ -1,4 +1,7 @@
-use crate::common::trees::block_hash_tree::BlockHashMerkleProof;
+use crate::{
+    common::trees::{account_tree::AccountMembershipProof, block_hash_tree::BlockHashMerkleProof},
+    ethereum_types::u256::U256,
+};
 
 use super::block_builder::MockBlockBuilder;
 
@@ -16,6 +19,19 @@ impl MockBlockBuilder {
             .expect("current block number not found")
             .block_tree;
         block_tree.prove(target_block_number as usize)
+    }
+
+    pub fn get_account_membership_proof(
+        &self,
+        current_block_number: u32,
+        pubkey: U256<u32>,
+    ) -> AccountMembershipProof {
+        let account_tree = &self
+            .aux_info
+            .get(&current_block_number)
+            .expect("current block number not found")
+            .account_tree;
+        account_tree.prove_membership(pubkey)
     }
 
     pub fn last_block_number(&self) -> u32 {

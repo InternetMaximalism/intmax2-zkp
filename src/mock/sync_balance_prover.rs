@@ -92,15 +92,15 @@ where
             .collect();
         assert!(not_synced_block_numbers.is_empty(), "sync send tx first");
         let current_block_number = block_builder.last_block_number();
-        let update_public_state_witness = sync_validity_prover.get_update_public_state_witness(
+        let update_witness = sync_validity_prover.get_update_witness(
             block_builder,
-            current_block_number,
+            local_manager.get_pubkey(),
             self.last_block_number,
         );
         let balance_proof = balance_processor.prove_update(
             sync_validity_prover.validity_circuit(),
             local_manager.get_pubkey(),
-            &update_public_state_witness,
+            &update_witness,
             &self.last_balance_proof,
         );
         self.last_block_number = current_block_number;

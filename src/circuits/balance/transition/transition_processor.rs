@@ -30,6 +30,7 @@ use crate::{
         balance_incoming_witness::BalanceIncomingWitness,
         private_state_transition_witness::PrivateStateTransitionWitness, send_witness::SendWitness,
         transfer_witness::TransferWitness, update_public_state_witness::UpdatePublicStateWitness,
+        update_witness::UpdateWitness,
     },
     ethereum_types::bytes32::Bytes32,
 };
@@ -151,13 +152,15 @@ where
         validity_circuit: &ValidityCircuit<F, C, D>,
         balance_circuit_vd: &VerifierOnlyCircuitData<C, D>,
         prev_balance_pis: &BalancePublicInputs,
-        update_public_state_witness: &UpdatePublicStateWitness<F, C, D>,
+        update_witness: &UpdateWitness<F, C, D>,
     ) -> ProofWithPublicInputs<F, C, D> {
         let update_value = UpdateValue::new(
             validity_circuit,
-            &update_public_state_witness.validity_proof,
+            prev_balance_pis.pubkey,
+            &update_witness.validity_proof,
             &prev_balance_pis.public_state,
-            &update_public_state_witness.block_merkle_proof,
+            &update_witness.block_merkle_proof,
+            &update_witness.account_membership_proof,
         );
         let update_proof = self.update_circuit.prove(&update_value).unwrap();
         let balance_transition_value = BalanceTransitionValue::new(

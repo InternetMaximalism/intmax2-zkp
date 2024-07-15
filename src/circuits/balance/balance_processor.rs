@@ -16,6 +16,7 @@ use crate::{
         balance_incoming_witness::BalanceIncomingWitness,
         private_state_transition_witness::PrivateStateTransitionWitness, send_witness::SendWitness,
         transfer_witness::TransferWitness, update_public_state_witness::UpdatePublicStateWitness,
+        update_witness::UpdateWitness,
     },
     ethereum_types::u256::U256,
 };
@@ -82,7 +83,7 @@ where
         &self,
         validity_circuit: &ValidityCircuit<F, C, D>,
         pubkey: U256<u32>,
-        update_public_state_witness: &UpdatePublicStateWitness<F, C, D>,
+        update_witness: &UpdateWitness<F, C, D>,
         prev_proof: &Option<ProofWithPublicInputs<F, C, D>>,
     ) -> ProofWithPublicInputs<F, C, D> {
         let prev_balance_pis = if prev_proof.is_some() {
@@ -94,7 +95,7 @@ where
             validity_circuit,
             &self.get_verifier_only_data(),
             &prev_balance_pis,
-            update_public_state_witness,
+            update_witness,
         );
         let proof = self
             .balance_circuit

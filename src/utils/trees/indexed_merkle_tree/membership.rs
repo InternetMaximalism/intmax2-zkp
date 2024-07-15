@@ -4,7 +4,7 @@ use plonky2::{
     hash::hash_types::RichField,
     iop::{
         target::{BoolTarget, Target},
-        witness::Witness,
+        witness::WitnessWrite,
     },
     plonk::{
         circuit_builder::CircuitBuilder,
@@ -82,6 +82,15 @@ impl MembershipProof {
         }
         Ok(())
     }
+
+    // get value if the key is included, return 0 otherwise
+    pub fn get_value(&self) -> u64 {
+        if self.is_included {
+            self.leaf.value
+        } else {
+            0
+        }
+    }
 }
 
 impl MembershipProofTarget {
@@ -114,7 +123,7 @@ impl MembershipProofTarget {
         }
     }
 
-    pub fn set_witness<F: RichField, W: Witness<F>>(
+    pub fn set_witness<F: RichField, W: WitnessWrite<F>>(
         &self,
         witness: &mut W,
         value: &MembershipProof,
@@ -151,6 +160,14 @@ impl MembershipProofTarget {
         let is_next_key_zero = self.leaf.next_key.is_zero::<F, D, U256<u32>>(builder);
         let is_key_lt_or_next_key_zero = builder.or(key_lt, is_next_key_zero);
         builder.conditional_assert_true(is_exclusion, is_key_lt_or_next_key_zero);
+    }
+
+    pub fn get_value<F: RichField + Extendable<D>, const D: usize>(
+        &self,
+        builder: &mut CircuitBuilder<F, D>,
+    ) -> Target {
+        let zero = builder.zero();
+        builder.select(self.is_included, self.leaf.value, zero)
     }
 }
 
