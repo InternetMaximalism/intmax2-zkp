@@ -4,6 +4,7 @@ use rand::Rng;
 use crate::{
     circuits::balance::balance_pis::BalancePublicInputs,
     common::{
+        hash::get_pubkey_salt_hash,
         insufficient_flags::InsufficientFlags,
         private_state::PrivateState,
         public_state::PublicState,
@@ -12,13 +13,18 @@ use crate::{
         transfer::Transfer,
         trees::{
             asset_tree::{AssetLeaf, AssetTree},
+            deposit_tree::DepositLeaf,
             nullifier_tree::NullifierTree,
             transfer_tree::TransferTree,
         },
         tx::Tx,
         witness::{
+            deposit_witness::{DepositCase, DepositWitness},
             private_state_transition_witness::PrivateStateTransitionWitness,
-            send_witness::SendWitness, transfer_witness::TransferWitness, tx_witness::TxWitness,
+            receive_deposit_witness::ReceiveDepositWitness,
+            send_witness::SendWitness,
+            transfer_witness::TransferWitness,
+            tx_witness::TxWitness,
         },
     },
     constants::{ASSET_TREE_HEIGHT, NUM_TRANSFERS_IN_TX, TRANSFER_TREE_HEIGHT},
@@ -38,6 +44,7 @@ pub struct LocalManager {
     pub salt: Salt,
     pub public_state: PublicState,
     pub send_witnesses: Vec<SendWitness>,
+    pub deposit_cases: Vec<DepositCase>,
     pub transfer_witnesses: HashMap<u32, Vec<TransferWitness>>,
 }
 
@@ -52,6 +59,7 @@ impl LocalManager {
             salt: Salt::default(),
             public_state: PublicState::genesis(),
             send_witnesses: Vec::new(),
+            deposit_cases: Vec::new(),
             transfer_witnesses: HashMap::new(),
         }
     }
@@ -175,6 +183,55 @@ impl LocalManager {
             .collect::<Vec<_>>();
 
         (tx_witness, transfer_witnesses)
+    }
+
+    pub fn deposit<R: Rng>(
+        &mut self,
+        rng: &mut R,
+        block_builder: &mut MockBlockBuilder,
+        token_index: u32,
+        amount: U256<u32>,
+    ) {
+        let pubkey = self.get_pubkey();
+        let salt = Salt::rand(rng);
+        let pubkey_salt_hash = get_pubkey_salt_hash(pubkey, salt);
+
+        let deposit = DepositLeaf {
+            pubkey_salt_hash,
+            token_index,
+            amount,
+        };
+        let deposit_index = block_builder.deposit(&deposit);
+
+        let deposit_case = DepositCase {
+            deposit_salt: salt,
+            deposit_index,
+            deposit,
+        };
+        self.deposit_cases.push(deposit_case);
+    }
+
+    pub fn generate_deposit_witness<R: Rng>(
+        &mut self,
+        rng: &mut R,
+        block_builder: &MockBlockBuilder,
+    ) -> ReceiveDepositWitness {
+        let deposit_case = self.deposit_cases.remove(0);
+        let deposit_merkle_proof = block_builder.deposit_tree.prove(deposit_case.deposit_index);
+        let deposit_witness = DepositWitness {
+            deposit_merkle_proof,
+            deposit_salt: deposit_case.deposit_salt,
+            deposit_index: deposit_case.deposit_index,
+            deposit: deposit_case.deposit,
+        };
+        let deposit = deposit_witness.deposit.clone();
+        let nullifier: Bytes32<u32> = deposit.poseidon_hash().into();
+        let private_witness =
+            self.generate_witness_for_receive(rng, deposit.token_index, deposit.amount, nullifier);
+        ReceiveDepositWitness {
+            deposit_witness,
+            private_witness,
+        }
     }
 
     fn update(

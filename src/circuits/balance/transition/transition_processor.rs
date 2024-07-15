@@ -14,7 +14,7 @@ use crate::{
             balance_circuit::common_data_for_balance_circuit,
             balance_pis::BalancePublicInputs,
             receive::{
-                receive_deposit_circuit::ReceiveDepositCircuit,
+                receive_deposit_circuit::{ReceiveDepositCircuit, ReceiveDepositValue},
                 receive_targets::{
                     private_state_transition::PrivateStateTransitionValue,
                     transfer_inclusion::TransferInclusionValue,
@@ -28,7 +28,8 @@ use crate::{
     },
     common::witness::{
         balance_incoming_witness::BalanceIncomingWitness,
-        private_state_transition_witness::PrivateStateTransitionWitness, send_witness::SendWitness,
+        private_state_transition_witness::PrivateStateTransitionWitness,
+        receive_deposit_witness::ReceiveDepositWitness, send_witness::SendWitness,
         transfer_witness::TransferWitness, update_witness::UpdateWitness,
     },
     ethereum_types::bytes32::Bytes32,
@@ -238,6 +239,73 @@ where
             &self.sender_processor.sender_circuit,
             Some(receive_transfer_proof),
             None,
+            None,
+            None,
+            prev_balance_pis.clone(),
+            balance_verifier_data.verifier_only.clone(),
+        );
+        self.balance_transition_circuit
+            .prove(
+                &self.receive_transfer_circuit,
+                &self.receive_deposit_circuit,
+                &self.update_circuit,
+                &self.sender_processor.sender_circuit,
+                &balance_transition_value,
+            )
+            .unwrap()
+    }
+
+    pub fn prove_receive_deposit(
+        &self,
+        balance_verifier_data: &VerifierCircuitData<F, C, D>,
+        prev_balance_pis: &BalancePublicInputs,
+        receive_deposit_witness: &ReceiveDepositWitness,
+    ) -> ProofWithPublicInputs<F, C, D> {
+        let deposit_witness = receive_deposit_witness.deposit_witness.clone();
+        let private_transition_witness = receive_deposit_witness.private_witness.clone();
+
+        // assertion
+        let deposit = deposit_witness.deposit.clone();
+        let nullifier: Bytes32<u32> = deposit.poseidon_hash().into();
+        assert_eq!(nullifier, private_transition_witness.nullifier);
+        assert_eq!(deposit.token_index, private_transition_witness.token_index);
+        assert_eq!(deposit.amount, private_transition_witness.amount);
+
+        let private_state_transition = PrivateStateTransitionValue::new(
+            private_transition_witness.token_index,
+            private_transition_witness.amount,
+            private_transition_witness.nullifier,
+            private_transition_witness.new_salt,
+            &private_transition_witness.prev_private_state,
+            &private_transition_witness.nullifier_proof,
+            &private_transition_witness.prev_asset_leaf,
+            &private_transition_witness.asset_merkle_proof,
+        );
+
+        let receive_deposit_value = ReceiveDepositValue::new(
+            prev_balance_pis.pubkey,
+            deposit_witness.deposit_salt,
+            deposit_witness.deposit_index,
+            &deposit_witness.deposit,
+            &deposit_witness.deposit_merkle_proof,
+            &prev_balance_pis.public_state,
+            &private_state_transition,
+        );
+
+        let receive_deposit_proof = self
+            .receive_deposit_circuit
+            .prove(&receive_deposit_value)
+            .unwrap();
+
+        let balance_transition_value = BalanceTransitionValue::new(
+            &CircuitConfig::default(),
+            BalanceTransitionType::ReceiveDeposit,
+            &self.receive_transfer_circuit,
+            &self.receive_deposit_circuit,
+            &self.update_circuit,
+            &self.sender_processor.sender_circuit,
+            None,
+            Some(receive_deposit_proof),
             None,
             None,
             prev_balance_pis.clone(),

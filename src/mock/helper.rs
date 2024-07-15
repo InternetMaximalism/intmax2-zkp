@@ -1,5 +1,8 @@
 use crate::{
-    common::trees::{account_tree::AccountMembershipProof, block_hash_tree::BlockHashMerkleProof},
+    common::trees::{
+        account_tree::AccountMembershipProof, block_hash_tree::BlockHashMerkleProof,
+        deposit_tree::DepositLeaf,
+    },
     ethereum_types::u256::U256,
 };
 
@@ -36,5 +39,11 @@ impl MockBlockBuilder {
 
     pub fn last_block_number(&self) -> u32 {
         self.last_block_number
+    }
+
+    pub fn deposit(&mut self, deposit: &DepositLeaf) -> usize {
+        self.deposit_tree.push(deposit.clone());
+        let deposit_index = self.deposit_tree.len() - 1;
+        deposit_index
     }
 }

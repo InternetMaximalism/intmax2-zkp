@@ -14,7 +14,8 @@ use crate::{
     },
     common::witness::{
         balance_incoming_witness::BalanceIncomingWitness,
-        private_state_transition_witness::PrivateStateTransitionWitness, send_witness::SendWitness,
+        private_state_transition_witness::PrivateStateTransitionWitness,
+        receive_deposit_witness::ReceiveDepositWitness, send_witness::SendWitness,
         transfer_witness::TransferWitness, update_witness::UpdateWitness,
     },
     ethereum_types::u256::U256,
@@ -129,6 +130,29 @@ where
             .unwrap();
         proof
     }
+
+    pub fn prove_receive_deposit(
+        &self,
+        pubkey: U256<u32>,
+        receive_deposit_witness: &ReceiveDepositWitness,
+        prev_proof: &Option<ProofWithPublicInputs<F, C, D>>,
+    ) -> ProofWithPublicInputs<F, C, D> {
+        let prev_balance_pis = if prev_proof.is_some() {
+            BalancePublicInputs::from_pis(&prev_proof.as_ref().unwrap().public_inputs)
+        } else {
+            BalancePublicInputs::new(pubkey)
+        };
+        let transition_proof = self.balance_transition_processor.prove_receive_deposit(
+            &self.get_verifier_data(),
+            &prev_balance_pis,
+            receive_deposit_witness,
+        );
+        let proof = self
+            .balance_circuit
+            .prove(pubkey, &transition_proof, prev_proof)
+            .unwrap();
+        proof
+    }
 }
 
 #[cfg(test)]
@@ -140,6 +164,7 @@ mod tests {
     use crate::{
         circuits::validity::validity_processor::ValidityProcessor,
         common::{transfer::Transfer, witness::balance_incoming_witness::BalanceIncomingWitness},
+        ethereum_types::u256::U256,
         mock::{
             block_builder::MockBlockBuilder, local_manager::LocalManager,
             sync_balance_prover::SyncBalanceProver, sync_validity_prover::SyncValidityProver,
@@ -259,6 +284,41 @@ mod tests {
             &private_transition_witness,
             &balance_incoming_witness,
             &Some(bob_balance_proof),
+        );
+    }
+
+    #[test]
+    fn balance_processor_deposit() {
+        let rng = &mut rand::thread_rng();
+        // shared state
+        let mut block_builder = MockBlockBuilder::new();
+        let mut sync_validity_prover = SyncValidityProver::<F, C, D>::new();
+        let balance_processor = BalanceProcessor::new(sync_validity_prover.validity_circuit());
+
+        // alice deposit
+        let mut alice = LocalManager::new_rand(rng);
+        let mut alice_balance_prover = SyncBalanceProver::<F, C, D>::new();
+        let deposit_amount = U256::<u32>::rand_small(rng);
+        alice.deposit(rng, &mut block_builder, 0, deposit_amount);
+        alice.deposit(rng, &mut block_builder, 1, deposit_amount);
+        alice.deposit(rng, &mut block_builder, 2, deposit_amount);
+
+        // post dummy block
+        let transfer = Transfer::rand(rng);
+        alice.send_tx_and_update(rng, &mut block_builder, &[transfer]);
+        alice_balance_prover.sync_send(
+            &mut sync_validity_prover,
+            &balance_processor,
+            &block_builder,
+            &alice,
+        );
+        let alice_balance_proof = alice_balance_prover.last_balance_proof.clone().unwrap();
+
+        let receive_deposit_witness = alice.generate_deposit_witness(rng, &block_builder);
+        balance_processor.prove_receive_deposit(
+            alice.get_pubkey(),
+            &receive_deposit_witness,
+            &Some(alice_balance_proof),
         );
     }
 }
