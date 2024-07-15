@@ -92,7 +92,6 @@ where
             },
             tx_tree_root: block_pis.tx_tree_root,
             sender_tree_root: block_pis.sender_tree_root,
-            is_registoration_block: block_pis.is_registoration_block,
             is_valid_block: block_pis.is_valid,
         };
 

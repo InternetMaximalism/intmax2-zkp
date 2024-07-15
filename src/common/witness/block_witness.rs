@@ -64,7 +64,7 @@ impl BlockWitness {
                 tx_tree_root: validity_pis.tx_tree_root,
                 sender_tree_root: validity_pis.sender_tree_root,
                 block_number: validity_pis.public_state.block_number,
-                is_registoration_block: validity_pis.is_registoration_block,
+                is_registoration_block: false, // genesis block is not a registration block
                 is_valid: validity_pis.is_valid_block,
             };
         }

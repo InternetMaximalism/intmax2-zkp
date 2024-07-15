@@ -21,7 +21,7 @@ use crate::{
 };
 
 pub const VALIDITY_PUBLIC_INPUTS_LEN: usize =
-    PUBLIC_STATE_LEN + BYTES32_LEN + POSEIDON_HASH_OUT_LEN + 2;
+    PUBLIC_STATE_LEN + BYTES32_LEN + POSEIDON_HASH_OUT_LEN + 1;
 
 /// Public inputs for the validity circuit
 #[derive(Debug, Clone, PartialEq)]
@@ -29,7 +29,6 @@ pub struct ValidityPublicInputs {
     pub public_state: PublicState,
     pub tx_tree_root: Bytes32<u32>,
     pub sender_tree_root: PoseidonHashOut,
-    pub is_registoration_block: bool, // todo remove
     pub is_valid_block: bool,
 }
 
@@ -38,7 +37,6 @@ pub struct ValidityPublicInputsTarget {
     pub public_state: PublicStateTarget,
     pub tx_tree_root: Bytes32<Target>,
     pub sender_tree_root: PoseidonHashOutTarget,
-    pub is_registoration_block: BoolTarget,
     pub is_valid_block: BoolTarget,
 }
 
@@ -47,13 +45,11 @@ impl ValidityPublicInputs {
         // We don't have to construct the tx tree and the sender tree, because they will be skipped.
         let tx_tree_root = Bytes32::<u32>::default();
         let sender_tree_root = PoseidonHashOut::default();
-        let is_registoration_block = false;
         let is_valid_block = false;
         Self {
             public_state: PublicState::genesis(),
             tx_tree_root,
             sender_tree_root,
-            is_registoration_block,
             is_valid_block,
         }
     }
@@ -65,10 +61,7 @@ impl ValidityPublicInputs {
             .into_iter()
             .chain(self.tx_tree_root.to_u64_vec())
             .chain(self.sender_tree_root.elements.into_iter())
-            .chain(vec![
-                self.is_registoration_block as u64,
-                self.is_valid_block as u64,
-            ])
+            .chain(vec![self.is_valid_block as u64])
             .collect::<Vec<_>>();
         assert_eq!(vec.len(), VALIDITY_PUBLIC_INPUTS_LEN);
         vec
@@ -83,14 +76,11 @@ impl ValidityPublicInputs {
             &input[PUBLIC_STATE_LEN + BYTES32_LEN
                 ..PUBLIC_STATE_LEN + BYTES32_LEN + POSEIDON_HASH_OUT_LEN],
         );
-        let is_registoration_block =
-            input[PUBLIC_STATE_LEN + BYTES32_LEN + POSEIDON_HASH_OUT_LEN] == 1;
-        let is_valid_block = input[PUBLIC_STATE_LEN + BYTES32_LEN + POSEIDON_HASH_OUT_LEN + 1] == 1;
+        let is_valid_block = input[PUBLIC_STATE_LEN + BYTES32_LEN + POSEIDON_HASH_OUT_LEN] == 1;
         Self {
             public_state,
             tx_tree_root,
             sender_tree_root,
-            is_registoration_block,
             is_valid_block,
         }
     }
@@ -108,10 +98,7 @@ impl ValidityPublicInputsTarget {
             .into_iter()
             .chain(self.tx_tree_root.to_vec())
             .chain(self.sender_tree_root.elements.into_iter())
-            .chain(vec![
-                self.is_registoration_block.target,
-                self.is_valid_block.target,
-            ])
+            .chain(vec![self.is_valid_block.target])
             .collect::<Vec<_>>();
         assert_eq!(vec.len(), VALIDITY_PUBLIC_INPUTS_LEN);
         vec
@@ -126,16 +113,12 @@ impl ValidityPublicInputsTarget {
             &input[PUBLIC_STATE_LEN + BYTES32_LEN
                 ..PUBLIC_STATE_LEN + BYTES32_LEN + POSEIDON_HASH_OUT_LEN],
         );
-        let is_registoration_block =
+        let is_valid_block =
             BoolTarget::new_unsafe(input[PUBLIC_STATE_LEN + BYTES32_LEN + POSEIDON_HASH_OUT_LEN]);
-        let is_valid_block = BoolTarget::new_unsafe(
-            input[PUBLIC_STATE_LEN + BYTES32_LEN + POSEIDON_HASH_OUT_LEN + 1],
-        );
         Self {
             public_state,
             tx_tree_root,
             sender_tree_root,
-            is_registoration_block,
             is_valid_block,
         }
     }
@@ -150,17 +133,14 @@ impl ValidityPublicInputsTarget {
         builder: &mut CircuitBuilder<F, D>,
         is_checked: bool,
     ) -> Self {
-        let is_registoration_block = builder.add_virtual_bool_target_unsafe();
         let is_valid_block = builder.add_virtual_bool_target_unsafe();
         if is_checked {
-            builder.assert_bool(is_registoration_block);
             builder.assert_bool(is_valid_block);
         }
         Self {
             public_state: PublicStateTarget::new(builder, is_checked),
             tx_tree_root: Bytes32::new(builder, is_checked),
             sender_tree_root: PoseidonHashOutTarget::new(builder),
-            is_registoration_block,
             is_valid_block,
         }
     }
@@ -173,7 +153,6 @@ impl ValidityPublicInputsTarget {
             public_state: PublicStateTarget::constant(builder, &value.public_state),
             tx_tree_root: Bytes32::constant(builder, value.tx_tree_root),
             sender_tree_root: PoseidonHashOutTarget::constant(builder, value.sender_tree_root),
-            is_registoration_block: builder.constant_bool(value.is_registoration_block),
             is_valid_block: builder.constant_bool(value.is_valid_block),
         }
     }
@@ -187,10 +166,6 @@ impl ValidityPublicInputsTarget {
         self.tx_tree_root.connect(builder, other.tx_tree_root);
         self.sender_tree_root
             .connect(builder, other.sender_tree_root);
-        builder.connect(
-            self.is_registoration_block.target,
-            other.is_registoration_block.target,
-        );
         builder.connect(self.is_valid_block.target, other.is_valid_block.target);
     }
 
@@ -208,11 +183,6 @@ impl ValidityPublicInputsTarget {
             .conditional_assert_eq(builder, other.sender_tree_root, condition);
         builder.conditional_assert_eq(
             condition.target,
-            self.is_registoration_block.target,
-            other.is_registoration_block.target,
-        );
-        builder.conditional_assert_eq(
-            condition.target,
             self.is_valid_block.target,
             other.is_valid_block.target,
         );
@@ -227,7 +197,6 @@ impl ValidityPublicInputsTarget {
         self.tx_tree_root.set_witness(witness, value.tx_tree_root);
         self.sender_tree_root
             .set_witness(witness, value.sender_tree_root);
-        witness.set_bool_target(self.is_registoration_block, value.is_registoration_block);
         witness.set_bool_target(self.is_valid_block, value.is_valid_block);
     }
 }

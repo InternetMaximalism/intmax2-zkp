@@ -112,7 +112,6 @@ impl ValidityWitness {
             },
             tx_tree_root: main_validation_pis.tx_tree_root,
             sender_tree_root: main_validation_pis.sender_tree_root,
-            is_registoration_block: main_validation_pis.is_registoration_block,
             is_valid_block: main_validation_pis.is_valid,
         }
     }
