@@ -272,102 +272,84 @@ impl<const D: usize> ValidityTransitionTarget<D> {
     }
 }
 
-// #[cfg(test)]
-// mod tests {
-//     use plonky2::{
-//         field::goldilocks_field::GoldilocksField,
-//         iop::witness::PartialWitness,
-//         plonk::{
-//             circuit_builder::CircuitBuilder, circuit_data::CircuitConfig,
-//             config::PoseidonGoldilocksConfig,
-//         },
-//     };
+#[cfg(test)]
+mod tests {
+    use plonky2::{
+        field::goldilocks_field::GoldilocksField,
+        iop::witness::PartialWitness,
+        plonk::{
+            circuit_builder::CircuitBuilder, circuit_data::CircuitConfig,
+            config::PoseidonGoldilocksConfig,
+        },
+    };
 
-//     use crate::{
-//         circuits::validity::transition::{
-//             account_registoration::{AccountRegistorationCircuit, AccountRegistorationValue},
-//             account_update::AccountUpdateCircuit,
-//             transition::{ValidityTransitionTarget, ValidityTransitionValue},
-//         },
-//         common::trees::sender_tree::get_sender_leaves,
-//         mock::block_builder::MockBlockBuilder,
-//         test_utils::tx::generate_random_tx_requests,
-//     };
+    use crate::{
+        circuits::validity::transition::{
+            account_registoration::{AccountRegistorationCircuit, AccountRegistorationValue},
+            account_update::AccountUpdateCircuit,
+            transition::{ValidityTransitionTarget, ValidityTransitionValue},
+        },
+        mock::block_builder::MockBlockBuilder,
+        test_utils::tx::generate_random_tx_requests,
+    };
 
-//     type F = GoldilocksField;
-//     const D: usize = 2;
-//     type C = PoseidonGoldilocksConfig;
+    type F = GoldilocksField;
+    const D: usize = 2;
+    type C = PoseidonGoldilocksConfig;
 
-//     #[test]
-//     fn validity_transition() {
-//         let mut rng = rand::thread_rng();
-//         let mut block_builder = MockBlockBuilder::new();
-//         block_builder.post_block(true, generate_random_tx_requests(&mut rng));
-//         let prev_block_witness = block_builder.get_last_block_witness();
-//         let prev_block_pis = prev_block_witness.to_main_validation_pis();
+    #[test]
+    fn validity_transition() {
+        let mut rng = rand::thread_rng();
+        let mut block_builder = MockBlockBuilder::new();
+        let validity_witness =
+            block_builder.post_block(true, generate_random_tx_requests(&mut rng));
 
-//         let account_registoration_circuit = AccountRegistorationCircuit::<F, C, D>::new();
-//         let account_update_circuit = AccountUpdateCircuit::<F, C, D>::new();
+        let account_registoration_circuit = AccountRegistorationCircuit::<F, C, D>::new();
+        let account_update_circuit = AccountUpdateCircuit::<F, C, D>::new();
 
-//         let block_merkle_proof = block_builder
-//             .block_tree
-//             .prove(prev_block_witness.block.block_number as usize);
+        let block_pis = validity_witness.block_witness.to_main_validation_pis();
+        let prev_block_tree_root = validity_witness.block_witness.prev_block_tree_root;
+        let prev_account_tree_root = validity_witness.block_witness.prev_account_tree_root;
+        let transition_witness = validity_witness.validity_transition_witness.clone();
+        let account_registoration_value = AccountRegistorationValue::new(
+            prev_account_tree_root,
+            block_pis.block_number,
+            transition_witness.sender_leaves,
+            transition_witness
+                .account_registoration_proofs
+                .clone()
+                .unwrap(),
+        );
+        let account_registoration_proof = account_registoration_circuit
+            .prove(&account_registoration_value)
+            .unwrap();
 
-//         // it's a registoration block
-//         let account_registoration_proof = {
-//             let sender_leaves = get_sender_leaves(
-//                 &prev_block_witness.pubkeys,
-//                 prev_block_witness.signature.sender_flag,
-//             );
-//             let mut account_registoration_proofs = Vec::new();
-//             let mut prev_account_tree = block_builder.prev_account_tree.clone();
-//             for sender_leaf in &sender_leaves {
-//                 let last_block_number = if sender_leaf.is_valid {
-//                     prev_block_pis.block_number
-//                 } else {
-//                     0
-//                 };
-//                 let proof = prev_account_tree
-//                     .prove_and_insert(sender_leaf.sender, last_block_number as u64)
-//                     .unwrap();
-//                 account_registoration_proofs.push(proof);
-//             }
-//             let account_registoration_value = AccountRegistorationValue::new(
-//                 prev_block_pis.account_tree_root,
-//                 prev_block_pis.block_number,
-//                 sender_leaves,
-//                 account_registoration_proofs,
-//             );
-//             account_registoration_circuit
-//                 .prove(&account_registoration_value)
-//                 .unwrap()
-//         };
-//         let prev_block_tree_root = block_builder.prev_block_tree.get_root();
-//         let value = ValidityTransitionValue::new(
-//             &account_registoration_circuit,
-//             &account_update_circuit,
-//             prev_block_pis.clone(),
-//             prev_block_tree_root,
-//             Some(account_registoration_proof),
-//             None,
-//             block_merkle_proof,
-//         );
+        let value = ValidityTransitionValue::new(
+            &account_registoration_circuit,
+            &account_update_circuit,
+            block_pis,
+            prev_account_tree_root,
+            prev_block_tree_root,
+            Some(account_registoration_proof),
+            None,
+            transition_witness.block_merkle_proof,
+        );
 
-//         let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::default());
-//         let target = ValidityTransitionTarget::new(
-//             &account_registoration_circuit,
-//             &account_update_circuit,
-//             &mut builder,
-//         );
+        let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::default());
+        let target = ValidityTransitionTarget::new(
+            &account_registoration_circuit,
+            &account_update_circuit,
+            &mut builder,
+        );
 
-//         let data = builder.build::<C>();
-//         let mut pw = PartialWitness::new();
-//         target.set_witness(
-//             &mut pw,
-//             account_registoration_circuit.dummy_proof.clone(),
-//             account_update_circuit.dummy_proof.clone(),
-//             &value,
-//         );
-//         let _proof = data.prove(pw).unwrap();
-//     }
-// }
+        let data = builder.build::<C>();
+        let mut pw = PartialWitness::new();
+        target.set_witness(
+            &mut pw,
+            account_registoration_circuit.dummy_proof.clone(),
+            account_update_circuit.dummy_proof.clone(),
+            &value,
+        );
+        let _proof = data.prove(pw).unwrap();
+    }
+}
