@@ -98,8 +98,7 @@ where
         prev_pis.conditional_assert_eq(&mut builder, &genesis_pis_t, is_first_step);
 
         let (data, success) = builder.try_build_with_options::<C>(true);
-        let common = common_data_for_validity_circuit::<F, C, D>();
-        assert_eq!(data.common, common);
+        assert_eq!(data.common, common_data);
         assert!(success);
         Self {
             data,

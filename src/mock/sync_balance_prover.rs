@@ -37,6 +37,12 @@ where
         }
     }
 
+    pub fn get_balance_proof(&self) -> ProofWithPublicInputs<F, C, D> {
+        self.last_balance_proof
+            .clone()
+            .expect("balance proof not found")
+    }
+
     pub fn sync_send(
         &mut self,
         sync_validity_prover: &mut SyncValidityProver<F, C, D>,

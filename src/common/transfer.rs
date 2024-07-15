@@ -75,6 +75,15 @@ impl Transfer {
         }
     }
 
+    pub fn rand_withdrawal<R: Rng>(rng: &mut R) -> Self {
+        Self {
+            recipient: GenericAddress::rand_address(rng),
+            token_index: rng.gen(),
+            amount: U256::rand_small(rng),
+            salt: Salt::rand(rng),
+        }
+    }
+
     pub fn commitment(&self) -> PoseidonHashOut {
         PoseidonHashOut::hash_inputs_u64(&self.to_u64_vec())
     }
