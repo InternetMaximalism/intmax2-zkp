@@ -22,12 +22,13 @@ use super::{
     trees::{account_tree::AccountTree, block_hash_tree::BlockHashTree, deposit_tree::DepositTree},
 };
 
-pub const PUBLIC_STATE_LEN: usize = POSEIDON_HASH_OUT_LEN * 2 + BYTES32_LEN * 2 + 1;
+pub const PUBLIC_STATE_LEN: usize = POSEIDON_HASH_OUT_LEN * 3 + BYTES32_LEN * 2 + 1;
 
 // This structure is used in the public input of the validity proof and balance proof.
 #[derive(Clone, Debug, PartialEq)]
 pub struct PublicState {
     pub block_tree_root: PoseidonHashOut,
+    pub prev_account_tree_root: PoseidonHashOut,
     pub account_tree_root: PoseidonHashOut,
     pub deposit_tree_root: Bytes32<u32>,
     pub block_hash: Bytes32<u32>,
@@ -44,6 +45,7 @@ impl PublicState {
         let block_number = 0;
         Self {
             block_tree_root: block_tree.get_root(),
+            prev_account_tree_root: PoseidonHashOut::default(),
             account_tree_root: account_tree.get_root(),
             deposit_tree_root: deposit_tree_root.get_root(),
             block_hash,
@@ -54,6 +56,7 @@ impl PublicState {
     pub fn to_u64_vec(&self) -> Vec<u64> {
         let vec = vec![
             self.block_tree_root.to_u64_vec(),
+            self.prev_account_tree_root.to_u64_vec(),
             self.account_tree_root.to_u64_vec(),
             self.deposit_tree_root.to_u64_vec(),
             self.block_hash.to_u64_vec(),
@@ -67,12 +70,14 @@ impl PublicState {
     pub fn from_u64_vec(input: &[u64]) -> Self {
         assert_eq!(input.len(), PUBLIC_STATE_LEN);
         let block_tree_root = PoseidonHashOut::from_u64_vec(&input[0..4]);
-        let account_tree_root = PoseidonHashOut::from_u64_vec(&input[4..8]);
-        let deposit_tree_root = Bytes32::<u32>::from_u64_vec(&input[8..16]);
-        let block_hash = Bytes32::<u32>::from_u64_vec(&input[16..24]);
-        let block_number = input[24] as u32;
+        let prev_account_tree_root = PoseidonHashOut::from_u64_vec(&input[4..8]);
+        let account_tree_root = PoseidonHashOut::from_u64_vec(&input[8..12]);
+        let deposit_tree_root = Bytes32::<u32>::from_u64_vec(&input[12..20]);
+        let block_hash = Bytes32::<u32>::from_u64_vec(&input[20..28]);
+        let block_number = input[28] as u32;
         Self {
             block_tree_root,
+            prev_account_tree_root,
             account_tree_root,
             deposit_tree_root,
             block_hash,
@@ -84,6 +89,7 @@ impl PublicState {
 #[derive(Clone, Debug)]
 pub struct PublicStateTarget {
     pub block_tree_root: PoseidonHashOutTarget,
+    pub prev_account_tree_root: PoseidonHashOutTarget,
     pub account_tree_root: PoseidonHashOutTarget,
     pub deposit_tree_root: Bytes32<Target>,
     pub block_hash: Bytes32<Target>,
@@ -97,6 +103,7 @@ impl PublicStateTarget {
     ) -> Self {
         Self {
             block_tree_root: PoseidonHashOutTarget::new(builder),
+            prev_account_tree_root: PoseidonHashOutTarget::new(builder),
             account_tree_root: PoseidonHashOutTarget::new(builder),
             deposit_tree_root: Bytes32::<Target>::new(builder, is_checked),
             block_hash: Bytes32::<Target>::new(builder, is_checked),
@@ -107,6 +114,7 @@ impl PublicStateTarget {
     pub fn to_vec(&self) -> Vec<Target> {
         let vec = vec![
             self.block_tree_root.to_vec(),
+            self.prev_account_tree_root.to_vec(),
             self.account_tree_root.to_vec(),
             self.deposit_tree_root.limbs(),
             self.block_hash.limbs(),
@@ -120,12 +128,14 @@ impl PublicStateTarget {
     pub fn from_vec(input: &[Target]) -> Self {
         assert_eq!(input.len(), PUBLIC_STATE_LEN);
         let block_tree_root = PoseidonHashOutTarget::from_vec(&input[0..4]);
-        let account_tree_root = PoseidonHashOutTarget::from_vec(&input[4..8]);
-        let deposit_tree_root = Bytes32::<Target>::from_limbs(&input[8..16]);
-        let block_hash = Bytes32::<Target>::from_limbs(&input[16..24]);
-        let block_number = input[24];
+        let prev_account_tree_root = PoseidonHashOutTarget::from_vec(&input[4..8]);
+        let account_tree_root = PoseidonHashOutTarget::from_vec(&input[8..12]);
+        let deposit_tree_root = Bytes32::<Target>::from_limbs(&input[12..20]);
+        let block_hash = Bytes32::<Target>::from_limbs(&input[20..28]);
+        let block_number = input[28];
         Self {
             block_tree_root,
+            prev_account_tree_root,
             account_tree_root,
             deposit_tree_root,
             block_hash,
@@ -138,8 +148,12 @@ impl PublicStateTarget {
         value: &PublicState,
     ) -> Self {
         Self {
-            account_tree_root: PoseidonHashOutTarget::constant(builder, value.account_tree_root),
             block_tree_root: PoseidonHashOutTarget::constant(builder, value.block_tree_root),
+            prev_account_tree_root: PoseidonHashOutTarget::constant(
+                builder,
+                value.prev_account_tree_root,
+            ),
+            account_tree_root: PoseidonHashOutTarget::constant(builder, value.account_tree_root),
             deposit_tree_root: Bytes32::constant(builder, value.deposit_tree_root),
             block_hash: Bytes32::constant(builder, value.block_hash),
             block_number: builder.constant(F::from_canonical_u32(value.block_number)),
@@ -151,6 +165,8 @@ impl PublicStateTarget {
         builder: &mut CircuitBuilder<F, D>,
         other: &Self,
     ) {
+        self.prev_account_tree_root
+            .connect(builder, other.prev_account_tree_root);
         self.account_tree_root
             .connect(builder, other.account_tree_root);
         self.block_tree_root.connect(builder, other.block_tree_root);
@@ -166,6 +182,11 @@ impl PublicStateTarget {
         other: &Self,
         condition: BoolTarget,
     ) {
+        self.prev_account_tree_root.conditional_assert_eq(
+            builder,
+            other.prev_account_tree_root,
+            condition,
+        );
         self.account_tree_root
             .conditional_assert_eq(builder, other.account_tree_root, condition);
         self.block_tree_root
@@ -178,6 +199,8 @@ impl PublicStateTarget {
     }
 
     pub fn set_witness<F: Field, W: WitnessWrite<F>>(&self, witness: &mut W, value: &PublicState) {
+        self.prev_account_tree_root
+            .set_witness(witness, value.prev_account_tree_root);
         self.account_tree_root
             .set_witness(witness, value.account_tree_root);
         self.block_tree_root

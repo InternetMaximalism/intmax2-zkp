@@ -42,7 +42,8 @@ impl ValidityWitness {
         let main_validation_pis = self.block_witness.to_main_validation_pis();
 
         // transition account tree root
-        let mut account_tree_root = self.block_witness.prev_account_tree_root;
+        let prev_account_tree_root = self.block_witness.prev_account_tree_root;
+        let mut account_tree_root = prev_account_tree_root;
         if main_validation_pis.is_valid && main_validation_pis.is_registoration_block {
             let account_registoration_proofs = self
                 .validity_transition_witness
@@ -102,6 +103,7 @@ impl ValidityWitness {
 
         ValidityPublicInputs {
             public_state: PublicState {
+                prev_account_tree_root,
                 account_tree_root,
                 block_tree_root,
                 deposit_tree_root: block.deposit_tree_root,

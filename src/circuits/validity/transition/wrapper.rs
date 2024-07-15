@@ -83,6 +83,7 @@ where
 
         let new_pis = ValidityPublicInputsTarget {
             public_state: PublicStateTarget {
+                prev_account_tree_root: transition_target.prev_account_tree_root,
                 account_tree_root: transition_target.new_account_tree_root,
                 block_tree_root: transition_target.new_block_tree_root,
                 block_hash: block_pis.block_hash,
