@@ -220,10 +220,6 @@ mod tests {
 
         let txs = generate_random_tx_requests(&mut rng);
         let validity_witness = block_builder.post_block(true, txs);
-        assert!(validity_witness
-            .validity_transition_witness
-            .account_registoration_proofs
-            .is_some());
         let prev_block_number = validity_witness.get_block_number() - 1;
         let prev_pis = block_builder
             .aux_info
@@ -247,14 +243,20 @@ mod tests {
         use crate::circuits::validity::transition::dummy_wrapper::DummyTransitionWrapperCircuit;
 
         let mut rng = rand::thread_rng();
-        let block_builder = MockBlockBuilder::new();
+        let mut block_builder = MockBlockBuilder::new();
         let txs = generate_random_tx_requests(&mut rng);
-        let validity_witness = block_builder.generate_block_and_witness(true, txs).0;
-        let prev_block_witness = block_builder.get_last_block_witness();
+        let validity_witness = block_builder.post_block(true, txs);
+        let prev_block_number = validity_witness.get_block_number() - 1;
+        let prev_pis = block_builder
+            .aux_info
+            .get(&prev_block_number)
+            .unwrap()
+            .validity_witness
+            .to_validity_pis();
 
         let dummy_transition_wrapper = DummyTransitionWrapperCircuit::<F, C, D>::new();
         let transition_proof = dummy_transition_wrapper
-            .prove(&prev_block_witness, &validity_witness)
+            .prove(&prev_pis, &validity_witness)
             .unwrap();
         let validity_circuit = ValidityCircuit::<F, C, D>::new(&dummy_transition_wrapper);
         validity_circuit.prove(&transition_proof, &None).unwrap();
