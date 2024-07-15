@@ -196,6 +196,13 @@ mod tests {
         let transfer0 = Transfer::rand(&mut rng);
         local_manager.send_tx_and_update(&mut rng, &mut block_builder, &[transfer0]);
 
+        sync_sender_prover.sync_send(
+            &mut sync_validity_prover,
+            &balance_processor,
+            &block_builder,
+            &local_manager,
+        );
+
         // send tx1
         let transfer1 = Transfer::rand(&mut rng);
         local_manager.send_tx_and_update(&mut rng, &mut block_builder, &[transfer1]);

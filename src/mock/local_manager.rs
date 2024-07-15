@@ -386,7 +386,7 @@ mod tests {
     type C = PoseidonGoldilocksConfig;
 
     #[test]
-    fn local_manager_post_two() {
+    fn local_manager_post_blocks() {
         let mut rng = rand::thread_rng();
         let mut local_manager = LocalManager::new_rand(&mut rng);
         let mut block_builder = MockBlockBuilder::new();
@@ -399,7 +399,6 @@ mod tests {
             salt: Salt::rand(&mut rng),
         };
         // post register block
-
         let _transfer_witnesses1 = local_manager.send_tx(&mut block_builder, &[transfer]);
         local_manager.nonce += 1;
         // post account id block

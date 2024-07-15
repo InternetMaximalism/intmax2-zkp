@@ -14,9 +14,9 @@ use crate::{
             SignatureContent,
         },
         trees::{
-            account_tree::{AccountRegistorationProof, AccountTree},
-            block_hash_tree::BlockHashTree,
-            deposit_tree::DepositTree,
+            account_tree::{AccountMembershipProof, AccountRegistorationProof, AccountTree},
+            block_hash_tree::{BlockHashMerkleProof, BlockHashTree},
+            deposit_tree::{DepositLeaf, DepositTree},
             sender_tree::get_sender_leaves,
             tx_tree::TxTree,
         },
@@ -277,6 +277,43 @@ impl MockBlockBuilder {
         self.last_validity_witness = validity_witness.clone();
 
         validity_witness
+    }
+
+    pub fn get_block_merkle_proof(
+        &self,
+        current_block_number: u32,
+        target_block_number: u32,
+    ) -> BlockHashMerkleProof {
+        assert!(current_block_number >= target_block_number);
+        let block_tree = &self
+            .aux_info
+            .get(&current_block_number)
+            .expect("current block number not found")
+            .block_tree;
+        block_tree.prove(target_block_number as usize)
+    }
+
+    pub fn get_account_membership_proof(
+        &self,
+        current_block_number: u32,
+        pubkey: U256,
+    ) -> AccountMembershipProof {
+        let account_tree = &self
+            .aux_info
+            .get(&current_block_number)
+            .expect("current block number not found")
+            .account_tree;
+        account_tree.prove_membership(pubkey)
+    }
+
+    pub fn last_block_number(&self) -> u32 {
+        self.last_block_number
+    }
+
+    pub fn deposit(&mut self, deposit: &DepositLeaf) -> usize {
+        self.deposit_tree.push(deposit.clone());
+        let deposit_index = self.deposit_tree.len() - 1;
+        deposit_index
     }
 }
 
