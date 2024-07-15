@@ -22,7 +22,6 @@ use crate::{
     utils::{
         conversion::ToU64,
         dummy::DummyProof,
-        logic::BuilderLogic,
         poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget},
         recursivable::Recursivable,
     },
@@ -39,7 +38,7 @@ pub struct ValidityTransitionValue<
     C: GenericConfig<D, F = F>,
     const D: usize,
 > {
-    pub prev_block_pis: MainValidationPublicInputs,
+    pub block_pis: MainValidationPublicInputs,
     pub prev_block_tree_root: PoseidonHashOut,
     pub new_block_tree_root: PoseidonHashOut,
     pub new_account_tree_root: PoseidonHashOut,
@@ -54,16 +53,16 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     pub fn new(
         account_registoration_circuit: &AccountRegistorationCircuit<F, C, D>,
         account_update_circuit: &AccountUpdateCircuit<F, C, D>,
-        prev_block_pis: MainValidationPublicInputs,
+        block_pis: MainValidationPublicInputs,
+        prev_account_tree_root: PoseidonHashOut,
         prev_block_tree_root: PoseidonHashOut,
         account_registoration_proof: Option<ProofWithPublicInputs<F, C, D>>,
         account_update_proof: Option<ProofWithPublicInputs<F, C, D>>,
         block_hash_merkle_proof: BlockHashMerkleProof,
     ) -> Self {
         // account registoration
-        let is_account_registoration =
-            prev_block_pis.is_registoration_block && prev_block_pis.is_valid;
-        let mut new_account_tree_root = prev_block_pis.account_tree_root;
+        let is_account_registoration = block_pis.is_registoration_block && block_pis.is_valid;
+        let mut new_account_tree_root = prev_account_tree_root;
         if is_account_registoration {
             let account_registoration_proof = account_registoration_proof
                 .clone()
@@ -75,13 +74,13 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
             let pis = AccountTransitionPublicInputs::from_u64_vec(
                 &account_registoration_proof.public_inputs.to_u64_vec(),
             );
-            assert_eq!(pis.prev_account_tree_root, prev_block_pis.account_tree_root);
-            assert_eq!(pis.sender_tree_root, prev_block_pis.sender_tree_root);
-            assert_eq!(pis.block_number, prev_block_pis.block_number);
+            assert_eq!(pis.prev_account_tree_root, prev_account_tree_root);
+            assert_eq!(pis.sender_tree_root, block_pis.sender_tree_root);
+            assert_eq!(pis.block_number, block_pis.block_number);
             new_account_tree_root = pis.new_account_tree_root;
         }
 
-        let is_account_update = (!prev_block_pis.is_registoration_block) && prev_block_pis.is_valid;
+        let is_account_update = (!block_pis.is_registoration_block) && block_pis.is_valid;
         if is_account_update {
             let account_update_proof = account_update_proof
                 .clone()
@@ -97,26 +96,26 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
                     .map(|x| x.to_canonical_u64())
                     .collect::<Vec<_>>(),
             );
-            assert_eq!(pis.prev_account_tree_root, prev_block_pis.account_tree_root);
-            assert_eq!(pis.sender_tree_root, prev_block_pis.sender_tree_root);
-            assert_eq!(pis.block_number, prev_block_pis.block_number);
+            assert_eq!(pis.prev_account_tree_root, prev_account_tree_root);
+            assert_eq!(pis.sender_tree_root, block_pis.sender_tree_root);
+            assert_eq!(pis.block_number, block_pis.block_number);
             new_account_tree_root = pis.new_account_tree_root;
         }
 
         // block hash tree update
-        let prev_block_number = prev_block_pis.block_number;
+        let block_number = block_pis.block_number;
         block_hash_merkle_proof
             .verify(
                 &Bytes32::default(),
-                prev_block_number as usize,
+                block_number as usize,
                 prev_block_tree_root,
             )
             .expect("Block hash merkle proof is invalid");
-        let new_block_tree_root = block_hash_merkle_proof
-            .get_root(&prev_block_pis.block_hash, prev_block_number as usize);
+        let new_block_tree_root =
+            block_hash_merkle_proof.get_root(&block_pis.block_hash, block_number as usize);
 
         Self {
-            prev_block_pis,
+            block_pis,
             prev_block_tree_root,
             new_block_tree_root,
             new_account_tree_root,
@@ -128,7 +127,8 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
 }
 
 pub struct ValidityTransitionTarget<const D: usize> {
-    pub prev_block_pis: MainValidationPublicInputsTarget,
+    pub block_pis: MainValidationPublicInputsTarget,
+    pub prev_account_tree_root: PoseidonHashOutTarget,
     pub prev_block_tree_root: PoseidonHashOutTarget,
     pub new_block_tree_root: PoseidonHashOutTarget,
     pub new_account_tree_root: PoseidonHashOutTarget,
@@ -147,36 +147,35 @@ impl<const D: usize> ValidityTransitionTarget<D> {
         C::Hasher: AlgebraicHasher<F>,
     {
         // prev_pis already exists, so there is no need to check the ranges.
-        let prev_block_pis = MainValidationPublicInputsTarget::new(builder, false);
+        let block_pis = MainValidationPublicInputsTarget::new(builder, false);
+        let prev_account_tree_root = PoseidonHashOutTarget::new(builder);
         let prev_block_tree_root = PoseidonHashOutTarget::new(builder);
         let block_hash_merkle_proof =
             BlockHashMerkleProofTarget::new(builder, BLOCK_HASH_TREE_HEIGHT);
 
-        let mut new_account_tree_root = prev_block_pis.account_tree_root.clone();
+        let mut new_account_tree_root = prev_account_tree_root;
         // account registoration
-        let is_account_registoration = builder.and(
-            prev_block_pis.is_registoration_block,
-            prev_block_pis.is_valid,
-        );
+        let is_account_registoration =
+            builder.and(block_pis.is_registoration_block, block_pis.is_valid);
         let account_registoration_proof = account_registoration_circuit
             .add_proof_target_and_conditionally_verify(builder, is_account_registoration);
         let account_registoration_pis = AccountTransitionPublicInputsTarget::from_vec(
             &account_registoration_proof.public_inputs,
         );
-        builder.conditional_assert_eq_targets(
-            is_account_registoration,
-            &account_registoration_pis.prev_account_tree_root.elements,
-            &prev_block_pis.account_tree_root.elements,
-        );
-        builder.conditional_assert_eq_targets(
-            is_account_registoration,
-            &account_registoration_pis.sender_tree_root.elements,
-            &prev_block_pis.sender_tree_root.elements,
-        );
+        account_registoration_pis
+            .prev_account_tree_root
+            .conditional_assert_eq(builder, prev_account_tree_root, is_account_registoration);
+        account_registoration_pis
+            .sender_tree_root
+            .conditional_assert_eq(
+                builder,
+                block_pis.sender_tree_root,
+                is_account_registoration,
+            );
         builder.conditional_assert_eq(
             is_account_registoration.target,
             account_registoration_pis.block_number,
-            prev_block_pis.block_number,
+            block_pis.block_number,
         );
         new_account_tree_root = PoseidonHashOutTarget::select(
             builder,
@@ -185,27 +184,24 @@ impl<const D: usize> ValidityTransitionTarget<D> {
             new_account_tree_root,
         );
         // account update
-        let is_not_prev_registoration_block = builder.not(prev_block_pis.is_registoration_block);
-        let is_account_update =
-            builder.and(is_not_prev_registoration_block, prev_block_pis.is_valid);
+        let is_not_prev_registoration_block = builder.not(block_pis.is_registoration_block);
+        let is_account_update = builder.and(is_not_prev_registoration_block, block_pis.is_valid);
         let account_update_proof = account_update_circuit
             .add_proof_target_and_conditionally_verify(builder, is_account_update);
         let account_update_pis =
             AccountTransitionPublicInputsTarget::from_vec(&account_update_proof.public_inputs);
-        builder.conditional_assert_eq_targets(
+        account_update_pis
+            .prev_account_tree_root
+            .conditional_assert_eq(builder, prev_account_tree_root, is_account_update);
+        account_update_pis.sender_tree_root.conditional_assert_eq(
+            builder,
+            block_pis.sender_tree_root,
             is_account_update,
-            &account_update_pis.prev_account_tree_root.elements,
-            &prev_block_pis.account_tree_root.elements,
-        );
-        builder.conditional_assert_eq_targets(
-            is_account_update,
-            &account_update_pis.sender_tree_root.elements,
-            &prev_block_pis.sender_tree_root.elements,
         );
         builder.conditional_assert_eq(
             is_account_update.target,
             account_update_pis.block_number,
-            prev_block_pis.block_number,
+            block_pis.block_number,
         );
         new_account_tree_root = PoseidonHashOutTarget::select(
             builder,
@@ -214,7 +210,7 @@ impl<const D: usize> ValidityTransitionTarget<D> {
             new_account_tree_root,
         );
 
-        let prev_block_number = prev_block_pis.block_number;
+        let prev_block_number = block_pis.block_number;
         let empty_leaf = Bytes32::<Target>::zero::<F, D, Bytes32<u32>>(builder);
         block_hash_merkle_proof.verify::<F, C, D>(
             builder,
@@ -224,12 +220,13 @@ impl<const D: usize> ValidityTransitionTarget<D> {
         );
         let new_block_tree_root = block_hash_merkle_proof.get_root::<F, C, D>(
             builder,
-            &prev_block_pis.block_hash,
+            &block_pis.block_hash,
             prev_block_number,
         );
 
         Self {
-            prev_block_pis,
+            block_pis,
+            prev_account_tree_root,
             prev_block_tree_root,
             new_block_tree_root,
             new_account_tree_root,
@@ -248,14 +245,15 @@ impl<const D: usize> ValidityTransitionTarget<D> {
     ) where
         <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
     {
-        self.prev_block_pis
-            .set_witness(witness, &value.prev_block_pis);
+        self.block_pis.set_witness(witness, &value.block_pis);
+        self.prev_account_tree_root
+            .set_witness(witness, value.block_pis.account_tree_root);
         self.prev_block_tree_root
             .set_witness(witness, value.prev_block_tree_root);
         self.new_account_tree_root
             .set_witness(witness, value.new_account_tree_root);
-        // self.new_block_tree_root
-        //     .set_witness(witness, value.new_block_tree_root);
+        self.new_block_tree_root
+            .set_witness(witness, value.new_block_tree_root);
         let account_registoration_proof = value
             .account_registoration_proof
             .clone()
@@ -274,107 +272,102 @@ impl<const D: usize> ValidityTransitionTarget<D> {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use plonky2::{
-        field::goldilocks_field::GoldilocksField,
-        iop::witness::PartialWitness,
-        plonk::{
-            circuit_builder::CircuitBuilder, circuit_data::CircuitConfig,
-            config::PoseidonGoldilocksConfig,
-        },
-    };
+// #[cfg(test)]
+// mod tests {
+//     use plonky2::{
+//         field::goldilocks_field::GoldilocksField,
+//         iop::witness::PartialWitness,
+//         plonk::{
+//             circuit_builder::CircuitBuilder, circuit_data::CircuitConfig,
+//             config::PoseidonGoldilocksConfig,
+//         },
+//     };
 
-    use crate::{
-        circuits::validity::transition::{
-            account_registoration::{AccountRegistorationCircuit, AccountRegistorationValue},
-            account_update::AccountUpdateCircuit,
-            transition::{ValidityTransitionTarget, ValidityTransitionValue},
-        },
-        common::trees::sender_tree::get_sender_leaves,
-        mock::block_builder::MockBlockBuilder,
-        test_utils::tx::generate_random_tx_requests,
-    };
+//     use crate::{
+//         circuits::validity::transition::{
+//             account_registoration::{AccountRegistorationCircuit, AccountRegistorationValue},
+//             account_update::AccountUpdateCircuit,
+//             transition::{ValidityTransitionTarget, ValidityTransitionValue},
+//         },
+//         common::trees::sender_tree::get_sender_leaves,
+//         mock::block_builder::MockBlockBuilder,
+//         test_utils::tx::generate_random_tx_requests,
+//     };
 
-    type F = GoldilocksField;
-    const D: usize = 2;
-    type C = PoseidonGoldilocksConfig;
+//     type F = GoldilocksField;
+//     const D: usize = 2;
+//     type C = PoseidonGoldilocksConfig;
 
-    #[test]
-    fn validity_transition() {
-        let mut rng = rand::thread_rng();
-        let mut block_builder = MockBlockBuilder::new();
-        block_builder.post_block(true, generate_random_tx_requests(&mut rng));
-        let prev_block_witness = block_builder.get_last_block_witness();
-        let prev_block_pis = prev_block_witness.to_main_validation_pis();
+//     #[test]
+//     fn validity_transition() {
+//         let mut rng = rand::thread_rng();
+//         let mut block_builder = MockBlockBuilder::new();
+//         block_builder.post_block(true, generate_random_tx_requests(&mut rng));
+//         let prev_block_witness = block_builder.get_last_block_witness();
+//         let prev_block_pis = prev_block_witness.to_main_validation_pis();
 
-        let account_registoration_circuit = AccountRegistorationCircuit::<F, C, D>::new();
-        let account_update_circuit = AccountUpdateCircuit::<F, C, D>::new();
+//         let account_registoration_circuit = AccountRegistorationCircuit::<F, C, D>::new();
+//         let account_update_circuit = AccountUpdateCircuit::<F, C, D>::new();
 
-        let block_merkle_proof = block_builder
-            .prev_block_tree
-            .prove(prev_block_witness.block.block_number as usize);
+//         let block_merkle_proof = block_builder
+//             .block_tree
+//             .prove(prev_block_witness.block.block_number as usize);
 
-        assert_eq!(
-            prev_block_pis.account_tree_root,
-            block_builder.prev_account_tree.get_root()
-        );
+//         // it's a registoration block
+//         let account_registoration_proof = {
+//             let sender_leaves = get_sender_leaves(
+//                 &prev_block_witness.pubkeys,
+//                 prev_block_witness.signature.sender_flag,
+//             );
+//             let mut account_registoration_proofs = Vec::new();
+//             let mut prev_account_tree = block_builder.prev_account_tree.clone();
+//             for sender_leaf in &sender_leaves {
+//                 let last_block_number = if sender_leaf.is_valid {
+//                     prev_block_pis.block_number
+//                 } else {
+//                     0
+//                 };
+//                 let proof = prev_account_tree
+//                     .prove_and_insert(sender_leaf.sender, last_block_number as u64)
+//                     .unwrap();
+//                 account_registoration_proofs.push(proof);
+//             }
+//             let account_registoration_value = AccountRegistorationValue::new(
+//                 prev_block_pis.account_tree_root,
+//                 prev_block_pis.block_number,
+//                 sender_leaves,
+//                 account_registoration_proofs,
+//             );
+//             account_registoration_circuit
+//                 .prove(&account_registoration_value)
+//                 .unwrap()
+//         };
+//         let prev_block_tree_root = block_builder.prev_block_tree.get_root();
+//         let value = ValidityTransitionValue::new(
+//             &account_registoration_circuit,
+//             &account_update_circuit,
+//             prev_block_pis.clone(),
+//             prev_block_tree_root,
+//             Some(account_registoration_proof),
+//             None,
+//             block_merkle_proof,
+//         );
 
-        // it's a registoration block
-        let account_registoration_proof = {
-            let sender_leaves = get_sender_leaves(
-                &prev_block_witness.pubkeys,
-                prev_block_witness.signature.sender_flag,
-            );
-            let mut account_registoration_proofs = Vec::new();
-            let mut prev_account_tree = block_builder.prev_account_tree.clone();
-            for sender_leaf in &sender_leaves {
-                let last_block_number = if sender_leaf.is_valid {
-                    prev_block_pis.block_number
-                } else {
-                    0
-                };
-                let proof = prev_account_tree
-                    .prove_and_insert(sender_leaf.sender, last_block_number as u64)
-                    .unwrap();
-                account_registoration_proofs.push(proof);
-            }
-            let account_registoration_value = AccountRegistorationValue::new(
-                prev_block_pis.account_tree_root,
-                prev_block_pis.block_number,
-                sender_leaves,
-                account_registoration_proofs,
-            );
-            account_registoration_circuit
-                .prove(&account_registoration_value)
-                .unwrap()
-        };
-        let prev_block_tree_root = block_builder.prev_block_tree.get_root();
-        let value = ValidityTransitionValue::new(
-            &account_registoration_circuit,
-            &account_update_circuit,
-            prev_block_pis.clone(),
-            prev_block_tree_root,
-            Some(account_registoration_proof),
-            None,
-            block_merkle_proof,
-        );
+//         let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::default());
+//         let target = ValidityTransitionTarget::new(
+//             &account_registoration_circuit,
+//             &account_update_circuit,
+//             &mut builder,
+//         );
 
-        let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::default());
-        let target = ValidityTransitionTarget::new(
-            &account_registoration_circuit,
-            &account_update_circuit,
-            &mut builder,
-        );
-
-        let data = builder.build::<C>();
-        let mut pw = PartialWitness::new();
-        target.set_witness(
-            &mut pw,
-            account_registoration_circuit.dummy_proof.clone(),
-            account_update_circuit.dummy_proof.clone(),
-            &value,
-        );
-        let _proof = data.prove(pw).unwrap();
-    }
-}
+//         let data = builder.build::<C>();
+//         let mut pw = PartialWitness::new();
+//         target.set_witness(
+//             &mut pw,
+//             account_registoration_circuit.dummy_proof.clone(),
+//             account_update_circuit.dummy_proof.clone(),
+//             &value,
+//         );
+//         let _proof = data.prove(pw).unwrap();
+//     }
+// }

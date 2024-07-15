@@ -6,7 +6,6 @@ use plonky2::field::{goldilocks_field::GoldilocksField, types::Field};
 use plonky2_bn254::{curves::g2::G2Target, utils::hash_to_g2::HashToG2 as _};
 
 use crate::{
-    circuits::validity::validity_pis::ValidityPublicInputs,
     common::{
         block::Block,
         signature::{
@@ -43,8 +42,6 @@ pub struct MockBlockBuilder {
     pub block_tree: BlockHashTree, // current block hash tree
     pub deposit_tree: DepositTree, // current deposit tree
     pub block_witnesses: Vec<BlockWitness>,
-    pub prev_account_tree: AccountTree, // previous account tree
-    pub prev_block_tree: BlockHashTree, // previous block hash tree
     pub aux_info: HashMap<u32, AuxInfo>,
 }
 
@@ -62,20 +59,15 @@ impl MockBlockBuilder {
     // post the genesis block
     pub fn new() -> Self {
         let account_tree = AccountTree::initialize();
-        let prev_account_tree = account_tree.clone();
-
-        let prev_block_tree = BlockHashTree::new(BLOCK_HASH_TREE_HEIGHT);
+        let mut block_tree = BlockHashTree::new(BLOCK_HASH_TREE_HEIGHT);
+        block_tree.push(Block::genesis().hash());
         let deposit_tree = DepositTree::new(DEPOSIT_TREE_HEIGHT);
         let block_witness = BlockWitness::genesis();
-        let mut block_tree = prev_block_tree.clone();
-        block_tree.push(block_witness.block.hash()); // register genesis block
         MockBlockBuilder {
             account_tree,
             block_tree,
             deposit_tree,
             block_witnesses: vec![block_witness],
-            prev_account_tree,
-            prev_block_tree,
             aux_info: HashMap::new(),
         }
     }
@@ -156,13 +148,13 @@ impl MockBlockBuilder {
             block_number: prev_block.block_number + 1,
         };
         let account_tree_root = self.account_tree.get_root();
-        let block_hash_tree_root = self.block_tree.get_root();
+        let block_tree_root = self.block_tree.get_root();
         let block_witness = BlockWitness {
             block,
             signature: signature.clone(),
             pubkeys: pubkeys.clone(),
-            account_tree_root,
-            block_tree_root: block_hash_tree_root,
+            prev_account_tree_root: account_tree_root,
+            prev_block_tree_root: block_tree_root,
             account_id_packed,
             account_merkle_proofs,
             account_membership_proofs,
@@ -172,13 +164,15 @@ impl MockBlockBuilder {
     }
 
     // Generate transition witness from the prev block to the current block
-    fn generate_transition_witness(&self) -> ValidityTransitionWitness {
-        let prev_block_witness = self.get_last_block_witness();
-        if prev_block_witness.block.block_number == 0 {
+    fn generate_transition_witness(
+        &self,
+        block_witness: &BlockWitness,
+    ) -> ValidityTransitionWitness {
+        if block_witness.block.block_number == 0 {
             // prev block is genesis block
             assert_eq!(
                 self.prev_block_tree.get_root(),
-                prev_block_witness.block_tree_root
+                block_witness.prev_block_tree_root
             );
             return ValidityTransitionWitness {
                 prev_pis: ValidityPublicInputs::genesis(),
@@ -272,8 +266,14 @@ impl MockBlockBuilder {
         let validity_transition_witness = self.generate_transition_witness();
         // assertion
         let new_roots = validity_transition_witness.new_roots();
-        assert_eq!(block_witness.account_tree_root, new_roots.account_tree_root);
-        assert_eq!(block_witness.block_tree_root, new_roots.block_tree_root);
+        assert_eq!(
+            block_witness.prev_account_tree_root,
+            new_roots.account_tree_root
+        );
+        assert_eq!(
+            block_witness.prev_block_tree_root,
+            new_roots.block_tree_root
+        );
         (
             ValidityWitness {
                 validity_transition_witness,

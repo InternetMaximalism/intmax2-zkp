@@ -398,7 +398,7 @@ mod tests {
 
         let pubkey = local_manager.key_set.pubkey_x;
         let tx_index = tx_witness.tx_index;
-        let sender_tree = tx_witness.block_witness.get_sender_tree();
+        let sender_tree = tx_witness.validity_witness.block_witness.get_sender_tree();
         let sender_leaf = sender_tree.get_leaf(tx_index);
         let sender_merkle_proof = sender_tree.prove(tx_index);
         let value = TxInclusionValue::new(

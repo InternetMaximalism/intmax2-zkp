@@ -9,7 +9,6 @@ use crate::{
     },
     common::{
         block::Block,
-        public_state::PublicState,
         signature::{utils::get_pubkey_hash, SignatureContent},
         trees::{
             account_tree::{AccountMembershipProof, AccountMerkleProof, AccountTree},
@@ -23,7 +22,7 @@ use crate::{
     utils::poseidon_hash_out::PoseidonHashOut,
 };
 
-use super::tx_witness::TxWitness;
+use super::{tx_witness::TxWitness, validity_witness::ValidityWitness};
 
 /// A structure that holds all the information needed to verify a block
 #[derive(Debug, Clone)]
@@ -31,8 +30,8 @@ pub struct BlockWitness {
     pub block: Block,
     pub signature: SignatureContent,
     pub pubkeys: Vec<U256<u32>>,
-    pub account_tree_root: PoseidonHashOut,
-    pub block_tree_root: PoseidonHashOut,
+    pub prev_account_tree_root: PoseidonHashOut,
+    pub prev_block_tree_root: PoseidonHashOut,
     pub account_id_packed: Option<AccountIdPacked<u32>>, // in account id case
     pub account_merkle_proofs: Option<Vec<AccountMerkleProof>>, // in account id case
     pub account_membership_proofs: Option<Vec<AccountMembershipProof>>, // in pubkey case
@@ -46,28 +45,11 @@ impl BlockWitness {
             block: Block::genesis(),
             signature: SignatureContent::default(),
             pubkeys: vec![],
-            account_tree_root: account_tree.get_root(),
-            block_tree_root: block_hash_tree.get_root(),
+            prev_account_tree_root: account_tree.get_root(),
+            prev_block_tree_root: block_hash_tree.get_root(),
             account_id_packed: None,
             account_merkle_proofs: None,
             account_membership_proofs: None,
-        }
-    }
-
-    pub fn to_validity_pis(&self) -> ValidityPublicInputs {
-        let main_validation_pis = self.to_main_validation_pis();
-        ValidityPublicInputs {
-            public_state: PublicState {
-                account_tree_root: self.account_tree_root,
-                block_tree_root: self.block_tree_root,
-                deposit_tree_root: self.block.deposit_tree_root,
-                block_number: self.block.block_number,
-                block_hash: main_validation_pis.block_hash,
-            },
-            tx_tree_root: main_validation_pis.tx_tree_root,
-            sender_tree_root: main_validation_pis.sender_tree_root,
-            is_registoration_block: main_validation_pis.is_registoration_block,
-            is_valid_block: main_validation_pis.is_valid,
         }
     }
 
@@ -91,7 +73,7 @@ impl BlockWitness {
         let block = self.block.clone();
         let signature = self.signature.clone();
         let pubkeys = self.pubkeys.clone();
-        let account_tree_root = self.account_tree_root;
+        let account_tree_root = self.prev_account_tree_root;
 
         let pubkey_hash = get_pubkey_hash(&pubkeys);
         let is_registoration_block = signature.is_registoration_block;
@@ -164,7 +146,7 @@ impl BlockWitness {
 
 #[derive(Clone, Debug)]
 pub struct BlockInfo {
-    pub block_witness: BlockWitness,
+    pub validity_witness: ValidityWitness,
     pub tx_tree: TxTree,
 }
 
@@ -178,7 +160,7 @@ impl BlockInfo {
             .map(|(tx_index, tx)| {
                 let tx_merkle_proof = self.tx_tree.prove(tx_index);
                 TxWitness {
-                    block_witness: self.block_witness.clone(),
+                    validity_witness: self.validity_witness.clone(),
                     tx: tx.clone(),
                     tx_index,
                     tx_merkle_proof,

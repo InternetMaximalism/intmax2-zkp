@@ -52,11 +52,7 @@ where
                 .expect("aux info not found");
             let validity_proof = self
                 .validity_processor
-                .prove(
-                    &aux_info.prev_block_witness,
-                    &prev_validity_proof,
-                    &aux_info.validity_witness,
-                )
+                .prove(&prev_validity_proof, &aux_info.validity_witness)
                 .unwrap();
             self.validity_proofs.insert(block_number, validity_proof);
         }

@@ -12,8 +12,8 @@ use plonky2::{
 };
 
 use crate::{
-    circuits::validity::validity_pis::ValidityPublicInputsTarget,
-    common::witness::{block_witness::BlockWitness, validity_witness::ValidityWitness},
+    circuits::validity::validity_pis::{ValidityPublicInputs, ValidityPublicInputsTarget},
+    common::witness::validity_witness::ValidityWitness,
     utils::recursivable::Recursivable,
 };
 
@@ -57,21 +57,19 @@ where
 {
     pub fn prove(
         &self,
-        prev_block_witness: &BlockWitness,
+        prev_pis: &ValidityPublicInputs,
         validity_witness: &ValidityWitness,
     ) -> Result<ProofWithPublicInputs<F, C, D>> {
-        let prev_pis = prev_block_witness.to_validity_pis();
-        let new_pis = validity_witness.block_witness.to_validity_pis();
+        let new_pis = validity_witness.to_validity_pis();
 
         // assertion
-        let new_roots = validity_witness.validity_transition_witness.new_roots();
         assert_eq!(
-            new_pis.public_state.account_tree_root,
-            new_roots.account_tree_root
+            prev_pis.public_state.account_tree_root,
+            validity_witness.block_witness.prev_account_tree_root
         );
         assert_eq!(
-            new_pis.public_state.block_tree_root,
-            new_roots.block_tree_root
+            prev_pis.public_state.block_tree_root,
+            validity_witness.block_witness.prev_block_tree_root
         );
 
         let mut pw = PartialWitness::<F>::new();

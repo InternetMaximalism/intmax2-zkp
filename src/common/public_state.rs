@@ -36,13 +36,14 @@ pub struct PublicState {
 
 impl PublicState {
     pub fn genesis() -> Self {
-        let block_hash_tree = BlockHashTree::new(BLOCK_HASH_TREE_HEIGHT);
+        let mut block_tree = BlockHashTree::new(BLOCK_HASH_TREE_HEIGHT);
+        block_tree.push(Block::genesis().hash());
         let account_tree = AccountTree::initialize();
         let deposit_tree_root = DepositTree::new(DEPOSIT_TREE_HEIGHT);
         let block_hash = Block::genesis().hash();
         let block_number = 0;
         Self {
-            block_tree_root: block_hash_tree.get_root(),
+            block_tree_root: block_tree.get_root(),
             account_tree_root: account_tree.get_root(),
             deposit_tree_root: deposit_tree_root.get_root(),
             block_hash,

@@ -27,10 +27,9 @@ where
     let mut proofs = Vec::with_capacity(n);
     let mut prev_proof = None;
     for _ in 0..n {
-        let prev_block_witness = block_builder.get_last_block_witness();
         let validity_witness = block_builder.post_block(true, generate_random_tx_requests(rng));
         prev_proof = validity_processor
-            .prove(&prev_block_witness, &prev_proof, &validity_witness)
+            .prove(&prev_proof, &validity_witness)
             .map_or(None, Some);
         proofs.push(prev_proof.clone().unwrap());
     }

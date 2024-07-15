@@ -3,12 +3,12 @@ use crate::common::{
     tx::Tx,
 };
 
-use super::{block_witness::BlockWitness, transfer_witness::TransferWitness};
+use super::{transfer_witness::TransferWitness, validity_witness::ValidityWitness};
 
 /// Information needed to prove that a tx has been included in a block
 #[derive(Debug, Clone)]
 pub struct TxWitness {
-    pub block_witness: BlockWitness,
+    pub validity_witness: ValidityWitness,
     pub tx: Tx,
     pub tx_index: usize,
     pub tx_merkle_proof: TxMerkleProof,

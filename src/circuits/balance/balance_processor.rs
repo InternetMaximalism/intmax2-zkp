@@ -140,7 +140,6 @@ mod tests {
     use crate::{
         circuits::validity::validity_processor::ValidityProcessor,
         common::{transfer::Transfer, witness::balance_incoming_witness::BalanceIncomingWitness},
-        ethereum_types::u256::U256,
         mock::{
             block_builder::MockBlockBuilder, local_manager::LocalManager,
             sync_balance_prover::SyncBalanceProver, sync_validity_prover::SyncValidityProver,

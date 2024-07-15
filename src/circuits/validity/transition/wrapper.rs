@@ -64,44 +64,14 @@ where
         );
         let prev_pis = ValidityPublicInputsTarget::new(&mut builder, false);
 
-        // connect prev_pis to transition_target.prev_block_pis
-        let prev_block_pis = transition_target.prev_block_pis.clone();
-
-        prev_pis
-            .public_state
-            .account_tree_root
-            .connect(&mut builder, prev_block_pis.account_tree_root);
-        prev_pis
-            .public_state
-            .deposit_tree_root
-            .connect(&mut builder, prev_block_pis.deposit_tree_root);
-        prev_pis
-            .public_state
-            .block_hash
-            .connect(&mut builder, prev_block_pis.block_hash);
-        builder.connect(
-            prev_pis.public_state.block_number,
-            prev_block_pis.block_number,
-        );
         prev_pis
             .public_state
             .block_tree_root
             .connect(&mut builder, transition_target.prev_block_tree_root);
-
         prev_pis
-            .tx_tree_root
-            .connect(&mut builder, prev_block_pis.tx_tree_root);
-        prev_pis
-            .sender_tree_root
-            .connect(&mut builder, prev_block_pis.sender_tree_root);
-        builder.connect(
-            prev_pis.is_registoration_block.target,
-            prev_block_pis.is_registoration_block.target,
-        );
-        builder.connect(
-            prev_pis.is_valid_block.target,
-            prev_block_pis.is_valid.target,
-        );
+            .public_state
+            .account_tree_root
+            .connect(&mut builder, transition_target.prev_account_tree_root);
 
         // connect block_pis to transition_target
         block_pis
@@ -121,7 +91,6 @@ where
             },
             tx_tree_root: block_pis.tx_tree_root,
             sender_tree_root: block_pis.sender_tree_root,
-
             is_registoration_block: block_pis.is_registoration_block,
             is_valid_block: block_pis.is_valid,
         };

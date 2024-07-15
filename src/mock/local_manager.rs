@@ -155,7 +155,7 @@ impl LocalManager {
         let tx_index = tx_tree.get_tx_index(&tx).unwrap();
         let tx_merkle_proof = tx_tree.prove(tx_index);
         let tx_witness = TxWitness {
-            block_witness: validity_witness.block_witness,
+            validity_witness,
             tx,
             tx_index,
             tx_merkle_proof,
@@ -189,7 +189,7 @@ impl LocalManager {
         assert_eq!(tx_witness.tx.nonce, self.nonce);
         self.nonce += 1;
         self.salt = new_salt;
-        self.public_state = tx_witness.block_witness.to_validity_pis().public_state;
+        self.public_state = tx_witness.validity_witness.to_validity_pis().public_state;
         let transfers = transfer_witness
             .iter()
             .map(|w| w.transfer.clone())
@@ -372,11 +372,7 @@ mod tests {
         for block_number in 1..3 {
             let aux_info = block_builder.aux_info.get(&block_number).unwrap();
             prev_proof = validity_processor
-                .prove(
-                    &aux_info.prev_block_witness,
-                    &prev_proof,
-                    &aux_info.validity_witness,
-                )
+                .prove(&prev_proof, &aux_info.validity_witness)
                 .map_or(None, Some);
         }
     }

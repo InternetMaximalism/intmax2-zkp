@@ -8,9 +8,9 @@ use plonky2::{
     },
 };
 
-use crate::common::witness::{block_witness::BlockWitness, validity_witness::ValidityWitness};
+use crate::common::witness::validity_witness::ValidityWitness;
 
-use super::validity_circuit::ValidityCircuit;
+use super::{validity_circuit::ValidityCircuit, validity_pis::ValidityPublicInputs};
 
 #[cfg(feature = "dummy_validity_proof")]
 use super::transition::dummy_wrapper::DummyTransitionWrapperCircuit;
@@ -58,18 +58,32 @@ where
 
     pub fn prove(
         &self,
-        prev_block_witness: &BlockWitness,
         prev_proof: &Option<ProofWithPublicInputs<F, C, D>>,
         validity_witness: &ValidityWitness,
     ) -> Result<ProofWithPublicInputs<F, C, D>> {
+        let prev_pis = if prev_proof.is_some() {
+            ValidityPublicInputs::from_pis(&prev_proof.as_ref().unwrap().public_inputs)
+        } else {
+            ValidityPublicInputs::genesis()
+        };
+        // assertion
+        assert_eq!(
+            prev_pis.public_state.account_tree_root,
+            validity_witness.block_witness.prev_account_tree_root
+        );
+        assert_eq!(
+            prev_pis.public_state.block_tree_root,
+            validity_witness.block_witness.prev_block_tree_root
+        );
+
         #[cfg(not(feature = "dummy_validity_proof"))]
         let transition_proof = self
             .transition_processor
-            .prove(&prev_block_witness, &validity_witness)?;
+            .prove(&prev_pis, &validity_witness)?;
         #[cfg(feature = "dummy_validity_proof")]
         let transition_proof = self
             .dummy_transition_circuit
-            .prove(&prev_block_witness, &validity_witness)?;
+            .prove(&prev_pis, &validity_witness)?;
         self.validity_circuit.prove(&transition_proof, &prev_proof)
     }
 }

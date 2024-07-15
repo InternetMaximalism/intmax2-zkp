@@ -62,7 +62,7 @@ where
         let (account_exclusion_proof, account_inclusion_proof) =
             if block_witness.signature.is_registoration_block {
                 let account_exclusion_value = AccountExclusionValue::new(
-                    block_witness.account_tree_root,
+                    block_witness.prev_account_tree_root,
                     block_witness
                         .account_membership_proofs
                         .clone()
@@ -75,7 +75,7 @@ where
                 (Some(account_exclusion_proof), None)
             } else {
                 let value = AccountInclusionValue::new(
-                    block_witness.account_tree_root,
+                    block_witness.prev_account_tree_root,
                     block_witness
                         .account_id_packed
                         .clone()
@@ -115,7 +115,7 @@ where
             block_witness.block.clone(),
             block_witness.signature.clone(),
             block_witness.pubkeys.clone(),
-            block_witness.account_tree_root,
+            block_witness.prev_account_tree_root,
             account_inclusion_proof,
             account_exclusion_proof,
             format_validation_proof,
