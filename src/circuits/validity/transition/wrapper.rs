@@ -76,7 +76,7 @@ where
         // connect block_pis to transition_target
         block_pis
             .account_tree_root
-            .connect(&mut builder, transition_target.new_account_tree_root);
+            .connect(&mut builder, prev_pis.public_state.account_tree_root);
         block_pis
             .prev_block_hash
             .connect(&mut builder, prev_pis.public_state.block_hash);
@@ -124,6 +124,16 @@ where
         account_registoration_proof_dummy: DummyProof<F, C, D>,
         account_update_proof_dummy: DummyProof<F, C, D>,
     ) -> Result<ProofWithPublicInputs<F, C, D>> {
+        // assertion
+        assert_eq!(
+            prev_pis.public_state.block_tree_root,
+            transition_value.prev_block_tree_root
+        );
+        assert_eq!(
+            prev_pis.public_state.account_tree_root,
+            transition_value.prev_account_tree_root
+        );
+
         let mut pw = PartialWitness::<F>::new();
         self.transition_target.set_witness(
             &mut pw,

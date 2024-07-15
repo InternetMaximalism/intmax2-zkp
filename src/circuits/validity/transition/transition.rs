@@ -41,6 +41,7 @@ pub struct ValidityTransitionValue<
     pub block_pis: MainValidationPublicInputs,
     pub prev_block_tree_root: PoseidonHashOut,
     pub new_block_tree_root: PoseidonHashOut,
+    pub prev_account_tree_root: PoseidonHashOut,
     pub new_account_tree_root: PoseidonHashOut,
     pub account_registoration_proof: Option<ProofWithPublicInputs<F, C, D>>,
     pub account_update_proof: Option<ProofWithPublicInputs<F, C, D>>,
@@ -118,6 +119,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
             block_pis,
             prev_block_tree_root,
             new_block_tree_root,
+            prev_account_tree_root,
             new_account_tree_root,
             account_registoration_proof,
             account_update_proof,
@@ -128,9 +130,9 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
 
 pub struct ValidityTransitionTarget<const D: usize> {
     pub block_pis: MainValidationPublicInputsTarget,
-    pub prev_account_tree_root: PoseidonHashOutTarget,
     pub prev_block_tree_root: PoseidonHashOutTarget,
     pub new_block_tree_root: PoseidonHashOutTarget,
+    pub prev_account_tree_root: PoseidonHashOutTarget,
     pub new_account_tree_root: PoseidonHashOutTarget,
     pub account_registoration_proof: ProofWithPublicInputsTarget<D>,
     pub account_update_proof: ProofWithPublicInputsTarget<D>,
@@ -247,7 +249,7 @@ impl<const D: usize> ValidityTransitionTarget<D> {
     {
         self.block_pis.set_witness(witness, &value.block_pis);
         self.prev_account_tree_root
-            .set_witness(witness, value.block_pis.account_tree_root);
+            .set_witness(witness, value.prev_account_tree_root);
         self.prev_block_tree_root
             .set_witness(witness, value.prev_block_tree_root);
         self.new_account_tree_root
