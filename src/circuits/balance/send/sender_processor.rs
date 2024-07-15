@@ -54,14 +54,14 @@ where
         update_public_state_witness: &UpdatePublicStateWitness<F, C, D>,
     ) -> ProofWithPublicInputs<F, C, D> {
         // assert validity proof pis for debug
-        let _validity_pis = ValidityPublicInputs::from_pis(
+        let validity_pis = ValidityPublicInputs::from_pis(
             &update_public_state_witness.validity_proof.public_inputs,
         );
-        // assert_eq!(
-        //     validity_pis,
-        //     send_witness.tx_witness.block_witness.to_validity_pis(),
-        //     "validity proof pis mismatch"
-        // );
+        assert_eq!(
+            validity_pis,
+            send_witness.tx_witness.validity_witness.to_validity_pis(),
+            "validity proof pis mismatch"
+        );
         let spent_value = SpentValue::new(
             &send_witness.prev_private_state,
             &send_witness.prev_balances,

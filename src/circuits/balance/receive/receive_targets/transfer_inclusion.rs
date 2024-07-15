@@ -231,7 +231,7 @@ mod tests {
             &block_builder,
             &alice,
         );
-        let alice_balance_proof = alice_balance_prover.last_block_proof.clone().unwrap();
+        let alice_balance_proof = alice_balance_prover.last_balance_proof.clone().unwrap();
 
         let transfer_witness = &alice.get_transfer_witnesses(included_block_number).unwrap()[0];
         assert_eq!(transfer, transfer_witness.transfer);

@@ -9,7 +9,7 @@ impl MockBlockBuilder {
         current_block_number: u32,
         target_block_number: u32,
     ) -> BlockHashMerkleProof {
-        assert!(current_block_number > target_block_number);
+        assert!(current_block_number >= target_block_number);
         let block_tree = &self
             .aux_info
             .get(&current_block_number)

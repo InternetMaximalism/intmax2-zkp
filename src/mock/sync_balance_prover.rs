@@ -21,7 +21,7 @@ where
     C: GenericConfig<D, F = F>,
 {
     pub last_block_number: u32,
-    pub last_block_proof: Option<ProofWithPublicInputs<F, C, D>>,
+    pub last_balance_proof: Option<ProofWithPublicInputs<F, C, D>>,
 }
 
 impl<F, C, const D: usize> SyncBalanceProver<F, C, D>
@@ -33,7 +33,7 @@ where
     pub fn new() -> Self {
         Self {
             last_block_number: 0,
-            last_block_proof: None,
+            last_balance_proof: None,
         }
     }
 
@@ -67,10 +67,10 @@ where
                 local_manager.get_pubkey(),
                 &send_witness,
                 &update_public_state_witness,
-                &self.last_block_proof,
+                &self.last_balance_proof,
             );
             self.last_block_number = block_number;
-            self.last_block_proof = Some(balance_proof);
+            self.last_balance_proof = Some(balance_proof);
         }
     }
 
@@ -101,10 +101,10 @@ where
             sync_validity_prover.validity_circuit(),
             local_manager.get_pubkey(),
             &update_public_state_witness,
-            &self.last_block_proof,
+            &self.last_balance_proof,
         );
         self.last_block_number = current_block_number;
-        self.last_block_proof = Some(balance_proof);
+        self.last_balance_proof = Some(balance_proof);
     }
 
     pub fn sync_all(
