@@ -156,7 +156,7 @@ mod tests {
                     get_merkle_root_from_full_leaves, get_merkle_root_from_full_leaves_circuit,
                     get_merkle_root_from_leaves, get_merkle_root_from_leaves_circuit,
                 },
-                merkle_tree_with_leaves::MerkleTreeWithLeaves,
+                incremental_merkle_tree::IncrementalMerkleTree,
             },
         },
     };
@@ -171,7 +171,7 @@ mod tests {
         let height = 15;
         let num_leaves = 800;
         type V = Bytes32;
-        let mut tree = MerkleTreeWithLeaves::<V>::new(height);
+        let mut tree = IncrementalMerkleTree::<V>::new(height);
         let leaves = (0..num_leaves)
             .map(|_| V::rand(&mut rng))
             .collect::<Vec<_>>();

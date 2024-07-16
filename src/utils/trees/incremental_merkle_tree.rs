@@ -21,12 +21,12 @@ use crate::utils::{
 // Merkle Tree that holds leaves as a vec. It is suitable for handling indexed
 // leaves.
 #[derive(Debug, Clone)]
-pub struct MerkleTreeWithLeaves<V: Leafable> {
+pub struct IncrementalMerkleTree<V: Leafable> {
     merkle_tree: MerkleTree<V>,
     leaves: Vec<V>,
 }
 
-impl<V: Leafable> MerkleTreeWithLeaves<V> {
+impl<V: Leafable> IncrementalMerkleTree<V> {
     pub fn new(height: usize) -> Self {
         let merkle_tree = MerkleTree::new(height, V::empty_leaf().hash());
         let leaves = vec![];
@@ -89,16 +89,16 @@ impl<V: Leafable> MerkleTreeWithLeaves<V> {
         self.merkle_tree.update_leaf(index_bits, leaf.hash());
     }
 
-    pub fn prove(&self, index: usize) -> MerkleProofWithLeaves<V> {
+    pub fn prove(&self, index: usize) -> IncrementalMerkleProof<V> {
         let index_bits = usize_le_bits(index, self.height());
-        MerkleProofWithLeaves(self.merkle_tree.prove(index_bits))
+        IncrementalMerkleProof(self.merkle_tree.prove(index_bits))
     }
 }
 
 #[derive(Debug, Clone)]
-pub struct MerkleProofWithLeaves<V: Leafable>(pub(crate) MerkleProof<V>);
+pub struct IncrementalMerkleProof<V: Leafable>(pub(crate) MerkleProof<V>);
 
-impl<V: Leafable> MerkleProofWithLeaves<V> {
+impl<V: Leafable> IncrementalMerkleProof<V> {
     pub fn dummy(height: usize) -> Self {
         Self(MerkleProof::dummy(height))
     }
@@ -126,9 +126,9 @@ impl<V: Leafable> MerkleProofWithLeaves<V> {
 }
 
 #[derive(Debug, Clone)]
-pub struct MerkleProofWithLeavesTarget<VT: LeafableTarget>(MerkleProofTarget<VT>);
+pub struct IncrementalMerkleProofTarget<VT: LeafableTarget>(MerkleProofTarget<VT>);
 
-impl<VT: LeafableTarget> MerkleProofWithLeavesTarget<VT> {
+impl<VT: LeafableTarget> IncrementalMerkleProofTarget<VT> {
     pub fn new<F: RichField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
         height: usize,
@@ -138,7 +138,7 @@ impl<VT: LeafableTarget> MerkleProofWithLeavesTarget<VT> {
 
     pub fn constant<F: RichField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
-        value: &MerkleProofWithLeaves<VT::Leaf>,
+        value: &IncrementalMerkleProof<VT::Leaf>,
     ) -> Self {
         Self(MerkleProofTarget::constant(builder, &value.0))
     }
@@ -146,13 +146,13 @@ impl<VT: LeafableTarget> MerkleProofWithLeavesTarget<VT> {
     pub fn set_witness<F: Field, W: WitnessWrite<F>>(
         &self,
         pw: &mut W,
-        merkle_proof: &MerkleProofWithLeaves<VT::Leaf>,
+        merkle_proof: &IncrementalMerkleProof<VT::Leaf>,
     ) {
         self.0.set_witness(pw, &merkle_proof.0)
     }
 }
 
-impl<VT: LeafableTarget> MerkleProofWithLeavesTarget<VT> {
+impl<VT: LeafableTarget> IncrementalMerkleProofTarget<VT> {
     pub fn get_root<
         F: RichField + Extendable<D>,
         C: GenericConfig<D, F = F> + 'static,
@@ -241,7 +241,7 @@ mod tests {
         let height = 10;
 
         type V = Bytes32;
-        let mut tree = MerkleTreeWithLeaves::<V>::new(height);
+        let mut tree = IncrementalMerkleTree::<V>::new(height);
 
         for _ in 0..100 {
             let new_leaf = Bytes32::rand(&mut rng);
@@ -264,7 +264,7 @@ mod tests {
 
         type V = Bytes32;
         type VT = Bytes32Target;
-        let mut tree = MerkleTreeWithLeaves::<V>::new(height);
+        let mut tree = IncrementalMerkleTree::<V>::new(height);
         for _ in 0..1 << height {
             let new_leaf = V::rand(&mut rng);
             tree.push(new_leaf);
@@ -275,7 +275,7 @@ mod tests {
         let proof = tree.prove(index);
 
         let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::default());
-        let proof_t = MerkleProofWithLeavesTarget::<VT>::new(&mut builder, height);
+        let proof_t = IncrementalMerkleProofTarget::<VT>::new(&mut builder, height);
         let leaf_t = VT::new(&mut builder, false);
         let root_t = PoseidonHashOutTarget::new(&mut builder);
         let index_t = builder.add_virtual_target();

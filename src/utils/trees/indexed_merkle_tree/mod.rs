@@ -9,8 +9,8 @@ use crate::{
     ethereum_types::u256::U256,
     utils::{
         poseidon_hash_out::PoseidonHashOut,
-        trees::merkle_tree_with_leaves::{
-            MerkleProofWithLeaves, MerkleProofWithLeavesTarget, MerkleTreeWithLeaves,
+        trees::incremental_merkle_tree::{
+            IncrementalMerkleProof, IncrementalMerkleProofTarget, IncrementalMerkleTree,
         },
     },
 };
@@ -18,13 +18,13 @@ use anyhow::Result;
 use leaf::{IndexedMerkleLeaf, IndexedMerkleLeafTarget};
 
 #[derive(Debug, Clone)]
-pub struct IndexedMerkleTree(MerkleTreeWithLeaves<IndexedMerkleLeaf>);
-pub type IndexedMerkleProof = MerkleProofWithLeaves<IndexedMerkleLeaf>;
-pub type IndexedMerkleProofTarget = MerkleProofWithLeavesTarget<IndexedMerkleLeafTarget>;
+pub struct IndexedMerkleTree(IncrementalMerkleTree<IndexedMerkleLeaf>);
+pub type IndexedMerkleProof = IncrementalMerkleProof<IndexedMerkleLeaf>;
+pub type IndexedMerkleProofTarget = IncrementalMerkleProofTarget<IndexedMerkleLeafTarget>;
 
 impl IndexedMerkleTree {
     pub fn new(height: usize) -> Self {
-        let mut tree = MerkleTreeWithLeaves::<IndexedMerkleLeaf>::new(height);
+        let mut tree = IncrementalMerkleTree::<IndexedMerkleLeaf>::new(height);
         tree.push(IndexedMerkleLeaf::default());
         Self(tree)
     }

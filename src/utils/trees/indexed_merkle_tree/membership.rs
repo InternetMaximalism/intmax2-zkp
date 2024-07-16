@@ -20,7 +20,7 @@ use crate::{
     utils::{
         logic::BuilderLogic,
         poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget},
-        trees::merkle_tree_with_leaves::MerkleProofWithLeavesTarget,
+        trees::incremental_merkle_tree::IncrementalMerkleProofTarget,
     },
 };
 
@@ -108,7 +108,7 @@ impl MembershipProofTarget {
         }
         Self {
             is_included,
-            leaf_proof: MerkleProofWithLeavesTarget::new(builder, height),
+            leaf_proof: IncrementalMerkleProofTarget::new(builder, height),
             leaf_index: builder.add_virtual_target(),
             leaf: IndexedMerkleLeafTarget::new(builder, is_checked),
         }
