@@ -1,4 +1,3 @@
-use crate::utils::logic::BuilderLogic as _;
 use plonky2::{
     field::{
         extension::Extendable,
@@ -167,7 +166,9 @@ pub trait U32LimbTargetTrait<const NUM_LIMBS: usize>: Clone + Copy {
         other: Self,
         condition: BoolTarget,
     ) {
-        builder.conditional_assert_eq_targets(condition, &self.limbs(), &other.limbs());
+        for (l, r) in self.limbs().iter().zip(other.limbs().iter()) {
+            builder.conditional_assert_eq(condition.target, *l, *r);
+        }
     }
 
     fn is_equal<F: RichField + Extendable<D>, const D: usize>(

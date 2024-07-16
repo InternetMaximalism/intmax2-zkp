@@ -3,7 +3,11 @@ use crate::{
         signature::utils::get_pubkey_hash_circuit,
         trees::sender_tree::{get_sender_tree_root, get_sender_tree_root_circuit},
     },
-    ethereum_types::{bytes32::{Bytes32Target, BYTES32_LEN}, u256::U256Target, u32limb_trait::U32LimbTrait as _},
+    ethereum_types::{
+        bytes32::{Bytes32Target, BYTES32_LEN},
+        u256::U256Target,
+        u32limb_trait::U32LimbTrait as _,
+    },
     utils::{
         conversion::ToU64,
         dummy::DummyProof,
@@ -440,16 +444,12 @@ impl<const D: usize> MainValidationTarget<D> {
             .add_proof_target_and_conditionally_verify(builder, is_registoration_block);
         let account_exclusion_pis =
             AccountExclusionPublicInputsTarget::from_vec(&account_exclusion_proof.public_inputs);
-        builder.conditional_assert_eq_targets(
-            is_registoration_block,
-            &account_exclusion_pis.pubkey_commitment.elements,
-            &pubkey_commitment.elements,
-        );
-        builder.conditional_assert_eq_targets(
-            is_registoration_block,
-            &account_exclusion_pis.account_tree_root.elements,
-            &account_tree_root.elements,
-        );
+        account_exclusion_pis
+            .pubkey_commitment
+            .conditional_assert_eq(builder, pubkey_commitment, is_registoration_block);
+        account_exclusion_pis
+            .account_tree_root
+            .conditional_assert_eq(builder, account_tree_root, is_registoration_block);
         result = builder.conditional_and(
             is_registoration_block,
             result,
@@ -461,16 +461,12 @@ impl<const D: usize> MainValidationTarget<D> {
             .add_proof_target_and_conditionally_verify(builder, is_not_registoration_block);
         let account_inclusion_pis =
             AccountInclusionPublicInputsTarget::from_vec(&account_inclusion_proof.public_inputs);
-        builder.conditional_assert_eq_targets(
-            is_not_registoration_block,
-            &account_inclusion_pis.pubkey_commitment.elements,
-            &pubkey_commitment.elements,
-        );
-        builder.conditional_assert_eq_targets(
-            is_not_registoration_block,
-            &account_inclusion_pis.account_tree_root.elements,
-            &account_tree_root.elements,
-        );
+        account_inclusion_pis
+            .pubkey_commitment
+            .conditional_assert_eq(builder, pubkey_commitment, is_not_registoration_block);
+        account_inclusion_pis
+            .account_tree_root
+            .conditional_assert_eq(builder, account_tree_root, is_not_registoration_block);
         account_inclusion_pis.account_id_hash.conditional_assert_eq(
             builder,
             signature.account_id_hash,
@@ -500,15 +496,13 @@ impl<const D: usize> MainValidationTarget<D> {
             aggregation_circuit.add_proof_target_and_conditionally_verify(builder, result);
         let aggregation_pis =
             AggregationPublicInputsTarget::from_vec(&aggregation_proof.public_inputs);
-        builder.conditional_assert_eq_targets(
+        aggregation_pis
+            .pubkey_commitment
+            .conditional_assert_eq(builder, pubkey_commitment, result);
+        aggregation_pis.signature_commitment.conditional_assert_eq(
+            builder,
+            signature_commitment,
             result,
-            &aggregation_pis.pubkey_commitment.elements,
-            &pubkey_commitment.elements,
-        );
-        builder.conditional_assert_eq_targets(
-            result,
-            &aggregation_pis.signature_commitment.elements,
-            &signature_commitment.elements,
         );
         result = builder.conditional_and(result, result, aggregation_pis.is_valid);
 

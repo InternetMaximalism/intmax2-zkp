@@ -8,5 +8,6 @@ pub mod logic;
 pub mod poseidon_hash_out;
 pub mod recursivable;
 pub mod save;
+pub mod serialize;
 pub mod trees;
 pub mod wrapper;
