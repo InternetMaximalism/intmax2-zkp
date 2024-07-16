@@ -415,8 +415,13 @@ mod tests {
         sync_prover.sync(&block_builder);
 
         let prev_public_state = wallet.get_balance_pis().public_state;
-        let update_witness =
-            sync_prover.get_update_witness(&block_builder, wallet.get_pubkey(), 0, true);
+        let update_witness = sync_prover.get_update_witness(
+            &block_builder,
+            wallet.get_pubkey(),
+            block_builder.last_block_number(),
+            0,
+            true,
+        );
 
         let pubkey = wallet.key_set.pubkey_x;
         let tx_index = send_witness.tx_witness.tx_index;

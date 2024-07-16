@@ -64,10 +64,10 @@ where
         &self,
         block_builder: &MockBlockBuilder,
         pubkey: U256,
+        current_block_number: u32,
         target_block_number: u32,
         is_prev_account_tree: bool,
     ) -> UpdateWitness<F, C, D> {
-        let current_block_number = block_builder.last_block_number();
         let validity_proof = self
             .validity_proofs
             .get(&current_block_number)

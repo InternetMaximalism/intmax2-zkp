@@ -67,6 +67,7 @@ where
             let update_witness = sync_validity_prover.get_update_witness(
                 block_builder,
                 wallet.get_pubkey(),
+                block_number,
                 prev_block_number,
                 true,
             );
@@ -106,6 +107,7 @@ where
         let update_witness = sync_validity_prover.get_update_witness(
             block_builder,
             wallet.get_pubkey(),
+            block_builder.last_block_number(),
             self.last_block_number,
             false,
         );

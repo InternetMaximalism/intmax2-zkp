@@ -109,8 +109,8 @@ mod tests {
         common::{generic_address::GenericAddress, salt::Salt, transfer::Transfer},
         ethereum_types::u256::U256,
         mock::{
-            block_builder::MockBlockBuilder, wallet::MockWallet,
-            sync_validity_prover::SyncValidityProver,
+            block_builder::MockBlockBuilder, sync_validity_prover::SyncValidityProver,
+            wallet::MockWallet,
         },
     };
 
@@ -137,8 +137,7 @@ mod tests {
         };
 
         // send tx
-        let send_witness =
-            wallet.send_tx_and_update(&mut rng, &mut block_builder, &[transfer]);
+        let send_witness = wallet.send_tx_and_update(&mut rng, &mut block_builder, &[transfer]);
         sync_prover.sync(&block_builder);
 
         let block_number = send_witness.get_included_block_number();
@@ -150,6 +149,7 @@ mod tests {
         let update_witness = sync_prover.get_update_witness(
             &block_builder,
             wallet.get_pubkey(),
+            block_builder.last_block_number(),
             prev_block_number,
             true,
         );
