@@ -47,7 +47,7 @@ pub struct LocalManager {
     pub salt: Salt,
     pub public_state: PublicState,
     pub send_witnesses: Vec<SendWitness>,
-    pub deposit_cases: Vec<DepositCase>,
+    pub deposit_cases: HashMap<usize, DepositCase>,
     pub transfer_witnesses: HashMap<u32, Vec<TransferWitness>>,
 }
 
@@ -62,7 +62,7 @@ impl LocalManager {
             salt: Salt::default(),
             public_state: PublicState::genesis(),
             send_witnesses: Vec::new(),
-            deposit_cases: Vec::new(),
+            deposit_cases: HashMap::new(),
             transfer_witnesses: HashMap::new(),
         }
     }
@@ -244,7 +244,7 @@ impl LocalManager {
         block_builder: &mut MockBlockBuilder,
         token_index: u32,
         amount: U256,
-    ) {
+    ) -> usize {
         let pubkey = self.get_pubkey();
         let salt = Salt::rand(rng);
         let pubkey_salt_hash = get_pubkey_salt_hash(pubkey, salt);
@@ -261,26 +261,34 @@ impl LocalManager {
             deposit_index,
             deposit,
         };
-        self.deposit_cases.push(deposit_case);
+        self.deposit_cases.insert(deposit_index, deposit_case);
+        deposit_index
     }
 
     pub fn generate_deposit_witness<R: Rng>(
         &mut self,
         rng: &mut R,
         block_builder: &MockBlockBuilder,
+        deposit_index: usize,
     ) -> ReceiveDepositWitness {
-        let deposit_case = self.deposit_cases.remove(0);
+        let deposit_case = self
+            .deposit_cases
+            .get(&deposit_index)
+            .expect("deposit not found");
         let deposit_merkle_proof = block_builder.deposit_tree.prove(deposit_case.deposit_index);
         let deposit_witness = DepositWitness {
             deposit_merkle_proof,
             deposit_salt: deposit_case.deposit_salt,
             deposit_index: deposit_case.deposit_index,
-            deposit: deposit_case.deposit,
+            deposit: deposit_case.deposit.clone(),
         };
         let deposit = deposit_witness.deposit.clone();
         let nullifier: Bytes32 = deposit.poseidon_hash().into();
         let private_witness =
             self.generate_private_witness(rng, deposit.token_index, deposit.amount, nullifier);
+
+        // delete deposit
+        self.deposit_cases.remove(&deposit_index);
         ReceiveDepositWitness {
             deposit_witness,
             private_witness,

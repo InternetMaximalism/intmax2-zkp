@@ -277,7 +277,7 @@ mod tests {
             &alice_balance_proof,
         );
 
-        balance_processor.prove_receive_transfer(
+        let _new_bob_balance_proof = balance_processor.prove_receive_transfer(
             bob.get_pubkey(),
             &receive_transfer_witness,
             &Some(bob_balance_proof),
@@ -296,9 +296,9 @@ mod tests {
         let mut alice = LocalManager::new_rand(rng);
         let mut alice_balance_prover = SyncBalanceProver::<F, C, D>::new();
         let deposit_amount = U256::rand_small(rng);
-        alice.deposit(rng, &mut block_builder, 0, deposit_amount);
-        alice.deposit(rng, &mut block_builder, 1, deposit_amount);
-        alice.deposit(rng, &mut block_builder, 2, deposit_amount);
+        let first_deposit_index = alice.deposit(rng, &mut block_builder, 0, deposit_amount);
+        alice.deposit(rng, &mut block_builder, 1, deposit_amount); // dummy deposit
+        alice.deposit(rng, &mut block_builder, 2, deposit_amount); // dummy deposit
 
         // post dummy block
         let transfer = Transfer::rand(rng);
@@ -311,8 +311,9 @@ mod tests {
         );
         let alice_balance_proof = alice_balance_prover.last_balance_proof.clone().unwrap();
 
-        let receive_deposit_witness = alice.generate_deposit_witness(rng, &block_builder);
-        balance_processor.prove_receive_deposit(
+        let receive_deposit_witness =
+            alice.generate_deposit_witness(rng, &block_builder, first_deposit_index);
+        let _new_alice_balance_proof = balance_processor.prove_receive_deposit(
             alice.get_pubkey(),
             &receive_deposit_witness,
             &Some(alice_balance_proof),
