@@ -192,7 +192,7 @@ mod tests {
         common::{generic_address::GenericAddress, salt::Salt, transfer::Transfer},
         ethereum_types::u256::U256,
         mock::{
-            block_builder::MockBlockBuilder, local_manager::LocalManager,
+            block_builder::MockBlockBuilder, wallet::MockWallet,
             sync_balance_prover::SyncBalanceProver, sync_validity_prover::SyncValidityProver,
         },
     };
@@ -211,8 +211,8 @@ mod tests {
         let balance_processor = BalanceProcessor::new(sync_validity_prover.validity_circuit());
 
         // personal data
-        let mut alice = LocalManager::new_rand(&mut rng);
-        let bob = LocalManager::new_rand(&mut rng);
+        let mut alice = MockWallet::new_rand(&mut rng);
+        let bob = MockWallet::new_rand(&mut rng);
         let mut alice_balance_prover = SyncBalanceProver::<F, C, D>::new();
 
         // send tx

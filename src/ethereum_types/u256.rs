@@ -72,6 +72,14 @@ impl Ord for U256 {
     }
 }
 
+impl From<u32> for U256 {
+    fn from(value: u32) -> Self {
+        Self {
+            limbs: [value, 0, 0, 0, 0, 0, 0, 0],
+        }
+    }
+}
+
 impl TryFrom<BigUint> for U256 {
     type Error = anyhow::Error;
     fn try_from(value: BigUint) -> anyhow::Result<Self> {

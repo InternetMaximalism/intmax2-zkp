@@ -38,7 +38,7 @@ use plonky2::field::{goldilocks_field::GoldilocksField, types::Field};
 use plonky2_bn254::{curves::g2::G2Target, utils::hash_to_g2::HashToG2 as _};
 use rand::Rng;
 
-use super::tx_request::TxRequest;
+use super::tx_request::MockTxRequest;
 
 pub struct MockBlockBuilder {
     pub last_block_number: u32,
@@ -91,14 +91,14 @@ impl MockBlockBuilder {
     fn generate_block(
         &self,
         is_registoration_block: bool,
-        txs: Vec<TxRequest>,
+        txs: Vec<MockTxRequest>,
     ) -> (BlockWitness, TxTree) {
         assert!(txs.len() > 0, "at least one tx is required");
         assert!(txs.len() <= NUM_SENDERS_IN_BLOCK, "too many txs");
         // sort and pad txs
         let mut sorted_txs = txs.clone();
         sorted_txs.sort_by(|a, b| b.sender.pubkey_x.cmp(&a.sender.pubkey_x));
-        sorted_txs.resize(NUM_SENDERS_IN_BLOCK, TxRequest::dummy());
+        sorted_txs.resize(NUM_SENDERS_IN_BLOCK, MockTxRequest::dummy());
 
         let pubkeys = sorted_txs
             .iter()
@@ -263,7 +263,7 @@ impl MockBlockBuilder {
     pub fn post_block(
         &mut self,
         is_registoration_block: bool,
-        txs: Vec<TxRequest>,
+        txs: Vec<MockTxRequest>,
     ) -> ValidityWitness {
         let (block_witness, tx_tree) = self.generate_block(is_registoration_block, txs);
         let validity_witness = self.generate_validity_witness(&block_witness);
@@ -284,7 +284,7 @@ impl MockBlockBuilder {
 
     pub fn post_random_block<R: Rng>(&mut self, rng: &mut R) {
         let txs = (0..NUM_SENDERS_IN_BLOCK)
-            .map(|_| TxRequest {
+            .map(|_| MockTxRequest {
                 tx: Tx::rand(rng),
                 sender: KeySet::rand(rng),
                 will_return_signature: rng.gen(),
@@ -336,7 +336,7 @@ fn construct_signature(
     pubkey_hash: Bytes32,
     account_id_hash: Bytes32,
     is_registoration_block: bool,
-    sorted_txs: &[TxRequest],
+    sorted_txs: &[MockTxRequest],
 ) -> SignatureContent {
     assert_eq!(sorted_txs.len(), NUM_SENDERS_IN_BLOCK);
     let sender_flag_bits = sorted_txs

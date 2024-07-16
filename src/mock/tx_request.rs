@@ -1,13 +1,13 @@
 use crate::common::{signature::key_set::KeySet, tx::Tx};
 
 #[derive(Clone, Debug)]
-pub struct TxRequest {
+pub struct MockTxRequest {
     pub tx: Tx,
     pub sender: KeySet,
     pub will_return_signature: bool,
 }
 
-impl TxRequest {
+impl MockTxRequest {
     pub fn dummy() -> Self {
         Self {
             tx: Tx::default(),

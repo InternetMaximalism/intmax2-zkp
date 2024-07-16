@@ -109,7 +109,7 @@ mod tests {
         common::{generic_address::GenericAddress, salt::Salt, transfer::Transfer},
         ethereum_types::u256::U256,
         mock::{
-            block_builder::MockBlockBuilder, local_manager::LocalManager,
+            block_builder::MockBlockBuilder, wallet::MockWallet,
             sync_validity_prover::SyncValidityProver,
         },
     };
@@ -124,7 +124,7 @@ mod tests {
     fn sender_processor() {
         let mut rng = rand::thread_rng();
         let mut block_builder = MockBlockBuilder::new();
-        let mut local_manager = LocalManager::new_rand(&mut rng);
+        let mut wallet = MockWallet::new_rand(&mut rng);
         let mut sync_prover = SyncValidityProver::<F, C, D>::new();
         let sender_processor =
             SenderProcessor::new(&sync_prover.validity_processor.validity_circuit);
@@ -138,7 +138,7 @@ mod tests {
 
         // send tx
         let send_witness =
-            local_manager.send_tx_and_update(&mut rng, &mut block_builder, &[transfer]);
+            wallet.send_tx_and_update(&mut rng, &mut block_builder, &[transfer]);
         sync_prover.sync(&block_builder);
 
         let block_number = send_witness.get_included_block_number();
@@ -149,7 +149,7 @@ mod tests {
         );
         let update_witness = sync_prover.get_update_witness(
             &block_builder,
-            local_manager.get_pubkey(),
+            wallet.get_pubkey(),
             prev_block_number,
             true,
         );

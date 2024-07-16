@@ -32,14 +32,14 @@ use crate::{
     },
     constants::{ASSET_TREE_HEIGHT, NUM_TRANSFERS_IN_TX, TRANSFER_TREE_HEIGHT},
     ethereum_types::{bytes32::Bytes32, u256::U256, u32limb_trait::U32LimbTrait},
-    mock::tx_request::TxRequest,
+    mock::tx_request::MockTxRequest,
     utils::{leafable::Leafable, poseidon_hash_out::PoseidonHashOut},
 };
 
 use super::block_builder::MockBlockBuilder;
 
 #[derive(Debug, Clone)]
-pub struct LocalManager {
+pub struct MockWallet {
     pub key_set: KeySet,
     pub asset_tree: AssetTree,
     pub nullifier_tree: NullifierTree,
@@ -51,8 +51,8 @@ pub struct LocalManager {
     pub transfer_witnesses: HashMap<u32, Vec<TransferWitness>>,
 }
 
-impl LocalManager {
-    /// Create a new LocalManager with random key set, asset tree, nullifier tree, nonce, and salt.
+impl MockWallet {
+    /// Create a new wallet with random key set, asset tree, nullifier tree, nonce, and salt.
     pub fn new_rand<R: Rng>(rng: &mut R) -> Self {
         Self {
             key_set: KeySet::rand(rng),
@@ -143,7 +143,7 @@ impl LocalManager {
         };
         let validity_witness = block_builder.post_block(
             self.nonce == 0,
-            vec![TxRequest {
+            vec![MockTxRequest {
                 tx,
                 sender: self.key_set,
                 will_return_signature: true,
@@ -427,9 +427,9 @@ mod tests {
     type C = PoseidonGoldilocksConfig;
 
     #[test]
-    fn local_manager_post_blocks() {
+    fn wallet_post_blocks() {
         let mut rng = rand::thread_rng();
-        let mut local_manager = LocalManager::new_rand(&mut rng);
+        let mut wallet = MockWallet::new_rand(&mut rng);
         let mut block_builder = MockBlockBuilder::new();
 
         let transfer = Transfer {
@@ -439,16 +439,16 @@ mod tests {
             salt: Salt::rand(&mut rng),
         };
         // post register block
-        let _transfer_witnesses1 = local_manager.send_tx(&mut block_builder, &[transfer]);
-        local_manager.nonce += 1;
+        let _transfer_witnesses1 = wallet.send_tx(&mut block_builder, &[transfer]);
+        wallet.nonce += 1;
         // post account id block
-        let _transfer_witnesses2 = local_manager.send_tx(&mut block_builder, &[transfer]);
+        let _transfer_witnesses2 = wallet.send_tx(&mut block_builder, &[transfer]);
     }
 
     #[test]
-    fn test_prove_local_manager() {
+    fn test_prove_wallet() {
         let mut rng = rand::thread_rng();
-        let mut local_manager = LocalManager::new_rand(&mut rng);
+        let mut wallet = MockWallet::new_rand(&mut rng);
         let mut block_builder = MockBlockBuilder::new();
 
         let transfer = Transfer {
@@ -459,8 +459,7 @@ mod tests {
         };
 
         for block_number in 1..3 {
-            let send_witness =
-                local_manager.send_tx_and_update(&mut rng, &mut block_builder, &[transfer]);
+            let send_witness = wallet.send_tx_and_update(&mut rng, &mut block_builder, &[transfer]);
             assert_eq!(send_witness.get_included_block_number(), block_number);
         }
 

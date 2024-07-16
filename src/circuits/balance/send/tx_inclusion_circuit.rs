@@ -384,8 +384,8 @@ mod tests {
         common::{generic_address::GenericAddress, salt::Salt, transfer::Transfer},
         ethereum_types::u256::U256,
         mock::{
-            block_builder::MockBlockBuilder, local_manager::LocalManager,
-            sync_validity_prover::SyncValidityProver,
+            block_builder::MockBlockBuilder, sync_validity_prover::SyncValidityProver,
+            wallet::MockWallet,
         },
     };
 
@@ -399,7 +399,7 @@ mod tests {
     fn tx_inclusion_circuit() {
         let mut rng = rand::thread_rng();
         let mut block_builder = MockBlockBuilder::new();
-        let mut local_manager = LocalManager::new_rand(&mut rng);
+        let mut wallet = MockWallet::new_rand(&mut rng);
         let mut sync_prover = SyncValidityProver::<F, C, D>::new();
 
         let transfer = Transfer {
@@ -410,16 +410,15 @@ mod tests {
         };
 
         // send tx
-        let send_witness =
-            local_manager.send_tx_and_update(&mut rng, &mut block_builder, &[transfer]);
+        let send_witness = wallet.send_tx_and_update(&mut rng, &mut block_builder, &[transfer]);
         // update validity proofs
         sync_prover.sync(&block_builder);
 
-        let prev_public_state = local_manager.get_balance_pis().public_state;
+        let prev_public_state = wallet.get_balance_pis().public_state;
         let update_witness =
-            sync_prover.get_update_witness(&block_builder, local_manager.get_pubkey(), 0, true);
+            sync_prover.get_update_witness(&block_builder, wallet.get_pubkey(), 0, true);
 
-        let pubkey = local_manager.key_set.pubkey_x;
+        let pubkey = wallet.key_set.pubkey_x;
         let tx_index = send_witness.tx_witness.tx_index;
         let sender_tree = send_witness.tx_witness.get_sender_tree();
         let sender_leaf = sender_tree.get_leaf(tx_index);

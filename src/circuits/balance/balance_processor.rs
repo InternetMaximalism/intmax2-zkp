@@ -161,8 +161,8 @@ mod tests {
         common::transfer::Transfer,
         ethereum_types::u256::U256,
         mock::{
-            block_builder::MockBlockBuilder, local_manager::LocalManager,
-            sync_balance_prover::SyncBalanceProver, sync_validity_prover::SyncValidityProver,
+            block_builder::MockBlockBuilder, sync_balance_prover::SyncBalanceProver,
+            sync_validity_prover::SyncValidityProver, wallet::MockWallet,
         },
     };
 
@@ -182,31 +182,31 @@ mod tests {
     fn balance_processor_send() {
         let mut rng = rand::thread_rng();
         let mut block_builder = MockBlockBuilder::new();
-        let mut local_manager = LocalManager::new_rand(&mut rng);
+        let mut wallet = MockWallet::new_rand(&mut rng);
         let mut sync_validity_prover = SyncValidityProver::<F, C, D>::new();
         let mut sync_sender_prover = SyncBalanceProver::<F, C, D>::new();
         let balance_processor = BalanceProcessor::new(sync_validity_prover.validity_circuit());
 
         // send tx0
         let transfer0 = Transfer::rand(&mut rng);
-        local_manager.send_tx_and_update(&mut rng, &mut block_builder, &[transfer0]);
+        wallet.send_tx_and_update(&mut rng, &mut block_builder, &[transfer0]);
 
         sync_sender_prover.sync_send(
             &mut sync_validity_prover,
             &balance_processor,
             &block_builder,
-            &local_manager,
+            &wallet,
         );
 
         // send tx1
         let transfer1 = Transfer::rand(&mut rng);
-        local_manager.send_tx_and_update(&mut rng, &mut block_builder, &[transfer1]);
+        wallet.send_tx_and_update(&mut rng, &mut block_builder, &[transfer1]);
 
         sync_sender_prover.sync_send(
             &mut sync_validity_prover,
             &balance_processor,
             &block_builder,
-            &local_manager,
+            &wallet,
         );
     }
 
@@ -219,12 +219,12 @@ mod tests {
         let balance_processor = BalanceProcessor::new(sync_validity_prover.validity_circuit());
 
         // alice send tx0
-        let mut alice = LocalManager::new_rand(&mut rng);
+        let mut alice = MockWallet::new_rand(&mut rng);
         let transfer0 = Transfer::rand(&mut rng);
         alice.send_tx_and_update(&mut rng, &mut block_builder, &[transfer0]);
 
         // bob update balance proof
-        let bob = LocalManager::new_rand(&mut rng);
+        let bob = MockWallet::new_rand(&mut rng);
         let mut bob_balance_prover = SyncBalanceProver::<F, C, D>::new();
         bob_balance_prover.sync_no_send(
             &mut sync_validity_prover,
@@ -243,9 +243,9 @@ mod tests {
         let balance_processor = BalanceProcessor::new(sync_validity_prover.validity_circuit());
 
         // accounts
-        let mut alice = LocalManager::new_rand(&mut rng);
+        let mut alice = MockWallet::new_rand(&mut rng);
         let mut alice_balance_prover = SyncBalanceProver::<F, C, D>::new();
-        let bob = LocalManager::new_rand(&mut rng);
+        let bob = MockWallet::new_rand(&mut rng);
         let mut bob_balance_prover = SyncBalanceProver::<F, C, D>::new();
 
         let transfer = Transfer::rand_to(&mut rng, bob.get_pubkey());
@@ -268,7 +268,8 @@ mod tests {
             &block_builder,
             &bob,
         );
-        let bob_balance_proof = bob_balance_prover.last_balance_proof.clone().unwrap();
+        let bob_balance_proof = bob_balance_prover.get_balance_proof();
+
         let receive_transfer_witness = bob.generate_receive_transfer_witness(
             &mut rng,
             &block_builder,
@@ -276,7 +277,6 @@ mod tests {
             transfer_witness,
             &alice_balance_proof,
         );
-
         let _new_bob_balance_proof = balance_processor.prove_receive_transfer(
             bob.get_pubkey(),
             &receive_transfer_witness,
@@ -293,7 +293,7 @@ mod tests {
         let balance_processor = BalanceProcessor::new(sync_validity_prover.validity_circuit());
 
         // alice deposit
-        let mut alice = LocalManager::new_rand(rng);
+        let mut alice = MockWallet::new_rand(rng);
         let mut alice_balance_prover = SyncBalanceProver::<F, C, D>::new();
         let deposit_amount = U256::rand_small(rng);
         let first_deposit_index = alice.deposit(rng, &mut block_builder, 0, deposit_amount);

@@ -11,7 +11,7 @@ use plonky2::{
 use crate::circuits::balance::balance_processor::BalanceProcessor;
 
 use super::{
-    block_builder::MockBlockBuilder, local_manager::LocalManager,
+    block_builder::MockBlockBuilder, wallet::MockWallet,
     sync_validity_prover::SyncValidityProver,
 };
 
@@ -48,30 +48,30 @@ where
         sync_validity_prover: &mut SyncValidityProver<F, C, D>,
         balance_processor: &BalanceProcessor<F, C, D>,
         block_builder: &MockBlockBuilder,
-        local_manager: &LocalManager,
+        wallet: &MockWallet,
     ) {
         sync_validity_prover.sync(&block_builder); // sync validity proofs
-        let all_block_numbers = local_manager.get_all_block_numbers();
+        let all_block_numbers = wallet.get_all_block_numbers();
         let not_synced_block_numbers: Vec<u32> = all_block_numbers
             .into_iter()
             .filter(|block_number| self.last_block_number < *block_number)
             .sorted()
             .collect();
         for block_number in not_synced_block_numbers {
-            let send_witness = local_manager
+            let send_witness = wallet
                 .get_send_witness(block_number)
                 .expect("send witness not found");
             let block_number = send_witness.get_included_block_number();
             let prev_block_number = send_witness.get_prev_block_number();
             let update_witness = sync_validity_prover.get_update_witness(
                 block_builder,
-                local_manager.get_pubkey(),
+                wallet.get_pubkey(),
                 prev_block_number,
                 true,
             );
             let balance_proof = balance_processor.prove_send(
                 sync_validity_prover.validity_circuit(),
-                local_manager.get_pubkey(),
+                wallet.get_pubkey(),
                 &send_witness,
                 &update_witness,
                 &self.last_balance_proof,
@@ -88,10 +88,10 @@ where
         sync_validity_prover: &mut SyncValidityProver<F, C, D>,
         balance_processor: &BalanceProcessor<F, C, D>,
         block_builder: &MockBlockBuilder,
-        local_manager: &LocalManager,
+        wallet: &MockWallet,
     ) {
         sync_validity_prover.sync(&block_builder); // sync validity proofs
-        let all_block_numbers = local_manager.get_all_block_numbers();
+        let all_block_numbers = wallet.get_all_block_numbers();
         let not_synced_block_numbers: Vec<u32> = all_block_numbers
             .into_iter()
             .filter(|block_number| self.last_block_number < *block_number)
@@ -101,13 +101,13 @@ where
         let current_block_number = block_builder.last_block_number();
         let update_witness = sync_validity_prover.get_update_witness(
             block_builder,
-            local_manager.get_pubkey(),
+            wallet.get_pubkey(),
             self.last_block_number,
             false,
         );
         let balance_proof = balance_processor.prove_update(
             sync_validity_prover.validity_circuit(),
-            local_manager.get_pubkey(),
+            wallet.get_pubkey(),
             &update_witness,
             &self.last_balance_proof,
         );
@@ -120,19 +120,19 @@ where
         sync_validity_prover: &mut SyncValidityProver<F, C, D>,
         balance_processor: &BalanceProcessor<F, C, D>,
         block_builder: &MockBlockBuilder,
-        local_manager: &LocalManager,
+        wallet: &MockWallet,
     ) {
         self.sync_send(
             sync_validity_prover,
             balance_processor,
             block_builder,
-            local_manager,
+            wallet,
         );
         self.sync_no_send(
             sync_validity_prover,
             balance_processor,
             block_builder,
-            local_manager,
+            wallet,
         );
     }
 }

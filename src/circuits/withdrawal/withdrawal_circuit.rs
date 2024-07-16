@@ -200,7 +200,7 @@ mod tests {
         common::transfer::Transfer,
         ethereum_types::bytes32::Bytes32,
         mock::{
-            block_builder::MockBlockBuilder, local_manager::LocalManager,
+            block_builder::MockBlockBuilder, wallet::MockWallet,
             sync_balance_prover::SyncBalanceProver, sync_validity_prover::SyncValidityProver,
         },
     };
@@ -215,7 +215,7 @@ mod tests {
     fn withdawal_circuit() {
         let mut rng = &mut rand::thread_rng();
         let mut block_builder = MockBlockBuilder::new();
-        let mut local_manager = LocalManager::new_rand(rng);
+        let mut wallet = MockWallet::new_rand(rng);
         let mut sync_validity_prover = SyncValidityProver::<F, C, D>::new();
         let mut sync_sender_prover = SyncBalanceProver::<F, C, D>::new();
         let balance_processor = BalanceProcessor::new(sync_validity_prover.validity_circuit());
@@ -223,14 +223,14 @@ mod tests {
         // withdraw transfer 1
         let transfer = Transfer::rand_withdrawal(rng);
         let send_witness =
-            local_manager.send_tx_and_update(&mut rng, &mut block_builder, &[transfer]);
+            wallet.send_tx_and_update(&mut rng, &mut block_builder, &[transfer]);
         sync_sender_prover.sync_send(
             &mut sync_validity_prover,
             &balance_processor,
             &block_builder,
-            &local_manager,
+            &wallet,
         );
-        let transfer_witness = &local_manager
+        let transfer_witness = &wallet
             .get_transfer_witnesses(send_witness.get_included_block_number())
             .unwrap()[0];
         let balance_proof = sync_sender_prover.get_balance_proof();
