@@ -124,7 +124,7 @@ impl LocalManager {
 
     /// Send a transaction.
     /// Side effect: a block that contains the transaction is posted.
-    pub fn send_tx(
+    fn send_tx(
         &self,
         block_builder: &mut MockBlockBuilder,
         transfers: &[Transfer],
@@ -177,57 +177,7 @@ impl LocalManager {
         (tx_witness, transfer_witnesses)
     }
 
-    /// Deposit tokens on the layer 1.
-    pub fn deposit<R: Rng>(
-        &mut self,
-        rng: &mut R,
-        block_builder: &mut MockBlockBuilder,
-        token_index: u32,
-        amount: U256,
-    ) {
-        let pubkey = self.get_pubkey();
-        let salt = Salt::rand(rng);
-        let pubkey_salt_hash = get_pubkey_salt_hash(pubkey, salt);
-
-        let deposit = Deposit {
-            pubkey_salt_hash,
-            token_index,
-            amount,
-        };
-        let deposit_index = block_builder.deposit(&deposit);
-
-        let deposit_case = DepositCase {
-            deposit_salt: salt,
-            deposit_index,
-            deposit,
-        };
-        self.deposit_cases.push(deposit_case);
-    }
-
-    pub fn generate_deposit_witness<R: Rng>(
-        &mut self,
-        rng: &mut R,
-        block_builder: &MockBlockBuilder,
-    ) -> ReceiveDepositWitness {
-        let deposit_case = self.deposit_cases.remove(0);
-        let deposit_merkle_proof = block_builder.deposit_tree.prove(deposit_case.deposit_index);
-        let deposit_witness = DepositWitness {
-            deposit_merkle_proof,
-            deposit_salt: deposit_case.deposit_salt,
-            deposit_index: deposit_case.deposit_index,
-            deposit: deposit_case.deposit,
-        };
-        let deposit = deposit_witness.deposit.clone();
-        let nullifier: Bytes32 = deposit.poseidon_hash().into();
-        let private_witness =
-            self.generate_witness_for_receive(rng, deposit.token_index, deposit.amount, nullifier);
-        ReceiveDepositWitness {
-            deposit_witness,
-            private_witness,
-        }
-    }
-
-    fn update(
+    fn update_on_send_tx(
         &mut self,
         new_salt: Salt,
         tx_witness: &TxWitness,
@@ -284,10 +234,60 @@ impl LocalManager {
     ) -> SendWitness {
         let (tx_witness, transfer_witnesses) = self.send_tx(block_builder, transfers);
         let new_salt = Salt::rand(rng);
-        self.update(new_salt, &tx_witness, &transfer_witnesses)
+        self.update_on_send_tx(new_salt, &tx_witness, &transfer_witnesses)
     }
 
-    pub fn generate_witness_for_receive<R: Rng>(
+    /// Deposit tokens on the layer 1.
+    pub fn deposit<R: Rng>(
+        &mut self,
+        rng: &mut R,
+        block_builder: &mut MockBlockBuilder,
+        token_index: u32,
+        amount: U256,
+    ) {
+        let pubkey = self.get_pubkey();
+        let salt = Salt::rand(rng);
+        let pubkey_salt_hash = get_pubkey_salt_hash(pubkey, salt);
+
+        let deposit = Deposit {
+            pubkey_salt_hash,
+            token_index,
+            amount,
+        };
+        let deposit_index = block_builder.deposit(&deposit);
+
+        let deposit_case = DepositCase {
+            deposit_salt: salt,
+            deposit_index,
+            deposit,
+        };
+        self.deposit_cases.push(deposit_case);
+    }
+
+    pub fn generate_deposit_witness<R: Rng>(
+        &mut self,
+        rng: &mut R,
+        block_builder: &MockBlockBuilder,
+    ) -> ReceiveDepositWitness {
+        let deposit_case = self.deposit_cases.remove(0);
+        let deposit_merkle_proof = block_builder.deposit_tree.prove(deposit_case.deposit_index);
+        let deposit_witness = DepositWitness {
+            deposit_merkle_proof,
+            deposit_salt: deposit_case.deposit_salt,
+            deposit_index: deposit_case.deposit_index,
+            deposit: deposit_case.deposit,
+        };
+        let deposit = deposit_witness.deposit.clone();
+        let nullifier: Bytes32 = deposit.poseidon_hash().into();
+        let private_witness =
+            self.generate_private_witness(rng, deposit.token_index, deposit.amount, nullifier);
+        ReceiveDepositWitness {
+            deposit_witness,
+            private_witness,
+        }
+    }
+
+    fn generate_private_witness<R: Rng>(
         &self,
         rng: &mut R,
         token_index: u32,
@@ -358,12 +358,8 @@ impl LocalManager {
 
         // private witness
         let nullifier: Bytes32 = transfer.commitment().into();
-        let private_witness = self.generate_witness_for_receive(
-            rng,
-            transfer.token_index,
-            transfer.amount,
-            nullifier,
-        );
+        let private_witness =
+            self.generate_private_witness(rng, transfer.token_index, transfer.amount, nullifier);
         // block merkle proof
         let block_merkle_proof = block_builder
             .get_block_merkle_proof(receiver_block_number, balance_pis.public_state.block_number);

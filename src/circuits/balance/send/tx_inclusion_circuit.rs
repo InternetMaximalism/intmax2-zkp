@@ -399,7 +399,7 @@ mod tests {
     fn tx_inclusion_circuit() {
         let mut rng = rand::thread_rng();
         let mut block_builder = MockBlockBuilder::new();
-        let local_manager = LocalManager::new_rand(&mut rng);
+        let mut local_manager = LocalManager::new_rand(&mut rng);
         let mut sync_prover = SyncValidityProver::<F, C, D>::new();
 
         let transfer = Transfer {
@@ -410,7 +410,8 @@ mod tests {
         };
 
         // send tx
-        let tx_witness = local_manager.send_tx(&mut block_builder, &[transfer]).0;
+        let send_witness =
+            local_manager.send_tx_and_update(&mut rng, &mut block_builder, &[transfer]);
         // update validity proofs
         sync_prover.sync(&block_builder);
 
@@ -419,8 +420,8 @@ mod tests {
             sync_prover.get_update_witness(&block_builder, local_manager.get_pubkey(), 0, true);
 
         let pubkey = local_manager.key_set.pubkey_x;
-        let tx_index = tx_witness.tx_index;
-        let sender_tree = tx_witness.get_sender_tree();
+        let tx_index = send_witness.tx_witness.tx_index;
+        let sender_tree = send_witness.tx_witness.get_sender_tree();
         let sender_leaf = sender_tree.get_leaf(tx_index);
         let sender_merkle_proof = sender_tree.prove(tx_index);
         let value = TxInclusionValue::new(
@@ -430,9 +431,9 @@ mod tests {
             &update_witness.validity_proof,
             &update_witness.block_merkle_proof,
             &update_witness.account_membership_proof,
-            tx_witness.tx_index,
-            &tx_witness.tx,
-            &tx_witness.tx_merkle_proof,
+            send_witness.tx_witness.tx_index,
+            &send_witness.tx_witness.tx,
+            &send_witness.tx_witness.tx_merkle_proof,
             &sender_leaf,
             &sender_merkle_proof,
         );
