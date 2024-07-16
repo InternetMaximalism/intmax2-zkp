@@ -11,7 +11,7 @@ use crate::{
 };
 
 #[derive(Debug, Clone)]
-pub struct PrivateStateTransitionWitness {
+pub struct PrivateWitness {
     pub token_index: u32,
     pub amount: U256,
     pub nullifier: Bytes32,

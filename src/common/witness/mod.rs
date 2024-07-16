@@ -1,7 +1,6 @@
-pub mod balance_incoming_witness;
 pub mod block_witness;
 pub mod deposit_witness;
-pub mod private_state_transition_witness;
+pub mod private_witness;
 pub mod receive_deposit_witness;
 pub mod receive_transfer_witness;
 pub mod send_witness;

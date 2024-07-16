@@ -27,10 +27,9 @@ use crate::{
         validity::validity_circuit::ValidityCircuit,
     },
     common::witness::{
-        balance_incoming_witness::BalanceIncomingWitness,
-        private_state_transition_witness::PrivateStateTransitionWitness,
-        receive_deposit_witness::ReceiveDepositWitness, send_witness::SendWitness,
-        transfer_witness::TransferWitness, update_witness::UpdateWitness,
+        receive_deposit_witness::ReceiveDepositWitness,
+        receive_transfer_witness::ReceiveTransferWitness, send_witness::SendWitness,
+        update_witness::UpdateWitness,
     },
     ethereum_types::bytes32::Bytes32,
 };
@@ -159,38 +158,38 @@ where
         &self,
         balance_verifier_data: &VerifierCircuitData<F, C, D>,
         prev_balance_pis: &BalancePublicInputs,
-        transfer_witness: &TransferWitness,
-        private_transition_witness: &PrivateStateTransitionWitness,
-        balance_incoming_witness: &BalanceIncomingWitness<F, C, D>,
+        receive_transfer_witness: &ReceiveTransferWitness<F, C, D>,
     ) -> ProofWithPublicInputs<F, C, D> {
         // assertion
-        let transfer = transfer_witness.transfer;
+        let transfer = receive_transfer_witness.transfer_witness.transfer;
         let nullifier: Bytes32 = transfer.commitment().into();
-        assert_eq!(nullifier, private_transition_witness.nullifier);
-        assert_eq!(transfer.token_index, private_transition_witness.token_index);
-        assert_eq!(transfer.amount, private_transition_witness.amount);
+        let private_witness = receive_transfer_witness.private_witness.clone();
+        assert_eq!(nullifier, private_witness.nullifier);
+        assert_eq!(transfer.token_index, private_witness.token_index);
+        assert_eq!(transfer.amount, private_witness.amount);
 
         let private_state_transition = PrivateStateTransitionValue::new(
-            private_transition_witness.token_index,
-            private_transition_witness.amount,
-            private_transition_witness.nullifier,
-            private_transition_witness.new_salt,
-            &private_transition_witness.prev_private_state,
-            &private_transition_witness.nullifier_proof,
-            &private_transition_witness.prev_asset_leaf,
-            &private_transition_witness.asset_merkle_proof,
+            private_witness.token_index,
+            private_witness.amount,
+            private_witness.nullifier,
+            private_witness.new_salt,
+            &private_witness.prev_private_state,
+            &private_witness.nullifier_proof,
+            &private_witness.prev_asset_leaf,
+            &private_witness.asset_merkle_proof,
         );
+        let transfer_witness = receive_transfer_witness.transfer_witness.clone();
         let transfer_inclusion = TransferInclusionValue::new(
             balance_verifier_data,
             &transfer,
             transfer_witness.transfer_index,
             &transfer_witness.transfer_merkle_proof,
             &transfer_witness.tx,
-            &balance_incoming_witness.balance_proof,
+            &receive_transfer_witness.balance_proof,
         );
         let receive_transfer_value = ReceiveTransferValue::new(
             &prev_balance_pis.public_state,
-            &balance_incoming_witness.block_merkle_proof,
+            &receive_transfer_witness.block_merkle_proof,
             &transfer_inclusion,
             &private_state_transition,
         );

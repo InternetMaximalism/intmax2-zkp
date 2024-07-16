@@ -13,10 +13,9 @@ use crate::{
         balance::balance_pis::BalancePublicInputs, validity::validity_circuit::ValidityCircuit,
     },
     common::witness::{
-        balance_incoming_witness::BalanceIncomingWitness,
-        private_state_transition_witness::PrivateStateTransitionWitness,
-        receive_deposit_witness::ReceiveDepositWitness, send_witness::SendWitness,
-        transfer_witness::TransferWitness, update_witness::UpdateWitness,
+        receive_deposit_witness::ReceiveDepositWitness,
+        receive_transfer_witness::ReceiveTransferWitness, send_witness::SendWitness,
+        update_witness::UpdateWitness,
     },
     ethereum_types::u256::U256,
 };
@@ -107,9 +106,7 @@ where
     pub fn prove_receive_transfer(
         &self,
         pubkey: U256,
-        transfer_witness: &TransferWitness,
-        private_transition_witness: &PrivateStateTransitionWitness,
-        balance_incoming_witness: &BalanceIncomingWitness<F, C, D>,
+        receive_transfer_witness: &ReceiveTransferWitness<F, C, D>,
         prev_proof: &Option<ProofWithPublicInputs<F, C, D>>,
     ) -> ProofWithPublicInputs<F, C, D> {
         let prev_balance_pis = if prev_proof.is_some() {
@@ -120,9 +117,7 @@ where
         let transition_proof = self.balance_transition_processor.prove_receive_transfer(
             &self.get_verifier_data(),
             &prev_balance_pis,
-            transfer_witness,
-            private_transition_witness,
-            balance_incoming_witness,
+            receive_transfer_witness,
         );
         let proof = self
             .balance_circuit
@@ -163,7 +158,7 @@ mod tests {
 
     use crate::{
         circuits::validity::validity_processor::ValidityProcessor,
-        common::{transfer::Transfer, witness::balance_incoming_witness::BalanceIncomingWitness},
+        common::transfer::Transfer,
         ethereum_types::u256::U256,
         mock::{
             block_builder::MockBlockBuilder, local_manager::LocalManager,
@@ -274,22 +269,17 @@ mod tests {
             &bob,
         );
         let bob_balance_proof = bob_balance_prover.last_balance_proof.clone().unwrap();
-        let private_transition_witness =
-            bob.generate_witness_for_receive_transfer(&mut rng, &transfer);
-        let block_merkle_proof = block_builder.get_block_merkle_proof(
-            block_builder.last_block_number(),
-            send_witness.get_included_block_number(),
+        let receive_transfer_witness = bob.generate_receive_transfer_witness(
+            &mut rng,
+            &block_builder,
+            bob_balance_prover.last_block_number,
+            transfer_witness,
+            &alice_balance_proof,
         );
-        let balance_incoming_witness = BalanceIncomingWitness {
-            balance_proof: alice_balance_proof,
-            block_merkle_proof,
-        };
 
         balance_processor.prove_receive_transfer(
             bob.get_pubkey(),
-            transfer_witness,
-            &private_transition_witness,
-            &balance_incoming_witness,
+            &receive_transfer_witness,
             &Some(bob_balance_proof),
         );
     }

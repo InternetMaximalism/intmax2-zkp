@@ -1,15 +1,9 @@
-use ark_bn254::{Bn254, Fr, G1Affine, G2Affine};
-use ark_ec::{pairing::Pairing as _, AffineRepr as _};
-use hashbrown::HashMap;
-use num::BigUint;
-use plonky2::field::{goldilocks_field::GoldilocksField, types::Field};
-use plonky2_bn254::{curves::g2::G2Target, utils::hash_to_g2::HashToG2 as _};
-
 use crate::{
     common::{
         block::Block,
         deposit::Deposit,
         signature::{
+            key_set::KeySet,
             sign::{hash_to_weight, sign_to_tx_root},
             utils::get_pubkey_hash,
             SignatureContent,
@@ -21,6 +15,7 @@ use crate::{
             sender_tree::get_sender_leaves,
             tx_tree::TxTree,
         },
+        tx::Tx,
         witness::{
             block_witness::BlockWitness, validity_transition_witness::ValidityTransitionWitness,
             validity_witness::ValidityWitness,
@@ -35,6 +30,13 @@ use crate::{
         u32limb_trait::U32LimbTrait,
     },
 };
+use ark_bn254::{Bn254, Fr, G1Affine, G2Affine};
+use ark_ec::{pairing::Pairing as _, AffineRepr as _};
+use hashbrown::HashMap;
+use num::BigUint;
+use plonky2::field::{goldilocks_field::GoldilocksField, types::Field};
+use plonky2_bn254::{curves::g2::G2Target, utils::hash_to_g2::HashToG2 as _};
+use rand::Rng;
 
 use super::tx_request::TxRequest;
 
@@ -278,6 +280,17 @@ impl MockBlockBuilder {
         self.last_validity_witness = validity_witness.clone();
 
         validity_witness
+    }
+
+    pub fn post_random_block<R: Rng>(&mut self, rng: &mut R) {
+        let txs = (0..NUM_SENDERS_IN_BLOCK)
+            .map(|_| TxRequest {
+                tx: Tx::rand(rng),
+                sender: KeySet::rand(rng),
+                will_return_signature: rng.gen(),
+            })
+            .collect::<Vec<_>>();
+        self.post_block(true, txs);
     }
 
     pub fn get_block_merkle_proof(

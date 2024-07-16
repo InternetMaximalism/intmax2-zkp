@@ -1,4 +1,9 @@
 use hashbrown::HashMap;
+use plonky2::{
+    field::extension::Extendable,
+    hash::hash_types::RichField,
+    plonk::{config::GenericConfig, proof::ProofWithPublicInputs},
+};
 use rand::Rng;
 
 use crate::{
@@ -12,15 +17,14 @@ use crate::{
         signature::key_set::KeySet,
         transfer::Transfer,
         trees::{
-            asset_tree::{AssetLeaf, AssetTree},
-            nullifier_tree::NullifierTree,
-            transfer_tree::TransferTree,
+            asset_tree::AssetTree, nullifier_tree::NullifierTree, transfer_tree::TransferTree,
         },
         tx::Tx,
         witness::{
             deposit_witness::{DepositCase, DepositWitness},
-            private_state_transition_witness::PrivateStateTransitionWitness,
+            private_witness::PrivateWitness,
             receive_deposit_witness::ReceiveDepositWitness,
+            receive_transfer_witness::ReceiveTransferWitness,
             send_witness::SendWitness,
             transfer_witness::TransferWitness,
             tx_witness::TxWitness,
@@ -29,7 +33,7 @@ use crate::{
     constants::{ASSET_TREE_HEIGHT, NUM_TRANSFERS_IN_TX, TRANSFER_TREE_HEIGHT},
     ethereum_types::{bytes32::Bytes32, u256::U256, u32limb_trait::U32LimbTrait},
     mock::tx_request::TxRequest,
-    utils::poseidon_hash_out::PoseidonHashOut,
+    utils::{leafable::Leafable, poseidon_hash_out::PoseidonHashOut},
 };
 
 use super::block_builder::MockBlockBuilder;
@@ -118,18 +122,6 @@ impl LocalManager {
         }
     }
 
-    /// Fund the account with the given amount.
-    /// This is only used for testing.
-    pub fn forced_fund(&mut self, token_index: u32, amount: U256) {
-        self.asset_tree.update(
-            token_index as usize,
-            AssetLeaf {
-                is_insufficient: false,
-                amount,
-            },
-        );
-    }
-
     /// Send a transaction.
     /// Side effect: a block that contains the transaction is posted.
     pub fn send_tx(
@@ -185,6 +177,7 @@ impl LocalManager {
         (tx_witness, transfer_witnesses)
     }
 
+    /// Deposit tokens on the layer 1.
     pub fn deposit<R: Rng>(
         &mut self,
         rng: &mut R,
@@ -300,7 +293,7 @@ impl LocalManager {
         token_index: u32,
         amount: U256,
         nullifier: Bytes32,
-    ) -> PrivateStateTransitionWitness {
+    ) -> PrivateWitness {
         let new_salt = Salt::rand(rng);
         let mut asset_tree = self.asset_tree.clone();
         let mut nullifier_tree = self.nullifier_tree.clone();
@@ -313,7 +306,7 @@ impl LocalManager {
         let nullifier_proof = nullifier_tree
             .prove_and_insert(nullifier)
             .expect("nullifier already exists");
-        PrivateStateTransitionWitness {
+        PrivateWitness {
             token_index,
             amount,
             nullifier,
@@ -325,21 +318,65 @@ impl LocalManager {
         }
     }
 
-    pub fn generate_witness_for_receive_transfer<R: Rng>(
+    pub fn generate_receive_transfer_witness<
+        F: RichField + Extendable<D>,
+        C: GenericConfig<D, F = F>,
+        const D: usize,
+        R: Rng,
+    >(
         &self,
         rng: &mut R,
-        transfer: &Transfer,
-    ) -> PrivateStateTransitionWitness {
+        block_builder: &MockBlockBuilder,
+        receiver_block_number: u32,
+        transfer_witness: &TransferWitness,
+        sender_balance_proof: &ProofWithPublicInputs<F, C, D>,
+    ) -> ReceiveTransferWitness<F, C, D> {
+        // assertion
+        let transfer = transfer_witness.transfer.clone();
         assert_eq!(
             transfer.recipient.to_pubkey().unwrap(),
             self.get_pubkey(),
             "recipient pubkey"
         );
+        let balance_pis = BalancePublicInputs::from_pis(&sender_balance_proof.public_inputs);
+        assert!(
+            balance_pis.public_state.block_number <= receiver_block_number,
+            "receiver's balance proof does'nt include the incomming tx"
+        );
+        assert_eq!(
+            balance_pis.last_tx_hash,
+            transfer_witness.tx.hash(),
+            "last tx hash mismatch"
+        );
+        #[cfg(not(feature = "skip_insufficient_check"))]
+        assert!(
+            !balance_pis
+                .last_tx_insufficient_flags
+                .random_access(transfer_witness.transfer_index),
+            "tx insufficient check failed"
+        );
+
+        // private witness
         let nullifier: Bytes32 = transfer.commitment().into();
-        self.generate_witness_for_receive(rng, transfer.token_index, transfer.amount, nullifier)
+        let private_witness = self.generate_witness_for_receive(
+            rng,
+            transfer.token_index,
+            transfer.amount,
+            nullifier,
+        );
+        // block merkle proof
+        let block_merkle_proof = block_builder
+            .get_block_merkle_proof(receiver_block_number, balance_pis.public_state.block_number);
+
+        ReceiveTransferWitness {
+            transfer_witness: transfer_witness.clone(),
+            balance_proof: sender_balance_proof.clone(),
+            private_witness,
+            block_merkle_proof,
+        }
     }
 
-    pub fn update_on_receive(&mut self, witness: &PrivateStateTransitionWitness) {
+    pub fn update_on_receive(&mut self, witness: &PrivateWitness) {
         // verify proofs
         let new_nullifier_tree_root = witness
             .nullifier_proof
@@ -391,7 +428,6 @@ mod tests {
         let mut local_manager = LocalManager::new_rand(&mut rng);
         let mut block_builder = MockBlockBuilder::new();
 
-        local_manager.forced_fund(0, U256::rand(&mut rng));
         let transfer = Transfer {
             recipient: GenericAddress::rand_pubkey(&mut rng),
             token_index: 0,
@@ -411,7 +447,6 @@ mod tests {
         let mut local_manager = LocalManager::new_rand(&mut rng);
         let mut block_builder = MockBlockBuilder::new();
 
-        local_manager.forced_fund(0, U256::rand(&mut rng));
         let transfer = Transfer {
             recipient: GenericAddress::rand_pubkey(&mut rng),
             token_index: 0,

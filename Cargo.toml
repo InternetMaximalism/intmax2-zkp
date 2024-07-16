@@ -33,5 +33,3 @@ default = ["dummy_validity_proof", "skip_insufficient_check"]
 dummy_validity_proof = []
 skip_insufficient_check = []
 
-# [patch."https://github.com/qope/plonky2.git"]
-# plonky2 = {path="../plonky2/plonky2"}
