@@ -92,10 +92,15 @@ mod tests {
     use crate::{
         circuits::balance::balance_processor::BalanceProcessor,
         common::{transfer::Transfer, witness::withdrawal_witness::WithdrawalWitness},
+        ethereum_types::{
+            bytes32::{Bytes32, BYTES32_LEN},
+            u32limb_trait::U32LimbTrait,
+        },
         mock::{
             block_builder::MockBlockBuilder, sync_balance_prover::SyncBalanceProver,
             sync_validity_prover::SyncValidityProver, wallet::MockWallet,
         },
+        utils::conversion::ToU64,
     };
 
     use super::WithdrawalProcessor;
@@ -134,11 +139,14 @@ mod tests {
         };
 
         let withdraw_processor = WithdrawalProcessor::new(&balance_processor.balance_circuit);
-        let withdrawal_proof0 = withdraw_processor
+        let withdrawal_proof = withdraw_processor
             .prove(&withdrawal_witness, &None)
             .expect("Failed to prove withdrawal");
-        let _withdrawal_proof1 = withdraw_processor
-            .prove(&withdrawal_witness, &Some(withdrawal_proof0))
-            .expect("Failed to prove withdrawal");
+
+        let withdrawal = withdrawal_witness.to_withdrawal(Bytes32::default());
+        assert_eq!(
+            withdrawal_proof.public_inputs[0..BYTES32_LEN].to_u64_vec(),
+            withdrawal.hash().to_u64_vec()
+        );
     }
 }

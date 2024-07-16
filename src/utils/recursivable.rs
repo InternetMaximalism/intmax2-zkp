@@ -43,4 +43,8 @@ pub trait Recursivable<
         conditionally_verify_proof::<F, C, D>(builder, condition, &proof, &vd, &data.common);
         proof
     }
+
+    fn pis_cut_off(&self) -> Option<usize> {
+        None
+    }
 }

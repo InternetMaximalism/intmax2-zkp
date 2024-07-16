@@ -35,7 +35,12 @@ where
     pub fn new(inner_circuit: &impl Recursivable<F, InnerC, D>) -> Self {
         let mut builder = CircuitBuilder::new(CircuitConfig::default());
         let wrap_proof = inner_circuit.add_proof_target_and_verify(&mut builder);
-        builder.register_public_inputs(&wrap_proof.public_inputs);
+        let pis = if let Some(cut_off) = inner_circuit.pis_cut_off() {
+            wrap_proof.public_inputs[..cut_off].to_vec()
+        } else {
+            wrap_proof.public_inputs.to_vec()
+        };
+        builder.register_public_inputs(&pis);
         let data = builder.build();
         Self {
             data,

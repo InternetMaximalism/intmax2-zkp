@@ -181,4 +181,8 @@ where
     ) -> ProofWithPublicInputsTarget<D> {
         unimplemented!()
     }
+
+    fn pis_cut_off(&self) -> Option<usize> {
+        Some(BYTES32_LEN)
+    }
 }
