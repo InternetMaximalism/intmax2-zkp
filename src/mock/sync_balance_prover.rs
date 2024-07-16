@@ -8,11 +8,12 @@ use plonky2::{
     },
 };
 
-use crate::circuits::balance::balance_processor::BalanceProcessor;
+use crate::circuits::balance::{
+    balance_pis::BalancePublicInputs, balance_processor::BalanceProcessor,
+};
 
 use super::{
-    block_builder::MockBlockBuilder, wallet::MockWallet,
-    sync_validity_prover::SyncValidityProver,
+    block_builder::MockBlockBuilder, sync_validity_prover::SyncValidityProver, wallet::MockWallet,
 };
 
 pub struct SyncBalanceProver<F, C, const D: usize>
@@ -46,9 +47,9 @@ where
     pub fn sync_send(
         &mut self,
         sync_validity_prover: &mut SyncValidityProver<F, C, D>,
+        wallet: &mut MockWallet,
         balance_processor: &BalanceProcessor<F, C, D>,
         block_builder: &MockBlockBuilder,
-        wallet: &MockWallet,
     ) {
         sync_validity_prover.sync(&block_builder); // sync validity proofs
         let all_block_numbers = wallet.get_all_block_numbers();
@@ -76,8 +77,11 @@ where
                 &update_witness,
                 &self.last_balance_proof,
             );
+            let balance_pis = BalancePublicInputs::from_pis(&balance_proof.public_inputs);
             self.last_block_number = block_number;
             self.last_balance_proof = Some(balance_proof);
+            // update wallet public state
+            wallet.update_public_state(balance_pis.public_state);
         }
     }
 
@@ -86,9 +90,9 @@ where
     pub fn sync_no_send(
         &mut self,
         sync_validity_prover: &mut SyncValidityProver<F, C, D>,
+        wallet: &mut MockWallet,
         balance_processor: &BalanceProcessor<F, C, D>,
         block_builder: &MockBlockBuilder,
-        wallet: &MockWallet,
     ) {
         sync_validity_prover.sync(&block_builder); // sync validity proofs
         let all_block_numbers = wallet.get_all_block_numbers();
@@ -111,28 +115,31 @@ where
             &update_witness,
             &self.last_balance_proof,
         );
+        let balance_pis = BalancePublicInputs::from_pis(&balance_proof.public_inputs);
         self.last_block_number = current_block_number;
         self.last_balance_proof = Some(balance_proof);
+        // update wallet public state
+        wallet.update_public_state(balance_pis.public_state);
     }
 
     pub fn sync_all(
         &mut self,
         sync_validity_prover: &mut SyncValidityProver<F, C, D>,
+        wallet: &mut MockWallet,
         balance_processor: &BalanceProcessor<F, C, D>,
         block_builder: &MockBlockBuilder,
-        wallet: &MockWallet,
     ) {
         self.sync_send(
             sync_validity_prover,
+            wallet,
             balance_processor,
             block_builder,
-            wallet,
         );
         self.sync_no_send(
             sync_validity_prover,
+            wallet,
             balance_processor,
             block_builder,
-            wallet,
         );
     }
 }

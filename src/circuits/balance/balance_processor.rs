@@ -193,9 +193,9 @@ mod tests {
 
         sync_sender_prover.sync_send(
             &mut sync_validity_prover,
+            &mut wallet,
             &balance_processor,
             &block_builder,
-            &wallet,
         );
 
         // send tx1
@@ -204,9 +204,9 @@ mod tests {
 
         sync_sender_prover.sync_send(
             &mut sync_validity_prover,
+            &mut wallet,
             &balance_processor,
             &block_builder,
-            &wallet,
         );
     }
 
@@ -224,13 +224,13 @@ mod tests {
         alice.send_tx_and_update(&mut rng, &mut block_builder, &[transfer0]);
 
         // bob update balance proof
-        let bob = MockWallet::new_rand(&mut rng);
+        let mut bob = MockWallet::new_rand(&mut rng);
         let mut bob_balance_prover = SyncBalanceProver::<F, C, D>::new();
         bob_balance_prover.sync_no_send(
             &mut sync_validity_prover,
+            &mut bob,
             &balance_processor,
             &block_builder,
-            &bob,
         );
     }
 
@@ -245,7 +245,7 @@ mod tests {
         // accounts
         let mut alice = MockWallet::new_rand(&mut rng);
         let mut alice_balance_prover = SyncBalanceProver::<F, C, D>::new();
-        let bob = MockWallet::new_rand(&mut rng);
+        let mut bob = MockWallet::new_rand(&mut rng);
         let mut bob_balance_prover = SyncBalanceProver::<F, C, D>::new();
 
         let transfer = Transfer::rand_to(&mut rng, bob.get_pubkey());
@@ -255,22 +255,22 @@ mod tests {
             .unwrap()[0];
         alice_balance_prover.sync_send(
             &mut sync_validity_prover,
+            &mut alice,
             &balance_processor,
             &block_builder,
-            &alice,
         );
         let alice_balance_proof = alice_balance_prover.last_balance_proof.clone().unwrap();
 
         // bob update balance proof
         bob_balance_prover.sync_no_send(
             &mut sync_validity_prover,
+            &mut bob,
             &balance_processor,
             &block_builder,
-            &bob,
         );
         let bob_balance_proof = bob_balance_prover.get_balance_proof();
 
-        let receive_transfer_witness = bob.generate_receive_transfer_witness(
+        let receive_transfer_witness = bob.receive_transfer_and_update(
             &mut rng,
             &block_builder,
             bob_balance_prover.last_block_number,
@@ -298,16 +298,15 @@ mod tests {
         let deposit_amount = U256::rand_small(rng);
         let first_deposit_index = alice.deposit(rng, &mut block_builder, 0, deposit_amount);
         alice.deposit(rng, &mut block_builder, 1, deposit_amount); // dummy deposit
-        alice.deposit(rng, &mut block_builder, 2, deposit_amount); // dummy deposit
 
         // post dummy block
         let transfer = Transfer::rand(rng);
         alice.send_tx_and_update(rng, &mut block_builder, &[transfer]);
         alice_balance_prover.sync_send(
             &mut sync_validity_prover,
+            &mut alice,
             &balance_processor,
             &block_builder,
-            &alice,
         );
         let alice_balance_proof = alice_balance_prover.last_balance_proof.clone().unwrap();
 

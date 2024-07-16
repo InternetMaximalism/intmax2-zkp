@@ -192,8 +192,8 @@ mod tests {
         common::{generic_address::GenericAddress, salt::Salt, transfer::Transfer},
         ethereum_types::u256::U256,
         mock::{
-            block_builder::MockBlockBuilder, wallet::MockWallet,
-            sync_balance_prover::SyncBalanceProver, sync_validity_prover::SyncValidityProver,
+            block_builder::MockBlockBuilder, sync_balance_prover::SyncBalanceProver,
+            sync_validity_prover::SyncValidityProver, wallet::MockWallet,
         },
     };
 
@@ -226,9 +226,9 @@ mod tests {
         let included_block_number = send_witness.get_included_block_number();
         alice_balance_prover.sync_send(
             &mut sync_validity_prover,
+            &mut alice,
             &balance_processor,
             &block_builder,
-            &alice,
         );
         let alice_balance_proof = alice_balance_prover.last_balance_proof.clone().unwrap();
 

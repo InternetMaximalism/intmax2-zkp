@@ -200,8 +200,8 @@ mod tests {
         common::transfer::Transfer,
         ethereum_types::bytes32::Bytes32,
         mock::{
-            block_builder::MockBlockBuilder, wallet::MockWallet,
-            sync_balance_prover::SyncBalanceProver, sync_validity_prover::SyncValidityProver,
+            block_builder::MockBlockBuilder, sync_balance_prover::SyncBalanceProver,
+            sync_validity_prover::SyncValidityProver, wallet::MockWallet,
         },
     };
 
@@ -222,13 +222,12 @@ mod tests {
 
         // withdraw transfer 1
         let transfer = Transfer::rand_withdrawal(rng);
-        let send_witness =
-            wallet.send_tx_and_update(&mut rng, &mut block_builder, &[transfer]);
+        let send_witness = wallet.send_tx_and_update(&mut rng, &mut block_builder, &[transfer]);
         sync_sender_prover.sync_send(
             &mut sync_validity_prover,
+            &mut wallet,
             &balance_processor,
             &block_builder,
-            &wallet,
         );
         let transfer_witness = &wallet
             .get_transfer_witnesses(send_witness.get_included_block_number())

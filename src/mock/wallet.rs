@@ -122,6 +122,10 @@ impl MockWallet {
         }
     }
 
+    pub fn update_public_state(&mut self, public_state: PublicState) {
+        self.public_state = public_state;
+    }
+
     /// Send a transaction.
     /// Side effect: a block that contains the transaction is posted.
     fn send_tx(
@@ -326,7 +330,7 @@ impl MockWallet {
         }
     }
 
-    pub fn generate_receive_transfer_witness<
+    fn generate_receive_transfer_witness<
         F: RichField + Extendable<D>,
         C: GenericConfig<D, F = F>,
         const D: usize,
@@ -406,6 +410,30 @@ impl MockWallet {
         assert_eq!(self.nullifier_tree.get_root(), new_nullifier_tree_root);
         assert_eq!(self.asset_tree.get_root(), new_asset_tree_root);
         self.salt = witness.new_salt;
+    }
+
+    pub fn receive_transfer_and_update<
+        F: RichField + Extendable<D>,
+        C: GenericConfig<D, F = F>,
+        const D: usize,
+        R: Rng,
+    >(
+        &mut self,
+        rng: &mut R,
+        block_builder: &MockBlockBuilder,
+        receiver_block_number: u32,
+        transfer_witness: &TransferWitness,
+        sender_balance_proof: &ProofWithPublicInputs<F, C, D>,
+    ) -> ReceiveTransferWitness<F, C, D> {
+        let receive_transfer_witness = self.generate_receive_transfer_witness(
+            rng,
+            block_builder,
+            receiver_block_number,
+            transfer_witness,
+            sender_balance_proof,
+        );
+        self.update_on_receive(&receive_transfer_witness.private_witness);
+        receive_transfer_witness
     }
 }
 
