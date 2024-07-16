@@ -18,7 +18,7 @@ pub const ACCOUNT_ID_PACKED_LEN: usize = ACCOUNT_ID_BITS * NUM_SENDERS_IN_BLOCK 
 use plonky2_keccak::{builder::BuilderKeccak256 as _, utils::solidity_keccak256};
 
 /// A packed account ID.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, PartialEq, Hash)]
 pub struct AccountIdPacked {
     limbs: [u32; ACCOUNT_ID_PACKED_LEN],
 }
@@ -28,15 +28,21 @@ pub struct AccountIdPackedTarget {
     limbs: [Target; ACCOUNT_ID_PACKED_LEN],
 }
 
-impl std::fmt::Display for AccountIdPacked {
+impl core::fmt::Debug for AccountIdPacked {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.to_hex())
     }
 }
 
+impl core::fmt::Display for AccountIdPacked {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        core::fmt::Debug::fmt(&self, f)
+    }
+}
+
 impl Serialize for AccountIdPacked {
     fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        serializer.serialize_str(&self.to_hex())
+        serializer.serialize_str(&self.to_string())
     }
 }
 

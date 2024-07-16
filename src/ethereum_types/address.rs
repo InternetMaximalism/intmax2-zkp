@@ -6,7 +6,7 @@ use super::u32limb_trait::{U32LimbTargetTrait, U32LimbTrait};
 pub const ADDRESS_LEN: usize = 5;
 
 /// A structure representing the address type in Ethereum.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Default, Hash)]
+#[derive(Clone, Copy, PartialEq, Default, Hash)]
 pub struct Address {
     limbs: [u32; ADDRESS_LEN],
 }
@@ -16,15 +16,21 @@ pub struct AddressTarget {
     limbs: [Target; ADDRESS_LEN],
 }
 
-impl std::fmt::Display for Address {
+impl core::fmt::Debug for Address {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.to_hex())
     }
 }
 
+impl core::fmt::Display for Address {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        core::fmt::Debug::fmt(&self, f)
+    }
+}
+
 impl Serialize for Address {
     fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        serializer.serialize_str(&self.to_hex())
+        serializer.serialize_str(&self.to_string())
     }
 }
 

@@ -1,6 +1,5 @@
 pub mod conversion;
 pub mod cyclic;
-pub mod display;
 pub mod dummy;
 pub mod leafable;
 pub mod leafable_hasher;

@@ -83,12 +83,13 @@ pub trait U32LimbTrait<const NUM_LIMBS: usize>: Clone + Copy {
     }
 
     fn from_hex(hex: &str) -> Self {
-        let bytes = hex::decode(hex).unwrap();
+        assert!(hex.starts_with("0x"));
+        let bytes = hex::decode(hex[2..].as_bytes()).unwrap();
         Self::from_bytes_be(&bytes)
     }
 
     fn to_hex(&self) -> String {
-        hex::encode(self.to_bytes_be())
+        "0x".to_string() + &hex::encode(self.to_bytes_be())
     }
 
     fn rand<R: Rng>(rng: &mut R) -> Self {

@@ -303,8 +303,7 @@ impl Bytes32Target {
 
 impl Serialize for PoseidonHashOut {
     fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        let bytes32: Bytes32 = (*self).into();
-        bytes32.serialize(serializer)
+        serializer.serialize_str(&self.to_string())
     }
 }
 

@@ -37,7 +37,7 @@ pub const SIGNATURE_LEN: usize = 1 + U128_LEN + 3 * BYTES32_LEN + 10 * U256_LEN;
 /// The signature that is verified by the contract. It is already guaranteed by
 /// the contract that e(`agg_pubkey`, message_point) = e(`agg_signature`, G2)
 /// holds.
-#[derive(Clone, Default, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SignatureContent {
     pub is_registoration_block: bool,

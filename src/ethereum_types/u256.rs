@@ -23,7 +23,7 @@ pub const U256_LEN: usize = 8;
 // A structure representing the uint256 type in Ethereum.
 // `T` is either `u32` or `U32Target`.
 // The value is stored in big endian format.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Default, Hash)]
+#[derive(Clone, Copy, PartialEq, Eq, Default, Hash)]
 pub struct U256 {
     limbs: [u32; U256_LEN],
 }
@@ -33,7 +33,7 @@ pub struct U256Target {
     limbs: [Target; U256_LEN],
 }
 
-impl std::fmt::Display for U256 {
+impl core::fmt::Debug for U256 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let b: BigUint = (*self).into();
         let s = b.to_str_radix(10);
@@ -41,11 +41,15 @@ impl std::fmt::Display for U256 {
     }
 }
 
+impl core::fmt::Display for U256 {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        core::fmt::Debug::fmt(&self, f)
+    }
+}
+
 impl Serialize for U256 {
     fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        let b: BigUint = (*self).into();
-        let s = b.to_str_radix(10);
-        serializer.serialize_str(&s)
+        serializer.serialize_str(&self.to_string())
     }
 }
 

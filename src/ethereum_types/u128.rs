@@ -10,7 +10,7 @@ pub const U128_LEN: usize = 4;
 // A structure representing the ui128 type in Ethereum.
 // `T` is either `u32` or `U32Target`.
 // The value is stored in big endian format.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Default, Hash)]
+#[derive(Clone, Copy, PartialEq, Default, Hash)]
 pub struct U128 {
     limbs: [u32; U128_LEN],
 }
@@ -18,6 +18,35 @@ pub struct U128 {
 #[derive(Clone, Copy, Debug)]
 pub struct U128Target {
     limbs: [Target; U128_LEN],
+}
+
+impl core::fmt::Debug for U128 {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let b: BigUint = (*self).into();
+        let s = b.to_str_radix(10);
+        write!(f, "{}", s)
+    }
+}
+
+impl core::fmt::Display for U128 {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        core::fmt::Debug::fmt(&self, f)
+    }
+}
+
+impl Serialize for U128 {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(&self.to_string())
+    }
+}
+
+impl<'de> Deserialize<'de> for U128 {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let s = String::deserialize(deserializer)?;
+        let b = BigUint::from_str_radix(&s, 10).map_err(serde::de::Error::custom)?;
+        let u: U128 = b.try_into().unwrap();
+        Ok(u)
+    }
 }
 
 impl TryFrom<BigUint> for U128 {
@@ -43,28 +72,6 @@ impl From<U128> for BigUint {
     }
 }
 
-impl std::fmt::Display for U128 {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.to_hex())
-    }
-}
-
-impl Serialize for U128 {
-    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        let b: BigUint = (*self).into();
-        let s = b.to_str_radix(10);
-        serializer.serialize_str(&s)
-    }
-}
-
-impl<'de> Deserialize<'de> for U128 {
-    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        let s = String::deserialize(deserializer)?;
-        let b = BigUint::from_str_radix(&s, 10).map_err(serde::de::Error::custom)?;
-        let u: U128 = b.try_into().unwrap();
-        Ok(u)
-    }
-}
 impl U32LimbTrait<U128_LEN> for U128 {
     fn limbs(&self) -> Vec<u32> {
         self.limbs.to_vec()

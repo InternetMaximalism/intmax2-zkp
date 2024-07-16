@@ -1,3 +1,5 @@
+use std::fmt::Debug;
+
 use plonky2::iop::target::Target;
 use serde::{Deserialize, Serialize};
 
@@ -11,7 +13,7 @@ pub const BYTES32_LEN: usize = U256_LEN;
 // A structure representing the bytes32 type in Ethereum.
 // `T` is either `u32` or `U32Target`.
 // The value is stored in big endian format.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Default, Hash)]
+#[derive(Clone, Copy, PartialEq, Eq, Default, Hash)]
 pub struct Bytes32 {
     limbs: [u32; BYTES32_LEN],
 }
@@ -21,15 +23,21 @@ pub struct Bytes32Target {
     limbs: [Target; BYTES32_LEN],
 }
 
-impl std::fmt::Display for Bytes32 {
+impl Debug for Bytes32 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.to_hex())
     }
 }
 
+impl core::fmt::Display for Bytes32 {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        core::fmt::Debug::fmt(&self, f)
+    }
+}
+
 impl Serialize for Bytes32 {
     fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        serializer.serialize_str(&self.to_hex())
+        serializer.serialize_str(&self.to_string())
     }
 }
 
