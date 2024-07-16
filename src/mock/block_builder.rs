@@ -343,7 +343,7 @@ fn construct_signature(
         .iter()
         .map(|tx| tx.will_return_signature)
         .collect::<Vec<_>>();
-    let sender_flag = U128::from_bits_le(&sender_flag_bits);
+    let sender_flag = U128::from_bits_be(&sender_flag_bits);
     let agg_pubkey_g1 = sorted_txs
         .iter()
         .map(|tx| {

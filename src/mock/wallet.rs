@@ -211,7 +211,7 @@ impl MockWallet {
             asset_merkle_proofs.push(proof);
             insufficient_bits.push(new_balance.is_insufficient);
         }
-        let insufficient_flags = InsufficientFlags::from_bits_le(&insufficient_bits);
+        let insufficient_flags = InsufficientFlags::from_bits_be(&insufficient_bits);
         let send_witness = SendWitness {
             prev_balance_pis,
             prev_private_state,

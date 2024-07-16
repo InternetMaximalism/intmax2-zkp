@@ -20,7 +20,7 @@ pub struct InsufficientFlags {
 
 impl InsufficientFlags {
     pub fn random_access(&self, index: usize) -> bool {
-        self.to_bits_le()[index]
+        self.to_bits_be()[index]
     }
 }
 
@@ -37,11 +37,12 @@ impl InsufficientFlagsTarget {
     ) -> BoolTarget {
         let num_bits = NUM_TRANSFERS_IN_TX.trailing_zeros() as usize;
         let (bit_selector, limb_selector) = builder.split_low_high(index, 5, num_bits);
-        let limbs = self.limbs().into_iter().rev().collect();
+        let limbs = self.limbs().into_iter().collect();
         let selected_limb = builder.random_access(limb_selector, limbs);
         let limb_bits = builder
             .split_le(selected_limb, 32)
             .into_iter()
+            .rev()
             .map(|b| b.target)
             .collect();
         let selected_bit = builder.random_access(bit_selector, limb_bits);
@@ -106,7 +107,7 @@ mod tests {
         let mut flag_bits = vec![false; NUM_TRANSFERS_IN_TX];
         flag_bits[index] = true;
 
-        let flag = InsufficientFlags::from_bits_le(&flag_bits);
+        let flag = InsufficientFlags::from_bits_be(&flag_bits);
 
         let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::default());
         let flags_t = InsufficientFlagsTarget::new(&mut builder, true);

@@ -148,7 +148,7 @@ impl LeafableTarget for SenderLeafTarget {
 
 pub fn get_sender_leaves(pubkeys: &[U256], sender_flag: U128) -> Vec<SenderLeaf> {
     assert_eq!(pubkeys.len(), NUM_SENDERS_IN_BLOCK);
-    let sender_bits = sender_flag.to_bits_le();
+    let sender_bits = sender_flag.to_bits_be();
     let leaves = pubkeys
         .iter()
         .zip(sender_bits.iter())
@@ -162,7 +162,7 @@ pub fn get_sender_leaves_circuit<F: RichField + Extendable<D>, const D: usize>(
     sender_flag: U128Target,
 ) -> Vec<SenderLeafTarget> {
     assert_eq!(pubkeys.len(), NUM_SENDERS_IN_BLOCK);
-    let sender_bits = sender_flag.to_bits_le(builder);
+    let sender_bits = sender_flag.to_bits_be(builder);
     let leaves = pubkeys
         .iter()
         .zip(sender_bits.iter())

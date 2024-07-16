@@ -31,7 +31,7 @@ impl SignatureContent {
         let tx_tree_root = Bytes32::rand(rng);
         let is_registoration_block = rng.gen();
         let sender_flag = U128::rand(rng);
-        let sender_flag_bits = sender_flag.to_bits_le();
+        let sender_flag_bits = sender_flag.to_bits_be();
         let agg_pubkey_g1 = key_sets
             .iter()
             .zip(sender_flag_bits.iter())

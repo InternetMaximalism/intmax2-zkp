@@ -69,28 +69,17 @@ pub trait U32LimbTrait<const NUM_LIMBS: usize>: Clone + Copy {
         result.try_into().unwrap()
     }
 
-    fn to_bits_le(&self) -> Vec<bool> {
-        self.to_bytes_be()
-            .iter()
-            .rev()
-            .flat_map(|x| (0..8).map(move |i| (x >> i) & 1 == 1))
-            .collect()
+    fn to_bits_be(&self) -> Vec<bool> {
+        self.limbs().into_iter().flat_map(u32_to_bits_be).collect()
     }
 
-    fn from_bits_le(bits: &[bool]) -> Self {
+    fn from_bits_be(bits: &[bool]) -> Self {
         assert_eq!(bits.len(), 32 * NUM_LIMBS);
-        let mut bytes = vec![];
-        for chunk in bits.chunks(8) {
-            let mut byte = 0u8;
-            for (i, bit) in chunk.iter().enumerate() {
-                if *bit {
-                    byte |= 1 << i;
-                }
-            }
-            bytes.push(byte);
-        }
-        bytes.reverse();
-        Self::from_bytes_be(&bytes)
+        let limbs = bits
+            .chunks(32)
+            .map(|chunk| bits_be_to_u32(chunk))
+            .collect::<Vec<_>>();
+        Self::from_limbs(&limbs)
     }
 
     fn from_hex(hex: &str) -> Self {
@@ -200,26 +189,24 @@ pub trait U32LimbTargetTrait<const NUM_LIMBS: usize>: Clone + Copy {
         self.is_equal(builder, &one)
     }
 
-    fn to_bits_le<F: RichField + Extendable<D>, const D: usize>(
+    fn to_bits_be<F: RichField + Extendable<D>, const D: usize>(
         &self,
         builder: &mut CircuitBuilder<F, D>,
     ) -> Vec<BoolTarget> {
         self.limbs()
             .iter()
-            .rev()
-            .flat_map(|e| builder.split_le(*e, 32))
+            .flat_map(|e| builder.split_le(*e, 32).into_iter().rev())
             .collect::<Vec<_>>()
     }
 
-    fn from_bits_le<F: RichField + Extendable<D>, const D: usize>(
+    fn from_bits_be<F: RichField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
         bits: &[BoolTarget],
     ) -> Self {
         assert_eq!(bits.len(), 32 * NUM_LIMBS);
         let limbs = bits
             .chunks(32)
-            .map(|chunk| builder.le_sum(chunk.into_iter()))
-            .rev()
+            .map(|chunk| builder.le_sum(chunk.into_iter().rev()))
             .collect::<Vec<_>>();
         Self::from_limbs(&limbs)
     }
@@ -298,4 +285,22 @@ pub trait U32LimbTargetTrait<const NUM_LIMBS: usize>: Clone + Copy {
     fn to_vec(&self) -> Vec<Target> {
         self.limbs()
     }
+}
+
+fn u32_to_bits_be(x: u32) -> Vec<bool> {
+    let mut result = Vec::with_capacity(32);
+    for i in (0..32).rev() {
+        result.push((x & (1 << i)) != 0);
+    }
+    result
+}
+
+fn bits_be_to_u32(vec: &[bool]) -> u32 {
+    let mut result = 0u32;
+    for (i, &bit) in vec.iter().enumerate() {
+        if bit {
+            result |= 1 << (31 - i);
+        }
+    }
+    result
 }

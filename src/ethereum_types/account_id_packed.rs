@@ -75,21 +75,21 @@ impl AccountIdPacked {
     pub fn pack(account_ids: &[usize]) -> Self {
         assert_eq!(account_ids.len(), NUM_SENDERS_IN_BLOCK);
         let account_id_bits = account_ids
-            .iter()
-            .flat_map(|&account_id| (0..ACCOUNT_ID_BITS).map(move |i| (account_id >> i) & 1 == 1))
+            .into_iter()
+            .flat_map(|&account_id| account_id_to_bits_be(account_id))
             .collect::<Vec<_>>();
-        Self::from_bits_le(&account_id_bits)
+        Self::from_bits_be(&account_id_bits)
     }
 
     pub fn unpack(&self) -> Vec<usize> {
-        let bits = self.to_bits_le();
+        let bits = self.to_bits_be();
         let account_ids = bits
             .into_iter()
             .chunks(ACCOUNT_ID_BITS)
             .into_iter()
             .map(|chunk| {
                 let chunk_bits = chunk.into_iter().collect::<Vec<_>>();
-                le_bits_to_usize(&chunk_bits)
+                bits_be_to_account_id(&chunk_bits)
             })
             .collect::<Vec<_>>();
         assert_eq!(account_ids.len(), NUM_SENDERS_IN_BLOCK);
@@ -106,12 +106,15 @@ impl AccountIdPackedTarget {
         &self,
         builder: &mut CircuitBuilder<F, D>,
     ) -> Vec<Target> {
-        let bits = self.to_bits_le(builder);
+        let bits = self.to_bits_be(builder);
         let account_ids = bits
             .into_iter()
             .chunks(ACCOUNT_ID_BITS)
             .into_iter()
-            .map(|chunk| builder.le_sum(chunk.into_iter()))
+            .map(|chunk| {
+                let chunk_bits = chunk.into_iter().collect::<Vec<_>>();
+                builder.le_sum(chunk_bits.iter().rev())
+            })
             .collect::<Vec<_>>();
         account_ids
     }
@@ -131,14 +134,24 @@ impl AccountIdPackedTarget {
     }
 }
 
-pub(crate) fn le_bits_to_usize(bits: &[bool]) -> usize {
-    let mut account_id = 0;
-    for (i, bit) in bits.iter().enumerate() {
-        if *bit {
-            account_id |= 1 << i;
+fn account_id_to_bits_be(account_id: usize) -> Vec<bool> {
+    assert!(account_id < 1 << ACCOUNT_ID_BITS);
+    let mut result = Vec::with_capacity(40);
+    for i in (0..ACCOUNT_ID_BITS).rev() {
+        result.push((account_id & (1 << i)) != 0);
+    }
+    result
+}
+
+fn bits_be_to_account_id(vec: &[bool]) -> usize {
+    assert_eq!(vec.len(), ACCOUNT_ID_BITS);
+    let mut result = 0;
+    for (i, &bit) in vec.iter().enumerate() {
+        if bit {
+            result |= 1 << (ACCOUNT_ID_BITS - 1 - i);
         }
     }
-    account_id
+    result
 }
 
 #[cfg(test)]

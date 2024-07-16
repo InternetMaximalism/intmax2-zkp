@@ -33,7 +33,7 @@ impl SignatureContent {
     pub fn verify_aggregation(&self, pubkeys: &[U256]) -> Result<()> {
         let weighted_pubkeys = pubkeys
             .iter()
-            .zip(self.sender_flag.to_bits_le())
+            .zip(self.sender_flag.to_bits_be())
             .map(|(pubkey, b)| {
                 let x: Fq = pubkey.clone().into();
                 let pubkey_g1: G1Affine = G1Affine::recover_from_x(x);
@@ -73,7 +73,7 @@ impl SignatureContentTarget {
     {
         let mut result = builder._true();
 
-        let sender_flag_bits = self.sender_flag.to_bits_le(builder);
+        let sender_flag_bits = self.sender_flag.to_bits_be(builder);
         let weights = pubkeys
             .iter()
             .zip(sender_flag_bits.iter())
