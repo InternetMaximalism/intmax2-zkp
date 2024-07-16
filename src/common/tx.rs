@@ -13,10 +13,10 @@ use serde::Serialize;
 use crate::utils::{
     leafable::{Leafable, LeafableTarget},
     leafable_hasher::PoseidonLeafableHasher,
-    poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget},
+    poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget, POSEIDON_HASH_OUT_LEN},
 };
 
-pub const TX_LEN: usize = 4 + 1;
+pub const TX_LEN: usize = POSEIDON_HASH_OUT_LEN + 1;
 
 #[derive(Clone, Default, Copy, Debug, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]

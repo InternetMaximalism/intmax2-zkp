@@ -2,7 +2,7 @@ use crate::{
     circuits::validity::validity_pis::{
         ValidityPublicInputs, ValidityPublicInputsTarget, VALIDITY_PUBLIC_INPUTS_LEN,
     },
-    constants::VALIDITY_CIRCUIT_PADDING_DEGREE,
+    constants::CYCLIC_CIRCUIT_PADDING_DEGREE,
     utils::{
         conversion::ToField,
         cyclic::{vd_from_pis_slice_target, vd_vec_len},
@@ -188,7 +188,7 @@ where
         circuit_digest: builder.add_virtual_hash(),
     };
     builder.verify_proof::<C>(&proof, &verifier_data, &data.common);
-    while builder.num_gates() < 1 << VALIDITY_CIRCUIT_PADDING_DEGREE {
+    while builder.num_gates() < 1 << CYCLIC_CIRCUIT_PADDING_DEGREE {
         builder.add_gate(NoopGate, vec![]);
     }
     let mut common = builder.build::<C>().common;

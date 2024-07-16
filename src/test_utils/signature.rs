@@ -16,7 +16,7 @@ use plonky2_bn254::{curves::g2::G2Target, utils::hash_to_g2::HashToG2 as _};
 use rand::Rng;
 
 impl SignatureContent {
-    pub fn rand<R: Rng>(rng: &mut R) -> (Vec<KeySet>, Self) {
+    pub(crate) fn rand<R: Rng>(rng: &mut R) -> (Vec<KeySet>, Self) {
         let mut key_sets = (0..NUM_SENDERS_IN_BLOCK)
             .map(|_| KeySet::rand(rng))
             .collect::<Vec<_>>();
@@ -95,16 +95,5 @@ impl SignatureContent {
             message_point,
         };
         (key_sets, signature)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::common::signature::SignatureContent;
-
-    #[test]
-    fn random_signature() {
-        let rng = &mut rand::thread_rng();
-        let _signature = SignatureContent::rand(rng);
     }
 }
