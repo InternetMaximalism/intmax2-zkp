@@ -1,11 +1,9 @@
 use crate::{
     common::{
-        hash::{get_pubkey_salt_hash, get_pubkey_salt_hash_circuit},
+        deposit::{get_pubkey_salt_hash, get_pubkey_salt_hash_circuit, Deposit, DepositTarget},
         public_state::{PublicState, PublicStateTarget, PUBLIC_STATE_LEN},
         salt::{Salt, SaltTarget},
-        trees::deposit_tree::{
-            DepositLeaf, DepositLeafTarget, DepositMerkleProof, DepositMerkleProofTarget,
-        },
+        trees::deposit_tree::{DepositMerkleProof, DepositMerkleProofTarget},
     },
     constants::DEPOSIT_TREE_HEIGHT,
     ethereum_types::{
@@ -117,7 +115,7 @@ pub struct ReceiveDepositValue {
     pub pubkey: U256,
     pub deposit_salt: Salt,
     pub deposit_index: usize,
-    pub deposit: DepositLeaf,
+    pub deposit: Deposit,
     pub deposit_merkle_proof: DepositMerkleProof,
     pub public_state: PublicState,
     pub private_state_transition: PrivateStateTransitionValue,
@@ -130,7 +128,7 @@ impl ReceiveDepositValue {
         pubkey: U256,
         deposit_salt: Salt,
         deposit_index: usize,
-        deposit: &DepositLeaf,
+        deposit: &Deposit,
         deposit_merkle_proof: &DepositMerkleProof,
         public_state: &PublicState,
         private_state_transition: &PrivateStateTransitionValue,
@@ -169,7 +167,7 @@ pub struct ReceiveDepositTarget {
     pub pubkey: U256Target,
     pub deposit_salt: SaltTarget,
     pub deposit_index: Target,
-    pub deposit: DepositLeafTarget,
+    pub deposit: DepositTarget,
     pub deposit_merkle_proof: DepositMerkleProofTarget,
     pub public_state: PublicStateTarget,
     pub private_state_transition: PrivateStateTransitionTarget,
@@ -188,7 +186,7 @@ impl ReceiveDepositTarget {
         let pubkey = U256Target::new(builder, is_checked);
         let deposit_salt = SaltTarget::new(builder);
         let deposit_index = builder.add_virtual_target();
-        let deposit = DepositLeafTarget::new(builder, is_checked);
+        let deposit = DepositTarget::new(builder, is_checked);
         let deposit_merkle_proof = DepositMerkleProofTarget::new(builder, DEPOSIT_TREE_HEIGHT);
         let public_state = PublicStateTarget::new(builder, is_checked);
         let private_state_transition =

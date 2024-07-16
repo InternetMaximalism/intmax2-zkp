@@ -4,6 +4,7 @@ use plonky2::{
     iop::{target::Target, witness::WitnessWrite},
     plonk::circuit_builder::CircuitBuilder,
 };
+use serde::{Deserialize, Serialize};
 
 use crate::{
     constants::ASSET_TREE_HEIGHT,
@@ -15,7 +16,8 @@ use super::{
     trees::{asset_tree::AssetTree, nullifier_tree::NullifierTree},
 };
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct PrivateState {
     pub asset_tree_root: PoseidonHashOut,
     pub nullifier_tree_root: PoseidonHashOut,

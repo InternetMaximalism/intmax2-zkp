@@ -14,13 +14,15 @@ use plonky2::{
     plonk::circuit_builder::CircuitBuilder,
 };
 use rand::Rng;
+use serde::{Deserialize, Serialize};
 
 use super::signature::key_set::KeySet;
 
 pub const GENERIC_ADDRESS_LEN: usize = 1 + U256_LEN;
 
 // A structure representing a pubkey or Ethereum address
-#[derive(Debug, Default, Copy, Clone, Eq, PartialEq)]
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct GenericAddress {
     pub is_pubkey: bool,
     pub data: U256,

@@ -1,4 +1,7 @@
-use crate::ethereum_types::{bytes32::Bytes32Target, u32limb_trait::{U32LimbTargetTrait as _, U32LimbTrait as _}};
+use crate::ethereum_types::{
+    bytes32::Bytes32Target,
+    u32limb_trait::{U32LimbTargetTrait as _, U32LimbTrait as _},
+};
 use anyhow::ensure;
 use core::fmt::Display;
 use plonky2::{

@@ -4,7 +4,7 @@ use rand::Rng;
 use crate::{
     circuits::balance::balance_pis::BalancePublicInputs,
     common::{
-        hash::get_pubkey_salt_hash,
+        deposit::{get_pubkey_salt_hash, Deposit},
         insufficient_flags::InsufficientFlags,
         private_state::PrivateState,
         public_state::PublicState,
@@ -13,7 +13,6 @@ use crate::{
         transfer::Transfer,
         trees::{
             asset_tree::{AssetLeaf, AssetTree},
-            deposit_tree::DepositLeaf,
             nullifier_tree::NullifierTree,
             transfer_tree::TransferTree,
         },
@@ -197,7 +196,7 @@ impl LocalManager {
         let salt = Salt::rand(rng);
         let pubkey_salt_hash = get_pubkey_salt_hash(pubkey, salt);
 
-        let deposit = DepositLeaf {
+        let deposit = Deposit {
             pubkey_salt_hash,
             token_index,
             amount,

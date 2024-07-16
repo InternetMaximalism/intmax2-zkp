@@ -7,6 +7,7 @@ use plonky2::{
     },
     plonk::circuit_builder::CircuitBuilder,
 };
+use serde::{Deserialize, Serialize};
 
 use crate::{
     constants::{BLOCK_HASH_TREE_HEIGHT, DEPOSIT_TREE_HEIGHT},
@@ -25,7 +26,8 @@ use super::{
 pub const PUBLIC_STATE_LEN: usize = POSEIDON_HASH_OUT_LEN * 3 + BYTES32_LEN * 2 + 1;
 
 // This structure is used in the public input of the validity proof and balance proof.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct PublicState {
     pub block_tree_root: PoseidonHashOut,
     pub prev_account_tree_root: PoseidonHashOut,

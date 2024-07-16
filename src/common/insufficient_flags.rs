@@ -8,10 +8,12 @@ use plonky2::{
     iop::target::{BoolTarget, Target},
     plonk::circuit_builder::CircuitBuilder,
 };
+use serde::{Deserialize, Serialize};
 
 pub const INSUFFICIENT_FLAGS_LEN: usize = NUM_TRANSFERS_IN_TX / 32;
 
-#[derive(Clone, Copy, Debug, PartialEq, Default)]
+#[derive(Clone, Copy, Debug, PartialEq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct InsufficientFlags {
     limbs: [u32; INSUFFICIENT_FLAGS_LEN],
 }

@@ -8,6 +8,7 @@ use plonky2::{
     },
 };
 use rand::Rng;
+use serde::{Deserialize, Serialize};
 
 use super::{
     generic_address::{GenericAddress, GenericAddressTarget, GENERIC_ADDRESS_LEN},
@@ -27,7 +28,8 @@ use crate::{
 
 pub const TRANSFER_LEN: usize = GENERIC_ADDRESS_LEN + 1 + U256_LEN + SALT_LEN;
 
-#[derive(Debug, Clone, Copy, Default, PartialEq)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Transfer {
     pub recipient: GenericAddress,
     pub token_index: u32,

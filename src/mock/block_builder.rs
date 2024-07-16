@@ -8,6 +8,7 @@ use plonky2_bn254::{curves::g2::G2Target, utils::hash_to_g2::HashToG2 as _};
 use crate::{
     common::{
         block::Block,
+        deposit::Deposit,
         signature::{
             sign::{hash_to_weight, sign_to_tx_root},
             utils::get_pubkey_hash,
@@ -16,7 +17,7 @@ use crate::{
         trees::{
             account_tree::{AccountMembershipProof, AccountRegistorationProof, AccountTree},
             block_hash_tree::{BlockHashMerkleProof, BlockHashTree},
-            deposit_tree::{DepositLeaf, DepositTree},
+            deposit_tree::DepositTree,
             sender_tree::get_sender_leaves,
             tx_tree::TxTree,
         },
@@ -310,7 +311,7 @@ impl MockBlockBuilder {
         self.last_block_number
     }
 
-    pub fn deposit(&mut self, deposit: &DepositLeaf) -> usize {
+    pub fn deposit(&mut self, deposit: &Deposit) -> usize {
         self.deposit_tree.push(deposit.clone());
         let deposit_index = self.deposit_tree.len() - 1;
         deposit_index
