@@ -29,7 +29,7 @@ ff = { package = "ff", version = "0.13", features = ["derive"] }
 lazy_static = "1.5.0"
 
 [features]
-# default = ["dummy_validity_proof", "skip_insufficient_check"]
+default = ["dummy_validity_proof", "skip_insufficient_check"]
 dummy_validity_proof = []
 skip_insufficient_check = []
 
