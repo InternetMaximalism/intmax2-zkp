@@ -71,28 +71,15 @@ impl SignatureContent {
             Bn254::pairing(agg_pubkey_g1, message_point_g2)
                 == Bn254::pairing(G1Affine::generator(), agg_signature_g2)
         );
-        let agg_pubkey = [agg_pubkey_g1.x.into(), agg_pubkey_g1.y.into()];
-        let agg_signature = [
-            agg_signature_g2.x.c0.into(),
-            agg_signature_g2.x.c1.into(),
-            agg_signature_g2.y.c0.into(),
-            agg_signature_g2.y.c1.into(),
-        ];
-        let message_point = [
-            message_point_g2.x.c0.into(),
-            message_point_g2.x.c1.into(),
-            message_point_g2.y.c0.into(),
-            message_point_g2.y.c1.into(),
-        ];
         let signature = Self {
             tx_tree_root,
             is_registoration_block,
             sender_flag,
             pubkey_hash,
             account_id_hash,
-            agg_pubkey,
-            agg_signature,
-            message_point,
+            agg_pubkey: agg_pubkey_g1.into(),
+            agg_signature: agg_signature_g2.into(),
+            message_point: message_point_g2.into(),
         };
         (key_sets, signature)
     }
