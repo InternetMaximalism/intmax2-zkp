@@ -63,3 +63,15 @@ impl KeySet {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::common::{signature::key_set::KeySet, trees::account_tree::AccountTree};
+
+    #[test]
+    fn dummy_key_account_id() {
+        let account_tree = AccountTree::initialize();
+        let account_id = account_tree.index(KeySet::dummy().pubkey_x);
+        assert_eq!(account_id, Some(1)); // account_id of dummy key is 1
+    }
+}

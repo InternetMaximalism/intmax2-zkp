@@ -16,18 +16,3 @@ impl MockTxRequest {
         }
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use crate::common::trees::account_tree::AccountTree;
-
-    use super::MockTxRequest;
-
-    #[test]
-    fn dummy_key_account_id() {
-        let account_tree = AccountTree::initialize();
-        let dummy_pubkey = MockTxRequest::dummy().sender.pubkey_x;
-        let account_id = account_tree.index(dummy_pubkey);
-        assert_eq!(account_id, Some(1)); // account_id of dummy key is 1
-    }
-}
