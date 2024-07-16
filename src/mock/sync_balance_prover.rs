@@ -7,9 +7,11 @@ use plonky2::{
         proof::ProofWithPublicInputs,
     },
 };
+use rand::Rng;
 
-use crate::circuits::balance::{
-    balance_pis::BalancePublicInputs, balance_processor::BalanceProcessor,
+use crate::{
+    circuits::balance::{balance_pis::BalancePublicInputs, balance_processor::BalanceProcessor},
+    common::witness::transfer_witness::TransferWitness,
 };
 
 use super::{
@@ -42,6 +44,16 @@ where
         self.last_balance_proof
             .clone()
             .expect("balance proof not found")
+    }
+
+    pub fn get_balance_pis(&self) -> BalancePublicInputs {
+        BalancePublicInputs::from_pis(
+            &self
+                .last_balance_proof
+                .as_ref()
+                .expect("balance proof not found")
+                .public_inputs,
+        )
     }
 
     pub fn sync_send(
@@ -143,5 +155,49 @@ where
             balance_processor,
             block_builder,
         );
+    }
+
+    pub fn receive_deposit<R: Rng>(
+        &mut self,
+        rng: &mut R,
+        wallet: &mut MockWallet,
+        balance_processor: &BalanceProcessor<F, C, D>,
+        block_builder: &MockBlockBuilder,
+        deposit_index: usize,
+    ) {
+        let receive_deposit_witness =
+            wallet.receive_deposit_and_update(rng, block_builder, deposit_index);
+        let balance_proof = balance_processor.prove_receive_deposit(
+            wallet.get_pubkey(),
+            &receive_deposit_witness,
+            &self.last_balance_proof,
+        );
+        // public state is unchanged
+        self.last_balance_proof = Some(balance_proof);
+    }
+
+    pub fn receive_transfer<R: Rng>(
+        &mut self,
+        rng: &mut R,
+        wallet: &mut MockWallet,
+        balance_processor: &BalanceProcessor<F, C, D>,
+        block_builder: &MockBlockBuilder,
+        transfer_witness: &TransferWitness,
+        sender_balance_proof: &ProofWithPublicInputs<F, C, D>,
+    ) {
+        let receive_transfer_witness = wallet.receive_transfer_and_update(
+            rng,
+            block_builder,
+            self.last_block_number,
+            transfer_witness,
+            sender_balance_proof,
+        );
+        let balance_proof = balance_processor.prove_receive_transfer(
+            wallet.get_pubkey(),
+            &receive_transfer_witness,
+            &self.last_balance_proof,
+        );
+        // public state is unchanged
+        self.last_balance_proof = Some(balance_proof);
     }
 }

@@ -304,7 +304,7 @@ mod tests {
         let alice_balance_proof = alice_balance_prover.last_balance_proof.clone().unwrap();
 
         let receive_deposit_witness =
-            alice.generate_deposit_witness(rng, &block_builder, first_deposit_index);
+            alice.receive_deposit_and_update(rng, &block_builder, first_deposit_index);
         let _new_alice_balance_proof = balance_processor.prove_receive_deposit(
             alice.get_pubkey(),
             &receive_deposit_witness,

@@ -5,11 +5,8 @@ use plonky2::{
 };
 
 use crate::{
-    circuits::balance::{
-        balance_circuit::BalanceCircuit,
-        receive::receive_targets::transfer_inclusion::TransferInclusionValue,
-    },
-    utils::wrapper::WrapperCircuit,
+    circuits::balance::balance_circuit::BalanceCircuit,
+    common::witness::withdrawal_witness::WithdrawalWitness, utils::wrapper::WrapperCircuit,
     wrapper_config::plonky2_config::PoseidonBN128GoldilocksConfig,
 };
 
@@ -40,12 +37,12 @@ impl WithdrawalWrapperProcessor {
 
     pub fn prove(
         &self,
-        transition_inclusion_value: &TransferInclusionValue<F, C, D>,
+        withdrawal_witness: &WithdrawalWitness<F, C, D>,
         prev_withdrawal_proof: &Option<ProofWithPublicInputs<F, C, D>>,
     ) -> Result<ProofWithPublicInputs<F, OuterC, D>> {
         let withdrawal_proof = self
             .withdrawal_processor
-            .prove(transition_inclusion_value, prev_withdrawal_proof)?;
+            .prove(withdrawal_witness, prev_withdrawal_proof)?;
         let wrapper_proof0 = self.wrapper_circuit0.prove(&withdrawal_proof)?;
         let wrapper_proof1 = self.wrapper_circuit1.prove(&wrapper_proof0)?;
         Ok(wrapper_proof1)

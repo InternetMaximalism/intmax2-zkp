@@ -269,7 +269,7 @@ impl MockWallet {
         deposit_index
     }
 
-    pub fn generate_deposit_witness<R: Rng>(
+    pub fn receive_deposit_and_update<R: Rng>(
         &mut self,
         rng: &mut R,
         block_builder: &MockBlockBuilder,
@@ -293,6 +293,8 @@ impl MockWallet {
 
         // delete deposit
         self.deposit_cases.remove(&deposit_index);
+        // update
+        self.update_on_receive(&private_witness);
         ReceiveDepositWitness {
             deposit_witness,
             private_witness,

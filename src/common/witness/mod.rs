@@ -9,3 +9,4 @@ pub mod tx_witness;
 pub mod update_witness;
 pub mod validity_transition_witness;
 pub mod validity_witness;
+pub mod withdrawal_witness;

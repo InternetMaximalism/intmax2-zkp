@@ -25,7 +25,7 @@ use super::transfer::{Transfer, TransferTarget};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Withdrawal {
-    pub prev_withdral_hash: Bytes32,
+    pub prev_withdrawal_hash: Bytes32,
     pub recipient: Address,
     pub token_index: u32,
     pub amount: U256,
@@ -45,7 +45,7 @@ pub struct WithdrawalTarget {
 impl Withdrawal {
     pub fn to_u32_vec(&self) -> Vec<u32> {
         [
-            self.prev_withdral_hash.limbs(),
+            self.prev_withdrawal_hash.limbs(),
             self.recipient.limbs(),
             vec![self.token_index],
             self.amount.limbs(),
