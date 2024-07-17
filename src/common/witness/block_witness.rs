@@ -184,17 +184,22 @@ impl BlockInfo {
 pub struct FullBlock {
     pub block: Block,
     pub signature: SignatureContent,
-    pub pubkeys: Vec<U256>,
+    pub pubkeys: Option<Vec<U256>>,
     pub account_id_packed: Option<AccountIdPacked>,
     pub block_hash: Bytes32,
 }
 
 impl BlockWitness {
     pub fn to_full_block(&self) -> FullBlock {
+        let pubkeys = if self.signature.is_registoration_block {
+            Some(self.pubkeys.clone())
+        } else {
+            None
+        };
         FullBlock {
             block: self.block.clone(),
             signature: self.signature.clone(),
-            pubkeys: self.pubkeys.clone(),
+            pubkeys,
             account_id_packed: self.account_id_packed.clone(),
             block_hash: self.block.hash(),
         }
