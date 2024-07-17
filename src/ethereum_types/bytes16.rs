@@ -5,19 +5,19 @@ use serde::{Deserialize, Serialize};
 
 use super::u32limb_trait::{U32LimbTargetTrait, U32LimbTrait};
 
-pub const U128_LEN: usize = 4;
+pub const BYTES16_LEN: usize = 4;
 
 // A structure representing the ui128 type in Ethereum.
 // `T` is either `u32` or `U32Target`.
 // The value is stored in big endian format.
 #[derive(Clone, Copy, PartialEq, Default, Hash)]
 pub struct Bytes16 {
-    limbs: [u32; U128_LEN],
+    limbs: [u32; BYTES16_LEN],
 }
 
 #[derive(Clone, Copy, Debug)]
 pub struct Bytes16Target {
-    limbs: [Target; U128_LEN],
+    limbs: [Target; BYTES16_LEN],
 }
 
 impl core::fmt::Debug for Bytes16 {
@@ -49,8 +49,8 @@ impl TryFrom<BigUint> for Bytes16 {
     type Error = anyhow::Error;
     fn try_from(value: BigUint) -> anyhow::Result<Self> {
         let mut digits = value.to_u32_digits();
-        ensure!(digits.len() <= U128_LEN, "value is too large");
-        digits.resize(U128_LEN, 0);
+        ensure!(digits.len() <= BYTES16_LEN, "value is too large");
+        digits.resize(BYTES16_LEN, 0);
         digits.reverse(); // little endian to big endian
         Ok(Self {
             limbs: digits.try_into().unwrap(),
@@ -68,7 +68,7 @@ impl From<Bytes16> for BigUint {
     }
 }
 
-impl U32LimbTrait<U128_LEN> for Bytes16 {
+impl U32LimbTrait<BYTES16_LEN> for Bytes16 {
     fn limbs(&self) -> Vec<u32> {
         self.limbs.to_vec()
     }
@@ -80,7 +80,7 @@ impl U32LimbTrait<U128_LEN> for Bytes16 {
     }
 }
 
-impl U32LimbTargetTrait<U128_LEN> for Bytes16Target {
+impl U32LimbTargetTrait<BYTES16_LEN> for Bytes16Target {
     fn limbs(&self) -> Vec<Target> {
         self.limbs.to_vec()
     }

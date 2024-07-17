@@ -27,15 +27,15 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     ethereum_types::{
+        bytes16::{Bytes16, Bytes16Target, BYTES16_LEN},
         bytes32::{Bytes32, Bytes32Target, BYTES32_LEN},
-        bytes16::{Bytes16, Bytes16Target, U128_LEN},
         u256::{U256, U256_LEN},
         u32limb_trait::{U32LimbTargetTrait, U32LimbTrait},
     },
     utils::poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget},
 };
 
-pub const SIGNATURE_LEN: usize = 1 + U128_LEN + 3 * BYTES32_LEN + 10 * U256_LEN;
+pub const SIGNATURE_LEN: usize = 1 + BYTES16_LEN + 3 * BYTES32_LEN + 10 * U256_LEN;
 
 /// The signature that is verified by the contract. It is already guaranteed by
 /// the contract that e(`agg_pubkey`, message_point) = e(`agg_signature`, G2)
