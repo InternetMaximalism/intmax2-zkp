@@ -16,15 +16,12 @@ use crate::{
             account_tree::{AccountMembershipProof, AccountMerkleProof, AccountTree},
             block_hash_tree::BlockHashTree,
             sender_tree::{get_sender_leaves, get_sender_tree_root, SenderTree},
-            tx_tree::TxTree,
         },
     },
     constants::{BLOCK_HASH_TREE_HEIGHT, SENDER_TREE_HEIGHT},
     ethereum_types::{account_id_packed::AccountIdPacked, bytes32::Bytes32, u256::U256},
     utils::poseidon_hash_out::PoseidonHashOut,
 };
-
-use super::{tx_witness::TxWitness, validity_witness::ValidityWitness};
 
 /// A structure that holds all the information needed to verify a block
 #[derive(Debug, Clone)]
@@ -143,37 +140,6 @@ impl BlockWitness {
             get_sender_tree_root(&self.pubkeys, self.signature.sender_flag)
         );
         sender_tree
-    }
-}
-
-#[derive(Clone, Debug)]
-pub struct BlockInfo {
-    pub validity_witness: ValidityWitness,
-    pub tx_tree: TxTree,
-}
-
-impl BlockInfo {
-    pub fn generate_tx_witnesses(&self) -> Vec<TxWitness> {
-        return self
-            .tx_tree
-            .leaves()
-            .into_iter()
-            .enumerate()
-            .map(|(tx_index, tx)| {
-                let tx_merkle_proof = self.tx_tree.prove(tx_index);
-                TxWitness {
-                    validity_pis: self.validity_witness.to_validity_pis(),
-                    sender_leaves: self
-                        .validity_witness
-                        .block_witness
-                        .get_sender_tree()
-                        .leaves(),
-                    tx: tx.clone(),
-                    tx_index,
-                    tx_merkle_proof,
-                }
-            })
-            .collect();
     }
 }
 
