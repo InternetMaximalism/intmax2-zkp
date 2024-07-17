@@ -42,13 +42,13 @@ impl<'de> Visitor<'de> for CurveVisitor<2> {
     where
         A: SeqAccess<'de>,
     {
-        let first = seq
+        let x: Bytes32 = seq
             .next_element()?
             .ok_or_else(|| de::Error::invalid_length(0, &self))?;
-        let second = seq
+        let y: Bytes32 = seq
             .next_element()?
             .ok_or_else(|| de::Error::invalid_length(1, &self))?;
-        Ok(FlatG1([first, second]))
+        Ok(FlatG1([x.into(), y.into()]))
     }
 }
 
@@ -63,20 +63,20 @@ impl<'de> Visitor<'de> for CurveVisitor<4> {
     where
         A: SeqAccess<'de>,
     {
-        let x_c1 = seq
+        let x_c1: Bytes32 = seq
             .next_element()?
             .ok_or_else(|| de::Error::invalid_length(0, &self))?;
-        let x_c0 = seq
+        let x_c0: Bytes32 = seq
             .next_element()?
             .ok_or_else(|| de::Error::invalid_length(1, &self))?;
-        let y_c1 = seq
+        let y_c1: Bytes32 = seq
             .next_element()?
             .ok_or_else(|| de::Error::invalid_length(2, &self))?;
-        let y_c0 = seq
+        let y_c0: Bytes32 = seq
             .next_element()?
             .ok_or_else(|| de::Error::invalid_length(3, &self))?;
 
-        Ok(FlatG2([x_c1, x_c0, y_c1, y_c0]))
+        Ok(FlatG2([x_c1.into(), x_c0.into(), y_c1.into(), y_c0.into()]))
     }
 }
 
