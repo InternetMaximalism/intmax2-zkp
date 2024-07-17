@@ -35,7 +35,7 @@ fn test_save_blocks() {
         full_blocks.push(full_block);
     }
 
-    save_full_blocks("data", &full_blocks).unwrap();
+    save_full_blocks("block_data", &full_blocks).unwrap();
 }
 
 fn save_full_blocks<P: AsRef<Path>>(dir_path: P, full_blocks: &[FullBlock]) -> anyhow::Result<()> {

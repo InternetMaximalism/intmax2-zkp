@@ -26,7 +26,7 @@ use crate::{
         TX_TREE_HEIGHT,
     },
     ethereum_types::{
-        account_id_packed::AccountIdPacked, bytes32::Bytes32, bytes16::Bytes16, u256::U256,
+        account_id_packed::AccountIdPacked, bytes16::Bytes16, bytes32::Bytes32, u256::U256,
         u32limb_trait::U32LimbTrait,
     },
 };
@@ -344,7 +344,7 @@ fn construct_signature(
         .map(|tx| tx.will_return_signature)
         .collect::<Vec<_>>();
     let sender_flag = Bytes16::from_bits_be(&sender_flag_bits);
-    let agg_pubkey_g1 = sorted_txs
+    let agg_pubkey = sorted_txs
         .iter()
         .map(|tx| {
             let weight = hash_to_weight(tx.sender.pubkey_x, pubkey_hash);
@@ -357,7 +357,7 @@ fn construct_signature(
         .fold(G1Affine::zero(), |acc: G1Affine, x: G1Affine| {
             (acc + x).into()
         });
-    let agg_signature_g2 = sorted_txs
+    let agg_signature = sorted_txs
         .iter()
         .map(|tx| {
             if tx.will_return_signature {
@@ -375,10 +375,10 @@ fn construct_signature(
         .iter()
         .map(|x| GoldilocksField::from_canonical_u32(*x))
         .collect::<Vec<_>>();
-    let message_point_g2 = G2Target::<GoldilocksField, 2>::hash_to_g2(&tx_tree_root_f);
+    let message_point = G2Target::<GoldilocksField, 2>::hash_to_g2(&tx_tree_root_f);
     assert!(
-        Bn254::pairing(agg_pubkey_g1, message_point_g2)
-            == Bn254::pairing(G1Affine::generator(), agg_signature_g2)
+        Bn254::pairing(agg_pubkey, message_point)
+            == Bn254::pairing(G1Affine::generator(), agg_signature)
     );
     SignatureContent {
         tx_tree_root,
@@ -386,9 +386,9 @@ fn construct_signature(
         sender_flag,
         pubkey_hash,
         account_id_hash,
-        agg_pubkey: agg_pubkey_g1.into(),
-        agg_signature: agg_signature_g2.into(),
-        message_point: message_point_g2.into(),
+        agg_pubkey: agg_pubkey.into(),
+        agg_signature: agg_signature.into(),
+        message_point: message_point.into(),
     }
 }
 

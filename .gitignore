@@ -1,4 +1,4 @@
 target/
-withdraw_circuit_data/
+block_data/
 data/
 *.txt

@@ -469,10 +469,10 @@ mod tests {
             salt: Salt::rand(&mut rng),
         };
         // post register block
-        let _transfer_witnesses1 = wallet.send_tx(&mut block_builder, &[transfer]);
+        wallet.send_tx(&mut block_builder, &[transfer]);
         wallet.nonce += 1;
         // post account id block
-        let _transfer_witnesses2 = wallet.send_tx(&mut block_builder, &[transfer]);
+        wallet.send_tx(&mut block_builder, &[transfer]);
     }
 
     #[test]
