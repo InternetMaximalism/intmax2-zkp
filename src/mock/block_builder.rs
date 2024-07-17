@@ -394,7 +394,7 @@ fn construct_signature(
 
 #[cfg(test)]
 mod tests {
-    use crate::test_utils::tx::generate_random_tx_requests;
+    use crate::utils::test_utils::tx::generate_random_tx_requests;
 
     use super::MockBlockBuilder;
 

@@ -251,7 +251,7 @@ mod tests {
     use crate::{
         common::trees::{account_tree::AccountTree, sender_tree::get_sender_leaves},
         ethereum_types::{bytes16::Bytes16, u256::U256, u32limb_trait::U32LimbTrait as _},
-        test_utils::account_tree::add_random_accounts,
+        utils::test_utils::account_tree::add_random_accounts,
     };
 
     use super::*;

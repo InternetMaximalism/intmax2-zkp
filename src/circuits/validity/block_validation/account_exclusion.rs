@@ -248,7 +248,7 @@ mod tests {
 
     use crate::{
         common::trees::account_tree::AccountTree, constants::NUM_SENDERS_IN_BLOCK,
-        ethereum_types::u256::U256, test_utils::account_tree::add_random_accounts,
+        ethereum_types::u256::U256, utils::test_utils::account_tree::add_random_accounts,
     };
 
     use super::*;

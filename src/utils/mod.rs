@@ -9,3 +9,6 @@ pub mod recursivable;
 pub mod save;
 pub mod trees;
 pub mod wrapper;
+
+#[cfg(test)]
+pub mod test_utils;
