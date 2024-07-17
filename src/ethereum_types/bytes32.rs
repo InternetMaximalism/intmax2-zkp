@@ -4,7 +4,7 @@ use plonky2::iop::target::Target;
 use serde::{Deserialize, Serialize};
 
 use super::{
-    u256::U256_LEN,
+    u256::{U256, U256_LEN},
     u32limb_trait::{U32LimbTargetTrait, U32LimbTrait},
 };
 
@@ -45,6 +45,18 @@ impl<'de> Deserialize<'de> for Bytes32 {
     fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         let s = String::deserialize(deserializer)?;
         Ok(Self::from_hex(&s))
+    }
+}
+
+impl From<U256> for Bytes32 {
+    fn from(value: U256) -> Self {
+        Bytes32::from_limbs(&value.limbs())
+    }
+}
+
+impl From<Bytes32> for U256 {
+    fn from(value: Bytes32) -> Self {
+        U256::from_limbs(&value.limbs())
     }
 }
 

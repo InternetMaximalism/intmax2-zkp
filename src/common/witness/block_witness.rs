@@ -19,7 +19,10 @@ use crate::{
         },
     },
     constants::{BLOCK_HASH_TREE_HEIGHT, SENDER_TREE_HEIGHT},
-    ethereum_types::{account_id_packed::AccountIdPacked, bytes32::Bytes32, u256::U256},
+    ethereum_types::{
+        account_id_packed::AccountIdPacked, bytes32::Bytes32, u256::U256,
+        u32limb_trait::U32LimbTrait,
+    },
     utils::poseidon_hash_out::PoseidonHashOut,
 };
 
@@ -150,23 +153,48 @@ impl BlockWitness {
 pub struct FullBlock {
     pub block: Block,
     pub signature: SignatureContent,
-    pub pubkeys: Option<Vec<U256>>,
-    pub account_id_packed: Option<AccountIdPacked>,
+    pub pubkeys: Option<Vec<U256>>,  // pubkeys trimed dummy pubkey
+    pub account_ids: Option<String>, // hex representation of account_ids trimed dummy account ids
     pub block_hash: Bytes32,
 }
 
 impl BlockWitness {
     pub fn to_full_block(&self) -> FullBlock {
         let pubkeys = if self.signature.is_registoration_block {
-            Some(self.pubkeys.clone())
+            let pubkey_trimed_dummy = self
+                .pubkeys
+                .iter()
+                .filter(|p| **p != U256::one())
+                .cloned()
+                .collect::<Vec<_>>();
+            Some(pubkey_trimed_dummy)
         } else {
             None
         };
+        let account_ids = if self.account_id_packed.is_some() {
+            let account_id_packed = self.account_id_packed.unwrap();
+            let dummy_account_id_start_at = account_id_packed
+                .unpack()
+                .iter()
+                .position(|account_id| *account_id == 1);
+            if dummy_account_id_start_at.is_none() {
+                Some(account_id_packed.to_hex()) // account ids are full
+            } else {
+                let hex = account_id_packed.to_hex();
+                let start_index = dummy_account_id_start_at.unwrap();
+                //  a little dirty implementation to slice until 5bytes * start_index = 10hex
+                // *start_index
+                Some(hex[..2 + 10 * start_index].to_string())
+            }
+        } else {
+            None
+        };
+
         FullBlock {
             block: self.block.clone(),
             signature: self.signature.clone(),
             pubkeys,
-            account_id_packed: self.account_id_packed.clone(),
+            account_ids,
             block_hash: self.block.hash(),
         }
     }

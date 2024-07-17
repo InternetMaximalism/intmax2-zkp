@@ -4,13 +4,16 @@ use serde::{
     Deserialize, Deserializer, Serialize,
 };
 
+use crate::ethereum_types::bytes32::Bytes32;
+
 use super::flatten::{FlatG1, FlatG2};
 
+// Serialize is designed to match the format of the pairing precompile in Solidity.
 impl Serialize for FlatG1 {
     fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         let mut seq = serializer.serialize_tuple(2)?;
-        seq.serialize_element(&self.0[0])?;
-        seq.serialize_element(&self.0[1])?;
+        seq.serialize_element(&Bytes32::from(self.0[0]))?;
+        seq.serialize_element(&Bytes32::from(self.0[1]))?;
         seq.end()
     }
 }
@@ -18,10 +21,10 @@ impl Serialize for FlatG1 {
 impl Serialize for FlatG2 {
     fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         let mut seq = serializer.serialize_tuple(4)?;
-        seq.serialize_element(&self.0[0])?;
-        seq.serialize_element(&self.0[1])?;
-        seq.serialize_element(&self.0[2])?;
-        seq.serialize_element(&self.0[3])?;
+        seq.serialize_element(&Bytes32::from(self.0[0]))?;
+        seq.serialize_element(&Bytes32::from(self.0[1]))?;
+        seq.serialize_element(&Bytes32::from(self.0[2]))?;
+        seq.serialize_element(&Bytes32::from(self.0[3]))?;
         seq.end()
     }
 }
