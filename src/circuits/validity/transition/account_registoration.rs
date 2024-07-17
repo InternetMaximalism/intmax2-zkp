@@ -250,7 +250,7 @@ mod tests {
 
     use crate::{
         common::trees::{account_tree::AccountTree, sender_tree::get_sender_leaves},
-        ethereum_types::{u128::U128, u256::U256, u32limb_trait::U32LimbTrait as _},
+        ethereum_types::{bytes16::Bytes16, u256::U256, u32limb_trait::U32LimbTrait as _},
         test_utils::account_tree::add_random_accounts,
     };
 
@@ -268,7 +268,7 @@ mod tests {
 
         let mut pubkeys = (0..10).map(|_| U256::rand(&mut rng)).collect::<Vec<_>>();
         pubkeys.resize(NUM_SENDERS_IN_BLOCK, U256::one()); // pad with dummy pubkeys
-        let sender_flag = U128::rand(&mut rng);
+        let sender_flag = Bytes16::rand(&mut rng);
         let sender_leaves = get_sender_leaves(&pubkeys, sender_flag);
         let block_number: u32 = 1000;
         let mut account_registoration_proofs = Vec::new();

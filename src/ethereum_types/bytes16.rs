@@ -1,5 +1,5 @@
 use anyhow::ensure;
-use num::{BigUint, Num as _, Zero as _};
+use num::{BigUint, Zero as _};
 use plonky2::iop::target::Target;
 use serde::{Deserialize, Serialize};
 
@@ -11,45 +11,41 @@ pub const U128_LEN: usize = 4;
 // `T` is either `u32` or `U32Target`.
 // The value is stored in big endian format.
 #[derive(Clone, Copy, PartialEq, Default, Hash)]
-pub struct U128 {
+pub struct Bytes16 {
     limbs: [u32; U128_LEN],
 }
 
 #[derive(Clone, Copy, Debug)]
-pub struct U128Target {
+pub struct Bytes16Target {
     limbs: [Target; U128_LEN],
 }
 
-impl core::fmt::Debug for U128 {
+impl core::fmt::Debug for Bytes16 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let b: BigUint = (*self).into();
-        let s = b.to_str_radix(10);
-        write!(f, "{}", s)
+        write!(f, "{}", self.to_hex())
     }
 }
 
-impl core::fmt::Display for U128 {
+impl core::fmt::Display for Bytes16 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         core::fmt::Debug::fmt(&self, f)
     }
 }
 
-impl Serialize for U128 {
+impl Serialize for Bytes16 {
     fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         serializer.serialize_str(&self.to_string())
     }
 }
 
-impl<'de> Deserialize<'de> for U128 {
+impl<'de> Deserialize<'de> for Bytes16 {
     fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         let s = String::deserialize(deserializer)?;
-        let b = BigUint::from_str_radix(&s, 10).map_err(serde::de::Error::custom)?;
-        let u: U128 = b.try_into().unwrap();
-        Ok(u)
+        Ok(Self::from_hex(&s))
     }
 }
 
-impl TryFrom<BigUint> for U128 {
+impl TryFrom<BigUint> for Bytes16 {
     type Error = anyhow::Error;
     fn try_from(value: BigUint) -> anyhow::Result<Self> {
         let mut digits = value.to_u32_digits();
@@ -62,8 +58,8 @@ impl TryFrom<BigUint> for U128 {
     }
 }
 
-impl From<U128> for BigUint {
-    fn from(value: U128) -> Self {
+impl From<Bytes16> for BigUint {
+    fn from(value: Bytes16) -> Self {
         let mut sum = BigUint::zero();
         for (i, digit) in value.limbs.iter().rev().enumerate() {
             sum += BigUint::from(*digit) << (32 * i);
@@ -72,7 +68,7 @@ impl From<U128> for BigUint {
     }
 }
 
-impl U32LimbTrait<U128_LEN> for U128 {
+impl U32LimbTrait<U128_LEN> for Bytes16 {
     fn limbs(&self) -> Vec<u32> {
         self.limbs.to_vec()
     }
@@ -84,7 +80,7 @@ impl U32LimbTrait<U128_LEN> for U128 {
     }
 }
 
-impl U32LimbTargetTrait<U128_LEN> for U128Target {
+impl U32LimbTargetTrait<U128_LEN> for Bytes16Target {
     fn limbs(&self) -> Vec<Target> {
         self.limbs.to_vec()
     }

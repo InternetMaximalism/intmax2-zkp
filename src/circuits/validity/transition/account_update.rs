@@ -240,7 +240,7 @@ mod tests {
 
     use crate::{
         common::trees::{account_tree::AccountTree, sender_tree::get_sender_leaves},
-        ethereum_types::{u128::U128, u256::U256, u32limb_trait::U32LimbTrait as _},
+        ethereum_types::{bytes16::Bytes16, u256::U256, u32limb_trait::U32LimbTrait as _},
     };
 
     use super::*;
@@ -260,7 +260,7 @@ mod tests {
         }
         let prev_account_tree_root = tree.get_root();
 
-        let sender_flag = U128::rand(&mut rng);
+        let sender_flag = Bytes16::rand(&mut rng);
         let sender_leaves = get_sender_leaves(&pubkeys, sender_flag);
         let block_number: u32 = 1000;
         let mut account_update_proofs = Vec::new();

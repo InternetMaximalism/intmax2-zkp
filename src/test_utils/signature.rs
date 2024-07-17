@@ -6,7 +6,7 @@ use crate::{
         SignatureContent,
     },
     constants::NUM_SENDERS_IN_BLOCK,
-    ethereum_types::{bytes32::Bytes32, u128::U128, u32limb_trait::U32LimbTrait as _},
+    ethereum_types::{bytes32::Bytes32, bytes16::Bytes16, u32limb_trait::U32LimbTrait as _},
 };
 use ark_bn254::{Bn254, Fr, G1Affine, G2Affine};
 use ark_ec::{pairing::Pairing, AffineRepr as _};
@@ -30,7 +30,7 @@ impl SignatureContent {
         let account_id_hash = Bytes32::rand(rng);
         let tx_tree_root = Bytes32::rand(rng);
         let is_registoration_block = rng.gen();
-        let sender_flag = U128::rand(rng);
+        let sender_flag = Bytes16::rand(rng);
         let sender_flag_bits = sender_flag.to_bits_be();
         let agg_pubkey_g1 = key_sets
             .iter()

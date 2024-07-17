@@ -1,3 +1,4 @@
 target/
 withdraw_circuit_data/
+data/
 *.txt

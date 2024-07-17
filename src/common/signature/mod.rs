@@ -1,6 +1,7 @@
 pub mod flatten;
 pub mod format_validation;
 pub mod key_set;
+pub mod serialize;
 pub mod sign;
 pub mod utils;
 pub mod verify;
@@ -27,7 +28,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     ethereum_types::{
         bytes32::{Bytes32, Bytes32Target, BYTES32_LEN},
-        u128::{U128Target, U128, U128_LEN},
+        bytes16::{Bytes16, Bytes16Target, U128_LEN},
         u256::{U256, U256_LEN},
         u32limb_trait::{U32LimbTargetTrait, U32LimbTrait},
     },
@@ -44,7 +45,7 @@ pub const SIGNATURE_LEN: usize = 1 + U128_LEN + 3 * BYTES32_LEN + 10 * U256_LEN;
 pub struct SignatureContent {
     pub is_registoration_block: bool,
     pub tx_tree_root: Bytes32,
-    pub sender_flag: U128,
+    pub sender_flag: Bytes16,
     pub pubkey_hash: Bytes32,
     pub account_id_hash: Bytes32,
     pub agg_pubkey: FlatG1,
@@ -56,7 +57,7 @@ pub struct SignatureContent {
 pub struct SignatureContentTarget {
     pub is_registoration_block: BoolTarget,
     pub tx_tree_root: Bytes32Target,
-    pub sender_flag: U128Target,
+    pub sender_flag: Bytes16Target,
     pub pubkey_hash: Bytes32Target,
     pub account_id_hash: Bytes32Target,
     pub agg_pubkey: FlatG1Target,
@@ -117,7 +118,7 @@ impl SignatureContentTarget {
         Self {
             tx_tree_root: Bytes32Target::new(builder, is_checked),
             is_registoration_block,
-            sender_flag: U128Target::new(builder, is_checked),
+            sender_flag: Bytes16Target::new(builder, is_checked),
             pubkey_hash: Bytes32Target::new(builder, is_checked),
             account_id_hash: Bytes32Target::new(builder, is_checked),
             agg_pubkey: FlatG1Target::new(builder, is_checked),
@@ -133,7 +134,7 @@ impl SignatureContentTarget {
         Self {
             tx_tree_root: Bytes32Target::constant(builder, value.tx_tree_root),
             is_registoration_block: builder.constant_bool(value.is_registoration_block),
-            sender_flag: U128Target::constant(builder, value.sender_flag),
+            sender_flag: Bytes16Target::constant(builder, value.sender_flag),
             pubkey_hash: Bytes32Target::constant(builder, value.pubkey_hash),
             account_id_hash: Bytes32Target::constant(builder, value.account_id_hash),
             agg_pubkey: FlatG1Target::constant(builder, &value.agg_pubkey),

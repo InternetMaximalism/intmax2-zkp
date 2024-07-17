@@ -1,3 +1,5 @@
+use serde::{Deserialize, Serialize};
+
 use crate::{
     circuits::validity::{
         block_validation::{
@@ -18,7 +20,7 @@ use crate::{
         },
     },
     constants::{BLOCK_HASH_TREE_HEIGHT, SENDER_TREE_HEIGHT},
-    ethereum_types::{account_id_packed::AccountIdPacked, u256::U256},
+    ethereum_types::{account_id_packed::AccountIdPacked, bytes32::Bytes32, u256::U256},
     utils::poseidon_hash_out::PoseidonHashOut,
 };
 
@@ -172,5 +174,29 @@ impl BlockInfo {
                 }
             })
             .collect();
+    }
+}
+
+// A subset of `BlockWitness` that only contains the information to be submitted to the
+// contract
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FullBlock {
+    pub block: Block,
+    pub signature: SignatureContent,
+    pub pubkeys: Vec<U256>,
+    pub account_id_packed: Option<AccountIdPacked>,
+    pub block_hash: Bytes32,
+}
+
+impl BlockWitness {
+    pub fn to_full_block(&self) -> FullBlock {
+        FullBlock {
+            block: self.block.clone(),
+            signature: self.signature.clone(),
+            pubkeys: self.pubkeys.clone(),
+            account_id_packed: self.account_id_packed.clone(),
+            block_hash: self.block.hash(),
+        }
     }
 }

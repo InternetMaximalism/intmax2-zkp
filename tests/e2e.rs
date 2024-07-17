@@ -139,7 +139,7 @@ fn e2e_test() {
         .unwrap();
 }
 
-pub fn get_asset_balance(wallet: &MockWallet, token_index: u32) -> U256 {
+fn get_asset_balance(wallet: &MockWallet, token_index: u32) -> U256 {
     let private_state = wallet.get_private_state();
     assert_eq!(
         private_state.asset_tree_root,

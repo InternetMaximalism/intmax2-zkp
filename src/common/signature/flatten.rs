@@ -12,15 +12,14 @@ use plonky2_bn254::{
     curves::{g1::G1Target, g2::G2Target},
     fields::fq2::Fq2Target,
 };
-use serde::{Deserialize, Serialize};
 
 use crate::ethereum_types::{
     u256::{U256Target, U256},
     u32limb_trait::{U32LimbTargetTrait as _, U32LimbTrait},
 };
 
-#[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
-pub struct FlatG1([U256; 2]);
+#[derive(Clone, Default, Debug, PartialEq)]
+pub struct FlatG1(pub [U256; 2]);
 
 impl From<G1Affine> for FlatG1 {
     fn from(affine: G1Affine) -> Self {
@@ -44,8 +43,8 @@ impl FlatG1 {
     }
 }
 
-#[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
-pub struct FlatG2([U256; 4]);
+#[derive(Clone, Default, Debug, PartialEq)]
+pub struct FlatG2(pub [U256; 4]);
 
 impl From<G2Affine> for FlatG2 {
     fn from(affine: G2Affine) -> Self {

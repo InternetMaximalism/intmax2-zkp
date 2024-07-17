@@ -23,7 +23,7 @@ pub struct Bytes32Target {
     limbs: [Target; BYTES32_LEN],
 }
 
-impl Debug for Bytes32 {
+impl core::fmt::Debug for Bytes32 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.to_hex())
     }

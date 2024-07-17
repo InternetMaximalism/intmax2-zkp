@@ -20,7 +20,7 @@ use crate::{
     common::signature::{flatten::FlatG2Target, pubkey_range_check},
     constants::NUM_SENDERS_IN_BLOCK,
     ethereum_types::{
-        u128::U128,
+        bytes16::Bytes16,
         u256::{U256Target, U256},
         u32limb_trait::{U32LimbTargetTrait as _, U32LimbTrait as _},
     },
@@ -42,7 +42,7 @@ impl SignatureContent {
         );
 
         // sender flag check
-        ensure!(self.sender_flag != U128::default(), "sender_flag is zero");
+        ensure!(self.sender_flag != Bytes16::default(), "sender_flag is zero");
 
         // pubkey order check
         let mut cur_pubkey = pubkeys[0];
@@ -105,7 +105,7 @@ impl SignatureContentTarget {
         let mut result = builder.constant_bool(true);
 
         // sender flag check
-        let is_sender_flag_zero = self.sender_flag.is_zero::<F, D, U128>(builder);
+        let is_sender_flag_zero = self.sender_flag.is_zero::<F, D, Bytes16>(builder);
         let is_not_sender_flag_zero = builder.not(is_sender_flag_zero);
         result = builder.and(result, is_not_sender_flag_zero);
 

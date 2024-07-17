@@ -26,7 +26,7 @@ use crate::{
         TX_TREE_HEIGHT,
     },
     ethereum_types::{
-        account_id_packed::AccountIdPacked, bytes32::Bytes32, u128::U128, u256::U256,
+        account_id_packed::AccountIdPacked, bytes32::Bytes32, bytes16::Bytes16, u256::U256,
         u32limb_trait::U32LimbTrait,
     },
 };
@@ -343,7 +343,7 @@ fn construct_signature(
         .iter()
         .map(|tx| tx.will_return_signature)
         .collect::<Vec<_>>();
-    let sender_flag = U128::from_bits_be(&sender_flag_bits);
+    let sender_flag = Bytes16::from_bits_be(&sender_flag_bits);
     let agg_pubkey_g1 = sorted_txs
         .iter()
         .map(|tx| {
