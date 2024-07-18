@@ -42,7 +42,10 @@ impl SignatureContent {
         );
 
         // sender flag check
-        ensure!(self.sender_flag != Bytes16::default(), "sender_flag is zero");
+        ensure!(
+            self.sender_flag != Bytes16::default(),
+            "sender_flag is zero"
+        );
 
         // pubkey order check
         let mut cur_pubkey = pubkeys[0];
@@ -174,7 +177,7 @@ mod tests {
         let (keyset, signature) = SignatureContent::rand(rng);
         let pubkeys = keyset
             .iter()
-            .map(|keyset| keyset.pubkey_x)
+            .map(|keyset| keyset.pubkey)
             .collect::<Vec<_>>();
         signature.is_valid_format(&pubkeys).unwrap();
 

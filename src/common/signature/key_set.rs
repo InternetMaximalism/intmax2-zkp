@@ -10,8 +10,8 @@ use rand::Rng;
 pub struct KeySet {
     pub is_dummy: bool,
     pub privkey: Fr,
-    pub pubkey: G1Affine,
-    pub pubkey_x: U256,
+    pub pubkey_g1: G1Affine,
+    pub pubkey: U256,
 }
 
 impl KeySet {
@@ -36,8 +36,8 @@ impl KeySet {
         Self {
             is_dummy: false,
             privkey,
-            pubkey,
-            pubkey_x,
+            pubkey_g1: pubkey,
+            pubkey: pubkey_x,
         }
     }
 
@@ -47,8 +47,8 @@ impl KeySet {
         Self {
             is_dummy: false,
             privkey,
-            pubkey,
-            pubkey_x: pubkey.x.into(),
+            pubkey_g1: pubkey,
+            pubkey: pubkey.x.into(),
         }
     }
 
@@ -57,9 +57,9 @@ impl KeySet {
         Self {
             is_dummy: true,
             privkey: Fr::ZERO,
-            pubkey: G1Affine::zero(),
+            pubkey_g1: G1Affine::zero(),
             // this is the smallest possible pubkey_x, which is recoverable from x
-            pubkey_x: U256::one(),
+            pubkey: U256::one(),
         }
     }
 }
@@ -71,7 +71,7 @@ mod tests {
     #[test]
     fn dummy_key_account_id() {
         let account_tree = AccountTree::initialize();
-        let account_id = account_tree.index(KeySet::dummy().pubkey_x);
+        let account_id = account_tree.index(KeySet::dummy().pubkey);
         assert_eq!(account_id, Some(1)); // account_id of dummy key is 1
     }
 }

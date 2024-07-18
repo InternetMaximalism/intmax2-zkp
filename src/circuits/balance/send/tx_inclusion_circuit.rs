@@ -423,7 +423,7 @@ mod tests {
             true,
         );
 
-        let pubkey = wallet.key_set.pubkey_x;
+        let pubkey = wallet.key_set.pubkey;
         let tx_index = send_witness.tx_witness.tx_index;
         let sender_tree = send_witness.tx_witness.get_sender_tree();
         let sender_leaf = sender_tree.get_leaf(tx_index);

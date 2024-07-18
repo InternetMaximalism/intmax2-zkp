@@ -128,7 +128,7 @@ mod tests {
         let (keyset, signature) = SignatureContent::rand(rng);
         let pubkeys = keyset
             .iter()
-            .map(|keyset| keyset.pubkey_x)
+            .map(|keyset| keyset.pubkey)
             .collect::<Vec<_>>();
         signature.is_valid_format(&pubkeys).unwrap();
         signature.verify_aggregation(&pubkeys).unwrap();

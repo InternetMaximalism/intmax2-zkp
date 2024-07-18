@@ -100,14 +100,14 @@ impl MockWallet {
     }
 
     pub fn get_pubkey(&self) -> U256 {
-        self.key_set.pubkey_x
+        self.key_set.pubkey
     }
 
     pub fn get_balance_pis(&self) -> BalancePublicInputs {
         let last_send_witness = self.get_last_send_witness();
 
         BalancePublicInputs {
-            pubkey: self.key_set.pubkey_x,
+            pubkey: self.key_set.pubkey,
             private_commitment: self.get_private_state().commitment(),
             last_tx_hash: last_send_witness
                 .clone()

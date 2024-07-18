@@ -21,10 +21,10 @@ impl SignatureContent {
             .map(|_| KeySet::rand(rng))
             .collect::<Vec<_>>();
         // sort by pubkey_x in descending order
-        key_sets.sort_by(|a, b| b.pubkey_x.cmp(&a.pubkey_x));
+        key_sets.sort_by(|a, b| b.pubkey.cmp(&a.pubkey));
         let pubkeys = key_sets
             .iter()
-            .map(|keyset| keyset.pubkey_x)
+            .map(|keyset| keyset.pubkey)
             .collect::<Vec<_>>();
         let pubkey_hash = get_pubkey_hash(&pubkeys);
         let account_id_hash = Bytes32::rand(rng);
@@ -36,9 +36,9 @@ impl SignatureContent {
             .iter()
             .zip(sender_flag_bits.iter())
             .map(|(keyset, b)| {
-                let weight = hash_to_weight(keyset.pubkey_x, pubkey_hash);
+                let weight = hash_to_weight(keyset.pubkey, pubkey_hash);
                 if *b {
-                    (keyset.pubkey * Fr::from(BigUint::from(weight))).into()
+                    (keyset.pubkey_g1 * Fr::from(BigUint::from(weight))).into()
                 } else {
                     G1Affine::zero()
                 }

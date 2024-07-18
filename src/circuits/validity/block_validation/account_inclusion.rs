@@ -309,9 +309,9 @@ mod tests {
         // insert
         for _ in 0..NUM_SENDERS_IN_BLOCK {
             let keyset = KeySet::rand(&mut rng);
-            pubkeys.push(keyset.pubkey_x);
+            pubkeys.push(keyset.pubkey);
             let last_block_number = rng.gen();
-            tree.insert(keyset.pubkey_x, last_block_number).unwrap();
+            tree.insert(keyset.pubkey, last_block_number).unwrap();
         }
 
         let mut account_ids = Vec::new();

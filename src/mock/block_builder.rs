@@ -97,12 +97,12 @@ impl MockBlockBuilder {
         assert!(txs.len() <= NUM_SENDERS_IN_BLOCK, "too many txs");
         // sort and pad txs
         let mut sorted_txs = txs.clone();
-        sorted_txs.sort_by(|a, b| b.sender.pubkey_x.cmp(&a.sender.pubkey_x));
+        sorted_txs.sort_by(|a, b| b.sender.pubkey.cmp(&a.sender.pubkey));
         sorted_txs.resize(NUM_SENDERS_IN_BLOCK, MockTxRequest::dummy());
 
         let pubkeys = sorted_txs
             .iter()
-            .map(|tx| tx.sender.pubkey_x)
+            .map(|tx| tx.sender.pubkey)
             .collect::<Vec<_>>();
         let pubkey_hash = get_pubkey_hash(&pubkeys);
 
@@ -347,9 +347,9 @@ fn construct_signature(
     let agg_pubkey = sorted_txs
         .iter()
         .map(|tx| {
-            let weight = hash_to_weight(tx.sender.pubkey_x, pubkey_hash);
+            let weight = hash_to_weight(tx.sender.pubkey, pubkey_hash);
             if tx.will_return_signature {
-                (tx.sender.pubkey * Fr::from(BigUint::from(weight))).into()
+                (tx.sender.pubkey_g1 * Fr::from(BigUint::from(weight))).into()
             } else {
                 G1Affine::zero()
             }
