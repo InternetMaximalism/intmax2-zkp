@@ -54,14 +54,14 @@ where
         let recipient = transfer.recipient.to_address(&mut builder);
         let prev_withdral_hash = Bytes32Target::new(&mut builder, false); // connect later
         let withdrawal = WithdrawalTarget {
-            prev_withdral_hash,
             recipient,
             token_index: transfer.token_index,
             amount: transfer.amount,
             nullifier,
             block_hash: transfer_inclusion_target.public_state.block_hash,
         };
-        let withdrawal_hash = withdrawal.hash::<F, C, D>(&mut builder);
+        let withdrawal_hash =
+            withdrawal.hash_with_prev_hash::<F, C, D>(&mut builder, prev_withdral_hash);
         let pis = [prev_withdral_hash.to_vec(), withdrawal_hash.to_vec()].concat();
         builder.register_public_inputs(&pis);
         let data = builder.build();

@@ -143,10 +143,12 @@ mod tests {
             .prove(&withdrawal_witness, &None)
             .expect("Failed to prove withdrawal");
 
-        let withdrawal = withdrawal_witness.to_withdrawal(Bytes32::default());
+        let withdrawal = withdrawal_witness.to_withdrawal();
         assert_eq!(
             withdrawal_proof.public_inputs[0..BYTES32_LEN].to_u64_vec(),
-            withdrawal.hash().to_u64_vec()
+            withdrawal
+                .hash_with_prev_hash(Bytes32::default())
+                .to_u64_vec()
         );
     }
 }

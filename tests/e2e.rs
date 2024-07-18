@@ -7,7 +7,7 @@ use intmax2_zkp::{
         generic_address::GenericAddress, salt::Salt, transfer::Transfer,
         witness::withdrawal_witness::WithdrawalWitness,
     },
-    ethereum_types::{address::Address, bytes32::Bytes32, u256::U256, u32limb_trait::U32LimbTrait},
+    ethereum_types::{address::Address, u256::U256, u32limb_trait::U32LimbTrait},
     mock::{
         block_builder::MockBlockBuilder, sync_balance_prover::SyncBalanceProver,
         sync_validity_prover::SyncValidityProver, wallet::MockWallet,
@@ -132,7 +132,7 @@ fn e2e_test() {
         transfer_witness: withdrawal_transfer_witness,
         balance_proof: bob_balance_proof,
     };
-    let withdrawal = withdrawal_witness.to_withdrawal(Bytes32::default());
+    let withdrawal = withdrawal_witness.to_withdrawal();
     assert_eq!(withdrawal.amount, 10.into()); // check withdrawal amount
     let _withdrawal_proof = withdrawal_processor
         .prove(&withdrawal_witness, &None)
