@@ -6,7 +6,7 @@ use crate::{
         SignatureContent,
     },
     constants::NUM_SENDERS_IN_BLOCK,
-    ethereum_types::{bytes32::Bytes32, bytes16::Bytes16, u32limb_trait::U32LimbTrait as _},
+    ethereum_types::{bytes16::Bytes16, bytes32::Bytes32, u32limb_trait::U32LimbTrait as _},
 };
 use ark_bn254::{Bn254, Fr, G1Affine, G2Affine};
 use ark_ec::{pairing::Pairing, AffineRepr as _};
@@ -32,7 +32,7 @@ impl SignatureContent {
         let is_registoration_block = rng.gen();
         let sender_flag = Bytes16::rand(rng);
         let sender_flag_bits = sender_flag.to_bits_be();
-        let agg_pubkey_g1 = key_sets
+        let agg_pubkey = key_sets
             .iter()
             .zip(sender_flag_bits.iter())
             .map(|(keyset, b)| {
@@ -46,7 +46,7 @@ impl SignatureContent {
             .fold(G1Affine::zero(), |acc: G1Affine, x: G1Affine| {
                 (acc + x).into()
             });
-        let agg_signature_g2 = key_sets
+        let agg_signature = key_sets
             .iter()
             .map(|keyset| sign_to_tx_root(keyset.privkey, tx_tree_root, pubkey_hash))
             .zip(sender_flag_bits.into_iter())
@@ -66,10 +66,10 @@ impl SignatureContent {
             .iter()
             .map(|x| GoldilocksField::from_canonical_u32(*x))
             .collect::<Vec<_>>();
-        let message_point_g2 = G2Target::<GoldilocksField, 2>::hash_to_g2(&tx_tree_root_f);
+        let message_point = G2Target::<GoldilocksField, 2>::hash_to_g2(&tx_tree_root_f);
         assert!(
-            Bn254::pairing(agg_pubkey_g1, message_point_g2)
-                == Bn254::pairing(G1Affine::generator(), agg_signature_g2)
+            Bn254::pairing(agg_pubkey, message_point)
+                == Bn254::pairing(G1Affine::generator(), agg_signature)
         );
         let signature = Self {
             tx_tree_root,
@@ -77,9 +77,9 @@ impl SignatureContent {
             sender_flag,
             pubkey_hash,
             account_id_hash,
-            agg_pubkey: agg_pubkey_g1.into(),
-            agg_signature: agg_signature_g2.into(),
-            message_point: message_point_g2.into(),
+            agg_pubkey: agg_pubkey.into(),
+            agg_signature: agg_signature.into(),
+            message_point: message_point.into(),
         };
         (key_sets, signature)
     }

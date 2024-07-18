@@ -110,6 +110,23 @@ where
         }
         self.data.prove(pw)
     }
+
+    pub(crate) fn add_proof_target_and_verify(
+        &self,
+        builder: &mut CircuitBuilder<F, D>,
+    ) -> ProofWithPublicInputsTarget<D> {
+        let proof = builder.add_virtual_proof_with_pis(&self.data.common);
+        let vd_target = builder.constant_verifier_data(&self.data.verifier_only);
+        let inner_vd_target =
+            vd_from_pis_slice_target(&proof.public_inputs, &self.data.common.config).unwrap();
+        builder.connect_hashes(vd_target.circuit_digest, inner_vd_target.circuit_digest);
+        builder.connect_merkle_caps(
+            &vd_target.constants_sigmas_cap,
+            &inner_vd_target.constants_sigmas_cap,
+        );
+        builder.verify_proof::<C>(&proof, &vd_target, &self.data.common);
+        proof
+    }
 }
 
 // Generates `CommonCircuitData` usable for recursion.
@@ -146,43 +163,4 @@ where
     let mut common = builder.build::<C>().common;
     common.num_public_inputs = BYTES32_LEN + vd_vec_len(&common.config);
     common
-}
-
-impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F> + 'static, const D: usize>
-    Recursivable<F, C, D> for WithdrawalCircuit<F, C, D>
-where
-    <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
-{
-    fn circuit_data(&self) -> &CircuitData<F, C, D> {
-        &self.data
-    }
-
-    fn add_proof_target_and_verify(
-        &self,
-        builder: &mut CircuitBuilder<F, D>,
-    ) -> ProofWithPublicInputsTarget<D> {
-        let proof = builder.add_virtual_proof_with_pis(&self.data.common);
-        let vd_target = builder.constant_verifier_data(&self.data.verifier_only);
-        let inner_vd_target =
-            vd_from_pis_slice_target(&proof.public_inputs, &self.data.common.config).unwrap();
-        builder.connect_hashes(vd_target.circuit_digest, inner_vd_target.circuit_digest);
-        builder.connect_merkle_caps(
-            &vd_target.constants_sigmas_cap,
-            &inner_vd_target.constants_sigmas_cap,
-        );
-        builder.verify_proof::<C>(&proof, &vd_target, &self.data.common);
-        proof
-    }
-
-    fn add_proof_target_and_conditionally_verify(
-        &self,
-        _builder: &mut CircuitBuilder<F, D>,
-        _condition: BoolTarget,
-    ) -> ProofWithPublicInputsTarget<D> {
-        unimplemented!()
-    }
-
-    fn pis_cut_off(&self) -> Option<usize> {
-        Some(BYTES32_LEN)
-    }
 }

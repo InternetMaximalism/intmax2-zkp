@@ -1,7 +1,10 @@
 use intmax2_zkp::{
     circuits::{
         balance::balance_processor::BalanceProcessor,
-        withdrawal::withdrawal_processor::WithdrawalProcessor,
+        withdrawal::{
+            withdrawal_processor::WithdrawalProcessor,
+            withdrawal_wrapper_processor::WithdrawalWrapperProcessor,
+        },
     },
     common::{
         generic_address::GenericAddress, salt::Salt, transfer::Transfer,
@@ -134,8 +137,14 @@ fn e2e_test() {
     };
     let withdrawal = withdrawal_witness.to_withdrawal(Bytes32::default());
     assert_eq!(withdrawal.amount, 10.into()); // check withdrawal amount
-    let _withdrawal_proof = withdrawal_processor
+    let withdrawal_proof = withdrawal_processor
         .prove(&withdrawal_witness, &None)
+        .unwrap();
+    let withdrawal_wrapper_processor =
+        WithdrawalWrapperProcessor::new(&withdrawal_processor.withdrawal_circuit);
+    let withdrawal_aggregator = Address::rand(&mut rng);
+    let _final_withdrawal_proof = withdrawal_wrapper_processor
+        .prove(&withdrawal_proof, withdrawal_aggregator)
         .unwrap();
 }
 
