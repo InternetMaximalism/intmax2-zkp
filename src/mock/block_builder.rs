@@ -111,7 +111,7 @@ impl MockBlockBuilder {
             if is_registoration_block {
                 let mut account_membership_proofs = Vec::new();
                 for pubkey in pubkeys.iter() {
-                    let is_dummy = *pubkey == U256::one();
+                    let is_dummy = pubkey.is_dummy_pubkey();
                     assert!(
                         self.account_tree.index(*pubkey).is_none() || is_dummy,
                         "account already exists"
@@ -209,7 +209,7 @@ impl MockBlockBuilder {
                     } else {
                         0
                     };
-                    let is_dummy_pubkey = sender_leaf.sender == U256::one();
+                    let is_dummy_pubkey = sender_leaf.sender.is_dummy_pubkey();
                     let proof = if is_dummy_pubkey {
                         AccountRegistorationProof::dummy(ACCOUNT_TREE_HEIGHT)
                     } else {

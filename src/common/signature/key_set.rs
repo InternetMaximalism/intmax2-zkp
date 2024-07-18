@@ -1,8 +1,15 @@
-use crate::ethereum_types::{u256::U256, u32limb_trait::U32LimbTrait as _};
+use crate::ethereum_types::{
+    u256::{U256Target, U256},
+    u32limb_trait::{U32LimbTargetTrait, U32LimbTrait as _},
+};
 use ark_bn254::{Fr, G1Affine};
 use ark_ec::AffineRepr;
 use ark_ff::Field;
 use ark_std::UniformRand;
+use plonky2::{
+    field::extension::Extendable, hash::hash_types::RichField, iop::target::BoolTarget,
+    plonk::circuit_builder::CircuitBuilder,
+};
 use plonky2_bn254::fields::sgn::Sgn as _;
 use rand::Rng;
 
@@ -17,13 +24,13 @@ pub struct KeySet {
 impl KeySet {
     pub fn rand<R: Rng>(rng: &mut R) -> Self {
         let mut privkey = Fr::rand(rng);
-        let mut pubkey: G1Affine = (G1Affine::generator() * privkey.clone()).into();
+        let mut pubkey_g1: G1Affine = (G1Affine::generator() * privkey.clone()).into();
         // y.sgn() should be false
-        if pubkey.y.sgn() {
+        if pubkey_g1.y.sgn() {
             privkey = -privkey.clone();
-            pubkey = -pubkey;
+            pubkey_g1 = -pubkey_g1;
         }
-        let pubkey_x: U256 = pubkey.x.into();
+        let pubkey: U256 = pubkey_g1.x.into();
         #[cfg(debug_assert)]
         {
             use plonky2_bn254::fields::recover::RecoverFromX;
@@ -36,8 +43,8 @@ impl KeySet {
         Self {
             is_dummy: false,
             privkey,
-            pubkey_g1: pubkey,
-            pubkey: pubkey_x,
+            pubkey_g1,
+            pubkey,
         }
     }
 
@@ -58,9 +65,35 @@ impl KeySet {
             is_dummy: true,
             privkey: Fr::ZERO,
             pubkey_g1: G1Affine::zero(),
-            // this is the smallest possible pubkey_x, which is recoverable from x
-            pubkey: U256::one(),
+            pubkey: U256::dummy_pubkey(),
         }
+    }
+}
+
+impl U256 {
+    // this is the smallest possible pubkey_x, which is recoverable from x
+    pub fn dummy_pubkey() -> Self {
+        U256::one()
+    }
+
+    pub fn is_dummy_pubkey(&self) -> bool {
+        *self == Self::dummy_pubkey()
+    }
+}
+
+impl U256Target {
+    pub fn dummy_pubkey<F: RichField + Extendable<D>, const D: usize>(
+        builder: &mut CircuitBuilder<F, D>,
+    ) -> Self {
+        Self::constant(builder, U256::dummy_pubkey())
+    }
+
+    pub fn is_dummy_pubkey<F: RichField + Extendable<D>, const D: usize>(
+        &self,
+        builder: &mut CircuitBuilder<F, D>,
+    ) -> BoolTarget {
+        let dummy_pubkey = Self::dummy_pubkey(builder);
+        self.is_equal(builder, &dummy_pubkey)
     }
 }
 

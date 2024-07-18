@@ -164,7 +164,7 @@ impl BlockWitness {
             let pubkey_trimed_dummy = self
                 .pubkeys
                 .iter()
-                .filter(|p| **p != U256::one())
+                .filter(|p| !p.is_dummy_pubkey())
                 .cloned()
                 .collect::<Vec<_>>();
             Some(pubkey_trimed_dummy)

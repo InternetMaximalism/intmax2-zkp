@@ -51,7 +51,7 @@ impl SignatureContent {
         let mut cur_pubkey = pubkeys[0];
         for pubkey in pubkeys.iter().skip(1) {
             ensure!(
-                cur_pubkey > *pubkey || *pubkey == U256::one(),
+                cur_pubkey > *pubkey || *pubkey == U256::one(), // use one for dummy pubkeys
                 "pubkey order check failed"
             );
             cur_pubkey = *pubkey;

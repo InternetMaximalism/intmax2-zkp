@@ -18,7 +18,7 @@ use crate::{
     constants::{ACCOUNT_TREE_HEIGHT, NUM_SENDERS_IN_BLOCK},
     ethereum_types::{
         u256::{U256Target, U256},
-        u32limb_trait::{U32LimbTargetTrait as _, U32LimbTrait},
+        u32limb_trait::U32LimbTargetTrait as _,
     },
     utils::{
         dummy::DummyProof,
@@ -103,7 +103,7 @@ impl AccountExclusionValue {
         let mut result = true;
         for (pubkey, proof) in pubkeys.iter().zip(account_membership_proofs.iter()) {
             proof.verify(*pubkey, account_tree_root).unwrap();
-            let is_dummy = pubkey == &U256::one();
+            let is_dummy = pubkey.is_dummy_pubkey();
             let is_excluded = !proof.is_included || is_dummy; // ignore dummy pubkey
             result = result && is_excluded;
         }
@@ -146,7 +146,7 @@ impl AccountExclusionTarget {
 
         for (pubkey, proof) in pubkeys.iter().zip(account_membership_proofs.iter()) {
             proof.verify::<F, C, D>(builder, *pubkey, account_tree_root);
-            let is_dummy = pubkey.is_one::<F, D, U256>(builder);
+            let is_dummy = pubkey.is_dummy_pubkey(builder);
             let is_not_included = builder.not(proof.is_included);
             let is_excluded = builder.or(is_not_included, is_dummy);
             result = builder.and(result, is_excluded);
@@ -265,7 +265,7 @@ mod tests {
         let account_tree_root = tree.get_root();
 
         let mut pubkeys = (0..10).map(|_| U256::rand(&mut rng)).collect::<Vec<_>>();
-        pubkeys.resize(NUM_SENDERS_IN_BLOCK, U256::one());
+        pubkeys.resize(NUM_SENDERS_IN_BLOCK, U256::dummy_pubkey());
         let mut account_membership_proofs = Vec::new();
         for pubkey in pubkeys.iter() {
             let proof = tree.prove_membership(*pubkey);
