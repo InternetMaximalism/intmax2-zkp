@@ -18,8 +18,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     ethereum_types::{
         address::{Address, AddressTarget},
-        bytes16::BYTES16_LEN,
-        bytes32::{Bytes32, Bytes32Target},
+        bytes32::{Bytes32, Bytes32Target, BYTES32_LEN},
         u32limb_trait::{U32LimbTargetTrait as _, U32LimbTrait},
     },
     utils::recursivable::Recursivable,
@@ -75,7 +74,7 @@ impl WithdrawalProofPublicInputsTarget {
 }
 
 #[derive(Debug)]
-pub struct WithdrawalWrapCircuit<F, C, const D: usize>
+pub struct WithdrawalWrapperCircuit<F, C, const D: usize>
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
@@ -85,7 +84,7 @@ where
     withdrawal_aggregator: AddressTarget, // Who makes the withdrawal proof and receive the reward
 }
 
-impl<F, C, const D: usize> WithdrawalWrapCircuit<F, C, D>
+impl<F, C, const D: usize> WithdrawalWrapperCircuit<F, C, D>
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F> + 'static,
@@ -95,7 +94,7 @@ where
         let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::default());
         let withdrawal_wrapper_proof = withdrawal_circuit.add_proof_target_and_verify(&mut builder);
         let last_withdrawal_hash =
-            Bytes32Target::from_limbs(&withdrawal_wrapper_proof.public_inputs[0..BYTES16_LEN]);
+            Bytes32Target::from_limbs(&withdrawal_wrapper_proof.public_inputs[0..BYTES32_LEN]);
         let withdrawal_aggregator = AddressTarget::new(&mut builder, true);
         let pis = WithdrawalProofPublicInputsTarget {
             last_withdrawal_hash,
@@ -125,7 +124,7 @@ where
 }
 
 impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F> + 'static, const D: usize>
-    Recursivable<F, C, D> for WithdrawalWrapCircuit<F, C, D>
+    Recursivable<F, C, D> for WithdrawalWrapperCircuit<F, C, D>
 where
     <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
 {
