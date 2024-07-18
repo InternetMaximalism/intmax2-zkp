@@ -82,10 +82,10 @@ pub trait U32LimbTrait<const NUM_LIMBS: usize>: Clone + Copy {
         Self::from_limbs(&limbs)
     }
 
-    fn from_hex(hex: &str) -> Self {
-        assert!(hex.starts_with("0x"));
-        let bytes = hex::decode(hex[2..].as_bytes()).unwrap();
-        Self::from_bytes_be(&bytes)
+    fn from_hex(hex: &str) -> anyhow::Result<Self> {
+        anyhow::ensure!(hex.starts_with("0x"));
+        let bytes = hex::decode(hex[2..].as_bytes())?;
+        Ok(Self::from_bytes_be(&bytes))
     }
 
     fn to_hex(&self) -> String {

@@ -49,7 +49,8 @@ impl Serialize for AccountIdPacked {
 impl<'de> Deserialize<'de> for AccountIdPacked {
     fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         let s = String::deserialize(deserializer)?;
-        Ok(Self::from_hex(&s))
+        let value = Self::from_hex(&s).map_err(serde::de::Error::custom)?;
+        Ok(value)
     }
 }
 
