@@ -1,4 +1,4 @@
 target/
-block_data/
+test_data/
 data/
 *.txt
