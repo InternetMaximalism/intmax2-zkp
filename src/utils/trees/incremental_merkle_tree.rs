@@ -10,6 +10,7 @@ use plonky2::{
         config::{AlgebraicHasher, GenericConfig},
     },
 };
+use serde::{Deserialize, Serialize};
 
 use super::merkle_tree::{MerkleProof, MerkleProofTarget, MerkleTree};
 use crate::utils::{
@@ -122,6 +123,39 @@ impl<V: Leafable> IncrementalMerkleProof<V> {
         let height = self.0.height();
         let index_bits = usize_le_bits(index, height);
         self.0.verify(leaf_data, index_bits, merkle_root)
+    }
+
+    pub fn from_siblings(siblings: Vec<<V::LeafableHasher as LeafableHasher>::HashOut>) -> Self {
+        Self(MerkleProof { siblings })
+    }
+}
+
+impl<'de, V: Leafable> Deserialize<'de> for IncrementalMerkleProof<V>
+where
+    <V::LeafableHasher as LeafableHasher>::HashOut: TryFrom<String>,
+{
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let proof = MerkleProof::<V>::deserialize(deserializer)?;
+        Ok(Self(proof))
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct SerializableMerkleProof(pub Vec<String>);
+
+impl<'de, V: Leafable> Deserialize<'de> for MerkleProof<V>
+where
+    <V::LeafableHasher as LeafableHasher>::HashOut: TryFrom<String>,
+{
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let SerializableMerkleProof(serialized_proof) =
+            SerializableMerkleProof::deserialize(deserializer)?;
+        let siblings = serialized_proof
+            .into_iter()
+            .map(|s| <V::LeafableHasher as LeafableHasher>::HashOut::try_from(s))
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|_| serde::de::Error::custom("Failed to deserialize MerkleProof"))?;
+        Ok(Self { siblings })
     }
 }
 
