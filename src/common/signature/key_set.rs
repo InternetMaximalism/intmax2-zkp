@@ -1,5 +1,5 @@
 use crate::ethereum_types::{u256::U256, u32limb_trait::U32LimbTrait as _};
-use ark_bn254::{Fr, G1Affine};
+use ark_bn254::{Fq, Fr, G1Affine};
 use ark_ec::AffineRepr;
 use ark_ff::Field;
 use ark_std::UniformRand;
@@ -14,6 +14,33 @@ pub struct KeySet {
     pub pubkey_x: U256,
 }
 
+pub struct PublicKey {
+    pub pubkey: G1Affine,
+    pub pubkey_x: U256,
+}
+
+impl PublicKey {
+    // address is the decimal representation of the x coordinate of the public key.
+    pub fn from_address(address: String) -> Self {
+        let pubkey_x: Fq = address.parse().unwrap();
+        let pubkey = {
+            let x = pubkey_x;
+            let x_cubed_plus_b: Fq = x * x * x + Fq::from(3);
+            let mut y = x_cubed_plus_b.sqrt().unwrap();
+            if y.sgn() {
+                y = -y;
+            }
+
+            G1Affine::new(x, y)
+        };
+
+        Self {
+            pubkey,
+            pubkey_x: pubkey_x.into(),
+        }
+    }
+}
+
 impl KeySet {
     pub fn rand<R: Rng>(rng: &mut R) -> Self {
         let mut privkey = Fr::rand(rng);
@@ -24,7 +51,7 @@ impl KeySet {
             pubkey = -pubkey;
         }
         let pubkey_x: U256 = pubkey.x.into();
-        #[cfg(debug_assert)]
+        #[cfg(debug_assertions)]
         {
             use plonky2_bn254::fields::recover::RecoverFromX;
             let recovered_pubkey = G1Affine::recover_from_x(pubkey_x.into());
