@@ -59,6 +59,7 @@ where
             amount: transfer.amount,
             nullifier,
             block_hash: transfer_inclusion_target.public_state.block_hash,
+            block_number: transfer_inclusion_target.public_state.block_number,
         };
         let withdrawal_hash =
             withdrawal.hash_with_prev_hash::<F, C, D>(&mut builder, prev_withdral_hash);

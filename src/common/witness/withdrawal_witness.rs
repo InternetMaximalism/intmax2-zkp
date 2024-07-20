@@ -52,6 +52,7 @@ where
             amount: transfer.amount,
             nullifier,
             block_hash: balance_pis.public_state.block_hash,
+            block_number: balance_pis.public_state.block_number,
         }
     }
 }

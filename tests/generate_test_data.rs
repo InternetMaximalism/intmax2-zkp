@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 
 // Save full blocks to json files, so that they can be used for contract testing
 #[test]
-fn generate_test_blocks() {
+fn generate_test_data() {
     let mut rng = rand::thread_rng();
     let mut block_builder = MockBlockBuilder::new();
     let mut wallet = MockWallet::new_rand(&mut rng);
@@ -37,16 +37,13 @@ fn generate_test_blocks() {
             .to_full_block();
         full_blocks.push(full_block);
     }
-
     save_full_blocks("test_data", &full_blocks).unwrap();
-}
 
-#[test]
-fn generate_test_withdrawals() {
-    let mut rng = rand::thread_rng();
+    let withdrawal_block = full_blocks.last().unwrap();
     let withdrawals = (0..3)
-        .map(|_| Withdrawal::rand(&mut rng))
+        .map(|_| Withdrawal::rand_with_block(&mut rng, &withdrawal_block.block))
         .collect::<Vec<_>>();
+
     let mut withdrawal_hash = Bytes32::default();
     for withdrawal in &withdrawals {
         withdrawal_hash = withdrawal.hash_with_prev_hash(withdrawal_hash);

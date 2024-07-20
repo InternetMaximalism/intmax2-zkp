@@ -20,7 +20,10 @@ use crate::{
     utils::poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget},
 };
 
-use super::transfer::{Transfer, TransferTarget};
+use super::{
+    block::Block,
+    transfer::{Transfer, TransferTarget},
+};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -30,6 +33,7 @@ pub struct Withdrawal {
     pub amount: U256,
     pub nullifier: Bytes32,
     pub block_hash: Bytes32,
+    pub block_number: u32,
 }
 
 pub struct WithdrawalTarget {
@@ -38,6 +42,7 @@ pub struct WithdrawalTarget {
     pub amount: U256Target,
     pub nullifier: Bytes32Target,
     pub block_hash: Bytes32Target,
+    pub block_number: Target,
 }
 
 impl Withdrawal {
@@ -48,6 +53,7 @@ impl Withdrawal {
             self.amount.limbs(),
             self.nullifier.limbs(),
             self.block_hash.limbs(),
+            vec![self.block_number],
         ]
         .concat()
     }
@@ -64,6 +70,18 @@ impl Withdrawal {
             amount: U256::rand_small(rng),
             nullifier: Bytes32::rand(rng),
             block_hash: Bytes32::rand(rng),
+            block_number: rng.gen(),
+        }
+    }
+
+    pub fn rand_with_block<R: rand::Rng>(rng: &mut R, block: &Block) -> Self {
+        Self {
+            recipient: Address::rand(rng),
+            token_index: rng.gen(),
+            amount: U256::rand_small(rng),
+            nullifier: Bytes32::rand(rng),
+            block_hash: block.hash(),
+            block_number: block.block_number,
         }
     }
 }
@@ -76,6 +94,7 @@ impl WithdrawalTarget {
             self.amount.limbs(),
             self.nullifier.limbs(),
             self.block_hash.limbs(),
+            vec![self.block_number],
         ]
         .concat()
     }
