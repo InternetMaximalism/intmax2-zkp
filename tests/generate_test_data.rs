@@ -10,13 +10,14 @@ use intmax2_zkp::{
     ethereum_types::{address::Address, bytes32::Bytes32, u32limb_trait::U32LimbTrait},
     mock::{block_builder::MockBlockBuilder, wallet::MockWallet},
 };
-use rand::Rng as _;
+use rand::{rngs::StdRng, Rng as _, SeedableRng};
 use serde::{Deserialize, Serialize};
 
 // Save test data for contract
 #[test]
 fn generate_test_data() {
-    let mut rng = rand::thread_rng();
+    // init rng with seed
+    let mut rng = StdRng::seed_from_u64(0);
     let mut block_builder = MockBlockBuilder::new();
     let mut wallet = MockWallet::new_rand(&mut rng);
 
@@ -56,7 +57,8 @@ fn generate_test_data() {
     for withdrawal in &withdrawals {
         withdrawal_hash = withdrawal.hash_with_prev_hash(withdrawal_hash);
     }
-    let withdrawal_aggregator = Address::rand(&mut rng);
+    let withdrawal_aggregator =
+        Address::from_hex("0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266").unwrap();
     let pis = WithdrawalProofPublicInputs {
         last_withdrawal_hash: withdrawal_hash,
         withdrawal_aggregator,
