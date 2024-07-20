@@ -12,7 +12,7 @@ use intmax2_zkp::{
 };
 use serde::{Deserialize, Serialize};
 
-// Save full blocks to json files, so that they can be used for contract testing
+// Save test data for contract
 #[test]
 fn generate_test_data() {
     let mut rng = rand::thread_rng();
