@@ -6,5 +6,3 @@ pub mod mock;
 pub mod utils;
 pub mod wrapper_config;
 
-#[cfg(test)]
-pub mod test_utils;

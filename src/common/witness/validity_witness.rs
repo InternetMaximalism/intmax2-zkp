@@ -1,7 +1,6 @@
 use crate::{
-    circuits::validity::validity_pis::ValidityPublicInputs,
-    common::public_state::PublicState,
-    ethereum_types::{bytes32::Bytes32, u256::U256, u32limb_trait::U32LimbTrait},
+    circuits::validity::validity_pis::ValidityPublicInputs, common::public_state::PublicState,
+    ethereum_types::bytes32::Bytes32,
 };
 
 use super::{block_witness::BlockWitness, validity_transition_witness::ValidityTransitionWitness};
@@ -61,7 +60,7 @@ impl ValidityWitness {
                 } else {
                     0
                 };
-                let is_not_dummy = sender_leaf.sender != U256::one();
+                let is_not_dummy = !sender_leaf.sender.is_dummy_pubkey();
                 account_tree_root = account_registoration_proof
                     .conditional_get_new_root(
                         is_not_dummy,

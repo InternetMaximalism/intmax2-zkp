@@ -171,7 +171,7 @@ impl SpentValue {
             asset_tree_root = proof.get_root(&new_balance, transfer.token_index as usize);
             insufficient_bits.push(new_balance.is_insufficient);
         }
-        let insufficient_flags = InsufficientFlags::from_bits_le(&insufficient_bits);
+        let insufficient_flags = InsufficientFlags::from_bits_be(&insufficient_bits);
         let is_valid = tx_nonce == prev_private_state.nonce;
         let new_private_state = PrivateState {
             asset_tree_root,
@@ -233,7 +233,7 @@ impl SpentTarget {
                 proof.get_root::<F, C, D>(builder, &new_balance, transfer.token_index);
             insufficient_bits.push(new_balance.is_insufficient);
         }
-        let insufficient_flags = InsufficientFlagsTarget::from_bits_le(builder, &insufficient_bits);
+        let insufficient_flags = InsufficientFlagsTarget::from_bits_be(builder, &insufficient_bits);
         let is_valid = builder.is_equal(prev_private_state.nonce, tx_nonce);
         let one = builder.one();
         let new_private_state = PrivateStateTarget {

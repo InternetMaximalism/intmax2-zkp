@@ -1,5 +1,5 @@
 use anyhow::{ensure, Result};
-use ark_bn254::{Fq, Fq2, G1Affine, G2Affine};
+use ark_bn254::{Fq, G1Affine, G2Affine};
 use num::BigUint;
 use plonky2::{
     field::{extension::Extendable, goldilocks_field::GoldilocksField, types::Field as _},
@@ -12,21 +12,21 @@ use plonky2::{
 };
 use plonky2_bn254::{
     curves::{g1::G1Target, g2::G2Target},
-    fields::recover::RecoverFromX as _,
+    fields::{fq::FqTarget, recover::RecoverFromX as _},
     utils::hash_to_g2::HashToG2 as _,
 };
 
 use crate::{
-    common::signature::pubkey_range_check,
+    common::signature::{flatten::FlatG2Target, pubkey_range_check},
     constants::NUM_SENDERS_IN_BLOCK,
     ethereum_types::{
-        u128::U128,
+        bytes16::Bytes16,
         u256::{U256Target, U256},
         u32limb_trait::{U32LimbTargetTrait as _, U32LimbTrait as _},
     },
 };
 
-use super::{fq_to_u256_target, u256_to_fq_target, SignatureContent, SignatureContentTarget};
+use super::{SignatureContent, SignatureContentTarget};
 
 impl SignatureContent {
     /// Check if the format is correct (if the modulo is correct, etc.) and
@@ -42,13 +42,16 @@ impl SignatureContent {
         );
 
         // sender flag check
-        ensure!(self.sender_flag != U128::default(), "sender_flag is zero");
+        ensure!(
+            self.sender_flag != Bytes16::default(),
+            "sender_flag is zero"
+        );
 
         // pubkey order check
         let mut cur_pubkey = pubkeys[0];
         for pubkey in pubkeys.iter().skip(1) {
             ensure!(
-                cur_pubkey > *pubkey || *pubkey == U256::one(),
+                cur_pubkey > *pubkey || *pubkey == U256::one(), // use one for dummy pubkeys
                 "pubkey order check failed"
             );
             cur_pubkey = *pubkey;
@@ -75,11 +78,7 @@ impl SignatureContent {
             .map(|x| GoldilocksField::from_canonical_u32(*x))
             .collect::<Vec<_>>();
         let message_point_expected = G2Target::<GoldilocksField, 2>::hash_to_g2(&tx_tree_root);
-        let x_c0: Fq = BigUint::from(self.message_point[0]).into();
-        let x_c1: Fq = BigUint::from(self.message_point[1]).into();
-        let y_c0: Fq = BigUint::from(self.message_point[2]).into();
-        let y_c1: Fq = BigUint::from(self.message_point[3]).into();
-        let message_point = G2Affine::new(Fq2::new(x_c0, x_c1), Fq2::new(y_c0, y_c1));
+        let message_point: G2Affine = self.message_point.clone().into();
         ensure!(
             message_point_expected == message_point,
             "message_point is invalid"
@@ -109,7 +108,7 @@ impl SignatureContentTarget {
         let mut result = builder.constant_bool(true);
 
         // sender flag check
-        let is_sender_flag_zero = self.sender_flag.is_zero::<F, D, U128>(builder);
+        let is_sender_flag_zero = self.sender_flag.is_zero::<F, D, Bytes16>(builder);
         let is_not_sender_flag_zero = builder.not(is_sender_flag_zero);
         result = builder.and(result, is_not_sender_flag_zero);
 
@@ -127,34 +126,20 @@ impl SignatureContentTarget {
         // it's enough to check only the first pubkey since the order is checked
         let pubkey_fq = pubkeys
             .into_iter()
-            .map(|pk| u256_to_fq_target(*pk))
-            .collect::<Vec<_>>();
+            .map(|pk| pk.clone().into())
+            .collect::<Vec<FqTarget<F, D>>>();
         let is_pubkey0_valid = pubkey_fq[0].is_valid(builder);
         result = builder.and(result, is_pubkey0_valid);
-
         // pubkey recovery check
         for pubkey in pubkey_fq.iter() {
             let is_recoverable = G1Target::is_recoverable_from_x::<C>(builder, pubkey);
             result = builder.and(result, is_recoverable);
         }
-
         // message point check
-        let message_point =
-            G2Target::<F, D>::hash_to_g2_circuit::<C>(builder, &self.tx_tree_root.limbs());
-        let x_c0 = fq_to_u256_target(message_point.x.c0);
-        let x_c1 = fq_to_u256_target(message_point.x.c1);
-        let y_c0 = fq_to_u256_target(message_point.y.c0);
-        let y_c1 = fq_to_u256_target(message_point.y.c1);
-
-        let is_x_c0_valid = x_c0.is_equal(builder, &self.message_point[0]);
-        let is_x_c1_valid = x_c1.is_equal(builder, &self.message_point[1]);
-        let is_y_c0_valid = y_c0.is_equal(builder, &self.message_point[2]);
-        let is_y_c1_valid = y_c1.is_equal(builder, &self.message_point[3]);
-        result = builder.and(result, is_x_c0_valid);
-        result = builder.and(result, is_x_c1_valid);
-        result = builder.and(result, is_y_c0_valid);
-        result = builder.and(result, is_y_c1_valid);
-
+        let message_point: FlatG2Target =
+            G2Target::<F, D>::hash_to_g2_circuit::<C>(builder, &self.tx_tree_root.limbs()).into();
+        let is_message_eq = message_point.is_equal(builder, &self.message_point);
+        result = builder.and(result, is_message_eq);
         result
     }
 }
@@ -192,7 +177,7 @@ mod tests {
         let (keyset, signature) = SignatureContent::rand(rng);
         let pubkeys = keyset
             .iter()
-            .map(|keyset| keyset.pubkey_x)
+            .map(|keyset| keyset.pubkey)
             .collect::<Vec<_>>();
         signature.is_valid_format(&pubkeys).unwrap();
 

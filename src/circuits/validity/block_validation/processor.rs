@@ -139,7 +139,7 @@ mod tests {
 
     use crate::{
         circuits::validity::block_validation::processor::MainValidationProcessor,
-        mock::block_builder::MockBlockBuilder, test_utils::tx::generate_random_tx_requests,
+        mock::block_builder::MockBlockBuilder, utils::test_utils::tx::generate_random_tx_requests,
     };
 
     type F = GoldilocksField;

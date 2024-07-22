@@ -381,7 +381,7 @@ mod tests {
     use crate::{
         ethereum_types::{
             u256::{U256Target, U256},
-            u32limb_trait::{U32LimbTargetTrait, U32LimbTrait as _},
+            u32limb_trait::U32LimbTargetTrait,
         },
         utils::poseidon_hash_out::PoseidonHashOutTarget,
     };
@@ -425,17 +425,17 @@ mod tests {
     fn test_dummy_insertion() {
         let height = 40;
         let mut tree = IndexedMerkleTree::new(height);
-        tree.prove_and_insert(U256::one(), 0).unwrap();
+        tree.prove_and_insert(U256::dummy_pubkey(), 0).unwrap();
 
         let prev_root = tree.get_root();
         let dummy = IndexedInsertionProof::dummy(height);
         dummy
-            .conditional_get_new_root(false, U256::one(), 0, prev_root)
+            .conditional_get_new_root(false, U256::dummy_pubkey(), 0, prev_root)
             .unwrap();
 
         let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::default());
         let dummy_t = IndexedInsertionProofTarget::constant(&mut builder, &dummy);
-        let key_t = U256Target::constant(&mut builder, U256::one());
+        let key_t = U256Target::constant(&mut builder, U256::dummy_pubkey());
         let value_t = builder.constant(F::from_canonical_u64(0));
         let prev_root_t = PoseidonHashOutTarget::constant(&mut builder, prev_root);
         let condition = builder._false();

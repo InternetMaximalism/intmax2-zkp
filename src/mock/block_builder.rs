@@ -26,7 +26,7 @@ use crate::{
         TX_TREE_HEIGHT,
     },
     ethereum_types::{
-        account_id_packed::AccountIdPacked, bytes32::Bytes32, u128::U128, u256::U256,
+        account_id_packed::AccountIdPacked, bytes16::Bytes16, bytes32::Bytes32, u256::U256,
         u32limb_trait::U32LimbTrait,
     },
 };
@@ -97,12 +97,12 @@ impl MockBlockBuilder {
         assert!(txs.len() <= NUM_SENDERS_IN_BLOCK, "too many txs");
         // sort and pad txs
         let mut sorted_txs = txs.clone();
-        sorted_txs.sort_by(|a, b| b.sender.pubkey_x.cmp(&a.sender.pubkey_x));
+        sorted_txs.sort_by(|a, b| b.sender.pubkey.cmp(&a.sender.pubkey));
         sorted_txs.resize(NUM_SENDERS_IN_BLOCK, MockTxRequest::dummy());
 
         let pubkeys = sorted_txs
             .iter()
-            .map(|tx| tx.sender.pubkey_x)
+            .map(|tx| tx.sender.pubkey)
             .collect::<Vec<_>>();
         let pubkey_hash = get_pubkey_hash(&pubkeys);
 
@@ -111,7 +111,7 @@ impl MockBlockBuilder {
             if is_registoration_block {
                 let mut account_membership_proofs = Vec::new();
                 for pubkey in pubkeys.iter() {
-                    let is_dummy = *pubkey == U256::one();
+                    let is_dummy = pubkey.is_dummy_pubkey();
                     assert!(
                         self.account_tree.index(*pubkey).is_none() || is_dummy,
                         "account already exists"
@@ -209,7 +209,7 @@ impl MockBlockBuilder {
                     } else {
                         0
                     };
-                    let is_dummy_pubkey = sender_leaf.sender == U256::one();
+                    let is_dummy_pubkey = sender_leaf.sender.is_dummy_pubkey();
                     let proof = if is_dummy_pubkey {
                         AccountRegistorationProof::dummy(ACCOUNT_TREE_HEIGHT)
                     } else {
@@ -295,16 +295,16 @@ impl MockBlockBuilder {
 
     pub fn get_block_merkle_proof(
         &self,
-        current_block_number: u32,
-        target_block_number: u32,
+        root_block_number: u32,
+        leaf_block_number: u32,
     ) -> BlockHashMerkleProof {
-        assert!(current_block_number >= target_block_number);
+        assert!(root_block_number >= leaf_block_number);
         let block_tree = &self
             .aux_info
-            .get(&current_block_number)
+            .get(&root_block_number)
             .expect("current block number not found")
             .block_tree;
-        block_tree.prove(target_block_number as usize)
+        block_tree.prove(leaf_block_number as usize)
     }
 
     pub fn get_account_membership_proof(
@@ -343,13 +343,13 @@ fn construct_signature(
         .iter()
         .map(|tx| tx.will_return_signature)
         .collect::<Vec<_>>();
-    let sender_flag = U128::from_bits_le(&sender_flag_bits);
-    let agg_pubkey_g1 = sorted_txs
+    let sender_flag = Bytes16::from_bits_be(&sender_flag_bits);
+    let agg_pubkey = sorted_txs
         .iter()
         .map(|tx| {
-            let weight = hash_to_weight(tx.sender.pubkey_x, pubkey_hash);
+            let weight = hash_to_weight(tx.sender.pubkey, pubkey_hash);
             if tx.will_return_signature {
-                (tx.sender.pubkey * Fr::from(BigUint::from(weight))).into()
+                (tx.sender.pubkey_g1 * Fr::from(BigUint::from(weight))).into()
             } else {
                 G1Affine::zero()
             }
@@ -357,7 +357,7 @@ fn construct_signature(
         .fold(G1Affine::zero(), |acc: G1Affine, x: G1Affine| {
             (acc + x).into()
         });
-    let agg_signature_g2 = sorted_txs
+    let agg_signature = sorted_txs
         .iter()
         .map(|tx| {
             if tx.will_return_signature {
@@ -375,39 +375,26 @@ fn construct_signature(
         .iter()
         .map(|x| GoldilocksField::from_canonical_u32(*x))
         .collect::<Vec<_>>();
-    let message_point_g2 = G2Target::<GoldilocksField, 2>::hash_to_g2(&tx_tree_root_f);
+    let message_point = G2Target::<GoldilocksField, 2>::hash_to_g2(&tx_tree_root_f);
     assert!(
-        Bn254::pairing(agg_pubkey_g1, message_point_g2)
-            == Bn254::pairing(G1Affine::generator(), agg_signature_g2)
+        Bn254::pairing(agg_pubkey, message_point)
+            == Bn254::pairing(G1Affine::generator(), agg_signature)
     );
-    let agg_pubkey = [agg_pubkey_g1.x.into(), agg_pubkey_g1.y.into()];
-    let agg_signature = [
-        agg_signature_g2.x.c0.into(),
-        agg_signature_g2.x.c1.into(),
-        agg_signature_g2.y.c0.into(),
-        agg_signature_g2.y.c1.into(),
-    ];
-    let message_point = [
-        message_point_g2.x.c0.into(),
-        message_point_g2.x.c1.into(),
-        message_point_g2.y.c0.into(),
-        message_point_g2.y.c1.into(),
-    ];
     SignatureContent {
         tx_tree_root,
         is_registoration_block,
         sender_flag,
         pubkey_hash,
         account_id_hash,
-        agg_pubkey,
-        agg_signature,
-        message_point,
+        agg_pubkey: agg_pubkey.into(),
+        agg_signature: agg_signature.into(),
+        message_point: message_point.into(),
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::test_utils::tx::generate_random_tx_requests;
+    use crate::utils::test_utils::tx::generate_random_tx_requests;
 
     use super::MockBlockBuilder;
 

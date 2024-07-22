@@ -72,7 +72,7 @@ impl GenericAddress {
     }
 
     pub fn rand_pubkey<R: Rng>(rng: &mut R) -> Self {
-        Self::from_pubkey(KeySet::rand(rng).pubkey_x)
+        Self::from_pubkey(KeySet::rand(rng).pubkey)
     }
 
     pub fn rand_address<R: Rng>(rng: &mut R) -> Self {

@@ -295,7 +295,7 @@ mod tests {
             transition::{ValidityTransitionTarget, ValidityTransitionValue},
         },
         mock::block_builder::MockBlockBuilder,
-        test_utils::tx::generate_random_tx_requests,
+        utils::test_utils::tx::generate_random_tx_requests,
     };
 
     type F = GoldilocksField;

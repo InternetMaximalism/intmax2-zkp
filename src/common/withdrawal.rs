@@ -20,71 +20,99 @@ use crate::{
     utils::poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget},
 };
 
-use super::transfer::{Transfer, TransferTarget};
+use super::{
+    block::Block,
+    transfer::{Transfer, TransferTarget},
+};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Withdrawal {
-    pub prev_withdrawal_hash: Bytes32,
     pub recipient: Address,
     pub token_index: u32,
     pub amount: U256,
     pub nullifier: Bytes32,
     pub block_hash: Bytes32,
+    pub block_number: u32,
 }
 
 pub struct WithdrawalTarget {
-    pub prev_withdral_hash: Bytes32Target,
     pub recipient: AddressTarget,
     pub token_index: Target,
     pub amount: U256Target,
     pub nullifier: Bytes32Target,
     pub block_hash: Bytes32Target,
+    pub block_number: Target,
 }
 
 impl Withdrawal {
     pub fn to_u32_vec(&self) -> Vec<u32> {
         [
-            self.prev_withdrawal_hash.limbs(),
             self.recipient.limbs(),
             vec![self.token_index],
             self.amount.limbs(),
             self.nullifier.limbs(),
             self.block_hash.limbs(),
+            vec![self.block_number],
         ]
         .concat()
     }
 
-    pub fn hash(&self) -> Bytes32 {
-        Bytes32::from_limbs(&solidity_keccak256(&self.to_u32_vec()))
+    pub fn hash_with_prev_hash(&self, prev_withdrawal_hash: Bytes32) -> Bytes32 {
+        let input = vec![prev_withdrawal_hash.limbs(), self.to_u32_vec()].concat();
+        Bytes32::from_limbs(&solidity_keccak256(&input))
+    }
+
+    pub fn rand<R: rand::Rng>(rng: &mut R) -> Self {
+        Self {
+            recipient: Address::rand(rng),
+            token_index: rng.gen(),
+            amount: U256::rand_small(rng),
+            nullifier: Bytes32::rand(rng),
+            block_hash: Bytes32::rand(rng),
+            block_number: rng.gen(),
+        }
+    }
+
+    pub fn rand_with_block<R: rand::Rng>(rng: &mut R, block: &Block) -> Self {
+        Self {
+            recipient: Address::rand(rng),
+            token_index: rng.gen(),
+            amount: U256::rand_small(rng),
+            nullifier: Bytes32::rand(rng),
+            block_hash: block.hash(),
+            block_number: block.block_number,
+        }
     }
 }
 
 impl WithdrawalTarget {
     pub fn to_vec(&self) -> Vec<Target> {
         [
-            self.prev_withdral_hash.limbs(),
             self.recipient.limbs(),
             vec![self.token_index],
             self.amount.limbs(),
             self.nullifier.limbs(),
             self.block_hash.limbs(),
+            vec![self.block_number],
         ]
         .concat()
     }
 
-    pub fn hash<
+    pub fn hash_with_prev_hash<
         F: RichField + Extendable<D>,
         C: GenericConfig<D, F = F> + 'static,
         const D: usize,
     >(
         &self,
         builder: &mut CircuitBuilder<F, D>,
+        prev_withdrawal_hash: Bytes32Target,
     ) -> Bytes32Target
     where
         <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
     {
-        Bytes32Target::from_limbs(&builder.keccak256::<C>(&self.to_vec()))
+        let input = vec![prev_withdrawal_hash.limbs(), self.to_vec()].concat();
+        Bytes32Target::from_limbs(&builder.keccak256::<C>(&input))
     }
 }
 

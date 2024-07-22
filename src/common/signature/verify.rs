@@ -16,12 +16,16 @@ use plonky2_bn254::{
     fields::{biguint::BigUintTarget, fq::FqTarget, recover::RecoverFromX},
 };
 
-use crate::ethereum_types::{
-    u256::{U256Target, U256},
-    u32limb_trait::{U32LimbTargetTrait, U32LimbTrait},
+use crate::{
+    common::signature::flatten::FlatG1,
+    ethereum_types::{
+        u256::{U256Target, U256},
+        u32limb_trait::{U32LimbTargetTrait, U32LimbTrait},
+    },
 };
 
 use super::{
+    flatten::FlatG1Target,
     sign::{hash_to_weight, hash_to_weight_circuit},
     SignatureContent, SignatureContentTarget,
 };
@@ -33,7 +37,7 @@ impl SignatureContent {
     pub fn verify_aggregation(&self, pubkeys: &[U256]) -> Result<()> {
         let weighted_pubkeys = pubkeys
             .iter()
-            .zip(self.sender_flag.to_bits_le())
+            .zip(self.sender_flag.to_bits_be())
             .map(|(pubkey, b)| {
                 let x: Fq = pubkey.clone().into();
                 let pubkey_g1: G1Affine = G1Affine::recover_from_x(x);
@@ -45,15 +49,11 @@ impl SignatureContent {
                 }
             })
             .collect::<Vec<G1Affine>>();
-        let agg_pubkey = weighted_pubkeys
+        let agg_pubkey: FlatG1 = weighted_pubkeys
             .iter()
-            .fold(G1Affine::zero(), |acc, x| (acc + x).into());
-        let agg_pubkey_x: U256 = agg_pubkey.x.into();
-        let agg_pubkey_y: U256 = agg_pubkey.y.into();
-        ensure!(
-            agg_pubkey_x == self.agg_pubkey[0] && agg_pubkey_y == self.agg_pubkey[1],
-            "agg_pubkey does not match"
-        );
+            .fold(G1Affine::zero(), |acc, x| (acc + x).into())
+            .into();
+        ensure!(agg_pubkey == self.agg_pubkey, "agg_pubkey does not match");
         Ok(())
     }
 }
@@ -73,7 +73,7 @@ impl SignatureContentTarget {
     {
         let mut result = builder._true();
 
-        let sender_flag_bits = self.sender_flag.to_bits_le(builder);
+        let sender_flag_bits = self.sender_flag.to_bits_be(builder);
         let weights = pubkeys
             .iter()
             .zip(sender_flag_bits.iter())
@@ -95,14 +95,9 @@ impl SignatureContentTarget {
             .zip(pubkeys.iter())
             .map(|(weight, pubkey)| (weight.clone().into(), pubkey.clone()))
             .collect::<Vec<_>>();
-        let agg_pubkey = g1_msm::<F, C, D>(builder, &zipped);
-        let agg_pubkey_x: U256Target = agg_pubkey.x.into();
-        let agg_pubkey_y: U256Target = agg_pubkey.y.into();
-        let is_x_eq = agg_pubkey_x.is_equal(builder, &self.agg_pubkey[0]);
-        let is_y_eq = agg_pubkey_y.is_equal(builder, &self.agg_pubkey[1]);
-        result = builder.and(result, is_x_eq);
-        result = builder.and(result, is_y_eq);
-
+        let agg_pubkey: FlatG1Target = g1_msm::<F, C, D>(builder, &zipped).into();
+        let is_agg_pubkey_eq = agg_pubkey.is_equal(builder, &self.agg_pubkey);
+        result = builder.and(result, is_agg_pubkey_eq);
         result
     }
 }
@@ -133,7 +128,7 @@ mod tests {
         let (keyset, signature) = SignatureContent::rand(rng);
         let pubkeys = keyset
             .iter()
-            .map(|keyset| keyset.pubkey_x)
+            .map(|keyset| keyset.pubkey)
             .collect::<Vec<_>>();
         signature.is_valid_format(&pubkeys).unwrap();
         signature.verify_aggregation(&pubkeys).unwrap();

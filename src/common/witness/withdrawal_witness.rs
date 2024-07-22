@@ -8,7 +8,6 @@ use super::transfer_witness::TransferWitness;
 use crate::{
     circuits::balance::balance_pis::BalancePublicInputs,
     common::withdrawal::{get_withdrawal_nullifier, Withdrawal},
-    ethereum_types::bytes32::Bytes32,
     utils::leafable::Leafable,
 };
 
@@ -27,7 +26,7 @@ where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
 {
-    pub fn to_withdrawal(&self, prev_withdrawal_hash: Bytes32) -> Withdrawal {
+    pub fn to_withdrawal(&self) -> Withdrawal {
         let balance_pis = BalancePublicInputs::from_pis(&self.balance_proof.public_inputs);
         assert_eq!(
             balance_pis.last_tx_hash,
@@ -48,12 +47,12 @@ where
             .to_address()
             .expect("recipient is not an eth address");
         Withdrawal {
-            prev_withdrawal_hash,
             recipient,
             token_index: transfer.token_index,
             amount: transfer.amount,
             nullifier,
             block_hash: balance_pis.public_state.block_hash,
+            block_number: balance_pis.public_state.block_number,
         }
     }
 }

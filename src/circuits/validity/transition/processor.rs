@@ -142,7 +142,7 @@ where
 #[cfg(test)]
 mod tests {
     use crate::{
-        mock::block_builder::MockBlockBuilder, test_utils::tx::generate_random_tx_requests,
+        mock::block_builder::MockBlockBuilder, utils::test_utils::tx::generate_random_tx_requests,
     };
     use plonky2::{
         field::goldilocks_field::GoldilocksField, plonk::config::PoseidonGoldilocksConfig,

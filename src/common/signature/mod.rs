@@ -1,10 +1,13 @@
+pub mod flatten;
 pub mod format_validation;
 pub mod key_set;
+pub mod serialize;
 pub mod sign;
 pub mod utils;
 pub mod verify;
 
 use ark_bn254::Fq;
+use flatten::{FlatG1, FlatG1Target, FlatG2, FlatG2Target};
 use num::BigUint;
 use plonky2::{
     field::extension::Extendable,
@@ -18,48 +21,48 @@ use plonky2::{
         config::{AlgebraicHasher, GenericConfig},
     },
 };
-use plonky2_bn254::fields::fq::FqTarget;
+
 use plonky2_keccak::{builder::BuilderKeccak256 as _, utils::solidity_keccak256};
 use serde::{Deserialize, Serialize};
 
 use crate::{
     ethereum_types::{
+        bytes16::{Bytes16, Bytes16Target, BYTES16_LEN},
         bytes32::{Bytes32, Bytes32Target, BYTES32_LEN},
-        u128::{U128Target, U128, U128_LEN},
-        u256::{U256Target, U256, U256_LEN},
+        u256::{U256, U256_LEN},
         u32limb_trait::{U32LimbTargetTrait, U32LimbTrait},
     },
     utils::poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget},
 };
 
-pub const SIGNATURE_LEN: usize = 1 + U128_LEN + 3 * BYTES32_LEN + 10 * U256_LEN;
+pub const SIGNATURE_LEN: usize = 1 + BYTES16_LEN + 3 * BYTES32_LEN + 10 * U256_LEN;
 
 /// The signature that is verified by the contract. It is already guaranteed by
 /// the contract that e(`agg_pubkey`, message_point) = e(`agg_signature`, G2)
 /// holds.
-#[derive(Clone, Default, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SignatureContent {
     pub is_registoration_block: bool,
     pub tx_tree_root: Bytes32,
-    pub sender_flag: U128,
+    pub sender_flag: Bytes16,
     pub pubkey_hash: Bytes32,
     pub account_id_hash: Bytes32,
-    pub agg_pubkey: [U256; 2],
-    pub agg_signature: [U256; 4],
-    pub message_point: [U256; 4],
+    pub agg_pubkey: FlatG1,
+    pub agg_signature: FlatG2,
+    pub message_point: FlatG2,
 }
 
 #[derive(Clone, Debug)]
 pub struct SignatureContentTarget {
     pub is_registoration_block: BoolTarget,
     pub tx_tree_root: Bytes32Target,
-    pub sender_flag: U128Target,
+    pub sender_flag: Bytes16Target,
     pub pubkey_hash: Bytes32Target,
     pub account_id_hash: Bytes32Target,
-    pub agg_pubkey: [U256Target; 2],
-    pub agg_signature: [U256Target; 4],
-    pub message_point: [U256Target; 4],
+    pub agg_pubkey: FlatG1Target,
+    pub agg_signature: FlatG2Target,
+    pub message_point: FlatG2Target,
 }
 
 impl SignatureContent {
@@ -70,16 +73,9 @@ impl SignatureContent {
             self.sender_flag.limbs(),
             self.pubkey_hash.limbs(),
             self.account_id_hash.limbs(),
-            self.agg_pubkey[0].limbs(),
-            self.agg_pubkey[1].limbs(),
-            self.agg_signature[0].limbs(),
-            self.agg_signature[1].limbs(),
-            self.agg_signature[2].limbs(),
-            self.agg_signature[3].limbs(),
-            self.message_point[0].limbs(),
-            self.message_point[1].limbs(),
-            self.message_point[2].limbs(),
-            self.message_point[3].limbs(),
+            self.agg_pubkey.to_u32_vec(),
+            self.agg_signature.to_u32_vec(),
+            self.message_point.to_u32_vec(),
         ]
         .concat();
         limbs
@@ -102,16 +98,9 @@ impl SignatureContentTarget {
             self.sender_flag.to_vec(),
             self.pubkey_hash.to_vec(),
             self.account_id_hash.to_vec(),
-            self.agg_pubkey[0].to_vec(),
-            self.agg_pubkey[1].to_vec(),
-            self.agg_signature[0].to_vec(),
-            self.agg_signature[1].to_vec(),
-            self.agg_signature[2].to_vec(),
-            self.agg_signature[3].to_vec(),
-            self.message_point[0].to_vec(),
-            self.message_point[1].to_vec(),
-            self.message_point[2].to_vec(),
-            self.message_point[3].to_vec(),
+            self.agg_pubkey.to_vec(),
+            self.agg_signature.to_vec(),
+            self.message_point.to_vec(),
         ]
         .concat();
         assert_eq!(vec.len(), SIGNATURE_LEN);
@@ -129,25 +118,12 @@ impl SignatureContentTarget {
         Self {
             tx_tree_root: Bytes32Target::new(builder, is_checked),
             is_registoration_block,
-            sender_flag: U128Target::new(builder, is_checked),
+            sender_flag: Bytes16Target::new(builder, is_checked),
             pubkey_hash: Bytes32Target::new(builder, is_checked),
             account_id_hash: Bytes32Target::new(builder, is_checked),
-            agg_pubkey: [
-                U256Target::new(builder, is_checked),
-                U256Target::new(builder, is_checked),
-            ],
-            agg_signature: [
-                U256Target::new(builder, is_checked),
-                U256Target::new(builder, is_checked),
-                U256Target::new(builder, is_checked),
-                U256Target::new(builder, is_checked),
-            ],
-            message_point: [
-                U256Target::new(builder, is_checked),
-                U256Target::new(builder, is_checked),
-                U256Target::new(builder, is_checked),
-                U256Target::new(builder, is_checked),
-            ],
+            agg_pubkey: FlatG1Target::new(builder, is_checked),
+            agg_signature: FlatG2Target::new(builder, is_checked),
+            message_point: FlatG2Target::new(builder, is_checked),
         }
     }
 
@@ -158,25 +134,12 @@ impl SignatureContentTarget {
         Self {
             tx_tree_root: Bytes32Target::constant(builder, value.tx_tree_root),
             is_registoration_block: builder.constant_bool(value.is_registoration_block),
-            sender_flag: U128Target::constant(builder, value.sender_flag),
+            sender_flag: Bytes16Target::constant(builder, value.sender_flag),
             pubkey_hash: Bytes32Target::constant(builder, value.pubkey_hash),
             account_id_hash: Bytes32Target::constant(builder, value.account_id_hash),
-            agg_pubkey: [
-                U256Target::constant(builder, value.agg_pubkey[0]),
-                U256Target::constant(builder, value.agg_pubkey[1]),
-            ],
-            agg_signature: [
-                U256Target::constant(builder, value.agg_signature[0]),
-                U256Target::constant(builder, value.agg_signature[1]),
-                U256Target::constant(builder, value.agg_signature[2]),
-                U256Target::constant(builder, value.agg_signature[3]),
-            ],
-            message_point: [
-                U256Target::constant(builder, value.message_point[0]),
-                U256Target::constant(builder, value.message_point[1]),
-                U256Target::constant(builder, value.message_point[2]),
-                U256Target::constant(builder, value.message_point[3]),
-            ],
+            agg_pubkey: FlatG1Target::constant(builder, &value.agg_pubkey),
+            agg_signature: FlatG2Target::constant(builder, &value.agg_signature),
+            message_point: FlatG2Target::constant(builder, &value.message_point),
         }
     }
 
@@ -191,16 +154,11 @@ impl SignatureContentTarget {
         self.pubkey_hash.set_witness(witness, value.pubkey_hash);
         self.account_id_hash
             .set_witness(witness, value.account_id_hash);
-        self.agg_pubkey[0].set_witness(witness, value.agg_pubkey[0]);
-        self.agg_pubkey[1].set_witness(witness, value.agg_pubkey[1]);
-        self.agg_signature[0].set_witness(witness, value.agg_signature[0]);
-        self.agg_signature[1].set_witness(witness, value.agg_signature[1]);
-        self.agg_signature[2].set_witness(witness, value.agg_signature[2]);
-        self.agg_signature[3].set_witness(witness, value.agg_signature[3]);
-        self.message_point[0].set_witness(witness, value.message_point[0]);
-        self.message_point[1].set_witness(witness, value.message_point[1]);
-        self.message_point[2].set_witness(witness, value.message_point[2]);
-        self.message_point[3].set_witness(witness, value.message_point[3]);
+        self.agg_pubkey.set_witness(witness, &value.agg_pubkey);
+        self.agg_signature
+            .set_witness(witness, &value.agg_signature);
+        self.message_point
+            .set_witness(witness, &value.message_point);
     }
 
     pub fn commitment<F: RichField + Extendable<D>, const D: usize>(
@@ -229,16 +187,4 @@ pub(super) fn pubkey_range_check(pubkey: U256) -> bool {
     let pubky_bg: BigUint = pubkey.into();
     let modulus = BigUint::from(Fq::from(-1)) + 1u32;
     pubky_bg < modulus
-}
-
-pub(super) fn u256_to_fq_target<F: RichField + Extendable<D>, const D: usize>(
-    x: U256Target,
-) -> FqTarget<F, D> {
-    FqTarget::from_vec(&x.limbs().into_iter().rev().collect::<Vec<_>>())
-}
-
-pub(super) fn fq_to_u256_target<F: RichField + Extendable<D>, const D: usize>(
-    x: FqTarget<F, D>,
-) -> U256Target {
-    U256Target::from_limbs(&x.to_vec().into_iter().rev().collect::<Vec<_>>())
 }

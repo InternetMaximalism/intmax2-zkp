@@ -1,3 +1,5 @@
+use serde::{Deserialize, Serialize};
+
 use crate::{
     circuits::validity::{
         block_validation::{
@@ -14,15 +16,15 @@ use crate::{
             account_tree::{AccountMembershipProof, AccountMerkleProof, AccountTree},
             block_hash_tree::BlockHashTree,
             sender_tree::{get_sender_leaves, get_sender_tree_root, SenderTree},
-            tx_tree::TxTree,
         },
     },
     constants::{BLOCK_HASH_TREE_HEIGHT, SENDER_TREE_HEIGHT},
-    ethereum_types::{account_id_packed::AccountIdPacked, u256::U256},
+    ethereum_types::{
+        account_id_packed::AccountIdPacked, bytes32::Bytes32, u256::U256,
+        u32limb_trait::U32LimbTrait,
+    },
     utils::poseidon_hash_out::PoseidonHashOut,
 };
-
-use super::{tx_witness::TxWitness, validity_witness::ValidityWitness};
 
 /// A structure that holds all the information needed to verify a block
 #[derive(Debug, Clone)]
@@ -144,33 +146,56 @@ impl BlockWitness {
     }
 }
 
-#[derive(Clone, Debug)]
-pub struct BlockInfo {
-    pub validity_witness: ValidityWitness,
-    pub tx_tree: TxTree,
+// A subset of `BlockWitness` that only contains the information to be submitted to the
+// contract
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FullBlock {
+    pub block: Block,
+    pub signature: SignatureContent,
+    pub pubkeys: Option<Vec<U256>>,  // pubkeys trimed dummy pubkey
+    pub account_ids: Option<String>, // hex representation of account_ids trimed dummy account ids
+    pub block_hash: Bytes32,
 }
 
-impl BlockInfo {
-    pub fn generate_tx_witnesses(&self) -> Vec<TxWitness> {
-        return self
-            .tx_tree
-            .leaves()
-            .into_iter()
-            .enumerate()
-            .map(|(tx_index, tx)| {
-                let tx_merkle_proof = self.tx_tree.prove(tx_index);
-                TxWitness {
-                    validity_pis: self.validity_witness.to_validity_pis(),
-                    sender_leaves: self
-                        .validity_witness
-                        .block_witness
-                        .get_sender_tree()
-                        .leaves(),
-                    tx: tx.clone(),
-                    tx_index,
-                    tx_merkle_proof,
-                }
-            })
-            .collect();
+impl BlockWitness {
+    pub fn to_full_block(&self) -> FullBlock {
+        let pubkeys = if self.signature.is_registoration_block {
+            let pubkey_trimed_dummy = self
+                .pubkeys
+                .iter()
+                .filter(|p| !p.is_dummy_pubkey())
+                .cloned()
+                .collect::<Vec<_>>();
+            Some(pubkey_trimed_dummy)
+        } else {
+            None
+        };
+        let account_ids = if self.account_id_packed.is_some() {
+            let account_id_packed = self.account_id_packed.unwrap();
+            let dummy_account_id_start_at = account_id_packed
+                .unpack()
+                .iter()
+                .position(|account_id| *account_id == 1);
+            if dummy_account_id_start_at.is_none() {
+                Some(account_id_packed.to_hex()) // account ids are full
+            } else {
+                let hex = account_id_packed.to_hex();
+                let start_index = dummy_account_id_start_at.unwrap();
+                //  a little dirty implementation to slice until 5bytes * start_index = 10hex
+                // *start_index
+                Some(hex[..2 + 10 * start_index].to_string())
+            }
+        } else {
+            None
+        };
+
+        FullBlock {
+            block: self.block.clone(),
+            signature: self.signature.clone(),
+            pubkeys,
+            account_ids,
+            block_hash: self.block.hash(),
+        }
     }
 }

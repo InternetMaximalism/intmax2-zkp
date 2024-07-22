@@ -6,7 +6,7 @@ use crate::{
         SignatureContent,
     },
     constants::NUM_SENDERS_IN_BLOCK,
-    ethereum_types::{bytes32::Bytes32, u128::U128, u32limb_trait::U32LimbTrait as _},
+    ethereum_types::{bytes16::Bytes16, bytes32::Bytes32, u32limb_trait::U32LimbTrait as _},
 };
 use ark_bn254::{Bn254, Fr, G1Affine, G2Affine};
 use ark_ec::{pairing::Pairing, AffineRepr as _};
@@ -21,24 +21,24 @@ impl SignatureContent {
             .map(|_| KeySet::rand(rng))
             .collect::<Vec<_>>();
         // sort by pubkey_x in descending order
-        key_sets.sort_by(|a, b| b.pubkey_x.cmp(&a.pubkey_x));
+        key_sets.sort_by(|a, b| b.pubkey.cmp(&a.pubkey));
         let pubkeys = key_sets
             .iter()
-            .map(|keyset| keyset.pubkey_x)
+            .map(|keyset| keyset.pubkey)
             .collect::<Vec<_>>();
         let pubkey_hash = get_pubkey_hash(&pubkeys);
         let account_id_hash = Bytes32::rand(rng);
         let tx_tree_root = Bytes32::rand(rng);
         let is_registoration_block = rng.gen();
-        let sender_flag = U128::rand(rng);
-        let sender_flag_bits = sender_flag.to_bits_le();
-        let agg_pubkey_g1 = key_sets
+        let sender_flag = Bytes16::rand(rng);
+        let sender_flag_bits = sender_flag.to_bits_be();
+        let agg_pubkey = key_sets
             .iter()
             .zip(sender_flag_bits.iter())
             .map(|(keyset, b)| {
-                let weight = hash_to_weight(keyset.pubkey_x, pubkey_hash);
+                let weight = hash_to_weight(keyset.pubkey, pubkey_hash);
                 if *b {
-                    (keyset.pubkey * Fr::from(BigUint::from(weight))).into()
+                    (keyset.pubkey_g1 * Fr::from(BigUint::from(weight))).into()
                 } else {
                     G1Affine::zero()
                 }
@@ -46,7 +46,7 @@ impl SignatureContent {
             .fold(G1Affine::zero(), |acc: G1Affine, x: G1Affine| {
                 (acc + x).into()
             });
-        let agg_signature_g2 = key_sets
+        let agg_signature = key_sets
             .iter()
             .map(|keyset| sign_to_tx_root(keyset.privkey, tx_tree_root, pubkey_hash))
             .zip(sender_flag_bits.into_iter())
@@ -66,33 +66,20 @@ impl SignatureContent {
             .iter()
             .map(|x| GoldilocksField::from_canonical_u32(*x))
             .collect::<Vec<_>>();
-        let message_point_g2 = G2Target::<GoldilocksField, 2>::hash_to_g2(&tx_tree_root_f);
+        let message_point = G2Target::<GoldilocksField, 2>::hash_to_g2(&tx_tree_root_f);
         assert!(
-            Bn254::pairing(agg_pubkey_g1, message_point_g2)
-                == Bn254::pairing(G1Affine::generator(), agg_signature_g2)
+            Bn254::pairing(agg_pubkey, message_point)
+                == Bn254::pairing(G1Affine::generator(), agg_signature)
         );
-        let agg_pubkey = [agg_pubkey_g1.x.into(), agg_pubkey_g1.y.into()];
-        let agg_signature = [
-            agg_signature_g2.x.c0.into(),
-            agg_signature_g2.x.c1.into(),
-            agg_signature_g2.y.c0.into(),
-            agg_signature_g2.y.c1.into(),
-        ];
-        let message_point = [
-            message_point_g2.x.c0.into(),
-            message_point_g2.x.c1.into(),
-            message_point_g2.y.c0.into(),
-            message_point_g2.y.c1.into(),
-        ];
         let signature = Self {
             tx_tree_root,
             is_registoration_block,
             sender_flag,
             pubkey_hash,
             account_id_hash,
-            agg_pubkey,
-            agg_signature,
-            message_point,
+            agg_pubkey: agg_pubkey.into(),
+            agg_signature: agg_signature.into(),
+            message_point: message_point.into(),
         };
         (key_sets, signature)
     }

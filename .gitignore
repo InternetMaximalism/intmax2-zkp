@@ -1,3 +1,4 @@
 target/
-withdraw_circuit_data/
+test_data/
+data/
 *.txt

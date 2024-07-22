@@ -100,14 +100,14 @@ impl MockWallet {
     }
 
     pub fn get_pubkey(&self) -> U256 {
-        self.key_set.pubkey_x
+        self.key_set.pubkey
     }
 
     pub fn get_balance_pis(&self) -> BalancePublicInputs {
         let last_send_witness = self.get_last_send_witness();
 
         BalancePublicInputs {
-            pubkey: self.key_set.pubkey_x,
+            pubkey: self.key_set.pubkey,
             private_commitment: self.get_private_state().commitment(),
             last_tx_hash: last_send_witness
                 .clone()
@@ -211,7 +211,7 @@ impl MockWallet {
             asset_merkle_proofs.push(proof);
             insufficient_bits.push(new_balance.is_insufficient);
         }
-        let insufficient_flags = InsufficientFlags::from_bits_le(&insufficient_bits);
+        let insufficient_flags = InsufficientFlags::from_bits_be(&insufficient_bits);
         let send_witness = SendWitness {
             prev_balance_pis,
             prev_private_state,
@@ -469,10 +469,10 @@ mod tests {
             salt: Salt::rand(&mut rng),
         };
         // post register block
-        let _transfer_witnesses1 = wallet.send_tx(&mut block_builder, &[transfer]);
+        wallet.send_tx(&mut block_builder, &[transfer]);
         wallet.nonce += 1;
         // post account id block
-        let _transfer_witnesses2 = wallet.send_tx(&mut block_builder, &[transfer]);
+        wallet.send_tx(&mut block_builder, &[transfer]);
     }
 
     #[test]
