@@ -33,9 +33,9 @@ pub struct TransferInclusionValue<
     C: GenericConfig<D, F = F> + 'static,
     const D: usize,
 > {
-    pub transfer: Transfer,
-    pub transfer_index: usize,
-    pub transfer_merkle_proof: TransferMerkleProof,
+    pub transfer: Transfer,    // transfer to be proved included
+    pub transfer_index: usize, // the index of the transfer in the tranfer merkle tree
+    pub transfer_merkle_proof: TransferMerkleProof, // transfer merkle proof that proves i
     pub tx: Tx,
     pub balance_proof: ProofWithPublicInputs<F, C, D>,
     pub balance_circuit_vd: VerifierOnlyCircuitData<C, D>,

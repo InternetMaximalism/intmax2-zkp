@@ -224,6 +224,11 @@ impl<const D: usize> BalanceTransitionTarget<D> {
         let one = builder.one();
         let bit_selected = builder.random_access(circuit_type, circuit_flags_target);
         builder.connect(bit_selected, one);
+        // sum of circuit_flags should be 1
+        let sum = circuit_flags
+            .iter()
+            .fold(builder.zero(), |acc, x| builder.add(acc, x.target));
+        builder.connect(sum, one);
 
         let balance_circuit_vd = builder.add_virtual_verifier_data(config.fri_config.cap_height);
         let prev_balance_pis = BalancePublicInputsTarget::new(builder, false);
