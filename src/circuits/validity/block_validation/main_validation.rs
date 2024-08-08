@@ -213,7 +213,6 @@ pub struct MainValidationValue<
     account_exclusion_proof: Option<ProofWithPublicInputs<F, C, D>>,
     format_validation_proof: ProofWithPublicInputs<F, C, D>,
     aggregation_proof: Option<ProofWithPublicInputs<F, C, D>>,
-    block_commitment: PoseidonHashOut,
     signature_commitment: PoseidonHashOut,
     pubkey_commitment: PoseidonHashOut,
     prev_block_hash: Bytes32,
@@ -362,7 +361,6 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         // block hash calculation
         let prev_block_hash = block.prev_block_hash;
         let block_hash = block.hash();
-        let block_commitment = block.commitment();
         let sender_tree_root = get_sender_tree_root(&pubkeys, signature.sender_flag);
 
         Self {
@@ -374,7 +372,6 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
             account_exclusion_proof,
             format_validation_proof,
             aggregation_proof,
-            block_commitment,
             signature_commitment,
             pubkey_commitment,
             prev_block_hash,
@@ -395,7 +392,6 @@ pub struct MainValidationTarget<const D: usize> {
     account_exclusion_proof: ProofWithPublicInputsTarget<D>,
     format_validation_proof: ProofWithPublicInputsTarget<D>,
     aggregation_proof: ProofWithPublicInputsTarget<D>,
-    block_commitment: PoseidonHashOutTarget,
     signature_commitment: PoseidonHashOutTarget,
     pubkey_commitment: PoseidonHashOutTarget,
     prev_block_hash: Bytes32Target,
@@ -508,7 +504,6 @@ impl<const D: usize> MainValidationTarget<D> {
 
         let prev_block_hash = block.prev_block_hash;
         let block_hash = block.hash::<F, C, D>(builder);
-        let block_commitment = block.commitment(builder);
         let sender_tree_root =
             get_sender_tree_root_circuit::<F, C, D>(builder, &pubkeys, signature.sender_flag);
 
@@ -521,7 +516,6 @@ impl<const D: usize> MainValidationTarget<D> {
             account_exclusion_proof,
             format_validation_proof,
             aggregation_proof,
-            block_commitment,
             signature_commitment,
             pubkey_commitment,
             prev_block_hash,
@@ -568,8 +562,6 @@ impl<const D: usize> MainValidationTarget<D> {
             .as_ref()
             .unwrap_or(&aggregation_proof_dummy.proof);
         witness.set_proof_with_pis_target(&self.aggregation_proof, &aggregation_proof);
-        self.block_commitment
-            .set_witness(witness, value.block_commitment);
         self.signature_commitment
             .set_witness(witness, value.signature_commitment);
         self.pubkey_commitment
