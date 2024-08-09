@@ -120,7 +120,7 @@ impl SpentPublicInputsTarget {
 #[derive(Clone, Debug)]
 pub struct SpentValue {
     pub prev_private_state: PrivateState,
-    pub new_salt: Salt,
+    pub new_private_state_salt: Salt,
     pub transfers: Vec<Transfer>,
     pub prev_balances: Vec<AssetLeaf>,
     pub asset_merkle_proofs: Vec<AssetMerkleProof>,
@@ -134,7 +134,7 @@ pub struct SpentValue {
 #[derive(Clone, Debug)]
 pub struct SpentTarget {
     pub prev_private_state: PrivateStateTarget,
-    pub new_salt: SaltTarget,
+    pub new_private_state_salt: SaltTarget,
     pub transfers: Vec<TransferTarget>,
     pub prev_balances: Vec<AssetLeafTarget>,
     pub asset_merkle_proofs: Vec<AssetMerkleProofTarget>,
@@ -149,7 +149,7 @@ impl SpentValue {
     pub fn new(
         prev_private_state: &PrivateState,
         prev_balances: &[AssetLeaf],
-        new_salt: Salt,
+        new_private_state_salt: Salt,
         transfers: &[Transfer],
         asset_merkle_proofs: &[AssetMerkleProof],
         tx_nonce: u32,
@@ -176,7 +176,7 @@ impl SpentValue {
         let new_private_state = PrivateState {
             asset_tree_root,
             nonce: prev_private_state.nonce + 1,
-            salt: new_salt,
+            salt: new_private_state_salt,
             ..prev_private_state.clone()
         };
         let prev_private_commitment = prev_private_state.commitment();
@@ -188,7 +188,7 @@ impl SpentValue {
         };
         Self {
             prev_private_state: prev_private_state.clone(),
-            new_salt,
+            new_private_state_salt,
             transfers: transfers.to_vec(),
             prev_balances: prev_balances.to_vec(),
             asset_merkle_proofs: asset_merkle_proofs.to_vec(),
@@ -210,7 +210,7 @@ impl SpentTarget {
     {
         let tx_nonce = builder.add_virtual_target();
         let prev_private_state = PrivateStateTarget::new(builder);
-        let new_salt = SaltTarget::new(builder);
+        let new_private_state_salt = SaltTarget::new(builder);
         let transfers = (0..NUM_TRANSFERS_IN_TX)
             .map(|_| TransferTarget::new(builder, true))
             .collect::<Vec<_>>();
@@ -239,7 +239,7 @@ impl SpentTarget {
         let new_private_state = PrivateStateTarget {
             asset_tree_root,
             nonce: builder.add(prev_private_state.nonce, one),
-            salt: new_salt,
+            salt: new_private_state_salt,
             ..prev_private_state
         };
         let prev_private_commitment = prev_private_state.commitment(builder);
@@ -255,7 +255,7 @@ impl SpentTarget {
         };
         Self {
             prev_private_state,
-            new_salt,
+            new_private_state_salt,
             transfers,
             prev_balances,
             asset_merkle_proofs,
@@ -270,7 +270,8 @@ impl SpentTarget {
     pub fn set_witness<F: Field, W: WitnessWrite<F>>(&self, witness: &mut W, value: &SpentValue) {
         self.prev_private_state
             .set_witness(witness, &value.prev_private_state);
-        self.new_salt.set_witness(witness, value.new_salt);
+        self.new_private_state_salt
+            .set_witness(witness, value.new_private_state_salt);
         for (transfer_t, transfer) in self.transfers.iter().zip(value.transfers.iter()) {
             transfer_t.set_witness(witness, *transfer);
         }
@@ -399,11 +400,11 @@ mod tests {
             asset_tree.update(transfer.token_index as usize, new_balance);
             asset_merkle_proofs.push(proof);
         }
-        let new_salt = Salt::rand(&mut rng);
+        let new_private_state_salt = Salt::rand(&mut rng);
         let value = SpentValue::new(
             &prev_private_state,
             &prev_balances,
-            new_salt,
+            new_private_state_salt,
             &transfers,
             &asset_merkle_proofs,
             prev_private_state.nonce,

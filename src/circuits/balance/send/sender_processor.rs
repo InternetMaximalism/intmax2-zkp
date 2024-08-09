@@ -61,7 +61,7 @@ where
         let spent_value = SpentValue::new(
             &send_witness.prev_private_state,
             &send_witness.prev_balances,
-            send_witness.new_salt,
+            send_witness.new_private_state_salt,
             &send_witness.transfers,
             &send_witness.asset_merkle_proofs,
             send_witness.tx_witness.tx.nonce,

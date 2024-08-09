@@ -22,7 +22,7 @@ pub struct SendWitness {
     pub insufficient_flags: InsufficientFlags,
     pub transfers: Vec<Transfer>,
     pub tx_witness: TxWitness,
-    pub new_salt: Salt,
+    pub new_private_state_salt: Salt,
 }
 
 #[derive(Debug, Clone)]
@@ -50,7 +50,7 @@ impl SendWitness {
         let spent_value = SpentValue::new(
             &self.prev_private_state,
             &self.prev_balances,
-            self.new_salt,
+            self.new_private_state_salt,
             &self.transfers,
             &self.asset_merkle_proofs,
             self.tx_witness.tx.nonce,
