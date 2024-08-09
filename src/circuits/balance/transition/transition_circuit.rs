@@ -96,7 +96,7 @@ where
                     .data
                     .verify(receive_transfer_proof.clone())
                     .expect("receive_transfer_proof is invalid");
-                let pis = ReceiveTransferPublicInputs::<F, C, D>::from_vec(
+                let pis = ReceiveTransferPublicInputs::<F, C, D>::from_slice(
                     config,
                     &receive_transfer_proof.public_inputs,
                 );
@@ -237,7 +237,7 @@ impl<const D: usize> BalanceTransitionTarget<D> {
             .add_proof_target_and_conditionally_verify(builder, circuit_flags[0]);
         let new_balance_pis0 = {
             let condition = circuit_flags[0];
-            let pis = ReceiveTransferPublicInputsTarget::from_vec(
+            let pis = ReceiveTransferPublicInputsTarget::from_slice(
                 config,
                 &receive_transfer_proof.public_inputs,
             );
@@ -270,7 +270,7 @@ impl<const D: usize> BalanceTransitionTarget<D> {
         let new_balance_pis1 = {
             let condition = circuit_flags[1];
             let pis =
-                ReceiveDepositPublicInputsTarget::from_vec(&receive_deposit_proof.public_inputs);
+                ReceiveDepositPublicInputsTarget::from_slice(&receive_deposit_proof.public_inputs);
             pis.prev_private_commitment.conditional_assert_eq(
                 builder,
                 prev_balance_pis.private_commitment,
@@ -293,7 +293,7 @@ impl<const D: usize> BalanceTransitionTarget<D> {
             update_circuit.add_proof_target_and_conditionally_verify(builder, circuit_flags[2]);
         let new_balance_pis2 = {
             let condition = circuit_flags[2];
-            let pis = UpdatePublicInputsTarget::from_vec(&update_proof.public_inputs);
+            let pis = UpdatePublicInputsTarget::from_slice(&update_proof.public_inputs);
             pis.prev_public_state.conditional_assert_eq(
                 builder,
                 &prev_balance_pis.public_state,
@@ -308,7 +308,7 @@ impl<const D: usize> BalanceTransitionTarget<D> {
             sender_circuit.add_proof_target_and_conditionally_verify(builder, circuit_flags[3]);
         let new_balance_pis3 = {
             let condition = circuit_flags[3];
-            let pis = SenderPublicInputsTarget::from_vec(&sender_proof.public_inputs);
+            let pis = SenderPublicInputsTarget::from_slice(&sender_proof.public_inputs);
             pis.prev_balance_pis
                 .conditional_assert_eq(builder, &prev_balance_pis, condition);
             pis.new_balance_pis

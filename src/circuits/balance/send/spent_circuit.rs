@@ -90,14 +90,14 @@ impl SpentPublicInputsTarget {
         vec
     }
 
-    pub fn from_vec(input: &[Target]) -> Self {
+    pub fn from_slice(input: &[Target]) -> Self {
         assert_eq!(input.len(), SPENT_PUBLIC_INPUTS_LEN);
         let prev_private_commitment =
-            PoseidonHashOutTarget::from_vec(&input[0..POSEIDON_HASH_OUT_LEN]);
-        let new_private_commitment = PoseidonHashOutTarget::from_vec(
+            PoseidonHashOutTarget::from_slice(&input[0..POSEIDON_HASH_OUT_LEN]);
+        let new_private_commitment = PoseidonHashOutTarget::from_slice(
             &input[POSEIDON_HASH_OUT_LEN..2 * POSEIDON_HASH_OUT_LEN],
         );
-        let tx = TxTarget::from_vec(
+        let tx = TxTarget::from_slice(
             &input[2 * POSEIDON_HASH_OUT_LEN..2 * POSEIDON_HASH_OUT_LEN + TX_LEN],
         );
         let insufficient_flags = InsufficientFlagsTarget::from_limbs(

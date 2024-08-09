@@ -56,7 +56,7 @@ impl AccountTransitionPublicInputsTarget {
         vec
     }
 
-    pub fn from_vec(input: &[Target]) -> Self {
+    pub fn from_slice(input: &[Target]) -> Self {
         assert_eq!(input.len(), ACCOUNT_TRANSITION_PUBLIC_INPUTS_LEN);
         let prev_account_tree_root = PoseidonHashOutTarget {
             elements: input[0..4].try_into().unwrap(),

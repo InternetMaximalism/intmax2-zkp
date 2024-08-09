@@ -79,12 +79,12 @@ impl SenderPublicInputsTarget {
         vec
     }
 
-    pub fn from_vec(vec: &[Target]) -> Self {
+    pub fn from_slice(vec: &[Target]) -> Self {
         assert_eq!(vec.len(), SENDER_PUBLIC_INPUTS_LEN);
         let prev_balance_pis =
-            BalancePublicInputsTarget::from_vec(&vec[..BALANCE_PUBLIC_INPUTS_LEN]);
+            BalancePublicInputsTarget::from_slice(&vec[..BALANCE_PUBLIC_INPUTS_LEN]);
         let new_balance_pis =
-            BalancePublicInputsTarget::from_vec(&vec[BALANCE_PUBLIC_INPUTS_LEN..]);
+            BalancePublicInputsTarget::from_slice(&vec[BALANCE_PUBLIC_INPUTS_LEN..]);
         Self {
             prev_balance_pis,
             new_balance_pis,
@@ -194,9 +194,9 @@ impl<const D: usize> SenderTarget<D> {
         // verify proof
         let spent_proof = spent_circuit.add_proof_target_and_verify(builder);
         let tx_inclusion_proof = tx_inclusion_circuit.add_proof_target_and_verify(builder);
-        let spent_pis = SpentPublicInputsTarget::from_vec(&spent_proof.public_inputs);
+        let spent_pis = SpentPublicInputsTarget::from_slice(&spent_proof.public_inputs);
         let tx_inclusion_pis =
-            TxInclusionPublicInputsTarget::from_vec(&tx_inclusion_proof.public_inputs);
+            TxInclusionPublicInputsTarget::from_slice(&tx_inclusion_proof.public_inputs);
 
         let prev_balance_pis = BalancePublicInputsTarget::new(builder, is_checked);
 

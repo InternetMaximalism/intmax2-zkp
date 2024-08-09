@@ -56,7 +56,7 @@ where
         let main_validation_proof =
             main_validation_circut.add_proof_target_and_verify(&mut builder);
         let block_pis =
-            MainValidationPublicInputsTarget::from_vec(&main_validation_proof.public_inputs);
+            MainValidationPublicInputsTarget::from_slice(&main_validation_proof.public_inputs);
         let transition_target = ValidityTransitionTarget::new(
             account_registoration_circuit,
             account_update_circuit,

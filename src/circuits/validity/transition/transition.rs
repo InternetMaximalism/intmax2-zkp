@@ -164,7 +164,7 @@ impl<const D: usize> ValidityTransitionTarget<D> {
             builder.and(block_pis.is_registoration_block, block_pis.is_valid);
         let account_registoration_proof = account_registoration_circuit
             .add_proof_target_and_conditionally_verify(builder, is_account_registoration);
-        let account_registoration_pis = AccountTransitionPublicInputsTarget::from_vec(
+        let account_registoration_pis = AccountTransitionPublicInputsTarget::from_slice(
             &account_registoration_proof.public_inputs,
         );
         account_registoration_pis
@@ -194,7 +194,7 @@ impl<const D: usize> ValidityTransitionTarget<D> {
         let account_update_proof = account_update_circuit
             .add_proof_target_and_conditionally_verify(builder, is_account_update);
         let account_update_pis =
-            AccountTransitionPublicInputsTarget::from_vec(&account_update_proof.public_inputs);
+            AccountTransitionPublicInputsTarget::from_slice(&account_update_proof.public_inputs);
         account_update_pis
             .prev_account_tree_root
             .conditional_assert_eq(builder, prev_account_tree_root, is_account_update);

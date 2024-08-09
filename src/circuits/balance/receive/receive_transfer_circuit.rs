@@ -73,7 +73,7 @@ where
         vec
     }
 
-    pub fn from_vec(config: &CircuitConfig, input: &[F]) -> Self {
+    pub fn from_slice(config: &CircuitConfig, input: &[F]) -> Self {
         let non_vd = input[0..16 + PUBLIC_STATE_LEN].to_u64_vec();
         let prev_private_commitment = PoseidonHashOut::from_u64_vec(&non_vd[0..4]);
         let new_private_commitment = PoseidonHashOut::from_u64_vec(&non_vd[4..8]);
@@ -112,11 +112,11 @@ impl ReceiveTransferPublicInputsTarget {
         vec
     }
 
-    pub fn from_vec(config: &CircuitConfig, input: &[Target]) -> Self {
-        let prev_private_commitment = PoseidonHashOutTarget::from_vec(&input[0..4]);
-        let new_private_commitment = PoseidonHashOutTarget::from_vec(&input[4..8]);
+    pub fn from_slice(config: &CircuitConfig, input: &[Target]) -> Self {
+        let prev_private_commitment = PoseidonHashOutTarget::from_slice(&input[0..4]);
+        let new_private_commitment = PoseidonHashOutTarget::from_slice(&input[4..8]);
         let pubkey = U256Target::from_limbs(&input[8..16]);
-        let public_state = PublicStateTarget::from_vec(&input[16..16 + PUBLIC_STATE_LEN]);
+        let public_state = PublicStateTarget::from_slice(&input[16..16 + PUBLIC_STATE_LEN]);
         let balance_circuit_vd = vd_from_pis_slice_target(input, config).unwrap();
         ReceiveTransferPublicInputsTarget {
             prev_private_commitment,

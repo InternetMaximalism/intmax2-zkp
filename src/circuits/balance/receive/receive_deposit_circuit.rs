@@ -96,11 +96,11 @@ impl ReceiveDepositPublicInputsTarget {
         vec
     }
 
-    pub fn from_vec(input: &[Target]) -> Self {
-        let prev_private_commitment = PoseidonHashOutTarget::from_vec(&input[0..4]);
-        let new_private_commitment = PoseidonHashOutTarget::from_vec(&input[4..8]);
+    pub fn from_slice(input: &[Target]) -> Self {
+        let prev_private_commitment = PoseidonHashOutTarget::from_slice(&input[0..4]);
+        let new_private_commitment = PoseidonHashOutTarget::from_slice(&input[4..8]);
         let pubkey = U256Target::from_limbs(&input[8..16]);
-        let public_state = PublicStateTarget::from_vec(&input[16..16 + PUBLIC_STATE_LEN]);
+        let public_state = PublicStateTarget::from_slice(&input[16..16 + PUBLIC_STATE_LEN]);
         ReceiveDepositPublicInputsTarget {
             prev_private_commitment,
             new_private_commitment,

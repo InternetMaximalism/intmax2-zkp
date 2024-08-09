@@ -136,7 +136,7 @@ impl<F: RichField + Extendable<D>, const D: usize> From<FqTarget<F, D>> for U256
 
 impl<F: RichField + Extendable<D>, const D: usize> From<U256Target> for FqTarget<F, D> {
     fn from(value: U256Target) -> Self {
-        FqTarget::from_vec(&value.limbs().into_iter().rev().collect::<Vec<_>>())
+        FqTarget::from_slice(&value.limbs().into_iter().rev().collect::<Vec<_>>())
     }
 }
 

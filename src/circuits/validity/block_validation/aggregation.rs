@@ -71,10 +71,10 @@ impl AggregationPublicInputsTarget {
         vec
     }
 
-    pub fn from_vec(input: &[Target]) -> Self {
+    pub fn from_slice(input: &[Target]) -> Self {
         assert_eq!(input.len(), AGGREGATION_PUBLIC_INPUTS_LEN);
-        let pubkey_commitment = PoseidonHashOutTarget::from_vec(&input[0..4]);
-        let signature_commitment = PoseidonHashOutTarget::from_vec(&input[4..8]);
+        let pubkey_commitment = PoseidonHashOutTarget::from_slice(&input[0..4]);
+        let signature_commitment = PoseidonHashOutTarget::from_slice(&input[4..8]);
         let is_valid = BoolTarget::new_unsafe(input[8]);
         Self {
             pubkey_commitment,

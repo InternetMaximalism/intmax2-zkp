@@ -84,7 +84,7 @@ impl PoseidonHashOutTarget {
         self.elements.to_vec()
     }
 
-    pub fn from_vec(input: &[Target]) -> Self {
+    pub fn from_slice(input: &[Target]) -> Self {
         assert_eq!(input.len(), POSEIDON_HASH_OUT_LEN);
         Self {
             elements: input.try_into().unwrap(),

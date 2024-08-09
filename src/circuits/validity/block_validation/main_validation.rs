@@ -155,14 +155,14 @@ impl MainValidationPublicInputsTarget {
         vec
     }
 
-    pub fn from_vec(input: &[Target]) -> Self {
+    pub fn from_slice(input: &[Target]) -> Self {
         assert_eq!(input.len(), MAIN_VALIDATION_PUBLIC_INPUT_LEN);
         let prev_block_hash = Bytes32Target::from_limbs(&input[0..8]);
         let block_hash = Bytes32Target::from_limbs(&input[8..16]);
         let deposit_tree_root = Bytes32Target::from_limbs(&input[16..24]);
-        let account_tree_root = PoseidonHashOutTarget::from_vec(&input[24..28]);
+        let account_tree_root = PoseidonHashOutTarget::from_slice(&input[24..28]);
         let tx_tree_root = Bytes32Target::from_limbs(&input[28..36]);
-        let sender_tree_root = PoseidonHashOutTarget::from_vec(&input[36..40]);
+        let sender_tree_root = PoseidonHashOutTarget::from_slice(&input[36..40]);
         let block_number = input[40];
         let is_registoration_block = BoolTarget::new_unsafe(input[41]);
         let is_valid = BoolTarget::new_unsafe(input[42]);
@@ -439,7 +439,7 @@ impl<const D: usize> MainValidationTarget<D> {
         let account_exclusion_proof = account_exclusion_circuit
             .add_proof_target_and_conditionally_verify(builder, is_registoration_block);
         let account_exclusion_pis =
-            AccountExclusionPublicInputsTarget::from_vec(&account_exclusion_proof.public_inputs);
+            AccountExclusionPublicInputsTarget::from_slice(&account_exclusion_proof.public_inputs);
         account_exclusion_pis
             .pubkey_commitment
             .conditional_assert_eq(builder, pubkey_commitment, is_registoration_block);
@@ -456,7 +456,7 @@ impl<const D: usize> MainValidationTarget<D> {
         let account_inclusion_proof = account_inclusion_circuit
             .add_proof_target_and_conditionally_verify(builder, is_not_registoration_block);
         let account_inclusion_pis =
-            AccountInclusionPublicInputsTarget::from_vec(&account_inclusion_proof.public_inputs);
+            AccountInclusionPublicInputsTarget::from_slice(&account_inclusion_proof.public_inputs);
         account_inclusion_pis
             .pubkey_commitment
             .conditional_assert_eq(builder, pubkey_commitment, is_not_registoration_block);
@@ -478,7 +478,7 @@ impl<const D: usize> MainValidationTarget<D> {
         let format_validation_proof =
             format_validation_circuit.add_proof_target_and_verify(builder);
         let format_validation_pis =
-            FormatValidationPublicInputsTarget::from_vec(&format_validation_proof.public_inputs);
+            FormatValidationPublicInputsTarget::from_slice(&format_validation_proof.public_inputs);
         format_validation_pis
             .pubkey_commitment
             .connect(builder, pubkey_commitment);
@@ -491,7 +491,7 @@ impl<const D: usize> MainValidationTarget<D> {
         let aggregation_proof =
             aggregation_circuit.add_proof_target_and_conditionally_verify(builder, result);
         let aggregation_pis =
-            AggregationPublicInputsTarget::from_vec(&aggregation_proof.public_inputs);
+            AggregationPublicInputsTarget::from_slice(&aggregation_proof.public_inputs);
         aggregation_pis
             .pubkey_commitment
             .conditional_assert_eq(builder, pubkey_commitment, result);

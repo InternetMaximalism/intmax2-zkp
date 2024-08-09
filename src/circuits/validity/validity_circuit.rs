@@ -70,10 +70,10 @@ where
         let transition_proof =
             dummy_validity_wrap_circuit.add_proof_target_and_verify(&mut builder);
 
-        let prev_pis_ = ValidityPublicInputsTarget::from_vec(
+        let prev_pis_ = ValidityPublicInputsTarget::from_slice(
             &transition_proof.public_inputs[0..VALIDITY_PUBLIC_INPUTS_LEN],
         );
-        let new_pis = ValidityPublicInputsTarget::from_vec(
+        let new_pis = ValidityPublicInputsTarget::from_slice(
             &transition_proof.public_inputs[VALIDITY_PUBLIC_INPUTS_LEN..],
         );
         builder.register_public_inputs(&new_pis.to_vec());
@@ -89,7 +89,7 @@ where
                 &common_data,
             )
             .unwrap();
-        let prev_pis = ValidityPublicInputsTarget::from_vec(
+        let prev_pis = ValidityPublicInputsTarget::from_slice(
             &prev_proof.public_inputs[0..VALIDITY_PUBLIC_INPUTS_LEN],
         );
         prev_pis.connect(&mut builder, &prev_pis_);

@@ -75,10 +75,10 @@ where
 
         let transition_proof = balance_transition_circuit.add_proof_target_and_verify(&mut builder);
 
-        let prev_pis_ = BalancePublicInputsTarget::from_vec(
+        let prev_pis_ = BalancePublicInputsTarget::from_slice(
             &transition_proof.public_inputs[0..BALANCE_PUBLIC_INPUTS_LEN],
         );
-        let new_pis = BalancePublicInputsTarget::from_vec(
+        let new_pis = BalancePublicInputsTarget::from_slice(
             &transition_proof.public_inputs
                 [BALANCE_PUBLIC_INPUTS_LEN..2 * BALANCE_PUBLIC_INPUTS_LEN],
         );
@@ -101,7 +101,7 @@ where
                 &common_data,
             )
             .unwrap();
-        let prev_pis = BalancePublicInputsTarget::from_vec(
+        let prev_pis = BalancePublicInputsTarget::from_slice(
             &prev_proof.public_inputs[0..BALANCE_PUBLIC_INPUTS_LEN],
         );
         prev_pis.connect(&mut builder, &prev_pis_);

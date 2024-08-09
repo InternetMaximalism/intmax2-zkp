@@ -80,7 +80,7 @@ impl AccountInclusionPublicInputsTarget {
         vec
     }
 
-    pub fn from_vec(input: &[Target]) -> Self {
+    pub fn from_slice(input: &[Target]) -> Self {
         assert_eq!(input.len(), ACCOUNT_INCLUSION_PUBLIC_INPUTS_LEN);
         let account_id_hash = Bytes32Target::from_limbs(&input[0..8]);
         let account_tree_root = PoseidonHashOutTarget {
