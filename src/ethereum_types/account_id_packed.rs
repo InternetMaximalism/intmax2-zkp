@@ -18,6 +18,7 @@ pub const ACCOUNT_ID_PACKED_LEN: usize = ACCOUNT_ID_BITS * NUM_SENDERS_IN_BLOCK 
 use plonky2_keccak::{builder::BuilderKeccak256 as _, utils::solidity_keccak256};
 
 /// A packed account ID.
+/// The value is stored in big endian format.
 #[derive(Clone, Copy, PartialEq, Hash)]
 pub struct AccountIdPacked {
     limbs: [u32; ACCOUNT_ID_PACKED_LEN],

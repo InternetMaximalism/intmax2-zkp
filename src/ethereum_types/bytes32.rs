@@ -11,7 +11,6 @@ use super::{
 pub const BYTES32_LEN: usize = U256_LEN;
 
 // A structure representing the bytes32 type in Ethereum.
-// `T` is either `u32` or `U32Target`.
 // The value is stored in big endian format.
 #[derive(Clone, Copy, PartialEq, Eq, Default, Hash)]
 pub struct Bytes32 {

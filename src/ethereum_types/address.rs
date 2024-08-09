@@ -6,6 +6,7 @@ use super::u32limb_trait::{U32LimbTargetTrait, U32LimbTrait};
 pub const ADDRESS_LEN: usize = 5;
 
 /// A structure representing the address type in Ethereum.
+/// The value is stored in big endian format.
 #[derive(Clone, Copy, PartialEq, Default, Hash)]
 pub struct Address {
     limbs: [u32; ADDRESS_LEN],

@@ -21,7 +21,6 @@ use super::u32limb_trait::{U32LimbTargetTrait, U32LimbTrait};
 pub const U256_LEN: usize = 8;
 
 // A structure representing the uint256 type in Ethereum.
-// `T` is either `u32` or `U32Target`.
 // The value is stored in big endian format.
 #[derive(Clone, Copy, PartialEq, Eq, Default, Hash)]
 pub struct U256 {
