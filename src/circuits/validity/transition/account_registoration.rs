@@ -245,10 +245,13 @@ mod tests {
     };
 
     use crate::{
-        common::trees::{account_tree::AccountTree, sender_tree::get_sender_leaves},
+        common::{
+            signature::key_set::KeySet,
+            trees::{account_tree::AccountTree, sender_tree::get_sender_leaves},
+        },
         ethereum_types::{bytes16::Bytes16, u256::U256, u32limb_trait::U32LimbTrait as _},
-        utils::test_utils::account_tree::add_random_accounts,
     };
+    use rand::Rng;
 
     use super::*;
     type F = GoldilocksField;
@@ -259,7 +262,11 @@ mod tests {
     fn account_registoration() {
         let mut rng = rand::thread_rng();
         let mut tree = AccountTree::initialize();
-        add_random_accounts(&mut rng, &mut tree, 1000);
+        for _ in 0..100 {
+            let keyset = KeySet::rand(&mut rng);
+            let last_block_number = rng.gen();
+            tree.insert(keyset.pubkey, last_block_number).unwrap();
+        }
         let prev_account_tree_root = tree.get_root();
 
         let mut pubkeys = (0..10).map(|_| U256::rand(&mut rng)).collect::<Vec<_>>();
