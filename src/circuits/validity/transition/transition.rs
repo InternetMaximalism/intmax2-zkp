@@ -325,7 +325,7 @@ mod tests {
             block_pis.block_number,
             transition_witness.sender_leaves,
             transition_witness
-                .account_registoration_proofs
+                .account_registration_proofs
                 .clone()
                 .unwrap(),
         );

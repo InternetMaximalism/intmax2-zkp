@@ -200,9 +200,9 @@ impl MockBlockBuilder {
             get_sender_leaves(&block_witness.pubkeys, block_witness.signature.sender_flag);
         let block_pis = block_witness.to_main_validation_pis();
 
-        let account_registoration_proofs = {
+        let account_registration_proofs = {
             if block_pis.is_valid && block_pis.is_registoration_block {
-                let mut account_registoration_proofs = Vec::new();
+                let mut account_registration_proofs = Vec::new();
                 for sender_leaf in &sender_leaves {
                     let last_block_number = if sender_leaf.is_valid {
                         block_pis.block_number
@@ -217,9 +217,9 @@ impl MockBlockBuilder {
                             .prove_and_insert(sender_leaf.sender, last_block_number as u64)
                             .unwrap()
                     };
-                    account_registoration_proofs.push(proof);
+                    account_registration_proofs.push(proof);
                 }
-                Some(account_registoration_proofs)
+                Some(account_registration_proofs)
             } else {
                 None
             }
@@ -251,7 +251,7 @@ impl MockBlockBuilder {
         let validity_transition_witness = ValidityTransitionWitness {
             sender_leaves,
             block_merkle_proof,
-            account_registoration_proofs,
+            account_registration_proofs,
             account_update_proofs,
         };
         ValidityWitness {

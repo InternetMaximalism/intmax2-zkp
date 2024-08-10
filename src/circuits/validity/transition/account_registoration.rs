@@ -35,7 +35,7 @@ pub struct AccountRegistorationValue {
     pub sender_tree_root: PoseidonHashOut,
     pub block_number: u32,
     pub sender_leaves: Vec<SenderLeaf>,
-    pub account_registoration_proofs: Vec<AccountRegistorationProof>,
+    pub account_registration_proofs: Vec<AccountRegistorationProof>,
 }
 
 impl AccountRegistorationValue {
@@ -43,7 +43,7 @@ impl AccountRegistorationValue {
         prev_account_tree_root: PoseidonHashOut,
         block_number: u32,
         sender_leaves: Vec<SenderLeaf>,
-        account_registoration_proofs: Vec<AccountRegistorationProof>,
+        account_registration_proofs: Vec<AccountRegistorationProof>,
     ) -> Self {
         assert_eq!(
             sender_leaves.len(),
@@ -51,16 +51,15 @@ impl AccountRegistorationValue {
             "Invalid number of sender leaves"
         );
         assert_eq!(
-            account_registoration_proofs.len(),
+            account_registration_proofs.len(),
             NUM_SENDERS_IN_BLOCK,
             "Invalid number of account registoration proofs"
         );
         let sender_tree_root = get_merkle_root_from_leaves(SENDER_TREE_HEIGHT, &sender_leaves);
 
         let mut account_tree_root = prev_account_tree_root;
-        for (sender_leaf, account_registoration_proof) in sender_leaves
-            .iter()
-            .zip(account_registoration_proofs.iter())
+        for (sender_leaf, account_registoration_proof) in
+            sender_leaves.iter().zip(account_registration_proofs.iter())
         {
             let last_block_number = if sender_leaf.is_valid {
                 block_number
@@ -84,7 +83,7 @@ impl AccountRegistorationValue {
             sender_tree_root,
             block_number,
             sender_leaves,
-            account_registoration_proofs,
+            account_registration_proofs,
         }
     }
 }
@@ -95,7 +94,7 @@ pub struct AccountRegistorationTarget {
     pub sender_tree_root: PoseidonHashOutTarget,
     pub block_number: Target,
     pub sender_leaves: Vec<SenderLeafTarget>,
-    pub account_registoration_proofs: Vec<AccountRegistorationProofTarget>,
+    pub account_registration_proofs: Vec<AccountRegistorationProofTarget>,
 }
 
 impl AccountRegistorationTarget {
@@ -112,7 +111,7 @@ impl AccountRegistorationTarget {
         let sender_leaves = (0..NUM_SENDERS_IN_BLOCK)
             .map(|_| SenderLeafTarget::new(builder, false))
             .collect::<Vec<_>>();
-        let account_registoration_proofs = (0..NUM_SENDERS_IN_BLOCK)
+        let account_registration_proofs = (0..NUM_SENDERS_IN_BLOCK)
             .map(|_| AccountRegistorationProofTarget::new(builder, ACCOUNT_TREE_HEIGHT, false))
             .collect::<Vec<_>>();
         let sender_tree_root = get_merkle_root_from_leaves_circuit::<F, C, D, _>(
@@ -123,9 +122,8 @@ impl AccountRegistorationTarget {
 
         let zero = builder.zero();
         let mut account_tree_root = prev_account_tree_root;
-        for (sender_leaf, account_registoration_proof) in sender_leaves
-            .iter()
-            .zip(account_registoration_proofs.iter())
+        for (sender_leaf, account_registoration_proof) in
+            sender_leaves.iter().zip(account_registration_proofs.iter())
         {
             let last_block_number = builder.select(sender_leaf.is_valid, block_number, zero);
             let is_dummy_pubkey = sender_leaf.sender.is_dummy_pubkey(builder);
@@ -145,7 +143,7 @@ impl AccountRegistorationTarget {
             sender_tree_root,
             block_number,
             sender_leaves,
-            account_registoration_proofs,
+            account_registration_proofs,
         }
     }
 
@@ -169,9 +167,9 @@ impl AccountRegistorationTarget {
         }
 
         for (account_registoration_proof, account_registoration_proof_t) in value
-            .account_registoration_proofs
+            .account_registration_proofs
             .iter()
-            .zip(self.account_registoration_proofs.iter())
+            .zip(self.account_registration_proofs.iter())
         {
             account_registoration_proof_t.set_witness(witness, account_registoration_proof);
         }
@@ -274,7 +272,7 @@ mod tests {
         let sender_flag = Bytes16::rand(&mut rng);
         let sender_leaves = get_sender_leaves(&pubkeys, sender_flag);
         let block_number: u32 = 1000;
-        let mut account_registoration_proofs = Vec::new();
+        let mut account_registration_proofs = Vec::new();
         for sender_leaf in sender_leaves.iter() {
             let last_block_number = if sender_leaf.is_valid {
                 block_number
@@ -288,13 +286,13 @@ mod tests {
                 tree.prove_and_insert(sender_leaf.sender, last_block_number as u64)
                     .unwrap()
             };
-            account_registoration_proofs.push(proof);
+            account_registration_proofs.push(proof);
         }
         let account_registoration_value = AccountRegistorationValue::new(
             prev_account_tree_root,
             block_number,
             sender_leaves,
-            account_registoration_proofs,
+            account_registration_proofs,
         );
         let new_account_tree_root = tree.get_root();
         assert_eq!(

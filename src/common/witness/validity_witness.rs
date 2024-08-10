@@ -44,16 +44,16 @@ impl ValidityWitness {
         let prev_account_tree_root = self.block_witness.prev_account_tree_root;
         let mut account_tree_root = prev_account_tree_root;
         if main_validation_pis.is_valid && main_validation_pis.is_registoration_block {
-            let account_registoration_proofs = self
+            let account_registration_proofs = self
                 .validity_transition_witness
-                .account_registoration_proofs
+                .account_registration_proofs
                 .as_ref()
-                .expect("account_registoration_proofs should be given");
+                .expect("account_registration_proofs should be given");
             for (sender_leaf, account_registoration_proof) in self
                 .validity_transition_witness
                 .sender_leaves
                 .iter()
-                .zip(account_registoration_proofs)
+                .zip(account_registration_proofs)
             {
                 let last_block_number = if sender_leaf.is_valid {
                     block.block_number

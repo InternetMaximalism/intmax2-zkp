@@ -230,7 +230,7 @@ mod tests {
 
     #[test]
     #[cfg(feature = "skip_insufficient_check")]
-    fn balance_processor_receive_tranfer() {
+    fn balance_processor_receive_transfer() {
         let mut rng = rand::thread_rng();
         // shared state
         let mut block_builder = MockBlockBuilder::new();
