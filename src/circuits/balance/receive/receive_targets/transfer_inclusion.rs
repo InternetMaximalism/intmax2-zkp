@@ -36,10 +36,10 @@ pub struct TransferInclusionValue<
     pub transfer: Transfer,    // transfer to be proved included
     pub transfer_index: usize, // the index of the transfer in the tranfer merkle tree
     pub transfer_merkle_proof: TransferMerkleProof, // transfer merkle proof that proves i
-    pub tx: Tx,
-    pub balance_proof: ProofWithPublicInputs<F, C, D>,
-    pub balance_circuit_vd: VerifierOnlyCircuitData<C, D>,
-    pub public_state: PublicState,
+    pub tx: Tx,                // tx that includes the transfer
+    pub balance_proof: ProofWithPublicInputs<F, C, D>, // balance proof that includes the tx
+    pub balance_circuit_vd: VerifierOnlyCircuitData<C, D>, // balance circuit verifier data
+    pub public_state: PublicState, // public state of the balance proof
 }
 
 impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
