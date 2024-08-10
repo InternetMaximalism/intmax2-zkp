@@ -160,8 +160,8 @@ where
     }
 }
 
-// Generates `CommonCircuitData` usable for recursion.
-pub fn common_data_for_validity_circuit<
+// Generates `CommonCircuitData` for the cyclic circuit
+fn common_data_for_validity_circuit<
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
     const D: usize,

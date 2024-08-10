@@ -210,8 +210,8 @@ where
     }
 }
 
-// Generates `CommonCircuitData` usable for recursion.
-pub fn common_data_for_balance_circuit<
+// Generates `CommonCircuitData` for the cyclic circuit
+pub(crate) fn common_data_for_balance_circuit<
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
     const D: usize,

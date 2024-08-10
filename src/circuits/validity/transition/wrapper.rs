@@ -29,6 +29,7 @@ use super::{
     transition::{ValidityTransitionTarget, ValidityTransitionValue},
 };
 
+/// Circuit to prove the transition from old validity pis to new validity pis.
 pub struct TransitionWrapperCircuit<F, C, const D: usize>
 where
     F: RichField + Extendable<D>,
