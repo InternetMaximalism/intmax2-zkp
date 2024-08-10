@@ -37,7 +37,7 @@ use crate::{
         conversion::ToField as _,
         cyclic::vd_vec_len,
         poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget},
-        recursivable::Recursivable as _,
+        RecursivelyVerifiable::RecursivelyVerifiable as _,
     },
 };
 

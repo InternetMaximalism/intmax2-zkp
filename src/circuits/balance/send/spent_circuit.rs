@@ -26,7 +26,7 @@ use crate::{
     ethereum_types::u32limb_trait::{U32LimbTargetTrait, U32LimbTrait as _},
     utils::{
         poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget, POSEIDON_HASH_OUT_LEN},
-        recursivable::Recursivable,
+        RecursivelyVerifiable::RecursivelyVerifiable,
         trees::get_root::{get_merkle_root_from_leaves, get_merkle_root_from_leaves_circuit},
     },
 };
@@ -332,7 +332,7 @@ where
     }
 }
 
-impl<F, C, const D: usize> Recursivable<F, C, D> for SpentCircuit<F, C, D>
+impl<F, C, const D: usize> RecursivelyVerifiable<F, C, D> for SpentCircuit<F, C, D>
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F> + 'static,

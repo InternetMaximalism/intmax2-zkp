@@ -24,7 +24,7 @@ use crate::{
         bytes32::{Bytes32, Bytes32Target, BYTES32_LEN},
         u32limb_trait::{U32LimbTargetTrait as _, U32LimbTrait},
     },
-    utils::recursivable::Recursivable,
+    utils::RecursivelyVerifiable::RecursivelyVerifiable,
 };
 
 pub const FRAUD_PROOF_PUBLIC_INPUTS_LEN: usize = BYTES32_LEN + 1 + ADDRESS_LEN;
@@ -132,7 +132,7 @@ where
 }
 
 impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F> + 'static, const D: usize>
-    Recursivable<F, C, D> for FraudCircuit<F, C, D>
+    RecursivelyVerifiable<F, C, D> for FraudCircuit<F, C, D>
 where
     <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
 {

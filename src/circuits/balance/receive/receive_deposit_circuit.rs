@@ -14,7 +14,7 @@ use crate::{
     utils::{
         dummy::DummyProof,
         poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget, POSEIDON_HASH_OUT_LEN},
-        recursivable::Recursivable,
+        RecursivelyVerifiable::RecursivelyVerifiable,
     },
 };
 use plonky2::{
@@ -302,7 +302,7 @@ where
     }
 }
 
-impl<F, C, const D: usize> Recursivable<F, C, D> for ReceiveDepositCircuit<F, C, D>
+impl<F, C, const D: usize> RecursivelyVerifiable<F, C, D> for ReceiveDepositCircuit<F, C, D>
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F> + 'static,

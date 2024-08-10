@@ -6,7 +6,7 @@ use crate::{
     utils::{
         conversion::ToField,
         cyclic::{vd_from_pis_slice_target, vd_vec_len},
-        recursivable::Recursivable as _,
+        RecursivelyVerifiable::RecursivelyVerifiable as _,
     },
 };
 use anyhow::Result;

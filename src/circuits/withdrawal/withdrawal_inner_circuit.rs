@@ -22,7 +22,7 @@ use crate::{
         bytes32::{Bytes32, Bytes32Target},
         u32limb_trait::U32LimbTargetTrait,
     },
-    utils::recursivable::Recursivable,
+    utils::RecursivelyVerifiable::RecursivelyVerifiable,
 };
 
 #[derive(Debug)]
@@ -88,7 +88,7 @@ where
 }
 
 impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F> + 'static, const D: usize>
-    Recursivable<F, C, D> for WithdrawalInnerCircuit<F, C, D>
+    RecursivelyVerifiable<F, C, D> for WithdrawalInnerCircuit<F, C, D>
 where
     <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
 {

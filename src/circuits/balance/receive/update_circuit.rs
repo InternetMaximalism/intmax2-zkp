@@ -32,7 +32,7 @@ use crate::{
         u256::{U256Target, U256, U256_LEN},
         u32limb_trait::{U32LimbTargetTrait, U32LimbTrait},
     },
-    utils::{dummy::DummyProof, recursivable::Recursivable},
+    utils::{dummy::DummyProof, RecursivelyVerifiable::RecursivelyVerifiable},
 };
 
 pub const UPDATE_PUBLIC_INPUTS_LEN: usize = U256_LEN + PUBLIC_STATE_LEN * 2;
@@ -280,7 +280,7 @@ where
     }
 }
 
-impl<F, C, const D: usize> Recursivable<F, C, D> for UpdateCircuit<F, C, D>
+impl<F, C, const D: usize> RecursivelyVerifiable<F, C, D> for UpdateCircuit<F, C, D>
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F> + 'static,

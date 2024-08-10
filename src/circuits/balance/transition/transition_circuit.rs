@@ -35,7 +35,7 @@ use crate::{
         conversion::ToU64,
         cyclic::conditionally_connect_vd,
         poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget},
-        recursivable::Recursivable,
+        RecursivelyVerifiable::RecursivelyVerifiable,
     },
 };
 
@@ -494,7 +494,7 @@ where
     }
 }
 
-impl<F, C, const D: usize> Recursivable<F, C, D> for BalanceTransitionCircuit<F, C, D>
+impl<F, C, const D: usize> RecursivelyVerifiable<F, C, D> for BalanceTransitionCircuit<F, C, D>
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F> + 'static,

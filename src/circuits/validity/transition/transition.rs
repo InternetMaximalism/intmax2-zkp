@@ -26,7 +26,7 @@ use crate::{
         conversion::ToU64,
         dummy::DummyProof,
         poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget},
-        recursivable::Recursivable,
+        RecursivelyVerifiable::RecursivelyVerifiable,
     },
 };
 

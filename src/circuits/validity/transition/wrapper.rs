@@ -20,7 +20,7 @@ use crate::{
     },
     common::public_state::PublicStateTarget,
     ethereum_types::u32limb_trait::U32LimbTargetTrait,
-    utils::{dummy::DummyProof, recursivable::Recursivable},
+    utils::{dummy::DummyProof, RecursivelyVerifiable::RecursivelyVerifiable},
 };
 
 use super::{
@@ -146,7 +146,7 @@ where
     }
 }
 
-impl<F, C, const D: usize> Recursivable<F, C, D> for TransitionWrapperCircuit<F, C, D>
+impl<F, C, const D: usize> RecursivelyVerifiable<F, C, D> for TransitionWrapperCircuit<F, C, D>
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F> + 'static,

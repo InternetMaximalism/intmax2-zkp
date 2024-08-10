@@ -11,7 +11,7 @@ use crate::{
     utils::{
         dummy::DummyProof,
         poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget},
-        recursivable::Recursivable,
+        RecursivelyVerifiable::RecursivelyVerifiable,
     },
 };
 use plonky2::{
@@ -273,7 +273,7 @@ where
 }
 
 impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F> + 'static, const D: usize>
-    Recursivable<F, C, D> for AccountInclusionCircuit<F, C, D>
+    RecursivelyVerifiable<F, C, D> for AccountInclusionCircuit<F, C, D>
 where
     <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
 {

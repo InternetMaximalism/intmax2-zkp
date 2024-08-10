@@ -14,7 +14,7 @@ use crate::{
         cyclic::{vd_from_pis_slice, vd_from_pis_slice_target, vd_to_vec, vd_to_vec_target},
         dummy::DummyProof,
         poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget},
-        recursivable::Recursivable,
+        RecursivelyVerifiable::RecursivelyVerifiable,
     },
 };
 use plonky2::{
@@ -327,7 +327,7 @@ where
     }
 }
 
-impl<F, C, const D: usize> Recursivable<F, C, D> for ReceiveTransferCircuit<F, C, D>
+impl<F, C, const D: usize> RecursivelyVerifiable<F, C, D> for ReceiveTransferCircuit<F, C, D>
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F> + 'static,
