@@ -24,8 +24,8 @@ where
     C: GenericConfig<D, F = F>,
 {
     pub(crate) data: CircuitData<F, C, D>,
-    pub(crate) prev_pis: ValidityPublicInputsTarget,
-    pub(crate) new_pis: ValidityPublicInputsTarget,
+    pub prev_pis: ValidityPublicInputsTarget,
+    pub new_pis: ValidityPublicInputsTarget,
 }
 
 impl<F, C, const D: usize> DummyTransitionWrapperCircuit<F, C, D>
@@ -55,7 +55,7 @@ where
     C: GenericConfig<D, F = F> + 'static,
     C::Hasher: AlgebraicHasher<F>,
 {
-    pub(crate) fn prove(
+    pub fn prove(
         &self,
         prev_pis: &ValidityPublicInputs,
         validity_witness: &ValidityWitness,

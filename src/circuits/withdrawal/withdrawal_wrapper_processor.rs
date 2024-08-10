@@ -115,4 +115,18 @@ mod tests {
             .prove(&withdrawal_proof, withdrawal_aggregator)
             .expect("Failed to prove withdrawal wrapper");
     }
+
+    /// print withdrawal_circuit_digest to check consistency
+    #[test]
+    fn check_withdrawal_circuit_digest_consistency() {
+        let sync_validity_prover = SyncValidityProver::<F, C, D>::new();
+        let balance_processor = BalanceProcessor::new(sync_validity_prover.validity_circuit());
+        let withdraw_processor = WithdrawalProcessor::new(&balance_processor.balance_circuit);
+        let withdrawal_circuit_digest = withdraw_processor
+            .withdrawal_circuit
+            .data
+            .verifier_only
+            .circuit_digest;
+        println!("withdrawal_circuit_digest: {:?}", withdrawal_circuit_digest);
+    }
 }
