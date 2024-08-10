@@ -29,17 +29,17 @@ use crate::{
 
 use super::account_transition_pis::AccountTransitionPublicInputsTarget;
 
-pub struct AccountUpdateValue {
-    pub prev_account_tree_root: PoseidonHashOut,
-    pub new_account_tree_root: PoseidonHashOut,
-    pub sender_tree_root: PoseidonHashOut,
-    pub block_number: u32,
-    pub sender_leaves: Vec<SenderLeaf>,
-    pub account_update_proofs: Vec<AccountUpdateProof>,
+pub(crate) struct AccountUpdateValue {
+    pub(crate) prev_account_tree_root: PoseidonHashOut,
+    pub(crate) new_account_tree_root: PoseidonHashOut,
+    pub(crate) sender_tree_root: PoseidonHashOut,
+    pub(crate) block_number: u32,
+    pub(crate) sender_leaves: Vec<SenderLeaf>,
+    pub(crate) account_update_proofs: Vec<AccountUpdateProof>,
 }
 
 impl AccountUpdateValue {
-    pub fn new(
+    pub(crate) fn new(
         prev_account_tree_root: PoseidonHashOut,
         block_number: u32,
         sender_leaves: Vec<SenderLeaf>,
@@ -88,17 +88,21 @@ impl AccountUpdateValue {
     }
 }
 
-pub struct AccountUpdateTarget {
-    pub prev_account_tree_root: PoseidonHashOutTarget,
-    pub new_account_tree_root: PoseidonHashOutTarget,
-    pub sender_tree_root: PoseidonHashOutTarget,
-    pub block_number: Target,
-    pub sender_leaves: Vec<SenderLeafTarget>,
-    pub account_update_proofs: Vec<AccountUpdateProofTarget>,
+pub(crate) struct AccountUpdateTarget {
+    pub(crate) prev_account_tree_root: PoseidonHashOutTarget,
+    pub(crate) new_account_tree_root: PoseidonHashOutTarget,
+    pub(crate) sender_tree_root: PoseidonHashOutTarget,
+    pub(crate) block_number: Target,
+    pub(crate) sender_leaves: Vec<SenderLeafTarget>,
+    pub(crate) account_update_proofs: Vec<AccountUpdateProofTarget>,
 }
 
 impl AccountUpdateTarget {
-    pub fn new<F: RichField + Extendable<D>, C: GenericConfig<D, F = F> + 'static, const D: usize>(
+    pub(crate) fn new<
+        F: RichField + Extendable<D>,
+        C: GenericConfig<D, F = F> + 'static,
+        const D: usize,
+    >(
         builder: &mut CircuitBuilder<F, D>,
     ) -> Self
     where
@@ -146,7 +150,7 @@ impl AccountUpdateTarget {
         }
     }
 
-    pub fn set_witness<F: RichField, W: Witness<F>>(
+    pub(crate) fn set_witness<F: RichField, W: Witness<F>>(
         &self,
         witness: &mut W,
         value: &AccountUpdateValue,
@@ -180,9 +184,9 @@ where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
 {
-    pub data: CircuitData<F, C, D>,
-    pub target: AccountUpdateTarget,
-    pub dummy_proof: DummyProof<F, C, D>,
+    pub(crate) data: CircuitData<F, C, D>,
+    pub(crate) target: AccountUpdateTarget,
+    pub(crate) dummy_proof: DummyProof<F, C, D>,
 }
 
 impl<F, C, const D: usize> AccountUpdateCircuit<F, C, D>
@@ -191,7 +195,7 @@ where
     C: GenericConfig<D, F = F> + 'static,
     C::Hasher: AlgebraicHasher<F>,
 {
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         let config = CircuitConfig::default();
         let mut builder = CircuitBuilder::<F, D>::new(config.clone());
         let target = AccountUpdateTarget::new::<F, C, D>(&mut builder);
@@ -212,7 +216,7 @@ where
         }
     }
 
-    pub fn prove(
+    pub(crate) fn prove(
         &self,
         value: &AccountUpdateValue,
     ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {

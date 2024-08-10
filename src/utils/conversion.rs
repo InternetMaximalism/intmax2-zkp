@@ -2,11 +2,11 @@ use std::slice::Iter;
 
 use plonky2::field::types::{Field, PrimeField64};
 
-pub trait ToU64 {
+pub(crate) trait ToU64 {
     fn to_u64_vec(&self) -> Vec<u64>;
 }
 
-pub trait ToField {
+pub(crate) trait ToField {
     fn to_field_vec<F: Field>(&self) -> Vec<F>;
 }
 

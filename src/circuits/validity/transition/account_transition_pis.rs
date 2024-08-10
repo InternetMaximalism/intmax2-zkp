@@ -13,15 +13,15 @@ pub struct AccountTransitionPublicInputs {
 }
 
 #[derive(Clone, Debug)]
-pub struct AccountTransitionPublicInputsTarget {
-    pub prev_account_tree_root: PoseidonHashOutTarget,
-    pub new_account_tree_root: PoseidonHashOutTarget,
-    pub sender_tree_root: PoseidonHashOutTarget,
-    pub block_number: Target,
+pub(crate) struct AccountTransitionPublicInputsTarget {
+    pub(crate) prev_account_tree_root: PoseidonHashOutTarget,
+    pub(crate) new_account_tree_root: PoseidonHashOutTarget,
+    pub(crate) sender_tree_root: PoseidonHashOutTarget,
+    pub(crate) block_number: Target,
 }
 
 impl AccountTransitionPublicInputs {
-    pub fn from_u64_vec(input: &[u64]) -> Self {
+    pub(crate) fn from_u64_vec(input: &[u64]) -> Self {
         assert_eq!(input.len(), ACCOUNT_TRANSITION_PUBLIC_INPUTS_LEN);
         let prev_account_tree_root = PoseidonHashOut {
             elements: input[0..4].try_into().unwrap(),
@@ -43,7 +43,7 @@ impl AccountTransitionPublicInputs {
 }
 
 impl AccountTransitionPublicInputsTarget {
-    pub fn to_vec(&self) -> Vec<Target> {
+    pub(crate) fn to_vec(&self) -> Vec<Target> {
         let vec = self
             .prev_account_tree_root
             .elements
@@ -56,7 +56,7 @@ impl AccountTransitionPublicInputsTarget {
         vec
     }
 
-    pub fn from_slice(input: &[Target]) -> Self {
+    pub(crate) fn from_slice(input: &[Target]) -> Self {
         assert_eq!(input.len(), ACCOUNT_TRANSITION_PUBLIC_INPUTS_LEN);
         let prev_account_tree_root = PoseidonHashOutTarget {
             elements: input[0..4].try_into().unwrap(),

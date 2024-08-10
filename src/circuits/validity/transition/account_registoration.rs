@@ -183,9 +183,9 @@ where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
 {
-    pub data: CircuitData<F, C, D>,
-    pub target: AccountRegistorationTarget,
-    pub dummy_proof: DummyProof<F, C, D>,
+    pub(crate) data: CircuitData<F, C, D>,
+    pub(crate) target: AccountRegistorationTarget,
+    pub(crate) dummy_proof: DummyProof<F, C, D>,
 }
 
 impl<F, C, const D: usize> AccountRegistorationCircuit<F, C, D>
@@ -194,7 +194,7 @@ where
     C: GenericConfig<D, F = F> + 'static,
     C::Hasher: AlgebraicHasher<F>,
 {
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         let config = CircuitConfig::default();
         let mut builder = CircuitBuilder::<F, D>::new(config.clone());
         let target = AccountRegistorationTarget::new::<F, C, D>(&mut builder);
@@ -218,7 +218,7 @@ where
         }
     }
 
-    pub fn prove(
+    pub(crate) fn prove(
         &self,
         value: &AccountRegistorationValue,
     ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {

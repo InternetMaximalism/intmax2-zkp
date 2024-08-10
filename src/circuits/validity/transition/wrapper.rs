@@ -34,11 +34,10 @@ where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
 {
-    pub data: CircuitData<F, C, D>,
-    pub main_validation_proof: ProofWithPublicInputsTarget<D>,
-    pub transition_target: ValidityTransitionTarget<D>,
-    pub prev_pis: ValidityPublicInputsTarget,
-    pub new_pis: ValidityPublicInputsTarget,
+    pub(crate) data: CircuitData<F, C, D>,
+    pub(crate) main_validation_proof: ProofWithPublicInputsTarget<D>,
+    pub(crate) transition_target: ValidityTransitionTarget<D>,
+    pub(crate) prev_pis: ValidityPublicInputsTarget,
 }
 
 impl<F, C, const D: usize> TransitionWrapperCircuit<F, C, D>
@@ -105,7 +104,6 @@ where
             main_validation_proof,
             transition_target,
             prev_pis,
-            new_pis,
         }
     }
 }
@@ -116,7 +114,7 @@ where
     C: GenericConfig<D, F = F> + 'static,
     C::Hasher: AlgebraicHasher<F>,
 {
-    pub fn prove(
+    pub(crate) fn prove(
         &self,
         main_validation_proof: &ProofWithPublicInputs<F, C, D>,
         transition_value: &ValidityTransitionValue<F, C, D>,

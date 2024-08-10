@@ -23,9 +23,9 @@ where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
 {
-    pub data: CircuitData<F, C, D>,
-    pub prev_pis: ValidityPublicInputsTarget,
-    pub new_pis: ValidityPublicInputsTarget,
+    pub(crate) data: CircuitData<F, C, D>,
+    pub(crate) prev_pis: ValidityPublicInputsTarget,
+    pub(crate) new_pis: ValidityPublicInputsTarget,
 }
 
 impl<F, C, const D: usize> DummyTransitionWrapperCircuit<F, C, D>
@@ -55,7 +55,7 @@ where
     C: GenericConfig<D, F = F> + 'static,
     C::Hasher: AlgebraicHasher<F>,
 {
-    pub fn prove(
+    pub(crate) fn prove(
         &self,
         prev_pis: &ValidityPublicInputs,
         validity_witness: &ValidityWitness,
