@@ -14,7 +14,7 @@ use crate::{
     utils::{
         dummy::DummyProof,
         poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget, POSEIDON_HASH_OUT_LEN},
-        RecursivelyVerifiable::RecursivelyVerifiable,
+        recursively_verifiable::RecursivelyVerifiable,
     },
 };
 use plonky2::{

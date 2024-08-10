@@ -22,8 +22,8 @@ use crate::{
     utils::{
         dummy::DummyProof,
         poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget},
+        recursively_verifiable::RecursivelyVerifiable,
         trees::get_root::{get_merkle_root_from_leaves, get_merkle_root_from_leaves_circuit},
-        RecursivelyVerifiable::RecursivelyVerifiable,
     },
 };
 

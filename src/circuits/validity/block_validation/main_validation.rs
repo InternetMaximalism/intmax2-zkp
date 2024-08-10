@@ -13,7 +13,7 @@ use crate::{
         dummy::DummyProof,
         logic::BuilderLogic,
         poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget},
-        RecursivelyVerifiable::RecursivelyVerifiable,
+        recursively_verifiable::RecursivelyVerifiable,
     },
 };
 use plonky2::{

@@ -22,7 +22,7 @@ use crate::{
         bytes32::{Bytes32, Bytes32Target},
         u32limb_trait::U32LimbTargetTrait,
     },
-    utils::RecursivelyVerifiable::RecursivelyVerifiable,
+    utils::recursively_verifiable::RecursivelyVerifiable,
 };
 
 #[derive(Debug)]

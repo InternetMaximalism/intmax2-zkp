@@ -32,7 +32,7 @@ use crate::{
         u256::{U256Target, U256, U256_LEN},
         u32limb_trait::{U32LimbTargetTrait, U32LimbTrait},
     },
-    utils::{dummy::DummyProof, RecursivelyVerifiable::RecursivelyVerifiable},
+    utils::{dummy::DummyProof, recursively_verifiable::RecursivelyVerifiable},
 };
 
 pub const UPDATE_PUBLIC_INPUTS_LEN: usize = U256_LEN + PUBLIC_STATE_LEN * 2;

@@ -14,7 +14,7 @@ use crate::{
         cyclic::{vd_from_pis_slice, vd_from_pis_slice_target, vd_to_vec, vd_to_vec_target},
         dummy::DummyProof,
         poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget},
-        RecursivelyVerifiable::RecursivelyVerifiable,
+        recursively_verifiable::RecursivelyVerifiable,
     },
 };
 use plonky2::{

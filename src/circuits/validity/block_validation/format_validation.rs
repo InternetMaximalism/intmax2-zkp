@@ -23,7 +23,7 @@ use crate::{
     },
     utils::{
         poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget},
-        RecursivelyVerifiable::RecursivelyVerifiable,
+        recursively_verifiable::RecursivelyVerifiable,
     },
 };
 

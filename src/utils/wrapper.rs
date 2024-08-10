@@ -12,7 +12,7 @@ use plonky2::{
     },
 };
 
-use crate::utils::RecursivelyVerifiable::RecursivelyVerifiable;
+use crate::utils::recursively_verifiable::RecursivelyVerifiable;
 
 pub struct WrapperCircuit<F, InnerC, OuterC, const D: usize>
 where

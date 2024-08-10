@@ -35,7 +35,7 @@ use crate::{
         conversion::ToU64,
         cyclic::conditionally_connect_vd,
         poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget},
-        RecursivelyVerifiable::RecursivelyVerifiable,
+        recursively_verifiable::RecursivelyVerifiable,
     },
 };
 

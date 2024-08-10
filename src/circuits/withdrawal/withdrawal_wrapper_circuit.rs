@@ -21,7 +21,7 @@ use crate::{
         bytes32::{Bytes32, Bytes32Target, BYTES32_LEN},
         u32limb_trait::{U32LimbTargetTrait as _, U32LimbTrait},
     },
-    utils::RecursivelyVerifiable::RecursivelyVerifiable,
+    utils::recursively_verifiable::RecursivelyVerifiable,
 };
 
 use super::withdrawal_circuit::WithdrawalCircuit;

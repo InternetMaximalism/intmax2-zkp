@@ -20,7 +20,7 @@ use crate::{
     },
     common::public_state::PublicStateTarget,
     ethereum_types::u32limb_trait::U32LimbTargetTrait,
-    utils::{dummy::DummyProof, RecursivelyVerifiable::RecursivelyVerifiable},
+    utils::{dummy::DummyProof, recursively_verifiable::RecursivelyVerifiable},
 };
 
 use super::{

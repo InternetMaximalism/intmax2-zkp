@@ -29,7 +29,7 @@ use crate::{
         dummy::DummyProof,
         leafable::{Leafable as _, LeafableTarget},
         poseidon_hash_out::PoseidonHashOutTarget,
-        RecursivelyVerifiable::RecursivelyVerifiable,
+        recursively_verifiable::RecursivelyVerifiable,
     },
 };
 

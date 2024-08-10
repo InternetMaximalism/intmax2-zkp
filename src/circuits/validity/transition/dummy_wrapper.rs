@@ -14,7 +14,7 @@ use plonky2::{
 use crate::{
     circuits::validity::validity_pis::{ValidityPublicInputs, ValidityPublicInputsTarget},
     common::witness::validity_witness::ValidityWitness,
-    utils::RecursivelyVerifiable::RecursivelyVerifiable,
+    utils::recursively_verifiable::RecursivelyVerifiable,
 };
 
 /// A dummy implementation of the transition wrapper circuit used for testing balance proof.

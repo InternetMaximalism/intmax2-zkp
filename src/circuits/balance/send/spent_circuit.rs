@@ -26,7 +26,7 @@ use crate::{
     ethereum_types::u32limb_trait::{U32LimbTargetTrait, U32LimbTrait as _},
     utils::{
         poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget, POSEIDON_HASH_OUT_LEN},
-        RecursivelyVerifiable::RecursivelyVerifiable,
+        recursively_verifiable::RecursivelyVerifiable,
         trees::get_root::{get_merkle_root_from_leaves, get_merkle_root_from_leaves_circuit},
     },
 };
