@@ -49,18 +49,18 @@ pub struct WithdrawalTarget {
 impl Withdrawal {
     pub fn to_u32_vec(&self) -> Vec<u32> {
         [
-            self.recipient.limbs(),
+            self.recipient.to_u32_vec(),
             vec![self.token_index],
-            self.amount.limbs(),
-            self.nullifier.limbs(),
-            self.block_hash.limbs(),
+            self.amount.to_u32_vec(),
+            self.nullifier.to_u32_vec(),
+            self.block_hash.to_u32_vec(),
             vec![self.block_number],
         ]
         .concat()
     }
 
     pub fn hash_with_prev_hash(&self, prev_withdrawal_hash: Bytes32) -> Bytes32 {
-        let input = vec![prev_withdrawal_hash.limbs(), self.to_u32_vec()].concat();
+        let input = vec![prev_withdrawal_hash.to_u32_vec(), self.to_u32_vec()].concat();
         Bytes32::from_slice(&solidity_keccak256(&input))
     }
 
@@ -90,11 +90,11 @@ impl Withdrawal {
 impl WithdrawalTarget {
     pub fn to_vec(&self) -> Vec<Target> {
         [
-            self.recipient.limbs(),
+            self.recipient.to_vec(),
             vec![self.token_index],
-            self.amount.limbs(),
-            self.nullifier.limbs(),
-            self.block_hash.limbs(),
+            self.amount.to_vec(),
+            self.nullifier.to_vec(),
+            self.block_hash.to_vec(),
             vec![self.block_number],
         ]
         .concat()
@@ -112,7 +112,7 @@ impl WithdrawalTarget {
     where
         <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
     {
-        let input = vec![prev_withdrawal_hash.limbs(), self.to_vec()].concat();
+        let input = vec![prev_withdrawal_hash.to_vec(), self.to_vec()].concat();
         Bytes32Target::from_slice(&builder.keccak256::<C>(&input))
     }
 }

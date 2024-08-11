@@ -52,7 +52,7 @@ impl GenericAddress {
     }
 
     pub fn from_address(address: Address) -> Self {
-        let mut limbs = address.limbs();
+        let mut limbs = address.to_u32_vec();
         limbs.resize(U256_LEN, 0);
         Self {
             is_pubkey: false,
@@ -67,7 +67,7 @@ impl GenericAddress {
 
     pub fn to_address(&self) -> Result<Address> {
         ensure!(!self.is_pubkey, "not an address");
-        let limbs = self.data.limbs();
+        let limbs = self.data.to_u32_vec();
         Ok(Address::from_slice(&limbs[0..ADDRESS_LEN]))
     }
 
@@ -128,7 +128,7 @@ impl GenericAddressTarget {
         builder: &mut CircuitBuilder<F, D>,
     ) -> AddressTarget {
         builder.assert_zero(self.is_pubkey.target);
-        let limbs = self.data.limbs();
+        let limbs = self.data.to_vec();
         AddressTarget::from_slice(&limbs[0..ADDRESS_LEN])
     }
 

@@ -233,7 +233,7 @@ impl From<PoseidonHashOut> for Bytes32 {
 impl Bytes32 {
     pub fn reduce_to_hash_out(&self) -> PoseidonHashOut {
         let elements = self
-            .limbs()
+            .to_u32_vec()
             .chunks(2)
             .map(|chunk| {
                 let low = chunk[1];
@@ -280,7 +280,7 @@ impl Bytes32Target {
         builder: &mut CircuitBuilder<F, D>,
     ) -> PoseidonHashOutTarget {
         let mut result = vec![];
-        for chunk in self.limbs().chunks(2) {
+        for chunk in self.to_vec().chunks(2) {
             let low = chunk[1];
             let high = chunk[0];
             result.push(builder.mul_const_add(F::from_canonical_u64(1 << 32), high, low));

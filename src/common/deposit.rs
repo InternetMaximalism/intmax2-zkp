@@ -45,9 +45,9 @@ pub struct DepositTarget {
 impl Deposit {
     pub fn to_u32_vec(&self) -> Vec<u32> {
         let vec = vec![
-            self.pubkey_salt_hash.limbs(),
+            self.pubkey_salt_hash.to_u32_vec(),
             vec![self.token_index],
-            self.amount.limbs(),
+            self.amount.to_u32_vec(),
         ]
         .concat();
         vec
@@ -69,9 +69,9 @@ impl Deposit {
 impl DepositTarget {
     pub fn to_vec(&self) -> Vec<Target> {
         let vec = vec![
-            self.pubkey_salt_hash.limbs(),
+            self.pubkey_salt_hash.to_vec(),
             vec![self.token_index],
-            self.amount.limbs(),
+            self.amount.to_vec(),
         ]
         .concat();
         vec

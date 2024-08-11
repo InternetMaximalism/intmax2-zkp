@@ -39,9 +39,9 @@ pub struct FraudProofPublicInputs {
 impl FraudProofPublicInputs {
     pub fn to_u32_vec(&self) -> Vec<u32> {
         let vec = vec![
-            self.block_hash.limbs(),
+            self.block_hash.to_u32_vec(),
             vec![self.block_number],
-            self.challenger.limbs(),
+            self.challenger.to_u32_vec(),
         ]
         .concat();
         assert_eq!(vec.len(), FRAUD_PROOF_PUBLIC_INPUTS_LEN);

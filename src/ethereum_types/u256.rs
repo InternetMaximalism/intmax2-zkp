@@ -136,14 +136,14 @@ impl<F: RichField + Extendable<D>, const D: usize> From<FqTarget<F, D>> for U256
 
 impl<F: RichField + Extendable<D>, const D: usize> From<U256Target> for FqTarget<F, D> {
     fn from(value: U256Target) -> Self {
-        FqTarget::from_slice(&value.limbs().into_iter().rev().collect::<Vec<_>>())
+        FqTarget::from_slice(&value.to_vec().into_iter().rev().collect::<Vec<_>>())
     }
 }
 
 impl From<U256Target> for BigUintTarget {
     fn from(value: U256Target) -> Self {
         let limbs = value
-            .limbs()
+            .to_vec()
             .into_iter()
             .rev()
             .map(|x| U32Target(x))
@@ -153,7 +153,7 @@ impl From<U256Target> for BigUintTarget {
 }
 
 impl U32LimbTrait<U256_LEN> for U256 {
-    fn limbs(&self) -> Vec<u32> {
+    fn to_u32_vec(&self) -> Vec<u32> {
         self.limbs.to_vec()
     }
     fn from_slice(limbs: &[u32]) -> Self {
@@ -241,7 +241,7 @@ impl U256 {
 }
 
 impl U32LimbTargetTrait<U256_LEN> for U256Target {
-    fn limbs(&self) -> Vec<Target> {
+    fn to_vec(&self) -> Vec<Target> {
         self.limbs.to_vec()
     }
     fn from_slice(limbs: &[Target]) -> Self {

@@ -39,7 +39,7 @@ impl From<FlatG1> for G1Affine {
 
 impl FlatG1 {
     pub fn to_u32_vec(&self) -> Vec<u32> {
-        [self.0[0].limbs(), self.0[1].limbs()].concat()
+        [self.0[0].to_u32_vec(), self.0[1].to_u32_vec()].concat()
     }
 }
 
@@ -69,10 +69,10 @@ impl From<FlatG2> for G2Affine {
 impl FlatG2 {
     pub fn to_u32_vec(&self) -> Vec<u32> {
         [
-            self.0[0].limbs(),
-            self.0[1].limbs(),
-            self.0[2].limbs(),
-            self.0[3].limbs(),
+            self.0[0].to_u32_vec(),
+            self.0[1].to_u32_vec(),
+            self.0[2].to_u32_vec(),
+            self.0[3].to_u32_vec(),
         ]
         .concat()
     }

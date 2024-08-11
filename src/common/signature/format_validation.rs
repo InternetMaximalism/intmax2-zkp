@@ -63,7 +63,7 @@ impl SignatureContent {
         // message point check
         let tx_tree_root = self
             .tx_tree_root
-            .limbs()
+            .to_u32_vec()
             .iter()
             .map(|x| GoldilocksField::from_canonical_u32(*x))
             .collect::<Vec<_>>();
@@ -124,7 +124,7 @@ impl SignatureContentTarget {
         }
         // message point check
         let message_point: FlatG2Target =
-            G2Target::<F, D>::hash_to_g2_circuit::<C>(builder, &self.tx_tree_root.limbs()).into();
+            G2Target::<F, D>::hash_to_g2_circuit::<C>(builder, &self.tx_tree_root.to_vec()).into();
         let is_message_eq = message_point.is_equal(builder, &self.message_point);
         result = builder.and(result, is_message_eq);
         result

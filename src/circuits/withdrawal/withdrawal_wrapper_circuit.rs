@@ -36,8 +36,8 @@ pub struct WithdrawalProofPublicInputs {
 impl WithdrawalProofPublicInputs {
     pub fn to_u32_vec(&self) -> Vec<u32> {
         [
-            self.last_withdrawal_hash.limbs(),
-            self.withdrawal_aggregator.limbs(),
+            self.last_withdrawal_hash.to_u32_vec(),
+            self.withdrawal_aggregator.to_u32_vec(),
         ]
         .concat()
     }
@@ -56,8 +56,8 @@ struct WithdrawalProofPublicInputsTarget {
 impl WithdrawalProofPublicInputsTarget {
     fn to_vec(&self) -> Vec<Target> {
         [
-            self.last_withdrawal_hash.limbs(),
-            self.withdrawal_aggregator.limbs(),
+            self.last_withdrawal_hash.to_vec(),
+            self.withdrawal_aggregator.to_vec(),
         ]
         .concat()
     }

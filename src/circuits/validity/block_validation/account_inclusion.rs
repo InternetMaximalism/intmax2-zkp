@@ -70,7 +70,7 @@ impl AccountInclusionPublicInputsTarget {
     pub fn to_vec(&self) -> Vec<Target> {
         let vec = self
             .account_id_hash
-            .limbs()
+            .to_vec()
             .into_iter()
             .chain(self.account_tree_root.elements.into_iter())
             .chain(self.pubkey_commitment.elements.into_iter())

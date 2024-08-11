@@ -52,9 +52,9 @@ impl Block {
 
     pub fn to_u32_vec(&self) -> Vec<u32> {
         vec![
-            self.prev_block_hash.limbs(),
-            self.deposit_tree_root.limbs(),
-            self.signature_hash.limbs(),
+            self.prev_block_hash.to_u32_vec(),
+            self.deposit_tree_root.to_u32_vec(),
+            self.signature_hash.to_u32_vec(),
             vec![self.block_number],
         ]
         .concat()

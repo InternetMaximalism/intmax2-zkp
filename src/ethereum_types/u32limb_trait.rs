@@ -14,18 +14,18 @@ use rand::Rng;
 
 // trait for types with u32 value limbs
 pub trait U32LimbTrait<const NUM_LIMBS: usize>: Clone + Copy {
-    fn limbs(&self) -> Vec<u32>;
+    fn to_u32_vec(&self) -> Vec<u32>;
     fn from_slice(limbs: &[u32]) -> Self;
 
     fn to_vec<F: Field>(&self) -> Vec<F> {
-        self.limbs()
+        self.to_u32_vec()
             .iter()
             .map(|x| F::from_canonical_u32(*x))
             .collect()
     }
 
     fn to_u64_vec(&self) -> Vec<u64> {
-        self.limbs().iter().map(|x| *x as u64).collect()
+        self.to_u32_vec().iter().map(|x| *x as u64).collect()
     }
 
     fn from_u64_slice(input: &[u64]) -> Self {
@@ -63,14 +63,17 @@ pub trait U32LimbTrait<const NUM_LIMBS: usize>: Clone + Copy {
 
     fn to_bytes_be(self) -> Vec<u8> {
         let mut result = vec![];
-        for limb in self.limbs().iter() {
+        for limb in self.to_u32_vec().iter() {
             result.extend_from_slice(&limb.to_be_bytes());
         }
         result.try_into().unwrap()
     }
 
     fn to_bits_be(&self) -> Vec<bool> {
-        self.limbs().into_iter().flat_map(u32_to_bits_be).collect()
+        self.to_u32_vec()
+            .into_iter()
+            .flat_map(u32_to_bits_be)
+            .collect()
     }
 
     fn from_bits_be(bits: &[bool]) -> Self {
@@ -100,7 +103,7 @@ pub trait U32LimbTrait<const NUM_LIMBS: usize>: Clone + Copy {
 
 // trait for types with u32 target limbs
 pub trait U32LimbTargetTrait<const NUM_LIMBS: usize>: Clone + Copy {
-    fn limbs(&self) -> Vec<Target>;
+    fn to_vec(&self) -> Vec<Target>;
     fn from_slice(limbs: &[Target]) -> Self;
 
     fn _new_unchecked<F: RichField + Extendable<D>, const D: usize>(
@@ -135,7 +138,7 @@ pub trait U32LimbTargetTrait<const NUM_LIMBS: usize>: Clone + Copy {
         &self,
         builder: &mut CircuitBuilder<F, D>,
     ) {
-        self.limbs()
+        self.to_vec()
             .iter()
             .for_each(|x| builder.range_check(*x, 32))
     }
@@ -145,7 +148,7 @@ pub trait U32LimbTargetTrait<const NUM_LIMBS: usize>: Clone + Copy {
         builder: &mut CircuitBuilder<F, D>,
         other: Self,
     ) {
-        for (a, b) in self.limbs().iter().zip(other.limbs().iter()) {
+        for (a, b) in self.to_vec().iter().zip(other.to_vec().iter()) {
             builder.connect(*a, *b);
         }
     }
@@ -156,7 +159,7 @@ pub trait U32LimbTargetTrait<const NUM_LIMBS: usize>: Clone + Copy {
         other: Self,
         condition: BoolTarget,
     ) {
-        for (l, r) in self.limbs().iter().zip(other.limbs().iter()) {
+        for (l, r) in self.to_vec().iter().zip(other.to_vec().iter()) {
             builder.conditional_assert_eq(condition.target, *l, *r);
         }
     }
@@ -167,7 +170,7 @@ pub trait U32LimbTargetTrait<const NUM_LIMBS: usize>: Clone + Copy {
         other: &Self,
     ) -> BoolTarget {
         let mut result = builder._true();
-        for (a, b) in self.limbs().iter().zip(other.limbs().iter()) {
+        for (a, b) in self.to_vec().iter().zip(other.to_vec().iter()) {
             let eq = builder.is_equal(*a, *b);
             result = builder.and(result, eq);
         }
@@ -194,7 +197,7 @@ pub trait U32LimbTargetTrait<const NUM_LIMBS: usize>: Clone + Copy {
         &self,
         builder: &mut CircuitBuilder<F, D>,
     ) -> Vec<BoolTarget> {
-        self.limbs()
+        self.to_vec()
             .iter()
             .flat_map(|e| builder.split_le(*e, 32).into_iter().rev())
             .collect::<Vec<_>>()
@@ -218,7 +221,7 @@ pub trait U32LimbTargetTrait<const NUM_LIMBS: usize>: Clone + Copy {
         b: BoolTarget,
     ) -> Self {
         let limbs = self
-            .limbs()
+            .to_vec()
             .iter()
             .map(|x| builder.mul(b.target, *x))
             .collect::<Vec<_>>();
@@ -232,9 +235,9 @@ pub trait U32LimbTargetTrait<const NUM_LIMBS: usize>: Clone + Copy {
         y: Self,
     ) -> Self {
         let limbs = x
-            .limbs()
+            .to_vec()
             .iter()
-            .zip(y.limbs().iter())
+            .zip(y.to_vec().iter())
             .map(|(x, y)| builder.select(b, *x, *y))
             .collect::<Vec<_>>();
         Self::from_slice(&limbs)
@@ -245,14 +248,14 @@ pub trait U32LimbTargetTrait<const NUM_LIMBS: usize>: Clone + Copy {
         witness: &mut impl WitnessWrite<F>,
         value: V,
     ) {
-        for (target, value) in self.limbs().iter().zip(value.limbs().iter()) {
+        for (target, value) in self.to_vec().iter().zip(value.to_u32_vec().iter()) {
             witness.set_target(*target, F::from_canonical_u32(*value));
         }
     }
 
     fn get_witness<F: PrimeField64, V: U32LimbTrait<NUM_LIMBS>>(&self, pw: &impl Witness<F>) -> V {
         let mut limbs = vec![];
-        for target in self.limbs().iter() {
+        for target in self.to_vec().iter() {
             let value = pw.get_target(*target);
             limbs.push(value.to_canonical_u64() as u32);
         }
@@ -264,7 +267,7 @@ pub trait U32LimbTargetTrait<const NUM_LIMBS: usize>: Clone + Copy {
         value: V,
     ) -> Self {
         let limbs = value
-            .limbs()
+            .to_u32_vec()
             .into_iter()
             .map(|v| builder.constant(F::from_canonical_u32(v)))
             .collect::<Vec<_>>();
@@ -281,10 +284,6 @@ pub trait U32LimbTargetTrait<const NUM_LIMBS: usize>: Clone + Copy {
         builder: &mut CircuitBuilder<F, D>,
     ) -> Self {
         Self::constant(builder, V::one())
-    }
-
-    fn to_vec(&self) -> Vec<Target> {
-        self.limbs()
     }
 }
 

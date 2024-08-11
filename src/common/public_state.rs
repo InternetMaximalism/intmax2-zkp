@@ -118,8 +118,8 @@ impl PublicStateTarget {
             self.block_tree_root.to_vec(),
             self.prev_account_tree_root.to_vec(),
             self.account_tree_root.to_vec(),
-            self.deposit_tree_root.limbs(),
-            self.block_hash.limbs(),
+            self.deposit_tree_root.to_vec(),
+            self.block_hash.to_vec(),
             vec![self.block_number],
         ]
         .concat();

@@ -42,7 +42,7 @@ impl NullifierTree {
     pub fn prove_and_insert(&mut self, nullifier: Bytes32) -> Result<NullifierInsersionProof> {
         let proof = self
             .0
-            .prove_and_insert(U256::from_slice(&nullifier.limbs()), 0)?;
+            .prove_and_insert(U256::from_slice(&nullifier.to_u32_vec()), 0)?;
         Ok(NullifierInsersionProof(proof))
     }
 }
@@ -55,7 +55,7 @@ impl NullifierInsersionProof {
     ) -> Result<PoseidonHashOut> {
         let root = self
             .0
-            .get_new_root(U256::from_slice(&nullifier.limbs()), 0, prev_root)?;
+            .get_new_root(U256::from_slice(&nullifier.to_u32_vec()), 0, prev_root)?;
         Ok(root)
     }
 
@@ -117,7 +117,7 @@ impl NullifierInsersionProofTarget {
         let zero = builder.zero();
         self.0.get_new_root::<F, C, D>(
             builder,
-            U256Target::from_slice(&nullifier.limbs()),
+            U256Target::from_slice(&nullifier.to_vec()),
             zero,
             prev_root,
         )

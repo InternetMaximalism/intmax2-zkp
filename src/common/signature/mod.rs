@@ -69,10 +69,10 @@ impl SignatureContent {
     pub fn to_u32_vec(&self) -> Vec<u32> {
         let limbs = vec![
             vec![self.is_registoration_block as u32],
-            self.tx_tree_root.limbs(),
-            self.sender_flag.limbs(),
-            self.pubkey_hash.limbs(),
-            self.account_id_hash.limbs(),
+            self.tx_tree_root.to_u32_vec(),
+            self.sender_flag.to_u32_vec(),
+            self.pubkey_hash.to_u32_vec(),
+            self.account_id_hash.to_u32_vec(),
             self.agg_pubkey.to_u32_vec(),
             self.agg_signature.to_u32_vec(),
             self.message_point.to_u32_vec(),

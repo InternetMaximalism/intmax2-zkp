@@ -77,8 +77,8 @@ impl IndexedMerkleLeafTarget {
     pub fn to_vec(&self) -> Vec<Target> {
         let mut res = vec![];
         res.push(self.next_index);
-        res.extend_from_slice(&self.key.limbs());
-        res.extend_from_slice(&self.next_key.limbs());
+        res.extend_from_slice(&self.key.to_vec());
+        res.extend_from_slice(&self.next_key.to_vec());
         res.push(self.value);
         res
     }

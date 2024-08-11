@@ -69,7 +69,7 @@ impl From<Bytes16> for BigUint {
 }
 
 impl U32LimbTrait<BYTES16_LEN> for Bytes16 {
-    fn limbs(&self) -> Vec<u32> {
+    fn to_u32_vec(&self) -> Vec<u32> {
         self.limbs.to_vec()
     }
 
@@ -81,7 +81,7 @@ impl U32LimbTrait<BYTES16_LEN> for Bytes16 {
 }
 
 impl U32LimbTargetTrait<BYTES16_LEN> for Bytes16Target {
-    fn limbs(&self) -> Vec<Target> {
+    fn to_vec(&self) -> Vec<Target> {
         self.limbs.to_vec()
     }
 

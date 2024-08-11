@@ -58,7 +58,7 @@ impl SenderLeaf {
     pub fn to_u32_vec(&self) -> Vec<u32> {
         let vec = self
             .sender
-            .limbs()
+            .to_u32_vec()
             .into_iter()
             .chain([self.is_valid as u32].iter().cloned())
             .collect::<Vec<_>>();

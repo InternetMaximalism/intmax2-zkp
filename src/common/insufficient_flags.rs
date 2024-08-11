@@ -38,7 +38,7 @@ impl InsufficientFlagsTarget {
     ) -> BoolTarget {
         let num_bits = NUM_TRANSFERS_IN_TX.trailing_zeros() as usize;
         let (bit_selector, limb_selector) = builder.split_low_high(index, 5, num_bits);
-        let selected_limb = builder.random_access(limb_selector, self.limbs());
+        let selected_limb = builder.random_access(limb_selector, self.to_vec());
         let limb_bits = builder
             .split_le(selected_limb, 32)
             .into_iter()
@@ -51,7 +51,7 @@ impl InsufficientFlagsTarget {
 }
 
 impl U32LimbTrait<INSUFFICIENT_FLAGS_LEN> for InsufficientFlags {
-    fn limbs(&self) -> Vec<u32> {
+    fn to_u32_vec(&self) -> Vec<u32> {
         self.limbs.to_vec()
     }
 
@@ -64,7 +64,7 @@ impl U32LimbTrait<INSUFFICIENT_FLAGS_LEN> for InsufficientFlags {
 }
 
 impl U32LimbTargetTrait<INSUFFICIENT_FLAGS_LEN> for InsufficientFlagsTarget {
-    fn limbs(&self) -> Vec<Target> {
+    fn to_vec(&self) -> Vec<Target> {
         self.limbs.to_vec()
     }
 

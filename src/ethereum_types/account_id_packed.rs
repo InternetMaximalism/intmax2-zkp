@@ -56,7 +56,7 @@ impl<'de> Deserialize<'de> for AccountIdPacked {
 }
 
 impl U32LimbTrait<ACCOUNT_ID_PACKED_LEN> for AccountIdPacked {
-    fn limbs(&self) -> Vec<u32> {
+    fn to_u32_vec(&self) -> Vec<u32> {
         self.limbs.to_vec()
     }
 
@@ -68,7 +68,7 @@ impl U32LimbTrait<ACCOUNT_ID_PACKED_LEN> for AccountIdPacked {
 }
 
 impl U32LimbTargetTrait<ACCOUNT_ID_PACKED_LEN> for AccountIdPackedTarget {
-    fn limbs(&self) -> Vec<Target> {
+    fn to_vec(&self) -> Vec<Target> {
         self.limbs.to_vec()
     }
 
@@ -105,7 +105,7 @@ impl AccountIdPacked {
     }
 
     pub fn hash(&self) -> Bytes32 {
-        Bytes32::from_slice(&solidity_keccak256(&self.limbs()))
+        Bytes32::from_slice(&solidity_keccak256(&self.to_u32_vec()))
     }
 }
 
@@ -138,7 +138,7 @@ impl AccountIdPackedTarget {
     where
         <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
     {
-        Bytes32Target::from_slice(&builder.keccak256::<C>(&self.limbs()))
+        Bytes32Target::from_slice(&builder.keccak256::<C>(&self.to_vec()))
     }
 }
 

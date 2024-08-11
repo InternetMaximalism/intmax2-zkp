@@ -62,7 +62,7 @@ impl SignatureContent {
             );
         // message point
         let tx_tree_root_f = tx_tree_root
-            .limbs()
+            .to_u32_vec()
             .iter()
             .map(|x| GoldilocksField::from_canonical_u32(*x))
             .collect::<Vec<_>>();

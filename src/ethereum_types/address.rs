@@ -44,7 +44,7 @@ impl<'de> Deserialize<'de> for Address {
 }
 
 impl U32LimbTrait<ADDRESS_LEN> for Address {
-    fn limbs(&self) -> Vec<u32> {
+    fn to_u32_vec(&self) -> Vec<u32> {
         self.limbs.to_vec()
     }
 
@@ -56,7 +56,7 @@ impl U32LimbTrait<ADDRESS_LEN> for Address {
 }
 
 impl U32LimbTargetTrait<ADDRESS_LEN> for AddressTarget {
-    fn limbs(&self) -> Vec<Target> {
+    fn to_vec(&self) -> Vec<Target> {
         self.limbs.to_vec()
     }
 

@@ -14,7 +14,7 @@ use crate::{
 pub(crate) fn get_pubkey_commitment(pubkeys: &[U256]) -> PoseidonHashOut {
     let pubkey_flattened = pubkeys
         .iter()
-        .flat_map(|pubkey| pubkey.limbs())
+        .flat_map(|pubkey| pubkey.to_u32_vec())
         .collect::<Vec<_>>();
     PoseidonHashOut::hash_inputs_u32(&pubkey_flattened)
 }
@@ -25,7 +25,7 @@ pub(crate) fn get_pubkey_commitment_circuit<F: RichField + Extendable<D>, const 
 ) -> PoseidonHashOutTarget {
     let pubkey_flattened = pubkeys
         .iter()
-        .flat_map(|pubkey| pubkey.limbs())
+        .flat_map(|pubkey| pubkey.to_vec())
         .collect::<Vec<_>>();
     PoseidonHashOutTarget::hash_inputs(builder, &pubkey_flattened)
 }

@@ -138,12 +138,12 @@ impl MainValidationPublicInputsTarget {
     pub fn to_vec(&self) -> Vec<Target> {
         let vec = self
             .prev_block_hash
-            .limbs()
+            .to_vec()
             .into_iter()
-            .chain(self.block_hash.limbs().into_iter())
-            .chain(self.deposit_tree_root.limbs().into_iter())
+            .chain(self.block_hash.to_vec().into_iter())
+            .chain(self.deposit_tree_root.to_vec().into_iter())
             .chain(self.account_tree_root.elements.into_iter())
-            .chain(self.tx_tree_root.limbs().into_iter())
+            .chain(self.tx_tree_root.to_vec().into_iter())
             .chain(self.sender_tree_root.elements.into_iter())
             .chain([
                 self.block_number,
