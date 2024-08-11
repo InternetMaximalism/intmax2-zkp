@@ -6,7 +6,7 @@ use crate::{
     utils::{
         conversion::ToField,
         cyclic::{vd_from_pis_slice_target, vd_vec_len},
-        recursivable::Recursivable as _,
+        recursively_verifiable::RecursivelyVerifiable as _,
     },
 };
 use anyhow::Result;
@@ -41,7 +41,7 @@ where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
 {
-    data: CircuitData<F, C, D>,
+    pub data: CircuitData<F, C, D>,
     is_first_step: BoolTarget,
     transition_proof: ProofWithPublicInputsTarget<D>,
     prev_proof: ProofWithPublicInputsTarget<D>,
@@ -70,10 +70,10 @@ where
         let transition_proof =
             dummy_validity_wrap_circuit.add_proof_target_and_verify(&mut builder);
 
-        let prev_pis_ = ValidityPublicInputsTarget::from_vec(
+        let prev_pis_ = ValidityPublicInputsTarget::from_slice(
             &transition_proof.public_inputs[0..VALIDITY_PUBLIC_INPUTS_LEN],
         );
-        let new_pis = ValidityPublicInputsTarget::from_vec(
+        let new_pis = ValidityPublicInputsTarget::from_slice(
             &transition_proof.public_inputs[VALIDITY_PUBLIC_INPUTS_LEN..],
         );
         builder.register_public_inputs(&new_pis.to_vec());
@@ -89,7 +89,7 @@ where
                 &common_data,
             )
             .unwrap();
-        let prev_pis = ValidityPublicInputsTarget::from_vec(
+        let prev_pis = ValidityPublicInputsTarget::from_slice(
             &prev_proof.public_inputs[0..VALIDITY_PUBLIC_INPUTS_LEN],
         );
         prev_pis.connect(&mut builder, &prev_pis_);
@@ -160,8 +160,8 @@ where
     }
 }
 
-// Generates `CommonCircuitData` usable for recursion.
-pub fn common_data_for_validity_circuit<
+// Generates `CommonCircuitData` for the cyclic circuit
+fn common_data_for_validity_circuit<
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
     const D: usize,

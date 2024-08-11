@@ -26,7 +26,7 @@ use crate::{
         conversion::ToU64,
         dummy::DummyProof,
         poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget},
-        recursivable::Recursivable,
+        recursively_verifiable::RecursivelyVerifiable,
     },
 };
 
@@ -36,25 +36,25 @@ use super::{
     account_update::AccountUpdateCircuit,
 };
 
-pub struct ValidityTransitionValue<
+pub(crate) struct ValidityTransitionValue<
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
     const D: usize,
 > {
-    pub block_pis: MainValidationPublicInputs,
-    pub prev_block_tree_root: PoseidonHashOut,
-    pub new_block_tree_root: PoseidonHashOut,
-    pub prev_account_tree_root: PoseidonHashOut,
-    pub new_account_tree_root: PoseidonHashOut,
-    pub account_registoration_proof: Option<ProofWithPublicInputs<F, C, D>>,
-    pub account_update_proof: Option<ProofWithPublicInputs<F, C, D>>,
-    pub block_hash_merkle_proof: BlockHashMerkleProof,
+    pub(crate) block_pis: MainValidationPublicInputs,
+    pub(crate) prev_block_tree_root: PoseidonHashOut,
+    pub(crate) new_block_tree_root: PoseidonHashOut,
+    pub(crate) prev_account_tree_root: PoseidonHashOut,
+    pub(crate) new_account_tree_root: PoseidonHashOut,
+    pub(crate) account_registoration_proof: Option<ProofWithPublicInputs<F, C, D>>,
+    pub(crate) account_update_proof: Option<ProofWithPublicInputs<F, C, D>>,
+    pub(crate) block_hash_merkle_proof: BlockHashMerkleProof,
 }
 
 impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     ValidityTransitionValue<F, C, D>
 {
-    pub fn new(
+    pub(crate) fn new(
         account_registoration_circuit: &AccountRegistorationCircuit<F, C, D>,
         account_update_circuit: &AccountUpdateCircuit<F, C, D>,
         block_pis: MainValidationPublicInputs,
@@ -131,19 +131,19 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     }
 }
 
-pub struct ValidityTransitionTarget<const D: usize> {
-    pub block_pis: MainValidationPublicInputsTarget,
-    pub prev_block_tree_root: PoseidonHashOutTarget,
-    pub new_block_tree_root: PoseidonHashOutTarget,
-    pub prev_account_tree_root: PoseidonHashOutTarget,
-    pub new_account_tree_root: PoseidonHashOutTarget,
-    pub account_registoration_proof: ProofWithPublicInputsTarget<D>,
-    pub account_update_proof: ProofWithPublicInputsTarget<D>,
-    pub block_hash_merkle_proof: BlockHashMerkleProofTarget,
+pub(crate) struct ValidityTransitionTarget<const D: usize> {
+    pub(crate) block_pis: MainValidationPublicInputsTarget,
+    pub(crate) prev_block_tree_root: PoseidonHashOutTarget,
+    pub(crate) new_block_tree_root: PoseidonHashOutTarget,
+    pub(crate) prev_account_tree_root: PoseidonHashOutTarget,
+    pub(crate) new_account_tree_root: PoseidonHashOutTarget,
+    pub(crate) account_registoration_proof: ProofWithPublicInputsTarget<D>,
+    pub(crate) account_update_proof: ProofWithPublicInputsTarget<D>,
+    pub(crate) block_hash_merkle_proof: BlockHashMerkleProofTarget,
 }
 
 impl<const D: usize> ValidityTransitionTarget<D> {
-    pub fn new<F: RichField + Extendable<D>, C: GenericConfig<D, F = F> + 'static>(
+    pub(crate) fn new<F: RichField + Extendable<D>, C: GenericConfig<D, F = F> + 'static>(
         account_registoration_circuit: &AccountRegistorationCircuit<F, C, D>,
         account_update_circuit: &AccountUpdateCircuit<F, C, D>,
         builder: &mut CircuitBuilder<F, D>,
@@ -164,7 +164,7 @@ impl<const D: usize> ValidityTransitionTarget<D> {
             builder.and(block_pis.is_registoration_block, block_pis.is_valid);
         let account_registoration_proof = account_registoration_circuit
             .add_proof_target_and_conditionally_verify(builder, is_account_registoration);
-        let account_registoration_pis = AccountTransitionPublicInputsTarget::from_vec(
+        let account_registoration_pis = AccountTransitionPublicInputsTarget::from_slice(
             &account_registoration_proof.public_inputs,
         );
         account_registoration_pis
@@ -194,7 +194,7 @@ impl<const D: usize> ValidityTransitionTarget<D> {
         let account_update_proof = account_update_circuit
             .add_proof_target_and_conditionally_verify(builder, is_account_update);
         let account_update_pis =
-            AccountTransitionPublicInputsTarget::from_vec(&account_update_proof.public_inputs);
+            AccountTransitionPublicInputsTarget::from_slice(&account_update_proof.public_inputs);
         account_update_pis
             .prev_account_tree_root
             .conditional_assert_eq(builder, prev_account_tree_root, is_account_update);
@@ -241,7 +241,11 @@ impl<const D: usize> ValidityTransitionTarget<D> {
         }
     }
 
-    pub fn set_witness<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, W: Witness<F>>(
+    pub(crate) fn set_witness<
+        F: RichField + Extendable<D>,
+        C: GenericConfig<D, F = F>,
+        W: Witness<F>,
+    >(
         &self,
         witness: &mut W,
         account_registoration_proof_dummy: DummyProof<F, C, D>,
@@ -321,7 +325,7 @@ mod tests {
             block_pis.block_number,
             transition_witness.sender_leaves,
             transition_witness
-                .account_registoration_proofs
+                .account_registration_proofs
                 .clone()
                 .unwrap(),
         );

@@ -184,7 +184,7 @@ impl SignatureContentTarget {
 }
 
 pub(super) fn pubkey_range_check(pubkey: U256) -> bool {
-    let pubky_bg: BigUint = pubkey.into();
+    let pubkey_bg: BigUint = pubkey.into();
     let modulus = BigUint::from(Fq::from(-1)) + 1u32;
-    pubky_bg < modulus
+    pubkey_bg < modulus
 }

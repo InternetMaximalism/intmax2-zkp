@@ -34,6 +34,10 @@ pub type AssetTree = SparseMerkleTree<AssetLeaf>;
 pub type AssetMerkleProof = SparseMerkleProof<AssetLeaf>;
 pub type AssetMerkleProofTarget = SparseMerkleProofTarget<AssetLeafTarget>;
 
+/// Data stored in the leaf of the asset tree. The index of the leaf corresponds to the token
+/// index. The amount represents the balance of the token. `is_insufficient` indicates whether
+/// the balance was insufficient when paying. Once a balance shortage occurs, all payments for that
+/// token become impossible.
 #[derive(Clone, Debug, Default, Copy, PartialEq)]
 pub struct AssetLeaf {
     pub is_insufficient: bool,
@@ -47,8 +51,12 @@ pub struct AssetLeafTarget {
 }
 
 impl AssetLeaf {
+    /// Substracts the given amount from the balance. If the balance is insufficient, the balance
+    /// becomes zero and the `is_insufficient` flag is set to true.
     pub fn sub(&self, amount: U256) -> Self {
         let is_insufficient = (self.amount < amount) || self.is_insufficient;
+        // If the balance is insufficient, substract the entire balance to prevent
+        // underflow.
         let substract_amount = if is_insufficient { self.amount } else { amount };
         let amount = self.amount - substract_amount;
         Self {
@@ -57,6 +65,7 @@ impl AssetLeaf {
         }
     }
 
+    /// Adds the given amount to the balance. `is_insufficient` flag is not changed.
     pub fn add(&self, amount: U256) -> Self {
         Self {
             is_insufficient: self.is_insufficient,
@@ -102,6 +111,8 @@ impl AssetLeafTarget {
     ) -> Self {
         let amount_cmp = self.amount.is_lt(builder, &amount);
         let is_insufficient = builder.or(amount_cmp, self.is_insufficient);
+        // If the balance is insufficient, substract the entire balance to prevent
+        // underflow.
         let substract_amount = U256Target::select(builder, is_insufficient, self.amount, amount);
         Self {
             is_insufficient,

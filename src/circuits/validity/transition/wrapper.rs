@@ -20,7 +20,7 @@ use crate::{
     },
     common::public_state::PublicStateTarget,
     ethereum_types::u32limb_trait::U32LimbTargetTrait,
-    utils::{dummy::DummyProof, recursivable::Recursivable},
+    utils::{dummy::DummyProof, recursively_verifiable::RecursivelyVerifiable},
 };
 
 use super::{
@@ -29,16 +29,16 @@ use super::{
     transition::{ValidityTransitionTarget, ValidityTransitionValue},
 };
 
+/// Circuit to prove the transition from old validity pis to new validity pis.
 pub struct TransitionWrapperCircuit<F, C, const D: usize>
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
 {
-    pub data: CircuitData<F, C, D>,
-    pub main_validation_proof: ProofWithPublicInputsTarget<D>,
-    pub transition_target: ValidityTransitionTarget<D>,
-    pub prev_pis: ValidityPublicInputsTarget,
-    pub new_pis: ValidityPublicInputsTarget,
+    pub(crate) data: CircuitData<F, C, D>,
+    pub(crate) main_validation_proof: ProofWithPublicInputsTarget<D>,
+    pub(crate) transition_target: ValidityTransitionTarget<D>,
+    pub(crate) prev_pis: ValidityPublicInputsTarget,
 }
 
 impl<F, C, const D: usize> TransitionWrapperCircuit<F, C, D>
@@ -56,7 +56,7 @@ where
         let main_validation_proof =
             main_validation_circut.add_proof_target_and_verify(&mut builder);
         let block_pis =
-            MainValidationPublicInputsTarget::from_vec(&main_validation_proof.public_inputs);
+            MainValidationPublicInputsTarget::from_slice(&main_validation_proof.public_inputs);
         let transition_target = ValidityTransitionTarget::new(
             account_registoration_circuit,
             account_update_circuit,
@@ -105,7 +105,6 @@ where
             main_validation_proof,
             transition_target,
             prev_pis,
-            new_pis,
         }
     }
 }
@@ -116,7 +115,7 @@ where
     C: GenericConfig<D, F = F> + 'static,
     C::Hasher: AlgebraicHasher<F>,
 {
-    pub fn prove(
+    pub(crate) fn prove(
         &self,
         main_validation_proof: &ProofWithPublicInputs<F, C, D>,
         transition_value: &ValidityTransitionValue<F, C, D>,
@@ -147,7 +146,7 @@ where
     }
 }
 
-impl<F, C, const D: usize> Recursivable<F, C, D> for TransitionWrapperCircuit<F, C, D>
+impl<F, C, const D: usize> RecursivelyVerifiable<F, C, D> for TransitionWrapperCircuit<F, C, D>
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F> + 'static,

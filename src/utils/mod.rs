@@ -5,7 +5,7 @@ pub mod leafable;
 pub mod leafable_hasher;
 pub mod logic;
 pub mod poseidon_hash_out;
-pub mod recursivable;
+pub mod recursively_verifiable;
 pub mod trees;
 pub mod wrapper;
 

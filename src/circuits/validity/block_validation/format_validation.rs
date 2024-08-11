@@ -17,10 +17,13 @@ use crate::{
     circuits::validity::block_validation::utils::get_pubkey_commitment_circuit,
     common::signature::{SignatureContent, SignatureContentTarget},
     constants::NUM_SENDERS_IN_BLOCK,
-    ethereum_types::{u256::{U256Target, U256}, u32limb_trait::U32LimbTargetTrait},
+    ethereum_types::{
+        u256::{U256Target, U256},
+        u32limb_trait::U32LimbTargetTrait,
+    },
     utils::{
         poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget},
-        recursivable::Recursivable,
+        recursively_verifiable::RecursivelyVerifiable,
     },
 };
 
@@ -69,7 +72,7 @@ impl FormatValidationPublicInputsTarget {
         vec
     }
 
-    pub fn from_vec(input: &[Target]) -> Self {
+    pub fn from_slice(input: &[Target]) -> Self {
         assert_eq!(input.len(), FORMAT_VALIDATION_PUBLIC_INPUTS_LEN);
         let pubkey_commitment = PoseidonHashOutTarget {
             elements: input[0..4].try_into().unwrap(),
@@ -197,7 +200,7 @@ where
     }
 }
 
-impl<F, C, const D: usize> Recursivable<F, C, D> for FormatValidationCircuit<F, C, D>
+impl<F, C, const D: usize> RecursivelyVerifiable<F, C, D> for FormatValidationCircuit<F, C, D>
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F> + 'static,

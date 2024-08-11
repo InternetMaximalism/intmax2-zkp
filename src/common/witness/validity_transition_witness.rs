@@ -13,7 +13,7 @@ use crate::{
 pub struct ValidityTransitionWitness {
     pub sender_leaves: Vec<SenderLeaf>,
     pub block_merkle_proof: BlockHashMerkleProof,
-    pub account_registoration_proofs: Option<Vec<AccountRegistorationProof>>,
+    pub account_registration_proofs: Option<Vec<AccountRegistorationProof>>,
     pub account_update_proofs: Option<Vec<AccountUpdateProof>>,
 }
 
@@ -24,7 +24,7 @@ impl ValidityTransitionWitness {
         Self {
             sender_leaves: vec![],
             block_merkle_proof,
-            account_registoration_proofs: None,
+            account_registration_proofs: None,
             account_update_proofs: None,
         }
     }

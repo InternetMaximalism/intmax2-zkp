@@ -12,7 +12,7 @@ use plonky2::{
 
 use super::dummy::conditionally_verify_proof;
 
-pub trait Recursivable<
+pub trait RecursivelyVerifiable<
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F> + 'static,
     const D: usize,

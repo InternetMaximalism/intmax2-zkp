@@ -4,11 +4,11 @@ use plonky2::{
     iop::target::BoolTarget,
     plonk::{
         circuit_builder::CircuitBuilder,
-        circuit_data::{CommonCircuitData, VerifierCircuitTarget, VerifierOnlyCircuitData},
+        circuit_data::{CommonCircuitData, VerifierCircuitTarget},
         config::{AlgebraicHasher, GenericConfig},
         proof::{ProofWithPublicInputs, ProofWithPublicInputsTarget},
     },
-    recursion::dummy_circuit::{cyclic_base_proof, dummy_circuit, dummy_proof},
+    recursion::dummy_circuit::{dummy_circuit, dummy_proof},
 };
 
 #[derive(Debug, Clone)]
@@ -26,21 +26,9 @@ where
     C: GenericConfig<D, F = F> + 'static,
     <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
 {
-    pub fn new(common: &CommonCircuitData<F, D>) -> Self {
+    pub(crate) fn new(common: &CommonCircuitData<F, D>) -> Self {
         let data = dummy_circuit::<F, C, D>(&common);
         let proof = dummy_proof(&data, vec![].into_iter().enumerate().collect()).unwrap();
-        Self { proof }
-    }
-
-    pub fn new_cyclic(
-        common: &CommonCircuitData<F, D>,
-        verifier_data: &VerifierOnlyCircuitData<C, D>,
-    ) -> Self {
-        let proof = cyclic_base_proof(
-            &common,
-            &verifier_data,
-            vec![].into_iter().enumerate().collect(),
-        );
         Self { proof }
     }
 }
@@ -48,7 +36,7 @@ where
 /// Conditionally verify a proof
 /// Unlike `builder.conditionally_verify_proof`, when the condition is false,
 /// you need to set the dummy proof.
-pub fn conditionally_verify_proof<
+pub(crate) fn conditionally_verify_proof<
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F> + 'static,
     const D: usize,

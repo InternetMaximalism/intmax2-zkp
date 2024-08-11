@@ -23,7 +23,7 @@ use crate::{
     utils::{
         dummy::DummyProof,
         poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget},
-        recursivable::Recursivable,
+        recursively_verifiable::RecursivelyVerifiable,
     },
 };
 
@@ -72,10 +72,10 @@ impl AccountExclusionPublicInputsTarget {
         vec
     }
 
-    pub fn from_vec(input: &[Target]) -> Self {
+    pub fn from_slice(input: &[Target]) -> Self {
         assert_eq!(input.len(), ACCOUNT_EXCLUSION_PUBLIC_INPUTS_LEN);
-        let account_tree_root = PoseidonHashOutTarget::from_vec(&input[0..4]);
-        let pubkey_commitment = PoseidonHashOutTarget::from_vec(&input[4..8]);
+        let account_tree_root = PoseidonHashOutTarget::from_slice(&input[0..4]);
+        let pubkey_commitment = PoseidonHashOutTarget::from_slice(&input[4..8]);
         let is_valid = BoolTarget::new_unsafe(input[8]);
         Self {
             account_tree_root,
@@ -229,7 +229,7 @@ where
     }
 }
 
-impl<F, C, const D: usize> Recursivable<F, C, D> for AccountExclusionCircuit<F, C, D>
+impl<F, C, const D: usize> RecursivelyVerifiable<F, C, D> for AccountExclusionCircuit<F, C, D>
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F> + 'static,
@@ -247,9 +247,11 @@ mod tests {
     };
 
     use crate::{
-        common::trees::account_tree::AccountTree, constants::NUM_SENDERS_IN_BLOCK,
-        ethereum_types::u256::U256, utils::test_utils::account_tree::add_random_accounts,
+        common::{signature::key_set::KeySet, trees::account_tree::AccountTree},
+        constants::NUM_SENDERS_IN_BLOCK,
+        ethereum_types::u256::U256,
     };
+    use rand::Rng;
 
     use super::*;
 
@@ -261,7 +263,11 @@ mod tests {
     fn account_exclusion() {
         let mut rng = rand::thread_rng();
         let mut tree = AccountTree::initialize();
-        add_random_accounts(&mut rng, &mut tree, 1000);
+        for _ in 0..100 {
+            let keyset = KeySet::rand(&mut rng);
+            let last_block_number = rng.gen();
+            tree.insert(keyset.pubkey, last_block_number).unwrap();
+        }
         let account_tree_root = tree.get_root();
 
         let mut pubkeys = (0..10).map(|_| U256::rand(&mut rng)).collect::<Vec<_>>();

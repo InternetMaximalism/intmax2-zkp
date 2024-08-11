@@ -82,9 +82,9 @@ impl TxTarget {
         vec
     }
 
-    pub fn from_vec(input: &[Target]) -> Self {
+    pub fn from_slice(input: &[Target]) -> Self {
         assert_eq!(input.len(), TX_LEN);
-        let transfer_tree_root = PoseidonHashOutTarget::from_vec(&input[0..4]);
+        let transfer_tree_root = PoseidonHashOutTarget::from_slice(&input[0..4]);
         let nonce = input[4];
         Self {
             transfer_tree_root,

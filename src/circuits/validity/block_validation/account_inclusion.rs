@@ -11,7 +11,7 @@ use crate::{
     utils::{
         dummy::DummyProof,
         poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget},
-        recursivable::Recursivable,
+        recursively_verifiable::RecursivelyVerifiable,
     },
 };
 use plonky2::{
@@ -80,7 +80,7 @@ impl AccountInclusionPublicInputsTarget {
         vec
     }
 
-    pub fn from_vec(input: &[Target]) -> Self {
+    pub fn from_slice(input: &[Target]) -> Self {
         assert_eq!(input.len(), ACCOUNT_INCLUSION_PUBLIC_INPUTS_LEN);
         let account_id_hash = Bytes32Target::from_limbs(&input[0..8]);
         let account_tree_root = PoseidonHashOutTarget {
@@ -273,7 +273,7 @@ where
 }
 
 impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F> + 'static, const D: usize>
-    Recursivable<F, C, D> for AccountInclusionCircuit<F, C, D>
+    RecursivelyVerifiable<F, C, D> for AccountInclusionCircuit<F, C, D>
 where
     <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
 {

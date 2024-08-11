@@ -13,7 +13,7 @@ use crate::{
         dummy::DummyProof,
         logic::BuilderLogic,
         poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget},
-        recursivable::Recursivable,
+        recursively_verifiable::RecursivelyVerifiable,
     },
 };
 use plonky2::{
@@ -155,14 +155,14 @@ impl MainValidationPublicInputsTarget {
         vec
     }
 
-    pub fn from_vec(input: &[Target]) -> Self {
+    pub fn from_slice(input: &[Target]) -> Self {
         assert_eq!(input.len(), MAIN_VALIDATION_PUBLIC_INPUT_LEN);
         let prev_block_hash = Bytes32Target::from_limbs(&input[0..8]);
         let block_hash = Bytes32Target::from_limbs(&input[8..16]);
         let deposit_tree_root = Bytes32Target::from_limbs(&input[16..24]);
-        let account_tree_root = PoseidonHashOutTarget::from_vec(&input[24..28]);
+        let account_tree_root = PoseidonHashOutTarget::from_slice(&input[24..28]);
         let tx_tree_root = Bytes32Target::from_limbs(&input[28..36]);
-        let sender_tree_root = PoseidonHashOutTarget::from_vec(&input[36..40]);
+        let sender_tree_root = PoseidonHashOutTarget::from_slice(&input[36..40]);
         let block_number = input[40];
         let is_registoration_block = BoolTarget::new_unsafe(input[41]);
         let is_valid = BoolTarget::new_unsafe(input[42]);
@@ -213,7 +213,6 @@ pub struct MainValidationValue<
     account_exclusion_proof: Option<ProofWithPublicInputs<F, C, D>>,
     format_validation_proof: ProofWithPublicInputs<F, C, D>,
     aggregation_proof: Option<ProofWithPublicInputs<F, C, D>>,
-    block_commitment: PoseidonHashOut,
     signature_commitment: PoseidonHashOut,
     pubkey_commitment: PoseidonHashOut,
     prev_block_hash: Bytes32,
@@ -362,7 +361,6 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         // block hash calculation
         let prev_block_hash = block.prev_block_hash;
         let block_hash = block.hash();
-        let block_commitment = block.commitment();
         let sender_tree_root = get_sender_tree_root(&pubkeys, signature.sender_flag);
 
         Self {
@@ -374,7 +372,6 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
             account_exclusion_proof,
             format_validation_proof,
             aggregation_proof,
-            block_commitment,
             signature_commitment,
             pubkey_commitment,
             prev_block_hash,
@@ -395,7 +392,6 @@ pub struct MainValidationTarget<const D: usize> {
     account_exclusion_proof: ProofWithPublicInputsTarget<D>,
     format_validation_proof: ProofWithPublicInputsTarget<D>,
     aggregation_proof: ProofWithPublicInputsTarget<D>,
-    block_commitment: PoseidonHashOutTarget,
     signature_commitment: PoseidonHashOutTarget,
     pubkey_commitment: PoseidonHashOutTarget,
     prev_block_hash: Bytes32Target,
@@ -443,7 +439,7 @@ impl<const D: usize> MainValidationTarget<D> {
         let account_exclusion_proof = account_exclusion_circuit
             .add_proof_target_and_conditionally_verify(builder, is_registoration_block);
         let account_exclusion_pis =
-            AccountExclusionPublicInputsTarget::from_vec(&account_exclusion_proof.public_inputs);
+            AccountExclusionPublicInputsTarget::from_slice(&account_exclusion_proof.public_inputs);
         account_exclusion_pis
             .pubkey_commitment
             .conditional_assert_eq(builder, pubkey_commitment, is_registoration_block);
@@ -460,7 +456,7 @@ impl<const D: usize> MainValidationTarget<D> {
         let account_inclusion_proof = account_inclusion_circuit
             .add_proof_target_and_conditionally_verify(builder, is_not_registoration_block);
         let account_inclusion_pis =
-            AccountInclusionPublicInputsTarget::from_vec(&account_inclusion_proof.public_inputs);
+            AccountInclusionPublicInputsTarget::from_slice(&account_inclusion_proof.public_inputs);
         account_inclusion_pis
             .pubkey_commitment
             .conditional_assert_eq(builder, pubkey_commitment, is_not_registoration_block);
@@ -482,7 +478,7 @@ impl<const D: usize> MainValidationTarget<D> {
         let format_validation_proof =
             format_validation_circuit.add_proof_target_and_verify(builder);
         let format_validation_pis =
-            FormatValidationPublicInputsTarget::from_vec(&format_validation_proof.public_inputs);
+            FormatValidationPublicInputsTarget::from_slice(&format_validation_proof.public_inputs);
         format_validation_pis
             .pubkey_commitment
             .connect(builder, pubkey_commitment);
@@ -495,7 +491,7 @@ impl<const D: usize> MainValidationTarget<D> {
         let aggregation_proof =
             aggregation_circuit.add_proof_target_and_conditionally_verify(builder, result);
         let aggregation_pis =
-            AggregationPublicInputsTarget::from_vec(&aggregation_proof.public_inputs);
+            AggregationPublicInputsTarget::from_slice(&aggregation_proof.public_inputs);
         aggregation_pis
             .pubkey_commitment
             .conditional_assert_eq(builder, pubkey_commitment, result);
@@ -508,7 +504,6 @@ impl<const D: usize> MainValidationTarget<D> {
 
         let prev_block_hash = block.prev_block_hash;
         let block_hash = block.hash::<F, C, D>(builder);
-        let block_commitment = block.commitment(builder);
         let sender_tree_root =
             get_sender_tree_root_circuit::<F, C, D>(builder, &pubkeys, signature.sender_flag);
 
@@ -521,7 +516,6 @@ impl<const D: usize> MainValidationTarget<D> {
             account_exclusion_proof,
             format_validation_proof,
             aggregation_proof,
-            block_commitment,
             signature_commitment,
             pubkey_commitment,
             prev_block_hash,
@@ -568,8 +562,6 @@ impl<const D: usize> MainValidationTarget<D> {
             .as_ref()
             .unwrap_or(&aggregation_proof_dummy.proof);
         witness.set_proof_with_pis_target(&self.aggregation_proof, &aggregation_proof);
-        self.block_commitment
-            .set_witness(witness, value.block_commitment);
         self.signature_commitment
             .set_witness(witness, value.signature_commitment);
         self.pubkey_commitment
@@ -650,7 +642,7 @@ where
 }
 
 impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F> + 'static, const D: usize>
-    Recursivable<F, C, D> for MainValidationCircuit<F, C, D>
+    RecursivelyVerifiable<F, C, D> for MainValidationCircuit<F, C, D>
 where
     <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
 {

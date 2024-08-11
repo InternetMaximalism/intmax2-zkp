@@ -14,7 +14,7 @@ use plonky2::{
 use crate::{
     circuits::validity::validity_pis::{ValidityPublicInputs, ValidityPublicInputsTarget},
     common::witness::validity_witness::ValidityWitness,
-    utils::recursivable::Recursivable,
+    utils::recursively_verifiable::RecursivelyVerifiable,
 };
 
 /// A dummy implementation of the transition wrapper circuit used for testing balance proof.
@@ -23,7 +23,7 @@ where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
 {
-    pub data: CircuitData<F, C, D>,
+    pub(crate) data: CircuitData<F, C, D>,
     pub prev_pis: ValidityPublicInputsTarget,
     pub new_pis: ValidityPublicInputsTarget,
 }
@@ -79,7 +79,7 @@ where
     }
 }
 
-impl<F, C, const D: usize> Recursivable<F, C, D> for DummyTransitionWrapperCircuit<F, C, D>
+impl<F, C, const D: usize> RecursivelyVerifiable<F, C, D> for DummyTransitionWrapperCircuit<F, C, D>
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F> + 'static,

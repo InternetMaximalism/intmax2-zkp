@@ -7,8 +7,7 @@ use super::u32limb_trait::{U32LimbTargetTrait, U32LimbTrait};
 
 pub const BYTES16_LEN: usize = 4;
 
-// A structure representing the ui128 type in Ethereum.
-// `T` is either `u32` or `U32Target`.
+// A structure representing the byte16 type in Ethereum.
 // The value is stored in big endian format.
 #[derive(Clone, Copy, PartialEq, Default, Hash)]
 pub struct Bytes16 {

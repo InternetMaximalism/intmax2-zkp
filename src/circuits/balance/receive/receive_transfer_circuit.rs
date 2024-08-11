@@ -14,7 +14,7 @@ use crate::{
         cyclic::{vd_from_pis_slice, vd_from_pis_slice_target, vd_to_vec, vd_to_vec_target},
         dummy::DummyProof,
         poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget},
-        recursivable::Recursivable,
+        recursively_verifiable::RecursivelyVerifiable,
     },
 };
 use plonky2::{
@@ -73,7 +73,7 @@ where
         vec
     }
 
-    pub fn from_vec(config: &CircuitConfig, input: &[F]) -> Self {
+    pub fn from_slice(config: &CircuitConfig, input: &[F]) -> Self {
         let non_vd = input[0..16 + PUBLIC_STATE_LEN].to_u64_vec();
         let prev_private_commitment = PoseidonHashOut::from_u64_vec(&non_vd[0..4]);
         let new_private_commitment = PoseidonHashOut::from_u64_vec(&non_vd[4..8]);
@@ -112,11 +112,11 @@ impl ReceiveTransferPublicInputsTarget {
         vec
     }
 
-    pub fn from_vec(config: &CircuitConfig, input: &[Target]) -> Self {
-        let prev_private_commitment = PoseidonHashOutTarget::from_vec(&input[0..4]);
-        let new_private_commitment = PoseidonHashOutTarget::from_vec(&input[4..8]);
+    pub fn from_slice(config: &CircuitConfig, input: &[Target]) -> Self {
+        let prev_private_commitment = PoseidonHashOutTarget::from_slice(&input[0..4]);
+        let new_private_commitment = PoseidonHashOutTarget::from_slice(&input[4..8]);
         let pubkey = U256Target::from_limbs(&input[8..16]);
-        let public_state = PublicStateTarget::from_vec(&input[16..16 + PUBLIC_STATE_LEN]);
+        let public_state = PublicStateTarget::from_slice(&input[16..16 + PUBLIC_STATE_LEN]);
         let balance_circuit_vd = vd_from_pis_slice_target(input, config).unwrap();
         ReceiveTransferPublicInputsTarget {
             prev_private_commitment,
@@ -327,7 +327,7 @@ where
     }
 }
 
-impl<F, C, const D: usize> Recursivable<F, C, D> for ReceiveTransferCircuit<F, C, D>
+impl<F, C, const D: usize> RecursivelyVerifiable<F, C, D> for ReceiveTransferCircuit<F, C, D>
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F> + 'static,

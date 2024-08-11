@@ -71,9 +71,9 @@ where
 
         let account_registoration_proof = if block_pis.is_valid && block_pis.is_registoration_block
         {
-            let account_registoration_proofs = validity_witness
+            let account_registration_proofs = validity_witness
                 .validity_transition_witness
-                .account_registoration_proofs
+                .account_registration_proofs
                 .clone()
                 .expect("Account registoration proofs are missing");
             let sender_leaves = get_sender_leaves(
@@ -84,7 +84,7 @@ where
                 prev_account_tree_root,
                 block_pis.block_number,
                 sender_leaves.clone(),
-                account_registoration_proofs,
+                account_registration_proofs,
             );
             let proof = self.account_registoration_circuit.prove(&value)?;
             Some(proof)

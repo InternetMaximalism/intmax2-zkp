@@ -37,7 +37,7 @@ use crate::{
         conversion::ToField as _,
         cyclic::vd_vec_len,
         poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget},
-        recursivable::Recursivable as _,
+        recursively_verifiable::RecursivelyVerifiable as _,
     },
 };
 
@@ -75,10 +75,10 @@ where
 
         let transition_proof = balance_transition_circuit.add_proof_target_and_verify(&mut builder);
 
-        let prev_pis_ = BalancePublicInputsTarget::from_vec(
+        let prev_pis_ = BalancePublicInputsTarget::from_slice(
             &transition_proof.public_inputs[0..BALANCE_PUBLIC_INPUTS_LEN],
         );
-        let new_pis = BalancePublicInputsTarget::from_vec(
+        let new_pis = BalancePublicInputsTarget::from_slice(
             &transition_proof.public_inputs
                 [BALANCE_PUBLIC_INPUTS_LEN..2 * BALANCE_PUBLIC_INPUTS_LEN],
         );
@@ -101,7 +101,7 @@ where
                 &common_data,
             )
             .unwrap();
-        let prev_pis = BalancePublicInputsTarget::from_vec(
+        let prev_pis = BalancePublicInputsTarget::from_slice(
             &prev_proof.public_inputs[0..BALANCE_PUBLIC_INPUTS_LEN],
         );
         prev_pis.connect(&mut builder, &prev_pis_);
@@ -210,8 +210,8 @@ where
     }
 }
 
-// Generates `CommonCircuitData` usable for recursion.
-pub fn common_data_for_balance_circuit<
+// Generates `CommonCircuitData` for the cyclic circuit
+pub(crate) fn common_data_for_balance_circuit<
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
     const D: usize,

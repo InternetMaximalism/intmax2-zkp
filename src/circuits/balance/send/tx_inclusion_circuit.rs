@@ -40,7 +40,7 @@ use crate::{
     utils::{
         conversion::ToU64,
         poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget},
-        recursivable::Recursivable,
+        recursively_verifiable::RecursivelyVerifiable,
     },
 };
 
@@ -98,14 +98,14 @@ impl TxInclusionPublicInputsTarget {
         vec
     }
 
-    pub fn from_vec(input: &[Target]) -> Self {
+    pub fn from_slice(input: &[Target]) -> Self {
         assert_eq!(input.len(), TX_INCLUSION_PUBLIC_INPUTS_LEN);
-        let prev_public_state = PublicStateTarget::from_vec(&input[0..PUBLIC_STATE_LEN]);
+        let prev_public_state = PublicStateTarget::from_slice(&input[0..PUBLIC_STATE_LEN]);
         let new_public_state =
-            PublicStateTarget::from_vec(&input[PUBLIC_STATE_LEN..PUBLIC_STATE_LEN * 2]);
+            PublicStateTarget::from_slice(&input[PUBLIC_STATE_LEN..PUBLIC_STATE_LEN * 2]);
         let pubkey =
             U256Target::from_limbs(&input[PUBLIC_STATE_LEN * 2..PUBLIC_STATE_LEN * 2 + U256_LEN]);
-        let tx = TxTarget::from_vec(
+        let tx = TxTarget::from_slice(
             &input[PUBLIC_STATE_LEN * 2 + U256_LEN..PUBLIC_STATE_LEN * 2 + U256_LEN + TX_LEN],
         );
         let is_valid = BoolTarget::new_unsafe(input[PUBLIC_STATE_LEN * 2 + U256_LEN + TX_LEN]);
@@ -244,7 +244,7 @@ impl<const D: usize> TxInclusionTarget<D> {
         let sender_merkle_proof = SenderMerkleProofTarget::new(builder, SENDER_TREE_HEIGHT);
 
         let validity_proof = validity_circuit.add_proof_target_and_verify(builder);
-        let validity_pis = ValidityPublicInputsTarget::from_vec(
+        let validity_pis = ValidityPublicInputsTarget::from_slice(
             &validity_proof.public_inputs[0..VALIDITY_PUBLIC_INPUTS_LEN],
         );
         block_merkle_proof.verify::<F, C, D>(
@@ -363,7 +363,7 @@ where
     }
 }
 
-impl<F, C, const D: usize> Recursivable<F, C, D> for TxInclusionCircuit<F, C, D>
+impl<F, C, const D: usize> RecursivelyVerifiable<F, C, D> for TxInclusionCircuit<F, C, D>
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F> + 'static,

@@ -28,15 +28,16 @@ use crate::{
 // update private state assuming that the transfer is valid
 #[derive(Debug, Clone)]
 pub struct PrivateStateTransitionValue {
-    pub token_index: u32,
-    pub amount: U256,
-    pub nullifier: Bytes32,
-    pub new_salt: Salt,
-    pub prev_private_state: PrivateState,
-    pub nullifier_proof: NullifierInsersionProof,
-    pub prev_asset_leaf: AssetLeaf,
-    pub asset_merkle_proof: AssetMerkleProof,
-    pub new_private_state: PrivateState,
+    pub token_index: u32,                 // token index of incoming transfer/deposit
+    pub amount: U256,                     // token amount of incoming transfer/deposit
+    pub nullifier: Bytes32,               // nullifier of corresponding transfer/deposit
+    pub new_salt: Salt,                   // new salt of the private state
+    pub prev_private_state: PrivateState, // previous private state
+    pub nullifier_proof: NullifierInsersionProof, // merkle proof to update nullifier tree
+    pub prev_asset_leaf: AssetLeaf,       /* previous asset leaf (balance) of correspoing
+                                           * token_index */
+    pub asset_merkle_proof: AssetMerkleProof, // merkle proof to update asset tree
+    pub new_private_state: PrivateState,      // new private state
 }
 
 impl PrivateStateTransitionValue {

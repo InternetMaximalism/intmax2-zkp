@@ -153,21 +153,21 @@ impl BlockWitness {
 pub struct FullBlock {
     pub block: Block,
     pub signature: SignatureContent,
-    pub pubkeys: Option<Vec<U256>>,  // pubkeys trimed dummy pubkey
-    pub account_ids: Option<String>, // hex representation of account_ids trimed dummy account ids
+    pub pubkeys: Option<Vec<U256>>,  // pubkeys trimmed dummy pubkey
+    pub account_ids: Option<String>, // hex representation of account_ids trimmed dummy account ids
     pub block_hash: Bytes32,
 }
 
 impl BlockWitness {
     pub fn to_full_block(&self) -> FullBlock {
         let pubkeys = if self.signature.is_registoration_block {
-            let pubkey_trimed_dummy = self
+            let pubkey_trimmed_dummy = self
                 .pubkeys
                 .iter()
                 .filter(|p| !p.is_dummy_pubkey())
                 .cloned()
                 .collect::<Vec<_>>();
-            Some(pubkey_trimed_dummy)
+            Some(pubkey_trimmed_dummy)
         } else {
             None
         };

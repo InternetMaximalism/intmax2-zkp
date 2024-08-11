@@ -183,7 +183,7 @@ impl MockWallet {
 
     fn update_on_send_tx(
         &mut self,
-        new_salt: Salt,
+        new_private_state_salt: Salt,
         tx_witness: &TxWitness,
         transfer_witness: &[TransferWitness],
     ) -> SendWitness {
@@ -192,7 +192,7 @@ impl MockWallet {
 
         assert_eq!(tx_witness.tx.nonce, self.nonce);
         self.nonce += 1;
-        self.salt = new_salt;
+        self.salt = new_private_state_salt;
         self.public_state = tx_witness.validity_pis.public_state.clone();
         let transfers = transfer_witness
             .iter()
@@ -220,7 +220,7 @@ impl MockWallet {
             insufficient_flags,
             transfers,
             tx_witness: tx_witness.clone(),
-            new_salt,
+            new_private_state_salt,
         };
         self.send_witnesses.push(send_witness.clone());
         self.transfer_witnesses.insert(

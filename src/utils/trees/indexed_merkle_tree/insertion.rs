@@ -287,9 +287,9 @@ impl IndexedInsertionProofTarget {
         let temp_root =
             self.low_leaf_proof
                 .get_root::<F, C, D>(builder, &new_low_leaf, self.low_leaf_index);
-        let emtpy_leaf = <IndexedMerkleLeafTarget as LeafableTarget>::empty_leaf(builder);
+        let empty_leaf = <IndexedMerkleLeafTarget as LeafableTarget>::empty_leaf(builder);
         self.leaf_proof
-            .verify::<F, C, D>(builder, &emtpy_leaf, self.index, temp_root);
+            .verify::<F, C, D>(builder, &empty_leaf, self.index, temp_root);
         let leaf = IndexedMerkleLeafTarget {
             next_index: self.prev_low_leaf.next_index,
             key,
@@ -345,11 +345,11 @@ impl IndexedInsertionProofTarget {
         let temp_root =
             self.low_leaf_proof
                 .get_root::<F, C, D>(builder, &new_low_leaf, self.low_leaf_index);
-        let emtpy_leaf = <IndexedMerkleLeafTarget as LeafableTarget>::empty_leaf(builder);
+        let empty_leaf = <IndexedMerkleLeafTarget as LeafableTarget>::empty_leaf(builder);
         self.leaf_proof.conditional_verify::<F, C, D>(
             builder,
             condition,
-            &emtpy_leaf,
+            &empty_leaf,
             self.index,
             temp_root,
         );

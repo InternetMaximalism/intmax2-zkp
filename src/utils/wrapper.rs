@@ -12,7 +12,7 @@ use plonky2::{
     },
 };
 
-use crate::utils::recursivable::Recursivable;
+use crate::utils::recursively_verifiable::RecursivelyVerifiable;
 
 pub struct WrapperCircuit<F, InnerC, OuterC, const D: usize>
 where
@@ -32,7 +32,7 @@ where
     InnerC: GenericConfig<D, F = F> + 'static,
     InnerC::Hasher: AlgebraicHasher<F>,
 {
-    pub fn new(inner_circuit: &impl Recursivable<F, InnerC, D>) -> Self {
+    pub fn new(inner_circuit: &impl RecursivelyVerifiable<F, InnerC, D>) -> Self {
         let mut builder = CircuitBuilder::new(CircuitConfig::default());
         let wrap_proof = inner_circuit.add_proof_target_and_verify(&mut builder);
         let pis = if let Some(cut_off) = inner_circuit.pis_cut_off() {
@@ -59,7 +59,7 @@ where
     }
 }
 
-impl<F, InnerC, OuterC, const D: usize> Recursivable<F, OuterC, D>
+impl<F, InnerC, OuterC, const D: usize> RecursivelyVerifiable<F, OuterC, D>
     for WrapperCircuit<F, InnerC, OuterC, D>
 where
     F: RichField + Extendable<D>,

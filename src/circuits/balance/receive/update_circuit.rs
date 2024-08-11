@@ -32,7 +32,7 @@ use crate::{
         u256::{U256Target, U256, U256_LEN},
         u32limb_trait::{U32LimbTargetTrait, U32LimbTrait},
     },
-    utils::{dummy::DummyProof, recursivable::Recursivable},
+    utils::{dummy::DummyProof, recursively_verifiable::RecursivelyVerifiable},
 };
 
 pub const UPDATE_PUBLIC_INPUTS_LEN: usize = U256_LEN + PUBLIC_STATE_LEN * 2;
@@ -89,12 +89,12 @@ impl UpdatePublicInputsTarget {
         vec
     }
 
-    pub fn from_vec(input: &[Target]) -> Self {
+    pub fn from_slice(input: &[Target]) -> Self {
         assert_eq!(input.len(), UPDATE_PUBLIC_INPUTS_LEN);
         let pubkey = U256Target::from_limbs(&input[0..U256_LEN]);
         let prev_public_state =
-            PublicStateTarget::from_vec(&input[U256_LEN..U256_LEN + PUBLIC_STATE_LEN]);
-        let new_public_state = PublicStateTarget::from_vec(&input[U256_LEN + PUBLIC_STATE_LEN..]);
+            PublicStateTarget::from_slice(&input[U256_LEN..U256_LEN + PUBLIC_STATE_LEN]);
+        let new_public_state = PublicStateTarget::from_slice(&input[U256_LEN + PUBLIC_STATE_LEN..]);
         UpdatePublicInputsTarget {
             pubkey,
             prev_public_state,
@@ -184,7 +184,7 @@ impl<const D: usize> UpdateTarget<D> {
         let validity_proof = validity_circuit.add_proof_target_and_verify(builder);
         let account_membership_proof =
             AccountMembershipProofTarget::new(builder, ACCOUNT_TREE_HEIGHT, is_checked);
-        let validity_pis = ValidityPublicInputsTarget::from_vec(
+        let validity_pis = ValidityPublicInputsTarget::from_slice(
             &validity_proof.public_inputs[0..VALIDITY_PUBLIC_INPUTS_LEN],
         );
         block_merkle_proof.verify::<F, C, D>(
@@ -280,7 +280,7 @@ where
     }
 }
 
-impl<F, C, const D: usize> Recursivable<F, C, D> for UpdateCircuit<F, C, D>
+impl<F, C, const D: usize> RecursivelyVerifiable<F, C, D> for UpdateCircuit<F, C, D>
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F> + 'static,

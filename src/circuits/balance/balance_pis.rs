@@ -185,19 +185,19 @@ impl BalancePublicInputsTarget {
         vec
     }
 
-    pub fn from_vec(input: &[Target]) -> Self {
+    pub fn from_slice(input: &[Target]) -> Self {
         assert_eq!(input.len(), BALANCE_PUBLIC_INPUTS_LEN);
         let pubkey = U256Target::from_limbs(&input[0..U256_LEN]);
         let private_commitment =
-            PoseidonHashOutTarget::from_vec(&input[U256_LEN..U256_LEN + POSEIDON_HASH_OUT_LEN]);
-        let last_tx_hash = PoseidonHashOutTarget::from_vec(
+            PoseidonHashOutTarget::from_slice(&input[U256_LEN..U256_LEN + POSEIDON_HASH_OUT_LEN]);
+        let last_tx_hash = PoseidonHashOutTarget::from_slice(
             &input[U256_LEN + POSEIDON_HASH_OUT_LEN..U256_LEN + 2 * POSEIDON_HASH_OUT_LEN],
         );
         let last_tx_insufficient_flags = InsufficientFlagsTarget::from_limbs(
             &input[U256_LEN + 2 * POSEIDON_HASH_OUT_LEN
                 ..U256_LEN + 2 * POSEIDON_HASH_OUT_LEN + INSUFFICIENT_FLAGS_LEN],
         );
-        let public_state = PublicStateTarget::from_vec(
+        let public_state = PublicStateTarget::from_slice(
             &input[U256_LEN + 2 * POSEIDON_HASH_OUT_LEN + INSUFFICIENT_FLAGS_LEN..],
         );
         Self {
@@ -210,7 +210,7 @@ impl BalancePublicInputsTarget {
     }
 
     pub fn from_pis(pis: &[Target]) -> Self {
-        Self::from_vec(&pis[0..BALANCE_PUBLIC_INPUTS_LEN])
+        Self::from_slice(&pis[0..BALANCE_PUBLIC_INPUTS_LEN])
     }
 
     pub fn commitment<F: RichField + Extendable<D>, const D: usize>(

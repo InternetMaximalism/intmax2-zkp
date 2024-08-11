@@ -25,7 +25,7 @@ use crate::{
     },
     utils::{
         cyclic::{vd_from_pis_slice_target, vd_vec_len},
-        recursivable::Recursivable,
+        recursively_verifiable::RecursivelyVerifiable,
     },
 };
 
@@ -37,7 +37,7 @@ where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
 {
-    data: CircuitData<F, C, D>,
+    pub(crate) data: CircuitData<F, C, D>,
     is_first_step: BoolTarget,
     withdrawal_inner_proof: ProofWithPublicInputsTarget<D>,
     prev_proof: ProofWithPublicInputsTarget<D>,
@@ -129,8 +129,8 @@ where
     }
 }
 
-// Generates `CommonCircuitData` usable for recursion.
-pub fn common_data_for_withdrawal_circuit<
+// Generates `CommonCircuitData` for the cyclic circuit
+fn common_data_for_withdrawal_circuit<
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
     const D: usize,
