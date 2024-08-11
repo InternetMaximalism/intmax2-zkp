@@ -67,12 +67,12 @@ impl ValidityPublicInputs {
         vec
     }
 
-    pub fn from_u64_vec(input: &[u64]) -> Self {
+    pub fn from_u64_slice(input: &[u64]) -> Self {
         assert_eq!(input.len(), VALIDITY_PUBLIC_INPUTS_LEN);
-        let public_state = PublicState::from_u64_vec(&input[0..PUBLIC_STATE_LEN]);
+        let public_state = PublicState::from_u64_slice(&input[0..PUBLIC_STATE_LEN]);
         let tx_tree_root =
-            Bytes32::from_u64_vec(&input[PUBLIC_STATE_LEN..PUBLIC_STATE_LEN + BYTES32_LEN]);
-        let sender_tree_root = PoseidonHashOut::from_u64_vec(
+            Bytes32::from_u64_slice(&input[PUBLIC_STATE_LEN..PUBLIC_STATE_LEN + BYTES32_LEN]);
+        let sender_tree_root = PoseidonHashOut::from_u64_slice(
             &input[PUBLIC_STATE_LEN + BYTES32_LEN
                 ..PUBLIC_STATE_LEN + BYTES32_LEN + POSEIDON_HASH_OUT_LEN],
         );
@@ -86,7 +86,7 @@ impl ValidityPublicInputs {
     }
 
     pub fn from_pis<F: PrimeField64>(pis: &[F]) -> Self {
-        Self::from_u64_vec(&pis[0..VALIDITY_PUBLIC_INPUTS_LEN].to_u64_vec())
+        Self::from_u64_slice(&pis[0..VALIDITY_PUBLIC_INPUTS_LEN].to_u64_vec())
     }
 }
 

@@ -44,15 +44,17 @@ pub struct SpentPublicInputs {
 }
 
 impl SpentPublicInputs {
-    pub fn from_u64_vec(input: &[u64]) -> Self {
+    pub fn from_u64_slice(input: &[u64]) -> Self {
         assert_eq!(input.len(), SPENT_PUBLIC_INPUTS_LEN);
         let prev_private_commitment =
-            PoseidonHashOut::from_u64_vec(&input[0..POSEIDON_HASH_OUT_LEN]);
-        let new_private_commitment =
-            PoseidonHashOut::from_u64_vec(&input[POSEIDON_HASH_OUT_LEN..2 * POSEIDON_HASH_OUT_LEN]);
-        let tx =
-            Tx::from_u64_vec(&input[2 * POSEIDON_HASH_OUT_LEN..2 * POSEIDON_HASH_OUT_LEN + TX_LEN]);
-        let insufficient_flags = InsufficientFlags::from_u64_vec(
+            PoseidonHashOut::from_u64_slice(&input[0..POSEIDON_HASH_OUT_LEN]);
+        let new_private_commitment = PoseidonHashOut::from_u64_slice(
+            &input[POSEIDON_HASH_OUT_LEN..2 * POSEIDON_HASH_OUT_LEN],
+        );
+        let tx = Tx::from_u64_slice(
+            &input[2 * POSEIDON_HASH_OUT_LEN..2 * POSEIDON_HASH_OUT_LEN + TX_LEN],
+        );
+        let insufficient_flags = InsufficientFlags::from_u64_slice(
             &input[2 * POSEIDON_HASH_OUT_LEN + TX_LEN
                 ..2 * POSEIDON_HASH_OUT_LEN + TX_LEN + INSUFFICIENT_FLAGS_LEN],
         );

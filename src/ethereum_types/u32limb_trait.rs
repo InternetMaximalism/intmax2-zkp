@@ -28,7 +28,7 @@ pub trait U32LimbTrait<const NUM_LIMBS: usize>: Clone + Copy {
         self.limbs().iter().map(|x| *x as u64).collect()
     }
 
-    fn from_u64_vec(input: &[u64]) -> Self {
+    fn from_u64_slice(input: &[u64]) -> Self {
         let range_checked_input = input
             .iter()
             .map(|&x| {

@@ -69,13 +69,13 @@ impl PublicState {
         vec
     }
 
-    pub fn from_u64_vec(input: &[u64]) -> Self {
+    pub fn from_u64_slice(input: &[u64]) -> Self {
         assert_eq!(input.len(), PUBLIC_STATE_LEN);
-        let block_tree_root = PoseidonHashOut::from_u64_vec(&input[0..4]);
-        let prev_account_tree_root = PoseidonHashOut::from_u64_vec(&input[4..8]);
-        let account_tree_root = PoseidonHashOut::from_u64_vec(&input[8..12]);
-        let deposit_tree_root = Bytes32::from_u64_vec(&input[12..20]);
-        let block_hash = Bytes32::from_u64_vec(&input[20..28]);
+        let block_tree_root = PoseidonHashOut::from_u64_slice(&input[0..4]);
+        let prev_account_tree_root = PoseidonHashOut::from_u64_slice(&input[4..8]);
+        let account_tree_root = PoseidonHashOut::from_u64_slice(&input[8..12]);
+        let deposit_tree_root = Bytes32::from_u64_slice(&input[12..20]);
+        let block_hash = Bytes32::from_u64_slice(&input[20..28]);
         let block_number = input[28] as u32;
         Self {
             block_tree_root,

@@ -75,7 +75,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
                 .data
                 .verify(account_registoration_proof.clone())
                 .expect("Account registoration proof is invalid");
-            let pis = AccountTransitionPublicInputs::from_u64_vec(
+            let pis = AccountTransitionPublicInputs::from_u64_slice(
                 &account_registoration_proof.public_inputs.to_u64_vec(),
             );
             assert_eq!(pis.prev_account_tree_root, prev_account_tree_root);
@@ -93,7 +93,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
                 .data
                 .verify(account_update_proof.clone())
                 .expect("Account update proof is invalid");
-            let pis = AccountTransitionPublicInputs::from_u64_vec(
+            let pis = AccountTransitionPublicInputs::from_u64_slice(
                 &account_update_proof
                     .public_inputs
                     .iter()

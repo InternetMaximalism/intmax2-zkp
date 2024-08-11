@@ -38,9 +38,9 @@ impl Tx {
         vec
     }
 
-    pub fn from_u64_vec(input: &[u64]) -> Self {
+    pub fn from_u64_slice(input: &[u64]) -> Self {
         assert_eq!(input.len(), TX_LEN);
-        let transfer_tree_root = PoseidonHashOut::from_u64_vec(&input[0..4]);
+        let transfer_tree_root = PoseidonHashOut::from_u64_slice(&input[0..4]);
         let nonce = input[4] as u32;
         Self {
             transfer_tree_root,

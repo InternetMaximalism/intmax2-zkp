@@ -56,14 +56,14 @@ pub struct TxInclusionPublicInputs {
 }
 
 impl TxInclusionPublicInputs {
-    pub fn from_u64_vec(input: &[u64]) -> Self {
+    pub fn from_u64_slice(input: &[u64]) -> Self {
         assert_eq!(input.len(), TX_INCLUSION_PUBLIC_INPUTS_LEN);
-        let prev_public_state = PublicState::from_u64_vec(&input[0..PUBLIC_STATE_LEN]);
+        let prev_public_state = PublicState::from_u64_slice(&input[0..PUBLIC_STATE_LEN]);
         let new_public_state =
-            PublicState::from_u64_vec(&input[PUBLIC_STATE_LEN..PUBLIC_STATE_LEN * 2]);
+            PublicState::from_u64_slice(&input[PUBLIC_STATE_LEN..PUBLIC_STATE_LEN * 2]);
         let pubkey =
-            U256::from_u64_vec(&input[PUBLIC_STATE_LEN * 2..PUBLIC_STATE_LEN * 2 + U256_LEN]);
-        let tx = Tx::from_u64_vec(
+            U256::from_u64_slice(&input[PUBLIC_STATE_LEN * 2..PUBLIC_STATE_LEN * 2 + U256_LEN]);
+        let tx = Tx::from_u64_slice(
             &input[PUBLIC_STATE_LEN * 2 + U256_LEN..PUBLIC_STATE_LEN * 2 + U256_LEN + TX_LEN],
         );
         let is_valid = input[PUBLIC_STATE_LEN * 2 + U256_LEN + TX_LEN] == 1;
@@ -161,7 +161,7 @@ where
         validity_circuit
             .verify(validity_proof)
             .expect("validity proof is invalid");
-        let validity_pis = ValidityPublicInputs::from_u64_vec(
+        let validity_pis = ValidityPublicInputs::from_u64_slice(
             &validity_proof.public_inputs[0..VALIDITY_PUBLIC_INPUTS_LEN].to_u64_vec(),
         );
         block_merkle_proof

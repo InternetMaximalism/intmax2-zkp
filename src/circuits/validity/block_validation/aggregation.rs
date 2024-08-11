@@ -48,10 +48,10 @@ pub struct AggregationPublicInputsTarget {
 }
 
 impl AggregationPublicInputs {
-    pub fn from_u64_vec(input: &[u64]) -> Self {
+    pub fn from_u64_slice(input: &[u64]) -> Self {
         assert_eq!(input.len(), AGGREGATION_PUBLIC_INPUTS_LEN);
-        let pubkey_commitment = PoseidonHashOut::from_u64_vec(&input[0..4]);
-        let signature_commitment = PoseidonHashOut::from_u64_vec(&input[4..8]);
+        let pubkey_commitment = PoseidonHashOut::from_u64_slice(&input[0..4]);
+        let signature_commitment = PoseidonHashOut::from_u64_slice(&input[4..8]);
         let is_valid = input[8] == 1;
         Self {
             pubkey_commitment,

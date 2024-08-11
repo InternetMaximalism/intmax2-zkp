@@ -21,7 +21,7 @@ pub(crate) struct AccountTransitionPublicInputsTarget {
 }
 
 impl AccountTransitionPublicInputs {
-    pub(crate) fn from_u64_vec(input: &[u64]) -> Self {
+    pub(crate) fn from_u64_slice(input: &[u64]) -> Self {
         assert_eq!(input.len(), ACCOUNT_TRANSITION_PUBLIC_INPUTS_LEN);
         let prev_account_tree_root = PoseidonHashOut {
             elements: input[0..4].try_into().unwrap(),

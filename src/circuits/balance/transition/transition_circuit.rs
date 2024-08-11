@@ -124,7 +124,7 @@ where
                     .data
                     .verify(receive_deposit_proof.clone())
                     .expect("receive_deposit_proof is invalid");
-                let pis = ReceiveDepositPublicInputs::from_u64_vec(
+                let pis = ReceiveDepositPublicInputs::from_u64_slice(
                     &receive_deposit_proof
                         .public_inputs
                         .iter()
@@ -150,7 +150,7 @@ where
                     .verify(update_proof.clone())
                     .expect("update_proof is invalid");
                 let pis =
-                    UpdatePublicInputs::from_u64_vec(&update_proof.public_inputs.to_u64_vec());
+                    UpdatePublicInputs::from_u64_slice(&update_proof.public_inputs.to_u64_vec());
                 assert_eq!(pis.prev_public_state, prev_balance_pis.public_state);
                 BalancePublicInputs {
                     public_state: pis.new_public_state,
@@ -163,7 +163,7 @@ where
                     .data
                     .verify(sender_proof.clone())
                     .expect("sender_proof is invalid");
-                let pis = SenderPublicInputs::from_u64_vec(
+                let pis = SenderPublicInputs::from_u64_slice(
                     &sender_proof
                         .public_inputs
                         .iter()

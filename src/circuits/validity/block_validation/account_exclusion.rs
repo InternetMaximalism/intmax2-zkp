@@ -46,10 +46,10 @@ pub struct AccountExclusionPublicInputsTarget {
 }
 
 impl AccountExclusionPublicInputs {
-    pub fn from_u64_vec(input: &[u64]) -> Self {
+    pub fn from_u64_slice(input: &[u64]) -> Self {
         assert_eq!(input.len(), ACCOUNT_EXCLUSION_PUBLIC_INPUTS_LEN);
-        let account_tree_root = PoseidonHashOut::from_u64_vec(&input[0..4]);
-        let pubkey_commitment = PoseidonHashOut::from_u64_vec(&input[4..8]);
+        let account_tree_root = PoseidonHashOut::from_u64_slice(&input[0..4]);
+        let pubkey_commitment = PoseidonHashOut::from_u64_slice(&input[4..8]);
         let is_valid = input[8] == 1;
         Self {
             account_tree_root,

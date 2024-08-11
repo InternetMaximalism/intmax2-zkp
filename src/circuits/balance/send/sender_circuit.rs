@@ -54,10 +54,12 @@ impl SenderPublicInputs {
         vec
     }
 
-    pub fn from_u64_vec(vec: &[u64]) -> Self {
+    pub fn from_u64_slice(vec: &[u64]) -> Self {
         assert_eq!(vec.len(), SENDER_PUBLIC_INPUTS_LEN);
-        let prev_balance_pis = BalancePublicInputs::from_u64_vec(&vec[..BALANCE_PUBLIC_INPUTS_LEN]);
-        let new_balance_pis = BalancePublicInputs::from_u64_vec(&vec[BALANCE_PUBLIC_INPUTS_LEN..]);
+        let prev_balance_pis =
+            BalancePublicInputs::from_u64_slice(&vec[..BALANCE_PUBLIC_INPUTS_LEN]);
+        let new_balance_pis =
+            BalancePublicInputs::from_u64_slice(&vec[BALANCE_PUBLIC_INPUTS_LEN..]);
         Self {
             prev_balance_pis,
             new_balance_pis,
@@ -122,7 +124,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
             .data
             .verify(tx_inclusion_proof.clone())
             .expect("invalid tx inclusion proof");
-        let spent_pis = SpentPublicInputs::from_u64_vec(
+        let spent_pis = SpentPublicInputs::from_u64_slice(
             &spent_proof
                 .public_inputs
                 .iter()
@@ -130,7 +132,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
                 .collect::<Vec<_>>(),
         );
         let tx_inclusion_pis =
-            TxInclusionPublicInputs::from_u64_vec(&tx_inclusion_proof.public_inputs.to_u64_vec());
+            TxInclusionPublicInputs::from_u64_slice(&tx_inclusion_proof.public_inputs.to_u64_vec());
         // check tx equivalence
         assert_eq!(spent_pis.tx, tx_inclusion_pis.tx);
         let is_valid = spent_pis.is_valid && tx_inclusion_pis.is_valid;

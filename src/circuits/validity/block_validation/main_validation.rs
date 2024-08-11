@@ -84,14 +84,14 @@ pub struct MainValidationPublicInputsTarget {
 }
 
 impl MainValidationPublicInputs {
-    pub fn from_u64_vec(input: &[u64]) -> Self {
+    pub fn from_u64_slice(input: &[u64]) -> Self {
         assert_eq!(input.len(), MAIN_VALIDATION_PUBLIC_INPUT_LEN);
-        let prev_block_hash = Bytes32::from_u64_vec(&input[0..8]);
-        let block_hash = Bytes32::from_u64_vec(&input[8..16]);
-        let deposit_tree_root = Bytes32::from_u64_vec(&input[16..24]);
-        let account_tree_root = PoseidonHashOut::from_u64_vec(&input[24..28]);
-        let tx_tree_root = Bytes32::from_u64_vec(&input[28..36]);
-        let sender_tree_root = PoseidonHashOut::from_u64_vec(&input[36..40]);
+        let prev_block_hash = Bytes32::from_u64_slice(&input[0..8]);
+        let block_hash = Bytes32::from_u64_slice(&input[8..16]);
+        let deposit_tree_root = Bytes32::from_u64_slice(&input[16..24]);
+        let account_tree_root = PoseidonHashOut::from_u64_slice(&input[24..28]);
+        let tx_tree_root = Bytes32::from_u64_slice(&input[28..36]);
+        let sender_tree_root = PoseidonHashOut::from_u64_slice(&input[36..40]);
         let block_number = input[40] as u32;
         let is_registoration_block = input[41] == 1;
         let is_valid = input[42] == 1;
@@ -270,7 +270,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
                 .data
                 .verify(account_exclusion_proof.clone())
                 .expect("account exclusion proof verification failed");
-            let pis = AccountExclusionPublicInputs::from_u64_vec(
+            let pis = AccountExclusionPublicInputs::from_u64_slice(
                 &account_exclusion_proof.public_inputs.to_u64_vec(),
             );
             assert_eq!(
@@ -291,7 +291,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
                 .data
                 .verify(account_inclusion_proof.clone())
                 .expect("account inclusion proof verification failed");
-            let pis = AccountInclusionPublicInputs::from_u64_vec(
+            let pis = AccountInclusionPublicInputs::from_u64_slice(
                 &account_inclusion_proof
                     .public_inputs
                     .into_iter()
@@ -318,7 +318,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
             .data
             .verify(format_validation_proof.clone())
             .expect("format validation proof verification failed");
-        let format_validation_pis = FormatValidationPublicInputs::from_u64_vec(
+        let format_validation_pis = FormatValidationPublicInputs::from_u64_slice(
             &format_validation_proof.public_inputs.to_u64_vec(),
         );
         assert_eq!(
@@ -340,7 +340,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
                 .data
                 .verify(aggregation_proof.clone())
                 .unwrap();
-            let pis = AggregationPublicInputs::from_u64_vec(
+            let pis = AggregationPublicInputs::from_u64_slice(
                 &aggregation_proof
                     .public_inputs
                     .into_iter()

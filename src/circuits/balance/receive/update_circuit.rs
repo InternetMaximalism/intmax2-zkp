@@ -63,12 +63,12 @@ impl UpdatePublicInputs {
         vec
     }
 
-    pub fn from_u64_vec(input: &[u64]) -> Self {
+    pub fn from_u64_slice(input: &[u64]) -> Self {
         assert_eq!(input.len(), UPDATE_PUBLIC_INPUTS_LEN);
-        let pubkey = U256::from_u64_vec(&input[0..U256_LEN]);
+        let pubkey = U256::from_u64_slice(&input[0..U256_LEN]);
         let prev_public_state =
-            PublicState::from_u64_vec(&input[U256_LEN..U256_LEN + PUBLIC_STATE_LEN]);
-        let new_public_state = PublicState::from_u64_vec(&input[U256_LEN + PUBLIC_STATE_LEN..]);
+            PublicState::from_u64_slice(&input[U256_LEN..U256_LEN + PUBLIC_STATE_LEN]);
+        let new_public_state = PublicState::from_u64_slice(&input[U256_LEN + PUBLIC_STATE_LEN..]);
         UpdatePublicInputs {
             pubkey,
             prev_public_state,
