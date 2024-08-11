@@ -250,7 +250,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
             assert!(is_pubkey_eq, "pubkey hash mismatch");
         } else {
             // In the account id case, The value of signature.pubkey_hash can be freely chosen by
-            // the block builder, so it should not be constrained to match in the circuit.
+            // the block builder, so it should not be constrained in the circuit.
             result = result && is_pubkey_eq;
         }
 
