@@ -10,9 +10,8 @@ intmax2-zkp is the main repository for Zero-Knowledge Proof circuits of Intmax2,
 Intmax2 is a cutting-edge Zero-Knowledge rollup protocol designed to achieve scalable blockchain performance with minimal data and computational requirements on the underlying blockchain. Key features include:
 
 - Stateless and permissionless block production
-- Client-side focused data and computational costs
-- Distribution of data availability to senders
-- Highly scalable architecture accommodating a large number of users
+- Client-side Zero-Knowledge Proofs for user balances
+- Client-side data availability
 
 ## Circuit Descriptions
 
