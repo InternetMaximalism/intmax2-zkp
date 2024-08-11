@@ -61,7 +61,7 @@ impl Withdrawal {
 
     pub fn hash_with_prev_hash(&self, prev_withdrawal_hash: Bytes32) -> Bytes32 {
         let input = vec![prev_withdrawal_hash.to_u32_vec(), self.to_u32_vec()].concat();
-        Bytes32::from_slice(&solidity_keccak256(&input))
+        Bytes32::from_u32_slice(&solidity_keccak256(&input))
     }
 
     pub fn rand<R: rand::Rng>(rng: &mut R) -> Self {

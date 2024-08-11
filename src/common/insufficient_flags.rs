@@ -55,7 +55,7 @@ impl U32LimbTrait<INSUFFICIENT_FLAGS_LEN> for InsufficientFlags {
         self.limbs.to_vec()
     }
 
-    fn from_slice(limbs: &[u32]) -> Self {
+    fn from_u32_slice(limbs: &[u32]) -> Self {
         assert_eq!(limbs.len(), INSUFFICIENT_FLAGS_LEN);
         Self {
             limbs: limbs.try_into().unwrap(),

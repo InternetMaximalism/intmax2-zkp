@@ -60,7 +60,7 @@ impl U32LimbTrait<ACCOUNT_ID_PACKED_LEN> for AccountIdPacked {
         self.limbs.to_vec()
     }
 
-    fn from_slice(limbs: &[u32]) -> Self {
+    fn from_u32_slice(limbs: &[u32]) -> Self {
         Self {
             limbs: limbs.try_into().unwrap(),
         }
@@ -105,7 +105,7 @@ impl AccountIdPacked {
     }
 
     pub fn hash(&self) -> Bytes32 {
-        Bytes32::from_slice(&solidity_keccak256(&self.to_u32_vec()))
+        Bytes32::from_u32_slice(&solidity_keccak256(&self.to_u32_vec()))
     }
 }
 

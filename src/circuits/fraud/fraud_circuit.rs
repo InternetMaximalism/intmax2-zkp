@@ -49,7 +49,7 @@ impl FraudProofPublicInputs {
     }
 
     pub fn hash(&self) -> Bytes32 {
-        Bytes32::from_slice(&solidity_keccak256(&self.to_u32_vec()))
+        Bytes32::from_u32_slice(&solidity_keccak256(&self.to_u32_vec()))
     }
 }
 

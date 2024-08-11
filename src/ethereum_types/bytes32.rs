@@ -50,13 +50,13 @@ impl<'de> Deserialize<'de> for Bytes32 {
 
 impl From<U256> for Bytes32 {
     fn from(value: U256) -> Self {
-        Bytes32::from_slice(&value.to_u32_vec())
+        Bytes32::from_u32_slice(&value.to_u32_vec())
     }
 }
 
 impl From<Bytes32> for U256 {
     fn from(value: Bytes32) -> Self {
-        U256::from_slice(&value.to_u32_vec())
+        U256::from_u32_slice(&value.to_u32_vec())
     }
 }
 
@@ -65,7 +65,7 @@ impl U32LimbTrait<BYTES32_LEN> for Bytes32 {
         self.limbs.to_vec()
     }
 
-    fn from_slice(limbs: &[u32]) -> Self {
+    fn from_u32_slice(limbs: &[u32]) -> Self {
         Self {
             limbs: limbs.try_into().unwrap(),
         }

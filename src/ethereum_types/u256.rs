@@ -156,7 +156,7 @@ impl U32LimbTrait<U256_LEN> for U256 {
     fn to_u32_vec(&self) -> Vec<u32> {
         self.limbs.to_vec()
     }
-    fn from_slice(limbs: &[u32]) -> Self {
+    fn from_u32_slice(limbs: &[u32]) -> Self {
         Self {
             limbs: limbs.try_into().unwrap(),
         }
@@ -169,7 +169,7 @@ impl U256 {
         let mut limbs = rng.gen::<[u32; 6]>().to_vec();
         limbs.resize(U256_LEN, 0);
         limbs.reverse();
-        Self::from_slice(&limbs)
+        Self::from_u32_slice(&limbs)
     }
 }
 
@@ -365,17 +365,17 @@ mod tests {
 
     #[test]
     fn u256_order() {
-        let a = U256::from_slice(&[0, 0, 0, 0, 2, 0, 0, 0]);
-        let b = U256::from_slice(&[0, 0, 0, 1, 1, 0, 0, 0]);
+        let a = U256::from_u32_slice(&[0, 0, 0, 0, 2, 0, 0, 0]);
+        let b = U256::from_u32_slice(&[0, 0, 0, 1, 1, 0, 0, 0]);
         assert!(a < b);
     }
 
     #[test]
     fn u256_add_sub() {
-        let a = U256::from_slice(&[0, 0, 0, 1, 2, 0, 0, 0]);
-        let b = U256::from_slice(&[0, 0, 0, 0, u32::MAX, 0, 0, 0]);
-        let c = U256::from_slice(&[0, 0, 0, 2, 1, 0, 0, 0]);
-        let d = U256::from_slice(&[0, 0, 0, 0, 3, 0, 0, 0]);
+        let a = U256::from_u32_slice(&[0, 0, 0, 1, 2, 0, 0, 0]);
+        let b = U256::from_u32_slice(&[0, 0, 0, 0, u32::MAX, 0, 0, 0]);
+        let c = U256::from_u32_slice(&[0, 0, 0, 2, 1, 0, 0, 0]);
+        let d = U256::from_u32_slice(&[0, 0, 0, 0, 3, 0, 0, 0]);
         assert_eq!(a + b, c);
         assert_eq!(a - b, d);
     }
@@ -383,16 +383,16 @@ mod tests {
     #[test]
     #[should_panic]
     fn u256_sub_underflow() {
-        let a = U256::from_slice(&[0, 0, 0, 1, 2, 0, 0, 0]);
-        let b = U256::from_slice(&[0, 0, 0, 0, u32::MAX, 0, 0, 0]);
+        let a = U256::from_u32_slice(&[0, 0, 0, 1, 2, 0, 0, 0]);
+        let b = U256::from_u32_slice(&[0, 0, 0, 0, u32::MAX, 0, 0, 0]);
 
         _ = b - a;
     }
 
     #[test]
     fn u256_le() {
-        let a = U256::from_slice(&[0, 0, 0, 1, 2, 0, 0, 0]);
-        let b = U256::from_slice(&[0, 0, 0, 0, u32::MAX, 0, 0, 0]);
+        let a = U256::from_u32_slice(&[0, 0, 0, 1, 2, 0, 0, 0]);
+        let b = U256::from_u32_slice(&[0, 0, 0, 0, u32::MAX, 0, 0, 0]);
 
         let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::default());
         let a_t = U256Target::constant(&mut builder, a);
