@@ -41,7 +41,7 @@ where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
 {
-    data: CircuitData<F, C, D>,
+    pub data: CircuitData<F, C, D>,
     is_first_step: BoolTarget,
     transition_proof: ProofWithPublicInputsTarget<D>,
     prev_proof: ProofWithPublicInputsTarget<D>,
