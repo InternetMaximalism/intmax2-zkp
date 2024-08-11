@@ -1,6 +1,6 @@
 use crate::{
     common::trees::{
-        account_tree::{AccountRegistorationProof, AccountUpdateProof},
+        account_tree::{AccountregistrationProof, AccountUpdateProof},
         block_hash_tree::{BlockHashMerkleProof, BlockHashTree},
         sender_tree::SenderLeaf,
     },
@@ -13,7 +13,7 @@ use crate::{
 pub struct ValidityTransitionWitness {
     pub sender_leaves: Vec<SenderLeaf>,
     pub block_merkle_proof: BlockHashMerkleProof,
-    pub account_registration_proofs: Option<Vec<AccountRegistorationProof>>,
+    pub account_registration_proofs: Option<Vec<AccountregistrationProof>>,
     pub account_update_proofs: Option<Vec<AccountUpdateProof>>,
 }
 

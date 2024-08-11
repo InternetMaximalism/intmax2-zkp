@@ -31,7 +31,7 @@ use crate::{
 };
 
 use super::{
-    account_registoration::AccountRegistorationCircuit,
+    account_registration::AccountregistrationCircuit,
     account_transition_pis::AccountTransitionPublicInputsTarget,
     account_update::AccountUpdateCircuit,
 };
@@ -46,7 +46,7 @@ pub(crate) struct ValidityTransitionValue<
     pub(crate) new_block_tree_root: PoseidonHashOut,
     pub(crate) prev_account_tree_root: PoseidonHashOut,
     pub(crate) new_account_tree_root: PoseidonHashOut,
-    pub(crate) account_registoration_proof: Option<ProofWithPublicInputs<F, C, D>>,
+    pub(crate) account_registration_proof: Option<ProofWithPublicInputs<F, C, D>>,
     pub(crate) account_update_proof: Option<ProofWithPublicInputs<F, C, D>>,
     pub(crate) block_hash_merkle_proof: BlockHashMerkleProof,
 }
@@ -55,28 +55,28 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     ValidityTransitionValue<F, C, D>
 {
     pub(crate) fn new(
-        account_registoration_circuit: &AccountRegistorationCircuit<F, C, D>,
+        account_registration_circuit: &AccountregistrationCircuit<F, C, D>,
         account_update_circuit: &AccountUpdateCircuit<F, C, D>,
         block_pis: MainValidationPublicInputs,
         prev_account_tree_root: PoseidonHashOut,
         prev_block_tree_root: PoseidonHashOut,
-        account_registoration_proof: Option<ProofWithPublicInputs<F, C, D>>,
+        account_registration_proof: Option<ProofWithPublicInputs<F, C, D>>,
         account_update_proof: Option<ProofWithPublicInputs<F, C, D>>,
         block_hash_merkle_proof: BlockHashMerkleProof,
     ) -> Self {
-        // account registoration
-        let is_account_registoration = block_pis.is_registoration_block && block_pis.is_valid;
+        // account registration
+        let is_account_registration = block_pis.is_registration_block && block_pis.is_valid;
         let mut new_account_tree_root = prev_account_tree_root;
-        if is_account_registoration {
-            let account_registoration_proof = account_registoration_proof
+        if is_account_registration {
+            let account_registration_proof = account_registration_proof
                 .clone()
-                .expect("Account registoration proof is missing");
-            account_registoration_circuit
+                .expect("Account registration proof is missing");
+            account_registration_circuit
                 .data
-                .verify(account_registoration_proof.clone())
-                .expect("Account registoration proof is invalid");
+                .verify(account_registration_proof.clone())
+                .expect("Account registration proof is invalid");
             let pis = AccountTransitionPublicInputs::from_u64_slice(
-                &account_registoration_proof.public_inputs.to_u64_vec(),
+                &account_registration_proof.public_inputs.to_u64_vec(),
             );
             assert_eq!(pis.prev_account_tree_root, prev_account_tree_root);
             assert_eq!(pis.sender_tree_root, block_pis.sender_tree_root);
@@ -84,7 +84,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
             new_account_tree_root = pis.new_account_tree_root;
         }
 
-        let is_account_update = (!block_pis.is_registoration_block) && block_pis.is_valid;
+        let is_account_update = (!block_pis.is_registration_block) && block_pis.is_valid;
         if is_account_update {
             let account_update_proof = account_update_proof
                 .clone()
@@ -124,7 +124,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
             new_block_tree_root,
             prev_account_tree_root,
             new_account_tree_root,
-            account_registoration_proof,
+            account_registration_proof,
             account_update_proof,
             block_hash_merkle_proof,
         }
@@ -137,14 +137,14 @@ pub(crate) struct ValidityTransitionTarget<const D: usize> {
     pub(crate) new_block_tree_root: PoseidonHashOutTarget,
     pub(crate) prev_account_tree_root: PoseidonHashOutTarget,
     pub(crate) new_account_tree_root: PoseidonHashOutTarget,
-    pub(crate) account_registoration_proof: ProofWithPublicInputsTarget<D>,
+    pub(crate) account_registration_proof: ProofWithPublicInputsTarget<D>,
     pub(crate) account_update_proof: ProofWithPublicInputsTarget<D>,
     pub(crate) block_hash_merkle_proof: BlockHashMerkleProofTarget,
 }
 
 impl<const D: usize> ValidityTransitionTarget<D> {
     pub(crate) fn new<F: RichField + Extendable<D>, C: GenericConfig<D, F = F> + 'static>(
-        account_registoration_circuit: &AccountRegistorationCircuit<F, C, D>,
+        account_registration_circuit: &AccountregistrationCircuit<F, C, D>,
         account_update_circuit: &AccountUpdateCircuit<F, C, D>,
         builder: &mut CircuitBuilder<F, D>,
     ) -> Self
@@ -159,38 +159,34 @@ impl<const D: usize> ValidityTransitionTarget<D> {
             BlockHashMerkleProofTarget::new(builder, BLOCK_HASH_TREE_HEIGHT);
 
         let mut new_account_tree_root = prev_account_tree_root;
-        // account registoration
-        let is_account_registoration =
-            builder.and(block_pis.is_registoration_block, block_pis.is_valid);
-        let account_registoration_proof = account_registoration_circuit
-            .add_proof_target_and_conditionally_verify(builder, is_account_registoration);
-        let account_registoration_pis = AccountTransitionPublicInputsTarget::from_slice(
-            &account_registoration_proof.public_inputs,
+        // account registration
+        let is_account_registration =
+            builder.and(block_pis.is_registration_block, block_pis.is_valid);
+        let account_registration_proof = account_registration_circuit
+            .add_proof_target_and_conditionally_verify(builder, is_account_registration);
+        let account_registration_pis = AccountTransitionPublicInputsTarget::from_slice(
+            &account_registration_proof.public_inputs,
         );
-        account_registoration_pis
+        account_registration_pis
             .prev_account_tree_root
-            .conditional_assert_eq(builder, prev_account_tree_root, is_account_registoration);
-        account_registoration_pis
+            .conditional_assert_eq(builder, prev_account_tree_root, is_account_registration);
+        account_registration_pis
             .sender_tree_root
-            .conditional_assert_eq(
-                builder,
-                block_pis.sender_tree_root,
-                is_account_registoration,
-            );
+            .conditional_assert_eq(builder, block_pis.sender_tree_root, is_account_registration);
         builder.conditional_assert_eq(
-            is_account_registoration.target,
-            account_registoration_pis.block_number,
+            is_account_registration.target,
+            account_registration_pis.block_number,
             block_pis.block_number,
         );
         new_account_tree_root = PoseidonHashOutTarget::select(
             builder,
-            is_account_registoration,
-            account_registoration_pis.new_account_tree_root,
+            is_account_registration,
+            account_registration_pis.new_account_tree_root,
             new_account_tree_root,
         );
         // account update
-        let is_not_prev_registoration_block = builder.not(block_pis.is_registoration_block);
-        let is_account_update = builder.and(is_not_prev_registoration_block, block_pis.is_valid);
+        let is_not_prev_registration_block = builder.not(block_pis.is_registration_block);
+        let is_account_update = builder.and(is_not_prev_registration_block, block_pis.is_valid);
         let account_update_proof = account_update_circuit
             .add_proof_target_and_conditionally_verify(builder, is_account_update);
         let account_update_pis =
@@ -235,7 +231,7 @@ impl<const D: usize> ValidityTransitionTarget<D> {
             prev_block_tree_root,
             new_block_tree_root,
             new_account_tree_root,
-            account_registoration_proof,
+            account_registration_proof,
             account_update_proof,
             block_hash_merkle_proof,
         }
@@ -248,7 +244,7 @@ impl<const D: usize> ValidityTransitionTarget<D> {
     >(
         &self,
         witness: &mut W,
-        account_registoration_proof_dummy: DummyProof<F, C, D>,
+        account_registration_proof_dummy: DummyProof<F, C, D>,
         account_update_proof_dummy: DummyProof<F, C, D>,
         value: &ValidityTransitionValue<F, C, D>,
     ) where
@@ -263,13 +259,13 @@ impl<const D: usize> ValidityTransitionTarget<D> {
             .set_witness(witness, value.new_account_tree_root);
         self.new_block_tree_root
             .set_witness(witness, value.new_block_tree_root);
-        let account_registoration_proof = value
-            .account_registoration_proof
+        let account_registration_proof = value
+            .account_registration_proof
             .clone()
-            .unwrap_or(account_registoration_proof_dummy.proof);
+            .unwrap_or(account_registration_proof_dummy.proof);
         witness.set_proof_with_pis_target(
-            &self.account_registoration_proof,
-            &account_registoration_proof,
+            &self.account_registration_proof,
+            &account_registration_proof,
         );
         let account_update_proof = value
             .account_update_proof
@@ -294,7 +290,7 @@ mod tests {
 
     use crate::{
         circuits::validity::transition::{
-            account_registoration::{AccountRegistorationCircuit, AccountRegistorationValue},
+            account_registration::{AccountregistrationCircuit, AccountregistrationValue},
             account_update::AccountUpdateCircuit,
             transition::{ValidityTransitionTarget, ValidityTransitionValue},
         },
@@ -313,14 +309,14 @@ mod tests {
         let validity_witness =
             block_builder.post_block(true, generate_random_tx_requests(&mut rng));
 
-        let account_registoration_circuit = AccountRegistorationCircuit::<F, C, D>::new();
+        let account_registration_circuit = AccountregistrationCircuit::<F, C, D>::new();
         let account_update_circuit = AccountUpdateCircuit::<F, C, D>::new();
 
         let block_pis = validity_witness.block_witness.to_main_validation_pis();
         let prev_block_tree_root = validity_witness.block_witness.prev_block_tree_root;
         let prev_account_tree_root = validity_witness.block_witness.prev_account_tree_root;
         let transition_witness = validity_witness.validity_transition_witness.clone();
-        let account_registoration_value = AccountRegistorationValue::new(
+        let account_registration_value = AccountregistrationValue::new(
             prev_account_tree_root,
             block_pis.block_number,
             transition_witness.sender_leaves,
@@ -329,24 +325,24 @@ mod tests {
                 .clone()
                 .unwrap(),
         );
-        let account_registoration_proof = account_registoration_circuit
-            .prove(&account_registoration_value)
+        let account_registration_proof = account_registration_circuit
+            .prove(&account_registration_value)
             .unwrap();
 
         let value = ValidityTransitionValue::new(
-            &account_registoration_circuit,
+            &account_registration_circuit,
             &account_update_circuit,
             block_pis,
             prev_account_tree_root,
             prev_block_tree_root,
-            Some(account_registoration_proof),
+            Some(account_registration_proof),
             None,
             transition_witness.block_merkle_proof,
         );
 
         let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::default());
         let target = ValidityTransitionTarget::new(
-            &account_registoration_circuit,
+            &account_registration_circuit,
             &account_update_circuit,
             &mut builder,
         );
@@ -355,7 +351,7 @@ mod tests {
         let mut pw = PartialWitness::new();
         target.set_witness(
             &mut pw,
-            account_registoration_circuit.dummy_proof.clone(),
+            account_registration_circuit.dummy_proof.clone(),
             account_update_circuit.dummy_proof.clone(),
             &value,
         );

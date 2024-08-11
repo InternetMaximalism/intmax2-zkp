@@ -29,7 +29,7 @@ impl SignatureContent {
         let pubkey_hash = get_pubkey_hash(&pubkeys);
         let account_id_hash = Bytes32::rand(rng);
         let tx_tree_root = Bytes32::rand(rng);
-        let is_registoration_block = rng.gen();
+        let is_registration_block = rng.gen();
         let sender_flag = Bytes16::rand(rng);
         let sender_flag_bits = sender_flag.to_bits_be();
         let agg_pubkey = key_sets
@@ -73,7 +73,7 @@ impl SignatureContent {
         );
         let signature = Self {
             tx_tree_root,
-            is_registoration_block,
+            is_registration_block,
             sender_flag,
             pubkey_hash,
             account_id_hash,

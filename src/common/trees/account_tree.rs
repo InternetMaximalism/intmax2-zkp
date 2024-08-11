@@ -34,8 +34,8 @@ pub type AccountTree = IndexedMerkleTree;
 pub type AccountMembershipProof = MembershipProof;
 pub type AccountMembershipProofTarget = MembershipProofTarget;
 
-pub type AccountRegistorationProof = IndexedInsertionProof;
-pub type AccountRegistorationProofTarget = IndexedInsertionProofTarget;
+pub type AccountregistrationProof = IndexedInsertionProof;
+pub type AccountregistrationProofTarget = IndexedInsertionProofTarget;
 pub type AccountUpdateProof = UpdateProof;
 pub type AccountUpdateProofTarget = UpdateProofTarget;
 

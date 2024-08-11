@@ -66,7 +66,7 @@ impl BlockWitness {
                 tx_tree_root: validity_pis.tx_tree_root,
                 sender_tree_root: validity_pis.sender_tree_root,
                 block_number: validity_pis.public_state.block_number,
-                is_registoration_block: false, // genesis block is not a registration block
+                is_registration_block: false, // genesis block is not a registration block
                 is_valid: validity_pis.is_valid_block,
             };
         }
@@ -78,14 +78,14 @@ impl BlockWitness {
         let account_tree_root = self.prev_account_tree_root;
 
         let pubkey_hash = get_pubkey_hash(&pubkeys);
-        let is_registoration_block = signature.is_registoration_block;
+        let is_registration_block = signature.is_registration_block;
         let is_pubkey_eq = signature.pubkey_hash == pubkey_hash;
-        if is_registoration_block {
+        if is_registration_block {
             assert!(is_pubkey_eq, "pubkey hash mismatch");
         } else {
             result = result && is_pubkey_eq;
         }
-        if is_registoration_block {
+        if is_registration_block {
             // Account exclusion verification
             let account_exclusion_value = AccountExclusionValue::new(
                 account_tree_root,
@@ -127,7 +127,7 @@ impl BlockWitness {
             tx_tree_root,
             sender_tree_root,
             block_number: block.block_number,
-            is_registoration_block,
+            is_registration_block,
             is_valid: result,
         }
     }
@@ -160,7 +160,7 @@ pub struct FullBlock {
 
 impl BlockWitness {
     pub fn to_full_block(&self) -> FullBlock {
-        let pubkeys = if self.signature.is_registoration_block {
+        let pubkeys = if self.signature.is_registration_block {
             let pubkey_trimmed_dummy = self
                 .pubkeys
                 .iter()

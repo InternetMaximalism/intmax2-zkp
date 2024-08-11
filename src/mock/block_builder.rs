@@ -9,7 +9,7 @@ use crate::{
             SignatureContent,
         },
         trees::{
-            account_tree::{AccountMembershipProof, AccountRegistorationProof, AccountTree},
+            account_tree::{AccountMembershipProof, AccountregistrationProof, AccountTree},
             block_hash_tree::{BlockHashMerkleProof, BlockHashTree},
             deposit_tree::DepositTree,
             sender_tree::get_sender_leaves,
@@ -90,7 +90,7 @@ impl MockBlockBuilder {
 impl MockBlockBuilder {
     fn generate_block(
         &self,
-        is_registoration_block: bool,
+        is_registration_block: bool,
         txs: Vec<MockTxRequest>,
     ) -> (BlockWitness, TxTree) {
         assert!(txs.len() > 0, "at least one tx is required");
@@ -108,7 +108,7 @@ impl MockBlockBuilder {
 
         // account lookup
         let (account_id_packed, account_merkle_proofs, account_membership_proofs) =
-            if is_registoration_block {
+            if is_registration_block {
                 let mut account_membership_proofs = Vec::new();
                 for pubkey in pubkeys.iter() {
                     let is_dummy = pubkey.is_dummy_pubkey();
@@ -145,7 +145,7 @@ impl MockBlockBuilder {
             tx_tree_root,
             pubkey_hash,
             account_id_hash,
-            is_registoration_block,
+            is_registration_block,
             &sorted_txs,
         );
         let signature_hash = signature.hash();
@@ -201,7 +201,7 @@ impl MockBlockBuilder {
         let block_pis = block_witness.to_main_validation_pis();
 
         let account_registration_proofs = {
-            if block_pis.is_valid && block_pis.is_registoration_block {
+            if block_pis.is_valid && block_pis.is_registration_block {
                 let mut account_registration_proofs = Vec::new();
                 for sender_leaf in &sender_leaves {
                     let last_block_number = if sender_leaf.is_valid {
@@ -211,7 +211,7 @@ impl MockBlockBuilder {
                     };
                     let is_dummy_pubkey = sender_leaf.sender.is_dummy_pubkey();
                     let proof = if is_dummy_pubkey {
-                        AccountRegistorationProof::dummy(ACCOUNT_TREE_HEIGHT)
+                        AccountregistrationProof::dummy(ACCOUNT_TREE_HEIGHT)
                     } else {
                         self.account_tree
                             .prove_and_insert(sender_leaf.sender, last_block_number as u64)
@@ -226,7 +226,7 @@ impl MockBlockBuilder {
         };
 
         let account_update_proofs = {
-            if block_pis.is_valid && (!block_pis.is_registoration_block) {
+            if block_pis.is_valid && (!block_pis.is_registration_block) {
                 let mut account_update_proofs = Vec::new();
                 let block_number = block_pis.block_number;
                 for sender_leaf in sender_leaves.iter() {
@@ -262,10 +262,10 @@ impl MockBlockBuilder {
 
     pub fn post_block(
         &mut self,
-        is_registoration_block: bool,
+        is_registration_block: bool,
         txs: Vec<MockTxRequest>,
     ) -> ValidityWitness {
-        let (block_witness, tx_tree) = self.generate_block(is_registoration_block, txs);
+        let (block_witness, tx_tree) = self.generate_block(is_registration_block, txs);
         let validity_witness = self.generate_validity_witness(&block_witness);
         self.aux_info.insert(
             block_witness.block.block_number,
@@ -335,7 +335,7 @@ fn construct_signature(
     tx_tree_root: Bytes32,
     pubkey_hash: Bytes32,
     account_id_hash: Bytes32,
-    is_registoration_block: bool,
+    is_registration_block: bool,
     sorted_txs: &[MockTxRequest],
 ) -> SignatureContent {
     assert_eq!(sorted_txs.len(), NUM_SENDERS_IN_BLOCK);
@@ -382,7 +382,7 @@ fn construct_signature(
     );
     SignatureContent {
         tx_tree_root,
-        is_registoration_block,
+        is_registration_block,
         sender_flag,
         pubkey_hash,
         account_id_hash,

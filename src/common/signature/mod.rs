@@ -43,7 +43,7 @@ pub const SIGNATURE_LEN: usize = 1 + BYTES16_LEN + 3 * BYTES32_LEN + 10 * U256_L
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SignatureContent {
-    pub is_registoration_block: bool,
+    pub is_registration_block: bool,
     pub tx_tree_root: Bytes32,
     pub sender_flag: Bytes16,
     pub pubkey_hash: Bytes32,
@@ -55,7 +55,7 @@ pub struct SignatureContent {
 
 #[derive(Clone, Debug)]
 pub struct SignatureContentTarget {
-    pub is_registoration_block: BoolTarget,
+    pub is_registration_block: BoolTarget,
     pub tx_tree_root: Bytes32Target,
     pub sender_flag: Bytes16Target,
     pub pubkey_hash: Bytes32Target,
@@ -68,7 +68,7 @@ pub struct SignatureContentTarget {
 impl SignatureContent {
     pub fn to_u32_vec(&self) -> Vec<u32> {
         let limbs = vec![
-            vec![self.is_registoration_block as u32],
+            vec![self.is_registration_block as u32],
             self.tx_tree_root.to_u32_vec(),
             self.sender_flag.to_u32_vec(),
             self.pubkey_hash.to_u32_vec(),
@@ -93,7 +93,7 @@ impl SignatureContent {
 impl SignatureContentTarget {
     pub fn to_vec<F: RichField>(&self) -> Vec<Target> {
         let vec = vec![
-            vec![self.is_registoration_block.target],
+            vec![self.is_registration_block.target],
             self.tx_tree_root.to_vec(),
             self.sender_flag.to_vec(),
             self.pubkey_hash.to_vec(),
@@ -111,13 +111,13 @@ impl SignatureContentTarget {
         builder: &mut CircuitBuilder<F, D>,
         is_checked: bool,
     ) -> Self {
-        let is_registoration_block = builder.add_virtual_bool_target_unsafe();
+        let is_registration_block = builder.add_virtual_bool_target_unsafe();
         if is_checked {
-            builder.assert_bool(is_registoration_block);
+            builder.assert_bool(is_registration_block);
         }
         Self {
             tx_tree_root: Bytes32Target::new(builder, is_checked),
-            is_registoration_block,
+            is_registration_block,
             sender_flag: Bytes16Target::new(builder, is_checked),
             pubkey_hash: Bytes32Target::new(builder, is_checked),
             account_id_hash: Bytes32Target::new(builder, is_checked),
@@ -133,7 +133,7 @@ impl SignatureContentTarget {
     ) -> Self {
         Self {
             tx_tree_root: Bytes32Target::constant(builder, value.tx_tree_root),
-            is_registoration_block: builder.constant_bool(value.is_registoration_block),
+            is_registration_block: builder.constant_bool(value.is_registration_block),
             sender_flag: Bytes16Target::constant(builder, value.sender_flag),
             pubkey_hash: Bytes32Target::constant(builder, value.pubkey_hash),
             account_id_hash: Bytes32Target::constant(builder, value.account_id_hash),
@@ -149,7 +149,7 @@ impl SignatureContentTarget {
         value: &SignatureContent,
     ) {
         self.tx_tree_root.set_witness(witness, value.tx_tree_root);
-        witness.set_bool_target(self.is_registoration_block, value.is_registoration_block);
+        witness.set_bool_target(self.is_registration_block, value.is_registration_block);
         self.sender_flag.set_witness(witness, value.sender_flag);
         self.pubkey_hash.set_witness(witness, value.pubkey_hash);
         self.account_id_hash
