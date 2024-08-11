@@ -416,7 +416,6 @@ mod tests {
         let instant = std::time::Instant::now();
         let _proof = circuit.prove(&value).unwrap();
         dbg!(instant.elapsed());
-        dbg!(value.insufficient_flags);
         dbg!(circuit.data.common.degree_bits());
     }
 }
