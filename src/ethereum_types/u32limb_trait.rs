@@ -15,14 +15,8 @@ use rand::Rng;
 // trait for types with u32 value limbs
 pub trait U32LimbTrait<const NUM_LIMBS: usize>: Clone + Copy {
     fn to_u32_vec(&self) -> Vec<u32>;
-    fn from_u32_slice(limbs: &[u32]) -> Self;
 
-    fn to_vec<F: Field>(&self) -> Vec<F> {
-        self.to_u32_vec()
-            .iter()
-            .map(|x| F::from_canonical_u32(*x))
-            .collect()
-    }
+    fn from_u32_slice(limbs: &[u32]) -> Self;
 
     fn to_u64_vec(&self) -> Vec<u64> {
         self.to_u32_vec().iter().map(|x| *x as u64).collect()
@@ -104,6 +98,7 @@ pub trait U32LimbTrait<const NUM_LIMBS: usize>: Clone + Copy {
 // trait for types with u32 target limbs
 pub trait U32LimbTargetTrait<const NUM_LIMBS: usize>: Clone + Copy {
     fn to_vec(&self) -> Vec<Target>;
+
     fn from_slice(limbs: &[Target]) -> Self;
 
     fn _new_unchecked<F: RichField + Extendable<D>, const D: usize>(
