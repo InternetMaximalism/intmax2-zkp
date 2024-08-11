@@ -12,6 +12,7 @@ use serde::{Deserialize, Serialize};
 
 pub const INSUFFICIENT_FLAGS_LEN: usize = NUM_TRANSFERS_IN_TX / 32;
 
+/// The insufficient flags which are used to determine if a tx is invalid or not
 #[derive(Clone, Copy, Debug, PartialEq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct InsufficientFlags {

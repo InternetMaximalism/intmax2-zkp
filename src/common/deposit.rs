@@ -26,12 +26,13 @@ use crate::{
 
 use super::salt::{Salt, SaltTarget};
 
+/// A deposit of tokens to the contract
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Deposit {
-    pub pubkey_salt_hash: Bytes32,
-    pub token_index: u32,
-    pub amount: U256,
+    pub pubkey_salt_hash: Bytes32, // The poseidon hash of the pubkey and salt, to hide the pubkey
+    pub token_index: u32,          // The index of the token
+    pub amount: U256,              // The amount of the token, which is the amount of the deposit
 }
 
 #[derive(Debug, Clone)]

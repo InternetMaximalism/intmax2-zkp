@@ -25,15 +25,16 @@ use super::{
     transfer::{Transfer, TransferTarget},
 };
 
+/// A withdrawal that is processed in the withdrawal contract.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Withdrawal {
-    pub recipient: Address,
-    pub token_index: u32,
-    pub amount: U256,
-    pub nullifier: Bytes32,
-    pub block_hash: Bytes32,
-    pub block_number: u32,
+    pub recipient: Address,  // The recipient of the withdrawal
+    pub token_index: u32,    // The index of the token
+    pub amount: U256,        // The amount of the token
+    pub nullifier: Bytes32,  // The nullifier which is used to prevent double withdrawal
+    pub block_hash: Bytes32, // The block hash of the balance proof that is used to withdraw
+    pub block_number: u32,   // The block number of the balance proof that is used to withdraw
 }
 
 pub struct WithdrawalTarget {

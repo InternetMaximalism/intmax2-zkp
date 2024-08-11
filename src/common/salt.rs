@@ -14,6 +14,7 @@ use crate::utils::poseidon_hash_out::{
 
 pub const SALT_LEN: usize = POSEIDON_HASH_OUT_LEN;
 
+/// The salt which is used to blind values
 #[derive(Debug, Clone, Copy, Default, PartialEq)]
 pub struct Salt(PoseidonHashOut);
 

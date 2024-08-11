@@ -21,13 +21,14 @@ use crate::{
 
 use super::trees::deposit_tree::DepositTree;
 
+/// A block of intmax2.
 #[derive(Clone, Default, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Block {
-    pub prev_block_hash: Bytes32,
-    pub deposit_tree_root: Bytes32,
-    pub signature_hash: Bytes32,
-    pub block_number: u32,
+    pub prev_block_hash: Bytes32,   // The hash of the previous block
+    pub deposit_tree_root: Bytes32, // The root of the deposit tree
+    pub signature_hash: Bytes32,    // The hash of the signature of the block
+    pub block_number: u32,          // The number of the block
 }
 
 #[derive(Clone, Debug)]

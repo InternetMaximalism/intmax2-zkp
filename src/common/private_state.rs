@@ -16,13 +16,15 @@ use super::{
     trees::{asset_tree::AssetTree, nullifier_tree::NullifierTree},
 };
 
+/// The part of the balance proof public input that is not disclosed to others
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PrivateState {
-    pub asset_tree_root: PoseidonHashOut,
-    pub nullifier_tree_root: PoseidonHashOut,
-    pub nonce: u32,
-    pub salt: Salt,
+    pub asset_tree_root: PoseidonHashOut, // The root of the asset tree
+    pub nullifier_tree_root: PoseidonHashOut, // The root of the nullifier tree
+    pub nonce: u32,                       /* The nonce of the account which is corresponding to
+                                           * the next tx's nonce */
+    pub salt: Salt, // The salt which is used to blind this private state
 }
 
 #[derive(Clone, Debug)]

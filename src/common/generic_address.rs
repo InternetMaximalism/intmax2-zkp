@@ -20,7 +20,7 @@ use super::signature::key_set::KeySet;
 
 pub const GENERIC_ADDRESS_LEN: usize = 1 + U256_LEN;
 
-// A structure representing a pubkey or Ethereum address
+/// A structure representing a pubkey or Ethereum address
 #[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GenericAddress {

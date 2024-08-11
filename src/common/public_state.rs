@@ -29,12 +29,12 @@ pub const PUBLIC_STATE_LEN: usize = POSEIDON_HASH_OUT_LEN * 3 + BYTES32_LEN * 2 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PublicState {
-    pub block_tree_root: PoseidonHashOut,
-    pub prev_account_tree_root: PoseidonHashOut,
-    pub account_tree_root: PoseidonHashOut,
-    pub deposit_tree_root: Bytes32,
-    pub block_hash: Bytes32,
-    pub block_number: u32,
+    pub block_tree_root: PoseidonHashOut, // The root of the block hash tree
+    pub prev_account_tree_root: PoseidonHashOut, // The previous account tree root.
+    pub account_tree_root: PoseidonHashOut, // The root of the account tree
+    pub deposit_tree_root: Bytes32,       // The root of the deposit tree
+    pub block_hash: Bytes32,              // The hash of the current block
+    pub block_number: u32,                // The number of the current block
 }
 
 impl PublicState {
