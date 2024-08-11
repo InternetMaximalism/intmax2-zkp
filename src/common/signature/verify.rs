@@ -130,7 +130,7 @@ mod tests {
             .iter()
             .map(|keyset| keyset.pubkey)
             .collect::<Vec<_>>();
-        signature.is_valid_format(&pubkeys).unwrap();
+        assert!(signature.is_valid_format(&pubkeys));
         signature.verify_aggregation(&pubkeys).unwrap();
 
         let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::default());

@@ -109,7 +109,7 @@ impl FormatValidationValue {
     pub fn new(pubkeys: Vec<U256>, signature: SignatureContent) -> Self {
         let pubkey_commitment = get_pubkey_commitment(&pubkeys);
         let signature_commitment = signature.commitment();
-        let is_valid = signature.is_valid_format(&pubkeys).is_ok();
+        let is_valid = signature.is_valid_format(&pubkeys);
         Self {
             pubkeys,
             signature,
