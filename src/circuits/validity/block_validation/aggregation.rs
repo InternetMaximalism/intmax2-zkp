@@ -18,7 +18,10 @@ use crate::{
     circuits::validity::block_validation::utils::get_pubkey_commitment_circuit,
     common::signature::{SignatureContent, SignatureContentTarget},
     constants::NUM_SENDERS_IN_BLOCK,
-    ethereum_types::{u256::{U256Target, U256}, u32limb_trait::U32LimbTargetTrait},
+    ethereum_types::{
+        u256::{U256Target, U256},
+        u32limb_trait::U32LimbTargetTrait,
+    },
     utils::{
         dummy::DummyProof,
         poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget},
@@ -104,7 +107,7 @@ impl AggregationValue {
     pub fn new(pubkeys: Vec<U256>, signature: SignatureContent) -> Self {
         let pubkey_commitment = get_pubkey_commitment(&pubkeys);
         let signature_commitment = signature.commitment();
-        let is_valid = signature.verify_aggregation(&pubkeys).is_ok();
+        let is_valid = signature.verify_aggregation(&pubkeys);
         Self {
             pubkeys,
             signature,

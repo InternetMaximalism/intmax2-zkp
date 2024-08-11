@@ -1,4 +1,3 @@
-use anyhow::{ensure, Result};
 use ark_bn254::{Fq, Fr, G1Affine};
 use ark_ec::AffineRepr as _;
 use num::BigUint;
@@ -34,7 +33,8 @@ use plonky2_bn254::utils::g1_msm::g1_msm;
 impl SignatureContent {
     /// Verify that the calculation of agg_pubkey matches.
     /// It is assumed that the format validation has already passed.
-    pub fn verify_aggregation(&self, pubkeys: &[U256]) -> Result<()> {
+    pub fn verify_aggregation(&self, pubkeys: &[U256]) -> bool {
+        let mut result = true;
         let weighted_pubkeys = pubkeys
             .iter()
             .zip(self.sender_flag.to_bits_be())
@@ -53,8 +53,8 @@ impl SignatureContent {
             .iter()
             .fold(G1Affine::zero(), |acc, x| (acc + x).into())
             .into();
-        ensure!(agg_pubkey == self.agg_pubkey, "agg_pubkey does not match");
-        Ok(())
+        result &= agg_pubkey == self.agg_pubkey;
+        result
     }
 }
 
@@ -131,7 +131,7 @@ mod tests {
             .map(|keyset| keyset.pubkey)
             .collect::<Vec<_>>();
         assert!(signature.is_valid_format(&pubkeys));
-        signature.verify_aggregation(&pubkeys).unwrap();
+        assert!(signature.verify_aggregation(&pubkeys));
 
         let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::default());
         let pubkeys_t = pubkeys
