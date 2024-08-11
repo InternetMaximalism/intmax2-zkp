@@ -56,7 +56,7 @@ impl GenericAddress {
         limbs.resize(U256_LEN, 0);
         Self {
             is_pubkey: false,
-            data: U256::from_limbs(&limbs),
+            data: U256::from_slice(&limbs),
         }
     }
 
@@ -68,7 +68,7 @@ impl GenericAddress {
     pub fn to_address(&self) -> Result<Address> {
         ensure!(!self.is_pubkey, "not an address");
         let limbs = self.data.limbs();
-        Ok(Address::from_limbs(&limbs[0..ADDRESS_LEN]))
+        Ok(Address::from_slice(&limbs[0..ADDRESS_LEN]))
     }
 
     pub fn rand_pubkey<R: Rng>(rng: &mut R) -> Self {
@@ -129,7 +129,7 @@ impl GenericAddressTarget {
     ) -> AddressTarget {
         builder.assert_zero(self.is_pubkey.target);
         let limbs = self.data.limbs();
-        AddressTarget::from_limbs(&limbs[0..ADDRESS_LEN])
+        AddressTarget::from_slice(&limbs[0..ADDRESS_LEN])
     }
 
     pub fn to_pubkey<F: RichField + Extendable<D>, const D: usize>(

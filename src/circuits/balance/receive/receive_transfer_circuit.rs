@@ -115,7 +115,7 @@ impl ReceiveTransferPublicInputsTarget {
     pub fn from_slice(config: &CircuitConfig, input: &[Target]) -> Self {
         let prev_private_commitment = PoseidonHashOutTarget::from_slice(&input[0..4]);
         let new_private_commitment = PoseidonHashOutTarget::from_slice(&input[4..8]);
-        let pubkey = U256Target::from_limbs(&input[8..16]);
+        let pubkey = U256Target::from_slice(&input[8..16]);
         let public_state = PublicStateTarget::from_slice(&input[16..16 + PUBLIC_STATE_LEN]);
         let balance_circuit_vd = vd_from_pis_slice_target(input, config).unwrap();
         ReceiveTransferPublicInputsTarget {

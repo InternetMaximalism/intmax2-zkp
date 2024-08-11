@@ -43,7 +43,7 @@ impl WithdrawalProofPublicInputs {
     }
 
     pub fn hash(&self) -> Bytes32 {
-        Bytes32::from_limbs(&solidity_keccak256(&self.to_u32_vec()))
+        Bytes32::from_slice(&solidity_keccak256(&self.to_u32_vec()))
     }
 }
 
@@ -69,7 +69,7 @@ impl WithdrawalProofPublicInputsTarget {
     where
         <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
     {
-        Bytes32Target::from_limbs(&builder.keccak256::<C>(&self.to_vec()))
+        Bytes32Target::from_slice(&builder.keccak256::<C>(&self.to_vec()))
     }
 }
 
@@ -94,7 +94,7 @@ where
         let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::default());
         let withdrawal_wrapper_proof = withdrawal_circuit.add_proof_target_and_verify(&mut builder);
         let last_withdrawal_hash =
-            Bytes32Target::from_limbs(&withdrawal_wrapper_proof.public_inputs[0..BYTES32_LEN]);
+            Bytes32Target::from_slice(&withdrawal_wrapper_proof.public_inputs[0..BYTES32_LEN]);
         let withdrawal_aggregator = AddressTarget::new(&mut builder, true);
         let pis = WithdrawalProofPublicInputsTarget {
             last_withdrawal_hash,

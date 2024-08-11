@@ -61,7 +61,7 @@ impl Withdrawal {
 
     pub fn hash_with_prev_hash(&self, prev_withdrawal_hash: Bytes32) -> Bytes32 {
         let input = vec![prev_withdrawal_hash.limbs(), self.to_u32_vec()].concat();
-        Bytes32::from_limbs(&solidity_keccak256(&input))
+        Bytes32::from_slice(&solidity_keccak256(&input))
     }
 
     pub fn rand<R: rand::Rng>(rng: &mut R) -> Self {
@@ -113,7 +113,7 @@ impl WithdrawalTarget {
         <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
     {
         let input = vec![prev_withdrawal_hash.limbs(), self.to_vec()].concat();
-        Bytes32Target::from_limbs(&builder.keccak256::<C>(&input))
+        Bytes32Target::from_slice(&builder.keccak256::<C>(&input))
     }
 }
 

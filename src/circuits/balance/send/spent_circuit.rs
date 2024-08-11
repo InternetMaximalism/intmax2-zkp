@@ -102,7 +102,7 @@ impl SpentPublicInputsTarget {
         let tx = TxTarget::from_slice(
             &input[2 * POSEIDON_HASH_OUT_LEN..2 * POSEIDON_HASH_OUT_LEN + TX_LEN],
         );
-        let insufficient_flags = InsufficientFlagsTarget::from_limbs(
+        let insufficient_flags = InsufficientFlagsTarget::from_slice(
             &input[2 * POSEIDON_HASH_OUT_LEN + TX_LEN
                 ..2 * POSEIDON_HASH_OUT_LEN + TX_LEN + INSUFFICIENT_FLAGS_LEN],
         );

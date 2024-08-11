@@ -157,11 +157,11 @@ impl MainValidationPublicInputsTarget {
 
     pub fn from_slice(input: &[Target]) -> Self {
         assert_eq!(input.len(), MAIN_VALIDATION_PUBLIC_INPUT_LEN);
-        let prev_block_hash = Bytes32Target::from_limbs(&input[0..8]);
-        let block_hash = Bytes32Target::from_limbs(&input[8..16]);
-        let deposit_tree_root = Bytes32Target::from_limbs(&input[16..24]);
+        let prev_block_hash = Bytes32Target::from_slice(&input[0..8]);
+        let block_hash = Bytes32Target::from_slice(&input[8..16]);
+        let deposit_tree_root = Bytes32Target::from_slice(&input[16..24]);
         let account_tree_root = PoseidonHashOutTarget::from_slice(&input[24..28]);
-        let tx_tree_root = Bytes32Target::from_limbs(&input[28..36]);
+        let tx_tree_root = Bytes32Target::from_slice(&input[28..36]);
         let sender_tree_root = PoseidonHashOutTarget::from_slice(&input[36..40]);
         let block_number = input[40];
         let is_registoration_block = BoolTarget::new_unsafe(input[41]);

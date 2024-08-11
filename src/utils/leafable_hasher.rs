@@ -173,7 +173,7 @@ impl LeafableHasher for KeccakLeafableHasher {
 
     fn two_to_one(left: Self::HashOut, right: Self::HashOut) -> Self::HashOut {
         let inputs = vec![left.limbs(), right.limbs()].concat();
-        Bytes32::from_limbs(&solidity_keccak256(&inputs))
+        Bytes32::from_slice(&solidity_keccak256(&inputs))
     }
 
     fn connect_hash<F: RichField + Extendable<D>, const D: usize>(
@@ -206,7 +206,7 @@ impl LeafableHasher for KeccakLeafableHasher {
         <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
     {
         let input = vec![left.limbs(), right.limbs()].concat();
-        Bytes32Target::from_limbs(&builder.keccak256::<C>(&input))
+        Bytes32Target::from_slice(&builder.keccak256::<C>(&input))
     }
 
     fn two_to_one_swapped<

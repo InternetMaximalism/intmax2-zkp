@@ -48,7 +48,7 @@ impl U32LimbTrait<ADDRESS_LEN> for Address {
         self.limbs.to_vec()
     }
 
-    fn from_limbs(limbs: &[u32]) -> Self {
+    fn from_slice(limbs: &[u32]) -> Self {
         Self {
             limbs: limbs.try_into().unwrap(),
         }
@@ -60,7 +60,7 @@ impl U32LimbTargetTrait<ADDRESS_LEN> for AddressTarget {
         self.limbs.to_vec()
     }
 
-    fn from_limbs(limbs: &[Target]) -> Self {
+    fn from_slice(limbs: &[Target]) -> Self {
         Self {
             limbs: limbs.try_into().unwrap(),
         }

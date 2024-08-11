@@ -108,7 +108,7 @@ impl ValidityPublicInputsTarget {
         assert_eq!(input.len(), VALIDITY_PUBLIC_INPUTS_LEN);
         let public_state = PublicStateTarget::from_slice(&input[0..PUBLIC_STATE_LEN]);
         let tx_tree_root =
-            Bytes32Target::from_limbs(&input[PUBLIC_STATE_LEN..PUBLIC_STATE_LEN + BYTES32_LEN]);
+            Bytes32Target::from_slice(&input[PUBLIC_STATE_LEN..PUBLIC_STATE_LEN + BYTES32_LEN]);
         let sender_tree_root = PoseidonHashOutTarget::from_slice(
             &input[PUBLIC_STATE_LEN + BYTES32_LEN
                 ..PUBLIC_STATE_LEN + BYTES32_LEN + POSEIDON_HASH_OUT_LEN],

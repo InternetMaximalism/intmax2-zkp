@@ -20,7 +20,7 @@ use crate::{
 pub fn get_pubkey_hash(pubkeys: &[U256]) -> Bytes32 {
     assert_eq!(pubkeys.len(), NUM_SENDERS_IN_BLOCK);
     let pubkey_flattened = pubkeys.iter().flat_map(|x| x.limbs()).collect::<Vec<_>>();
-    Bytes32::from_limbs(&solidity_keccak256(&pubkey_flattened))
+    Bytes32::from_slice(&solidity_keccak256(&pubkey_flattened))
 }
 
 pub fn get_pubkey_hash_circuit<
@@ -38,5 +38,5 @@ where
         .iter()
         .flat_map(|pubkey| pubkey.limbs())
         .collect::<Vec<_>>();
-    Bytes32Target::from_limbs(&builder.keccak256::<C>(&pubkey_flattened))
+    Bytes32Target::from_slice(&builder.keccak256::<C>(&pubkey_flattened))
 }

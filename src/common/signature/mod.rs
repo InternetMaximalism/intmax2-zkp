@@ -86,7 +86,7 @@ impl SignatureContent {
     }
 
     pub fn hash(&self) -> Bytes32 {
-        Bytes32::from_limbs(&solidity_keccak256(&self.to_u32_vec()))
+        Bytes32::from_slice(&solidity_keccak256(&self.to_u32_vec()))
     }
 }
 
@@ -179,7 +179,7 @@ impl SignatureContentTarget {
     where
         <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
     {
-        Bytes32Target::from_limbs(&builder.keccak256::<C>(&self.to_vec::<F>()))
+        Bytes32Target::from_slice(&builder.keccak256::<C>(&self.to_vec::<F>()))
     }
 }
 

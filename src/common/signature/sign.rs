@@ -65,7 +65,7 @@ pub(crate) fn hash_to_weight_circuit<F: RichField + Extendable<D>, const D: usiz
     let output = challenger.get_n_challenges(builder, 8);
     let output = target_slice_to_biguint_target(builder, &output);
 
-    U256Target::from_limbs(
+    U256Target::from_slice(
         &output
             .limbs
             .into_iter()

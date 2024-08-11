@@ -60,7 +60,7 @@ impl U32LimbTrait<ACCOUNT_ID_PACKED_LEN> for AccountIdPacked {
         self.limbs.to_vec()
     }
 
-    fn from_limbs(limbs: &[u32]) -> Self {
+    fn from_slice(limbs: &[u32]) -> Self {
         Self {
             limbs: limbs.try_into().unwrap(),
         }
@@ -72,7 +72,7 @@ impl U32LimbTargetTrait<ACCOUNT_ID_PACKED_LEN> for AccountIdPackedTarget {
         self.limbs.to_vec()
     }
 
-    fn from_limbs(limbs: &[Target]) -> Self {
+    fn from_slice(limbs: &[Target]) -> Self {
         Self {
             limbs: limbs.try_into().unwrap(),
         }
@@ -105,7 +105,7 @@ impl AccountIdPacked {
     }
 
     pub fn hash(&self) -> Bytes32 {
-        Bytes32::from_limbs(&solidity_keccak256(&self.limbs()))
+        Bytes32::from_slice(&solidity_keccak256(&self.limbs()))
     }
 }
 
@@ -138,7 +138,7 @@ impl AccountIdPackedTarget {
     where
         <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
     {
-        Bytes32Target::from_limbs(&builder.keccak256::<C>(&self.limbs()))
+        Bytes32Target::from_slice(&builder.keccak256::<C>(&self.limbs()))
     }
 }
 

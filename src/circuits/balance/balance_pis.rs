@@ -187,13 +187,13 @@ impl BalancePublicInputsTarget {
 
     pub fn from_slice(input: &[Target]) -> Self {
         assert_eq!(input.len(), BALANCE_PUBLIC_INPUTS_LEN);
-        let pubkey = U256Target::from_limbs(&input[0..U256_LEN]);
+        let pubkey = U256Target::from_slice(&input[0..U256_LEN]);
         let private_commitment =
             PoseidonHashOutTarget::from_slice(&input[U256_LEN..U256_LEN + POSEIDON_HASH_OUT_LEN]);
         let last_tx_hash = PoseidonHashOutTarget::from_slice(
             &input[U256_LEN + POSEIDON_HASH_OUT_LEN..U256_LEN + 2 * POSEIDON_HASH_OUT_LEN],
         );
-        let last_tx_insufficient_flags = InsufficientFlagsTarget::from_limbs(
+        let last_tx_insufficient_flags = InsufficientFlagsTarget::from_slice(
             &input[U256_LEN + 2 * POSEIDON_HASH_OUT_LEN
                 ..U256_LEN + 2 * POSEIDON_HASH_OUT_LEN + INSUFFICIENT_FLAGS_LEN],
         );

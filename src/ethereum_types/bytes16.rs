@@ -73,7 +73,7 @@ impl U32LimbTrait<BYTES16_LEN> for Bytes16 {
         self.limbs.to_vec()
     }
 
-    fn from_limbs(limbs: &[u32]) -> Self {
+    fn from_slice(limbs: &[u32]) -> Self {
         Self {
             limbs: limbs.try_into().unwrap(),
         }
@@ -85,7 +85,7 @@ impl U32LimbTargetTrait<BYTES16_LEN> for Bytes16Target {
         self.limbs.to_vec()
     }
 
-    fn from_limbs(limbs: &[Target]) -> Self {
+    fn from_slice(limbs: &[Target]) -> Self {
         Self {
             limbs: limbs.try_into().unwrap(),
         }

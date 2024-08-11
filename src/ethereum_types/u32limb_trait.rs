@@ -15,7 +15,7 @@ use rand::Rng;
 // trait for types with u32 value limbs
 pub trait U32LimbTrait<const NUM_LIMBS: usize>: Clone + Copy {
     fn limbs(&self) -> Vec<u32>;
-    fn from_limbs(limbs: &[u32]) -> Self;
+    fn from_slice(limbs: &[u32]) -> Self;
 
     fn to_vec<F: Field>(&self) -> Vec<F> {
         self.limbs()
@@ -36,18 +36,18 @@ pub trait U32LimbTrait<const NUM_LIMBS: usize>: Clone + Copy {
                 x as u32
             })
             .collect::<Vec<_>>();
-        Self::from_limbs(&range_checked_input)
+        Self::from_slice(&range_checked_input)
     }
 
     fn zero() -> Self {
         let limbs = vec![0; NUM_LIMBS];
-        Self::from_limbs(&limbs)
+        Self::from_slice(&limbs)
     }
 
     fn one() -> Self {
         let mut limbs = vec![0; NUM_LIMBS];
         limbs[NUM_LIMBS - 1] = 1;
-        Self::from_limbs(&limbs)
+        Self::from_slice(&limbs)
     }
 
     // Assuming that original order is big endian,
@@ -58,7 +58,7 @@ pub trait U32LimbTrait<const NUM_LIMBS: usize>: Clone + Copy {
             .chunks(4)
             .map(|c| u32::from_be_bytes(c.try_into().unwrap()))
             .collect::<Vec<_>>();
-        Self::from_limbs(&limbs)
+        Self::from_slice(&limbs)
     }
 
     fn to_bytes_be(self) -> Vec<u8> {
@@ -79,7 +79,7 @@ pub trait U32LimbTrait<const NUM_LIMBS: usize>: Clone + Copy {
             .chunks(32)
             .map(|chunk| bits_be_to_u32(chunk))
             .collect::<Vec<_>>();
-        Self::from_limbs(&limbs)
+        Self::from_slice(&limbs)
     }
 
     fn from_hex(hex: &str) -> anyhow::Result<Self> {
@@ -94,14 +94,14 @@ pub trait U32LimbTrait<const NUM_LIMBS: usize>: Clone + Copy {
 
     fn rand<R: Rng>(rng: &mut R) -> Self {
         let limbs = (0..NUM_LIMBS).map(|_| rng.gen()).collect::<Vec<_>>();
-        Self::from_limbs(&limbs)
+        Self::from_slice(&limbs)
     }
 }
 
 // trait for types with u32 target limbs
 pub trait U32LimbTargetTrait<const NUM_LIMBS: usize>: Clone + Copy {
     fn limbs(&self) -> Vec<Target>;
-    fn from_limbs(limbs: &[Target]) -> Self;
+    fn from_slice(limbs: &[Target]) -> Self;
 
     fn _new_unchecked<F: RichField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
@@ -109,7 +109,7 @@ pub trait U32LimbTargetTrait<const NUM_LIMBS: usize>: Clone + Copy {
         let limbs = (0..NUM_LIMBS)
             .map(|_| builder.add_virtual_target())
             .collect::<Vec<_>>();
-        Self::from_limbs(&limbs)
+        Self::from_slice(&limbs)
     }
 
     fn _new_checked<F: RichField + Extendable<D>, const D: usize>(
@@ -209,7 +209,7 @@ pub trait U32LimbTargetTrait<const NUM_LIMBS: usize>: Clone + Copy {
             .chunks(32)
             .map(|chunk| builder.le_sum(chunk.into_iter().rev()))
             .collect::<Vec<_>>();
-        Self::from_limbs(&limbs)
+        Self::from_slice(&limbs)
     }
 
     fn mul_bool<F: RichField + Extendable<D>, const D: usize>(
@@ -222,7 +222,7 @@ pub trait U32LimbTargetTrait<const NUM_LIMBS: usize>: Clone + Copy {
             .iter()
             .map(|x| builder.mul(b.target, *x))
             .collect::<Vec<_>>();
-        Self::from_limbs(&limbs)
+        Self::from_slice(&limbs)
     }
 
     fn select<F: RichField + Extendable<D>, const D: usize>(
@@ -237,7 +237,7 @@ pub trait U32LimbTargetTrait<const NUM_LIMBS: usize>: Clone + Copy {
             .zip(y.limbs().iter())
             .map(|(x, y)| builder.select(b, *x, *y))
             .collect::<Vec<_>>();
-        Self::from_limbs(&limbs)
+        Self::from_slice(&limbs)
     }
 
     fn set_witness<F: Field, V: U32LimbTrait<NUM_LIMBS>>(
@@ -256,7 +256,7 @@ pub trait U32LimbTargetTrait<const NUM_LIMBS: usize>: Clone + Copy {
             let value = pw.get_target(*target);
             limbs.push(value.to_canonical_u64() as u32);
         }
-        V::from_limbs(&limbs)
+        V::from_slice(&limbs)
     }
 
     fn constant<F: RichField + Extendable<D>, const D: usize, V: U32LimbTrait<NUM_LIMBS>>(
@@ -268,7 +268,7 @@ pub trait U32LimbTargetTrait<const NUM_LIMBS: usize>: Clone + Copy {
             .into_iter()
             .map(|v| builder.constant(F::from_canonical_u32(v)))
             .collect::<Vec<_>>();
-        Self::from_limbs(&limbs)
+        Self::from_slice(&limbs)
     }
 
     fn zero<F: RichField + Extendable<D>, const D: usize, V: U32LimbTrait<NUM_LIMBS>>(

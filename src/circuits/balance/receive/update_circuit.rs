@@ -91,7 +91,7 @@ impl UpdatePublicInputsTarget {
 
     pub fn from_slice(input: &[Target]) -> Self {
         assert_eq!(input.len(), UPDATE_PUBLIC_INPUTS_LEN);
-        let pubkey = U256Target::from_limbs(&input[0..U256_LEN]);
+        let pubkey = U256Target::from_slice(&input[0..U256_LEN]);
         let prev_public_state =
             PublicStateTarget::from_slice(&input[U256_LEN..U256_LEN + PUBLIC_STATE_LEN]);
         let new_public_state = PublicStateTarget::from_slice(&input[U256_LEN + PUBLIC_STATE_LEN..]);

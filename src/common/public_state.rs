@@ -132,8 +132,8 @@ impl PublicStateTarget {
         let block_tree_root = PoseidonHashOutTarget::from_slice(&input[0..4]);
         let prev_account_tree_root = PoseidonHashOutTarget::from_slice(&input[4..8]);
         let account_tree_root = PoseidonHashOutTarget::from_slice(&input[8..12]);
-        let deposit_tree_root = Bytes32Target::from_limbs(&input[12..20]);
-        let block_hash = Bytes32Target::from_limbs(&input[20..28]);
+        let deposit_tree_root = Bytes32Target::from_slice(&input[12..20]);
+        let block_hash = Bytes32Target::from_slice(&input[20..28]);
         let block_number = input[28];
         Self {
             block_tree_root,
