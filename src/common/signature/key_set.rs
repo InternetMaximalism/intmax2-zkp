@@ -31,12 +31,12 @@ impl KeySet {
             pubkey_g1 = -pubkey_g1;
         }
         let pubkey: U256 = pubkey_g1.x.into();
-        #[cfg(debug_assert)]
+        #[cfg(debug_assertions)]
         {
             use plonky2_bn254::fields::recover::RecoverFromX;
-            let recovered_pubkey = G1Affine::recover_from_x(pubkey_x.into());
-            assert_eq!(
-                recovered_pubkey, pubkey,
+            let recovered_pubkey = G1Affine::recover_from_x(pubkey.into());
+            debug_assert_eq!(
+                recovered_pubkey, pubkey_g1,
                 "recovered_pubkey should be equal to pubkey"
             );
         }
