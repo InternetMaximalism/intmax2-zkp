@@ -33,7 +33,7 @@ fn e2e_test() {
     let deposit_index = alice_wallet.deposit(&mut rng, &mut block_builder, 0, 100.into());
 
     // post dummy block to reflect the deposit tree
-    block_builder.post_random_block(&mut rng);
+    block_builder.post_block(true, vec![]);
 
     // sync alice wallet to the latest block, which includes the deposit
     alice_prover.sync_all(
