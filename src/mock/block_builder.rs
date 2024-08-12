@@ -3,7 +3,6 @@ use crate::{
         block::Block,
         deposit::Deposit,
         signature::{
-            key_set::KeySet,
             sign::{hash_to_weight, sign_to_tx_root},
             utils::get_pubkey_hash,
             SignatureContent,
@@ -15,7 +14,6 @@ use crate::{
             sender_tree::get_sender_leaves,
             tx_tree::TxTree,
         },
-        tx::Tx,
         witness::{
             block_witness::BlockWitness, validity_transition_witness::ValidityTransitionWitness,
             validity_witness::ValidityWitness,
@@ -36,7 +34,6 @@ use hashbrown::HashMap;
 use num::BigUint;
 use plonky2::field::{goldilocks_field::GoldilocksField, types::Field};
 use plonky2_bn254::{curves::g2::G2Target, utils::hash_to_g2::HashToG2 as _};
-use rand::Rng;
 
 use super::tx_request::MockTxRequest;
 
@@ -93,7 +90,6 @@ impl MockBlockBuilder {
         is_registration_block: bool,
         txs: Vec<MockTxRequest>,
     ) -> (BlockWitness, TxTree) {
-        assert!(txs.len() > 0, "at least one tx is required");
         assert!(txs.len() <= NUM_SENDERS_IN_BLOCK, "too many txs");
         // sort and pad txs
         let mut sorted_txs = txs.clone();
@@ -169,7 +165,7 @@ impl MockBlockBuilder {
             account_merkle_proofs,
             account_membership_proofs,
         };
-        assert!(block_witness.to_main_validation_pis().is_valid); // should be valid block
+        assert!(block_witness.to_main_validation_pis().is_valid || txs.len() == 0); // should be valid block
         (block_witness, tx_tree)
     }
 
@@ -280,17 +276,6 @@ impl MockBlockBuilder {
         self.last_validity_witness = validity_witness.clone();
 
         validity_witness
-    }
-
-    pub fn post_random_block<R: Rng>(&mut self, rng: &mut R) {
-        let txs = (0..NUM_SENDERS_IN_BLOCK)
-            .map(|_| MockTxRequest {
-                tx: Tx::rand(rng),
-                sender: KeySet::rand(rng),
-                will_return_signature: rng.gen(),
-            })
-            .collect::<Vec<_>>();
-        self.post_block(true, txs);
     }
 
     pub fn get_block_merkle_proof(
