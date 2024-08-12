@@ -9,6 +9,7 @@ use plonky2::{
         config::{AlgebraicHasher, GenericConfig},
     },
 };
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::utils::{
     leafable::{Leafable, LeafableTarget},
@@ -120,6 +121,32 @@ impl<V: Leafable> MerkleTree<V> {
 #[derive(Clone, Debug)]
 pub(crate) struct MerkleProof<V: Leafable> {
     pub(crate) siblings: Vec<<V::LeafableHasher as LeafableHasher>::HashOut>,
+}
+
+impl<V: Leafable> Serialize for MerkleProof<V>
+where
+    <V::LeafableHasher as LeafableHasher>::HashOut: Serialize,
+{
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        self.siblings.serialize(serializer)
+    }
+}
+
+impl<'de, V: Leafable> Deserialize<'de> for MerkleProof<V>
+where
+    <V::LeafableHasher as LeafableHasher>::HashOut: Deserialize<'de>,
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let siblings =
+            Vec::<<V::LeafableHasher as LeafableHasher>::HashOut>::deserialize(deserializer)?;
+        Ok(MerkleProof { siblings })
+    }
 }
 
 impl<V: Leafable> MerkleProof<V> {

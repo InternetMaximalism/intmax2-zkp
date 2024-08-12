@@ -9,7 +9,7 @@ use crate::{
             SignatureContent,
         },
         trees::{
-            account_tree::{AccountMembershipProof, AccountregistrationProof, AccountTree},
+            account_tree::{AccountMembershipProof, AccountRegistrationProof, AccountTree},
             block_hash_tree::{BlockHashMerkleProof, BlockHashTree},
             deposit_tree::DepositTree,
             sender_tree::get_sender_leaves,
@@ -211,7 +211,7 @@ impl MockBlockBuilder {
                     };
                     let is_dummy_pubkey = sender_leaf.sender.is_dummy_pubkey();
                     let proof = if is_dummy_pubkey {
-                        AccountregistrationProof::dummy(ACCOUNT_TREE_HEIGHT)
+                        AccountRegistrationProof::dummy(ACCOUNT_TREE_HEIGHT)
                     } else {
                         self.account_tree
                             .prove_and_insert(sender_leaf.sender, last_block_number as u64)

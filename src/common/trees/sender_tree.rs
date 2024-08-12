@@ -27,6 +27,7 @@ use plonky2::{
         config::{AlgebraicHasher, GenericConfig},
     },
 };
+use serde::{Deserialize, Serialize};
 
 use crate::{
     ethereum_types::{
@@ -42,7 +43,7 @@ pub type SenderMerkleProofTarget = IncrementalMerkleProofTarget<SenderLeafTarget
 
 pub const SENDER_LEAF_LEN: usize = U256_LEN + 1;
 
-#[derive(Default, Debug, Clone)]
+#[derive(Default, Debug, Clone, Serialize, Deserialize)]
 pub struct SenderLeaf {
     pub sender: U256,
     pub is_valid: bool,

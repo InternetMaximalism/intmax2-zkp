@@ -97,6 +97,7 @@ pub struct FormatValidationValue {
     pub is_valid: bool,
 }
 
+#[derive(Debug, Clone)]
 pub struct FormatValidationTarget {
     pub pubkeys: Vec<U256Target>,
     pub signature: SignatureContentTarget,
@@ -160,6 +161,7 @@ impl FormatValidationTarget {
     }
 }
 
+#[derive(Debug)]
 pub struct FormatValidationCircuit<F, C, const D: usize>
 where
     F: RichField + Extendable<D>,

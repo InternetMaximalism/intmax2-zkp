@@ -19,6 +19,7 @@ use crate::{
     common::witness::block_witness::BlockWitness,
 };
 
+#[derive(Debug)]
 pub struct MainValidationProcessor<F, C, const D: usize>
 where
     F: RichField + Extendable<D>,

@@ -18,6 +18,7 @@ use super::transition::dummy_wrapper::DummyTransitionWrapperCircuit;
 #[cfg(not(feature = "dummy_validity_proof"))]
 use super::transition::processor::TransitionProcessor;
 
+#[derive(Debug)]
 pub struct ValidityProcessor<F, C, const D: usize>
 where
     F: RichField + Extendable<D>,

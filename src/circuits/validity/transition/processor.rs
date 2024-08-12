@@ -25,6 +25,7 @@ use super::{
 };
 use anyhow::Result;
 
+#[derive(Debug)]
 pub struct TransitionProcessor<F, C, const D: usize>
 where
     F: RichField + Extendable<D>,

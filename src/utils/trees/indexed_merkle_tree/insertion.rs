@@ -11,6 +11,7 @@ use plonky2::{
         config::{AlgebraicHasher, GenericConfig},
     },
 };
+use serde::{Deserialize, Serialize};
 
 use crate::{
     ethereum_types::{
@@ -28,7 +29,7 @@ use super::{
     IndexedMerkleProof, IndexedMerkleProofTarget, IndexedMerkleTree,
 };
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct IndexedInsertionProof {
     pub index: usize,
     pub low_leaf_proof: IndexedMerkleProof,
@@ -136,7 +137,7 @@ impl IndexedInsertionProof {
         let new_low_leaf = IndexedMerkleLeaf {
             next_index: self.index,
             next_key: key,
-            ..self.prev_low_leaf
+            ..self.prev_low_leaf // XXX: All values are overwritten
         };
         let temp_root = self
             .low_leaf_proof

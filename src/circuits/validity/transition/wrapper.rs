@@ -30,12 +30,13 @@ use super::{
 };
 
 /// Circuit to prove the transition from old validity pis to new validity pis.
+#[derive(Debug)]
 pub struct TransitionWrapperCircuit<F, C, const D: usize>
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
 {
-    pub(crate) data: CircuitData<F, C, D>,
+    pub data: CircuitData<F, C, D>,
     pub(crate) main_validation_proof: ProofWithPublicInputsTarget<D>,
     pub(crate) transition_target: ValidityTransitionTarget<D>,
     pub(crate) prev_pis: ValidityPublicInputsTarget,

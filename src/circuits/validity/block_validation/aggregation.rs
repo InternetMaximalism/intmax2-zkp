@@ -95,6 +95,7 @@ pub struct AggregationValue {
     pub is_valid: bool,
 }
 
+#[derive(Debug, Clone)]
 pub struct AggregationTarget {
     pub pubkeys: Vec<U256Target>,
     pub signature: SignatureContentTarget,
@@ -158,6 +159,7 @@ impl AggregationTarget {
     }
 }
 
+#[derive(Debug)]
 pub struct AggregationCircuit<F, C, const D: usize>
 where
     F: RichField + Extendable<D>,

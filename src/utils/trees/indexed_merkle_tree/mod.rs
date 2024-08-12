@@ -92,4 +92,8 @@ impl IndexedMerkleTree {
         self.0.update(index, leaf);
         Ok(())
     }
+
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
 }

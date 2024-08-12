@@ -184,6 +184,7 @@ impl AccountExclusionTarget {
     }
 }
 
+#[derive(Debug)]
 pub struct AccountExclusionCircuit<F, C, const D: usize>
 where
     F: RichField + Extendable<D>,
