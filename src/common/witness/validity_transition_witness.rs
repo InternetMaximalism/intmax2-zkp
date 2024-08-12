@@ -8,8 +8,7 @@ use crate::{
     },
     constants::{ACCOUNT_TREE_HEIGHT, BLOCK_HASH_TREE_HEIGHT},
     utils::{
-        poseidon_hash_out::PoseidonHashOut,
-        trees::{incremental_merkle_tree::IncrementalMerkleProof, merkle_tree::MerkleProof},
+        leafable::Leafable, poseidon_hash_out::PoseidonHashOut, trees::{incremental_merkle_tree::IncrementalMerkleProof, indexed_merkle_tree::{leaf::IndexedMerkleLeaf, IndexedMerkleProof}, merkle_tree::MerkleProof}
     },
 };
 
@@ -29,9 +28,22 @@ pub struct ValidityTransitionWitness {
 pub struct CompressedValidityTransitionWitness {
     pub sender_leaves: Vec<SenderLeaf>,
     pub block_merkle_proof: BlockHashMerkleProof,
-    pub significant_account_registration_proofs: Option<Vec<AccountRegistrationProof>>,
+    pub significant_account_registration_proofs: Option<Vec<AccountRegistrationProofOrDummy>>,
     pub significant_account_update_proofs: Option<Vec<AccountUpdateProof>>,
     pub common_account_merkle_proof: Vec<PoseidonHashOut>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AccountRegistrationProofOrDummy {
+    pub index: usize,
+    pub low_leaf_index: usize,
+    pub prev_low_leaf: IndexedMerkleLeaf,
+
+    // None if it is a dummy proof
+    pub low_leaf_proof: Option<IndexedMerkleProof>,
+
+    // None if it is a dummy proof
+    pub leaf_proof: Option<IndexedMerkleProof>,
 }
 
 impl ValidityTransitionWitness {
@@ -59,27 +71,36 @@ impl ValidityTransitionWitness {
             let significant_account_registration_proofs = account_registration_proofs
                 .iter()
                 .map(|proof| {
-                    for i in 0..ACCOUNT_TREE_HEIGHT - significant_height {
-                        assert_eq!(
-                            proof.low_leaf_proof.0.siblings[significant_height + i],
-                            common_account_merkle_proof[i]
-                        );
-                    }
-                    for i in 0..ACCOUNT_TREE_HEIGHT - significant_height {
-                        assert_eq!(
-                            proof.leaf_proof.0.siblings[significant_height + i],
-                            common_account_merkle_proof[i]
-                        );
-                    }
-                    AccountRegistrationProof {
-                        low_leaf_proof: IncrementalMerkleProof(MerkleProof {
-                            siblings: proof.low_leaf_proof.0.siblings[..significant_height]
-                                .to_vec(),
-                        }),
-                        leaf_proof: IncrementalMerkleProof(MerkleProof {
+                    let low_leaf_proof = if is_dummy_incremental_merkle_proof(&proof.low_leaf_proof, ACCOUNT_TREE_HEIGHT) {
+                        None
+                    } else {
+                        for i in 0..ACCOUNT_TREE_HEIGHT-significant_height {
+                            assert_eq!(proof.low_leaf_proof.0.siblings[significant_height+i], common_account_merkle_proof[i]);
+                        }
+
+                        Some(IncrementalMerkleProof(MerkleProof {
+                            siblings: proof.low_leaf_proof.0.siblings[..significant_height].to_vec(),
+                        }))
+                    };
+
+                    let leaf_proof = if is_dummy_incremental_merkle_proof(&proof.leaf_proof, ACCOUNT_TREE_HEIGHT) {
+                        None
+                    } else {
+                        for i in 0..ACCOUNT_TREE_HEIGHT-significant_height {
+                            assert_eq!(proof.leaf_proof.0.siblings[significant_height+i], common_account_merkle_proof[i]);
+                        }
+
+                        Some(IncrementalMerkleProof(MerkleProof {
                             siblings: proof.leaf_proof.0.siblings[..significant_height].to_vec(),
-                        }),
-                        ..(proof.clone())
+                        }))
+                    };
+
+                    AccountRegistrationProofOrDummy {
+                        low_leaf_proof,
+                        leaf_proof,
+                        index: proof.index,
+                        low_leaf_index: proof.low_leaf_index,
+                        prev_low_leaf: proof.prev_low_leaf.clone(),
                     }
                 })
                 .collect::<Vec<_>>();
@@ -133,22 +154,39 @@ impl ValidityTransitionWitness {
         {
             let account_registration_proofs = significant_account_registration_proofs
                 .iter()
-                .map(|proof| AccountRegistrationProof {
-                    low_leaf_proof: IncrementalMerkleProof(MerkleProof {
-                        siblings: [
-                            &proof.low_leaf_proof.0.siblings[..],
-                            &compressed.common_account_merkle_proof[..],
-                        ]
-                        .concat(),
-                    }),
-                    leaf_proof: IncrementalMerkleProof(MerkleProof {
-                        siblings: [
-                            &proof.leaf_proof.0.siblings[..],
-                            &compressed.common_account_merkle_proof[..],
-                        ]
-                        .concat(),
-                    }),
-                    ..(proof.clone())
+                .map(|proof| {
+                    let low_leaf_proof =
+                    if let Some(low_leaf_proof) = &proof.low_leaf_proof {
+                        IncrementalMerkleProof(MerkleProof {
+                            siblings: [
+                                &low_leaf_proof.0.siblings[..],
+                                &compressed.common_account_merkle_proof[..],
+                            ]
+                            .concat(),
+                        })
+                    } else {
+                        IncrementalMerkleProof::dummy(ACCOUNT_TREE_HEIGHT)
+                    };
+                    let leaf_proof =
+                    if let Some(leaf_proof) = &proof.leaf_proof {
+                        IncrementalMerkleProof(MerkleProof {
+                            siblings: [
+                                &leaf_proof.0.siblings[..],
+                                &compressed.common_account_merkle_proof[..],
+                            ]
+                            .concat(),
+                        })
+                    } else {
+                        IncrementalMerkleProof::dummy(ACCOUNT_TREE_HEIGHT)
+                    };
+
+                    AccountRegistrationProof {
+                        low_leaf_proof,
+                        leaf_proof,
+                        index: proof.index,
+                        low_leaf_index: proof.low_leaf_index,
+                        prev_low_leaf: proof.prev_low_leaf.clone(),
+                    }
                 })
                 .collect::<Vec<_>>();
 
@@ -193,4 +231,15 @@ pub(crate) fn effective_bits(n: usize) -> u32 {
     } else {
         64 - n.leading_zeros()
     }
+}
+
+pub(crate) fn is_dummy_incremental_merkle_proof<V: Leafable>(proof: &IncrementalMerkleProof<V>, height: usize) -> bool {
+    let dummy_proof = IncrementalMerkleProof::<V>::dummy(height);
+    for i in 0..height {
+        if proof.0.siblings[i] != dummy_proof.0.siblings[i] {
+            return false;
+        }
+    }
+
+    true
 }

@@ -1,5 +1,3 @@
-use std::io::Write;
-
 use hashbrown::HashMap;
 use plonky2::{
     field::extension::Extendable,
@@ -53,21 +51,6 @@ where
                 .aux_info
                 .get(&block_number)
                 .expect("aux info not found");
-
-            let max_account_id = block_builder.account_tree.len();
-            let validity_witness = serde_json::to_vec(&aux_info.validity_witness.compress(max_account_id)).expect("serialize validity witness failed");
-            let mut f = std::fs::File::create("validity_witness.json").unwrap();
-            f.write_all(&validity_witness).unwrap();
-            if let Some(prev_validity_proof) = prev_validity_proof.clone() {
-                let compressed_prev_validity_proof = prev_validity_proof.clone().compress(
-                    &self.validity_processor.validity_circuit.data.verifier_only.circuit_digest,
-                    &self.validity_processor.validity_circuit.data.common
-                ).unwrap();
-                let mut f = std::fs::File::create("prev_validity_proof.bin").unwrap();
-                f.write_all(&compressed_prev_validity_proof.to_bytes()).unwrap();
-            } else {
-                println!("prev validity proof is None");
-            }
 
             let validity_proof = self
                 .validity_processor
