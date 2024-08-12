@@ -51,7 +51,6 @@ where
                 .aux_info
                 .get(&block_number)
                 .expect("aux info not found");
-
             let validity_proof = self
                 .validity_processor
                 .prove(&prev_validity_proof, &aux_info.validity_witness)
