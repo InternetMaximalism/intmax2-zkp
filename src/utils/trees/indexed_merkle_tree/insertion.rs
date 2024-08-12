@@ -30,6 +30,7 @@ use super::{
 };
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct IndexedInsertionProof {
     pub index: usize,
     pub low_leaf_proof: IndexedMerkleProof,

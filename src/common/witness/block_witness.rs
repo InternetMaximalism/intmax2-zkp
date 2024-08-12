@@ -23,13 +23,17 @@ use crate::{
         account_id_packed::AccountIdPacked, bytes32::Bytes32, u256::U256,
         u32limb_trait::U32LimbTrait,
     },
-    utils::{poseidon_hash_out::PoseidonHashOut, trees::{incremental_merkle_tree::IncrementalMerkleProof, merkle_tree::MerkleProof}},
+    utils::{
+        poseidon_hash_out::PoseidonHashOut,
+        trees::{incremental_merkle_tree::IncrementalMerkleProof, merkle_tree::MerkleProof},
+    },
 };
 
 use super::validity_transition_witness::effective_bits;
 
 /// A structure that holds all the information needed to verify a block
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct BlockWitness {
     pub block: Block,
     pub signature: SignatureContent,
@@ -42,6 +46,7 @@ pub struct BlockWitness {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct CompressedBlockWitness {
     pub block: Block,
     pub signature: SignatureContent,
@@ -50,7 +55,8 @@ pub struct CompressedBlockWitness {
     pub prev_block_tree_root: PoseidonHashOut,
     pub account_id_packed: Option<AccountIdPacked>, // in account id case
     pub significant_account_merkle_proofs: Option<Vec<AccountMerkleProof>>, // in account id case
-    pub significant_account_membership_proofs: Option<Vec<AccountMembershipProof>>, // in pubkey case
+    pub significant_account_membership_proofs: Option<Vec<AccountMembershipProof>>, /* in pubkey
+                                                     * case */
     pub common_account_merkle_proof: Vec<PoseidonHashOut>,
 }
 
@@ -77,14 +83,16 @@ impl BlockWitness {
         let significant_account_merkle_proofs = if let Some(account_merkle_proofs) =
             &self.account_merkle_proofs
         {
-            common_account_merkle_proof = account_merkle_proofs[0].merkle_proof.0.siblings
-                [significant_height..]
-                .to_vec();
+            common_account_merkle_proof =
+                account_merkle_proofs[0].merkle_proof.0.siblings[significant_height..].to_vec();
             let significant_account_merkle_proofs = account_merkle_proofs
                 .iter()
                 .map(|proof| {
-                    for i in 0..ACCOUNT_TREE_HEIGHT-significant_height {
-                        assert_eq!(proof.merkle_proof.0.siblings[significant_height+i], common_account_merkle_proof[i]);
+                    for i in 0..ACCOUNT_TREE_HEIGHT - significant_height {
+                        assert_eq!(
+                            proof.merkle_proof.0.siblings[significant_height + i],
+                            common_account_merkle_proof[i]
+                        );
                     }
                     AccountMerkleProof {
                         merkle_proof: IncrementalMerkleProof(MerkleProof {
@@ -101,17 +109,19 @@ impl BlockWitness {
         let significant_account_membership_proofs = if let Some(account_membership_proofs) =
             &self.account_membership_proofs
         {
-            common_account_merkle_proof = account_membership_proofs[0].leaf_proof.0.siblings
-                [significant_height..]
-                .to_vec();
+            common_account_merkle_proof =
+                account_membership_proofs[0].leaf_proof.0.siblings[significant_height..].to_vec();
             let significant_account_membership_proofs = account_membership_proofs
                 .iter()
                 .map(|proof| {
-                    for i in 0..ACCOUNT_TREE_HEIGHT-significant_height {
-                        assert_eq!(proof.leaf_proof.0.siblings[significant_height+i], common_account_merkle_proof[i]);
+                    for i in 0..ACCOUNT_TREE_HEIGHT - significant_height {
+                        assert_eq!(
+                            proof.leaf_proof.0.siblings[significant_height + i],
+                            common_account_merkle_proof[i]
+                        );
                     }
                     AccountMembershipProof {
-                        leaf_proof: IncrementalMerkleProof(MerkleProof{
+                        leaf_proof: IncrementalMerkleProof(MerkleProof {
                             siblings: proof.leaf_proof.0.siblings[..significant_height].to_vec(),
                         }),
                         ..(proof.clone())
@@ -137,7 +147,8 @@ impl BlockWitness {
     }
 
     pub fn decompress(compressed: &CompressedBlockWitness) -> Self {
-        // let significant_height = ACCOUNT_TREE_HEIGHT - compressed.common_account_merkle_proof.len();
+        // let significant_height = ACCOUNT_TREE_HEIGHT -
+        // compressed.common_account_merkle_proof.len();
 
         let account_merkle_proofs = if let Some(significant_account_merkle_proofs) =
             &compressed.significant_account_merkle_proofs
@@ -145,16 +156,15 @@ impl BlockWitness {
             let common_account_merkle_proof = &compressed.common_account_merkle_proof;
             let account_merkle_proofs = significant_account_merkle_proofs
                 .iter()
-                .map(|proof| {
-                    AccountMerkleProof {
-                        merkle_proof: IncrementalMerkleProof(MerkleProof {
-                            siblings: [
-                                &proof.merkle_proof.0.siblings[..],
-                                &common_account_merkle_proof[..],
-                            ].concat(),
-                        }),
-                        leaf: proof.leaf.clone(),
-                    }
+                .map(|proof| AccountMerkleProof {
+                    merkle_proof: IncrementalMerkleProof(MerkleProof {
+                        siblings: [
+                            &proof.merkle_proof.0.siblings[..],
+                            &common_account_merkle_proof[..],
+                        ]
+                        .concat(),
+                    }),
+                    leaf: proof.leaf.clone(),
                 })
                 .collect();
             Some(account_merkle_proofs)
@@ -167,16 +177,15 @@ impl BlockWitness {
             let common_account_merkle_proof = &compressed.common_account_merkle_proof;
             let account_membership_proofs = significant_account_membership_proofs
                 .iter()
-                .map(|proof| {
-                    AccountMembershipProof {
-                        leaf_proof: IncrementalMerkleProof(MerkleProof {
-                            siblings: [
-                                &proof.leaf_proof.0.siblings[..],
-                                &common_account_merkle_proof[..]
-                            ].concat(),
-                        }),
-                        ..(proof.clone())
-                    }
+                .map(|proof| AccountMembershipProof {
+                    leaf_proof: IncrementalMerkleProof(MerkleProof {
+                        siblings: [
+                            &proof.leaf_proof.0.siblings[..],
+                            &common_account_merkle_proof[..],
+                        ]
+                        .concat(),
+                    }),
+                    ..(proof.clone())
                 })
                 .collect();
             Some(account_membership_proofs)
@@ -195,7 +204,6 @@ impl BlockWitness {
             account_membership_proofs,
         }
     }
-
 
     pub fn to_main_validation_pis(&self) -> MainValidationPublicInputs {
         if self.block == Block::genesis() {

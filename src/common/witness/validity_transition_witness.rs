@@ -16,6 +16,7 @@ use crate::{
 /// A structure that holds all the information needed to produce transition proof besides the
 /// block_witness
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ValidityTransitionWitness {
     pub sender_leaves: Vec<SenderLeaf>,
     pub block_merkle_proof: BlockHashMerkleProof,
@@ -24,6 +25,7 @@ pub struct ValidityTransitionWitness {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct CompressedValidityTransitionWitness {
     pub sender_leaves: Vec<SenderLeaf>,
     pub block_merkle_proof: BlockHashMerkleProof,
@@ -57,15 +59,22 @@ impl ValidityTransitionWitness {
             let significant_account_registration_proofs = account_registration_proofs
                 .iter()
                 .map(|proof| {
-                    for i in 0..ACCOUNT_TREE_HEIGHT-significant_height {
-                        assert_eq!(proof.low_leaf_proof.0.siblings[significant_height+i], common_account_merkle_proof[i]);
+                    for i in 0..ACCOUNT_TREE_HEIGHT - significant_height {
+                        assert_eq!(
+                            proof.low_leaf_proof.0.siblings[significant_height + i],
+                            common_account_merkle_proof[i]
+                        );
                     }
-                    for i in 0..ACCOUNT_TREE_HEIGHT-significant_height {
-                        assert_eq!(proof.leaf_proof.0.siblings[significant_height+i], common_account_merkle_proof[i]);
+                    for i in 0..ACCOUNT_TREE_HEIGHT - significant_height {
+                        assert_eq!(
+                            proof.leaf_proof.0.siblings[significant_height + i],
+                            common_account_merkle_proof[i]
+                        );
                     }
                     AccountRegistrationProof {
                         low_leaf_proof: IncrementalMerkleProof(MerkleProof {
-                            siblings: proof.low_leaf_proof.0.siblings[..significant_height].to_vec(),
+                            siblings: proof.low_leaf_proof.0.siblings[..significant_height]
+                                .to_vec(),
                         }),
                         leaf_proof: IncrementalMerkleProof(MerkleProof {
                             siblings: proof.leaf_proof.0.siblings[..significant_height].to_vec(),
@@ -79,29 +88,33 @@ impl ValidityTransitionWitness {
         } else {
             None
         };
-        let significant_account_update_proofs =
-            if let Some(account_update_proofs) = &self.account_update_proofs {
-                common_account_merkle_proof =
-                    account_update_proofs[0].leaf_proof.0.siblings[significant_height..].to_vec();
-                let significant_account_update_proofs = account_update_proofs
-                    .iter()
-                    .map(|proof| {
-                        for i in 0..ACCOUNT_TREE_HEIGHT-significant_height {
-                            assert_eq!(proof.leaf_proof.0.siblings[significant_height + i], common_account_merkle_proof[i]);
-                        }
-                        AccountUpdateProof {
-                            leaf_proof: IncrementalMerkleProof(MerkleProof {
-                                siblings: proof.leaf_proof.0.siblings[..significant_height].to_vec(),
-                            }),
-                            ..(proof.clone())
-                        }
-                    })
-                    .collect::<Vec<_>>();
+        let significant_account_update_proofs = if let Some(account_update_proofs) =
+            &self.account_update_proofs
+        {
+            common_account_merkle_proof =
+                account_update_proofs[0].leaf_proof.0.siblings[significant_height..].to_vec();
+            let significant_account_update_proofs = account_update_proofs
+                .iter()
+                .map(|proof| {
+                    for i in 0..ACCOUNT_TREE_HEIGHT - significant_height {
+                        assert_eq!(
+                            proof.leaf_proof.0.siblings[significant_height + i],
+                            common_account_merkle_proof[i]
+                        );
+                    }
+                    AccountUpdateProof {
+                        leaf_proof: IncrementalMerkleProof(MerkleProof {
+                            siblings: proof.leaf_proof.0.siblings[..significant_height].to_vec(),
+                        }),
+                        ..(proof.clone())
+                    }
+                })
+                .collect::<Vec<_>>();
 
-                Some(significant_account_update_proofs)
-            } else {
-                None
-            };
+            Some(significant_account_update_proofs)
+        } else {
+            None
+        };
 
         CompressedValidityTransitionWitness {
             sender_leaves: self.sender_leaves.clone(),
@@ -113,7 +126,8 @@ impl ValidityTransitionWitness {
     }
 
     pub fn decompress(compressed: &CompressedValidityTransitionWitness) -> Self {
-        // let significant_height = ACCOUNT_TREE_HEIGHT - compressed.common_account_merkle_proof.len();
+        // let significant_height = ACCOUNT_TREE_HEIGHT -
+        // compressed.common_account_merkle_proof.len();
         let account_registration_proofs = if let Some(significant_account_registration_proofs) =
             &compressed.significant_account_registration_proofs
         {

@@ -32,6 +32,7 @@ use super::{
 
 /// Proof of membership/non-membership of indexed merkle tree
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct MembershipProof {
     pub is_included: bool,
     pub leaf_proof: IndexedMerkleProof,

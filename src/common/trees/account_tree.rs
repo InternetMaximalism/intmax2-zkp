@@ -56,6 +56,7 @@ impl AccountTree {
 
 ///  Proof that demonstrates whether the given account id exists or not in the account tree.
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct AccountMerkleProof {
     pub merkle_proof: IndexedMerkleProof,
     pub leaf: IndexedMerkleLeaf,
