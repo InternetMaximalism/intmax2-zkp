@@ -222,6 +222,7 @@ impl AccountInclusionTarget {
     }
 }
 
+#[derive(Debug)]
 pub struct AccountInclusionCircuit<F, C, const D: usize>
 where
     F: RichField + Extendable<D>,

@@ -18,11 +18,13 @@ use plonky2::{
         config::{AlgebraicHasher, GenericConfig},
     },
 };
+use serde::{Deserialize, Serialize};
 
 use crate::{ethereum_types::u256::U256, utils::leafable::Leafable};
 
 /// Leaf of the indexed Merkle Tree with U256 as key
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct IndexedMerkleLeaf {
     pub(crate) next_index: usize,
     pub(crate) key: U256,

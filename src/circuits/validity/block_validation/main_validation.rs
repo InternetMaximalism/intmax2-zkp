@@ -383,6 +383,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct MainValidationTarget<const D: usize> {
     block: BlockTarget,
     signature: SignatureContentTarget,
@@ -576,6 +577,7 @@ impl<const D: usize> MainValidationTarget<D> {
     }
 }
 
+#[derive(Debug)]
 pub struct MainValidationCircuit<F, C, const D: usize>
 where
     F: RichField + Extendable<D>,

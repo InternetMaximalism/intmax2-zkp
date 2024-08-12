@@ -17,6 +17,7 @@ use crate::{
     utils::recursively_verifiable::RecursivelyVerifiable,
 };
 
+#[derive(Debug)]
 /// A dummy implementation of the transition wrapper circuit used for testing balance proof.
 pub struct DummyTransitionWrapperCircuit<F, C, const D: usize>
 where

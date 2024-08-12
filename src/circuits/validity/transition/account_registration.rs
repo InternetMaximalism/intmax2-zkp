@@ -15,7 +15,7 @@ use plonky2::{
 
 use crate::{
     common::trees::{
-        account_tree::{AccountregistrationProof, AccountregistrationProofTarget},
+        account_tree::{AccountRegistrationProof, AccountRegistrationProofTarget},
         sender_tree::{SenderLeaf, SenderLeafTarget},
     },
     constants::{ACCOUNT_TREE_HEIGHT, NUM_SENDERS_IN_BLOCK, SENDER_TREE_HEIGHT},
@@ -35,7 +35,7 @@ pub struct AccountregistrationValue {
     pub sender_tree_root: PoseidonHashOut,
     pub block_number: u32,
     pub sender_leaves: Vec<SenderLeaf>,
-    pub account_registration_proofs: Vec<AccountregistrationProof>,
+    pub account_registration_proofs: Vec<AccountRegistrationProof>,
 }
 
 impl AccountregistrationValue {
@@ -43,7 +43,7 @@ impl AccountregistrationValue {
         prev_account_tree_root: PoseidonHashOut,
         block_number: u32,
         sender_leaves: Vec<SenderLeaf>,
-        account_registration_proofs: Vec<AccountregistrationProof>,
+        account_registration_proofs: Vec<AccountRegistrationProof>,
     ) -> Self {
         assert_eq!(
             sender_leaves.len(),
@@ -88,13 +88,14 @@ impl AccountregistrationValue {
     }
 }
 
+#[derive(Debug)]
 pub struct AccountregistrationTarget {
     pub prev_account_tree_root: PoseidonHashOutTarget,
     pub new_account_tree_root: PoseidonHashOutTarget,
     pub sender_tree_root: PoseidonHashOutTarget,
     pub block_number: Target,
     pub sender_leaves: Vec<SenderLeafTarget>,
-    pub account_registration_proofs: Vec<AccountregistrationProofTarget>,
+    pub account_registration_proofs: Vec<AccountRegistrationProofTarget>,
 }
 
 impl AccountregistrationTarget {
@@ -112,7 +113,7 @@ impl AccountregistrationTarget {
             .map(|_| SenderLeafTarget::new(builder, false))
             .collect::<Vec<_>>();
         let account_registration_proofs = (0..NUM_SENDERS_IN_BLOCK)
-            .map(|_| AccountregistrationProofTarget::new(builder, ACCOUNT_TREE_HEIGHT, false))
+            .map(|_| AccountRegistrationProofTarget::new(builder, ACCOUNT_TREE_HEIGHT, false))
             .collect::<Vec<_>>();
         let sender_tree_root = get_merkle_root_from_leaves_circuit::<F, C, D, _>(
             builder,
@@ -176,6 +177,7 @@ impl AccountregistrationTarget {
     }
 }
 
+#[derive(Debug)]
 pub struct AccountregistrationCircuit<F, C, const D: usize>
 where
     F: RichField + Extendable<D>,
@@ -281,7 +283,7 @@ mod tests {
             };
             let is_dummy_pubkey = sender_leaf.sender.is_dummy_pubkey();
             let proof = if is_dummy_pubkey {
-                AccountregistrationProof::dummy(ACCOUNT_TREE_HEIGHT)
+                AccountRegistrationProof::dummy(ACCOUNT_TREE_HEIGHT)
             } else {
                 tree.prove_and_insert(sender_leaf.sender, last_block_number as u64)
                     .unwrap()

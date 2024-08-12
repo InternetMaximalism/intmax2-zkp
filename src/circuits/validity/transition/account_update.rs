@@ -88,6 +88,7 @@ impl AccountUpdateValue {
     }
 }
 
+#[derive(Debug)]
 pub(crate) struct AccountUpdateTarget {
     pub(crate) prev_account_tree_root: PoseidonHashOutTarget,
     pub(crate) new_account_tree_root: PoseidonHashOutTarget,
@@ -179,6 +180,7 @@ impl AccountUpdateTarget {
     }
 }
 
+#[derive(Debug)]
 pub struct AccountUpdateCircuit<F, C, const D: usize>
 where
     F: RichField + Extendable<D>,

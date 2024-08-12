@@ -11,6 +11,7 @@ use plonky2::{
         config::{AlgebraicHasher, GenericConfig},
     },
 };
+use serde::{Deserialize, Serialize};
 
 use crate::{
     ethereum_types::{
@@ -28,7 +29,8 @@ use super::{
     IndexedMerkleProof, IndexedMerkleProofTarget, IndexedMerkleTree,
 };
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct IndexedInsertionProof {
     pub index: usize,
     pub low_leaf_proof: IndexedMerkleProof,

@@ -131,6 +131,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     }
 }
 
+#[derive(Debug, Clone)]
 pub(crate) struct ValidityTransitionTarget<const D: usize> {
     pub(crate) block_pis: MainValidationPublicInputsTarget,
     pub(crate) prev_block_tree_root: PoseidonHashOutTarget,

@@ -10,6 +10,7 @@ use plonky2::{
         config::{AlgebraicHasher, GenericConfig},
     },
 };
+use serde::{Deserialize, Serialize};
 
 use super::merkle_tree::{MerkleProof, MerkleProofTarget, MerkleTree};
 use crate::utils::{
@@ -95,8 +96,15 @@ impl<V: Leafable> IncrementalMerkleTree<V> {
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct IncrementalMerkleProof<V: Leafable>(pub(crate) MerkleProof<V>);
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct IncrementalMerkleProof<V: Leafable>(
+    #[serde(bound(
+        serialize = "<V::LeafableHasher as LeafableHasher>::HashOut: Serialize",
+        deserialize = "<V::LeafableHasher as LeafableHasher>::HashOut: Deserialize<'de>"
+    ))]
+    pub(crate) MerkleProof<V>,
+);
 
 impl<V: Leafable> IncrementalMerkleProof<V> {
     pub fn dummy(height: usize) -> Self {
