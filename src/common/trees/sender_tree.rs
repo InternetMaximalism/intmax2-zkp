@@ -44,6 +44,7 @@ pub type SenderMerkleProofTarget = IncrementalMerkleProofTarget<SenderLeafTarget
 pub const SENDER_LEAF_LEN: usize = U256_LEN + 1;
 
 #[derive(Default, Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct SenderLeaf {
     pub sender: U256,
     pub is_valid: bool,
