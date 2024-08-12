@@ -24,18 +24,19 @@ use crate::{
 };
 
 use super::{
-    account_registoration::AccountRegistorationCircuit,
+    account_registration::AccountregistrationCircuit,
     account_update::AccountUpdateCircuit,
     transition::{ValidityTransitionTarget, ValidityTransitionValue},
 };
 
 /// Circuit to prove the transition from old validity pis to new validity pis.
+#[derive(Debug)]
 pub struct TransitionWrapperCircuit<F, C, const D: usize>
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
 {
-    pub(crate) data: CircuitData<F, C, D>,
+    pub data: CircuitData<F, C, D>,
     pub(crate) main_validation_proof: ProofWithPublicInputsTarget<D>,
     pub(crate) transition_target: ValidityTransitionTarget<D>,
     pub(crate) prev_pis: ValidityPublicInputsTarget,
@@ -49,7 +50,7 @@ where
 {
     pub fn new(
         main_validation_circut: &MainValidationCircuit<F, C, D>,
-        account_registoration_circuit: &AccountRegistorationCircuit<F, C, D>,
+        account_registration_circuit: &AccountregistrationCircuit<F, C, D>,
         account_update_circuit: &AccountUpdateCircuit<F, C, D>,
     ) -> Self {
         let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::default());
@@ -58,7 +59,7 @@ where
         let block_pis =
             MainValidationPublicInputsTarget::from_slice(&main_validation_proof.public_inputs);
         let transition_target = ValidityTransitionTarget::new(
-            account_registoration_circuit,
+            account_registration_circuit,
             account_update_circuit,
             &mut builder,
         );
@@ -120,7 +121,7 @@ where
         main_validation_proof: &ProofWithPublicInputs<F, C, D>,
         transition_value: &ValidityTransitionValue<F, C, D>,
         prev_pis: &ValidityPublicInputs,
-        account_registoration_proof_dummy: DummyProof<F, C, D>,
+        account_registration_proof_dummy: DummyProof<F, C, D>,
         account_update_proof_dummy: DummyProof<F, C, D>,
     ) -> Result<ProofWithPublicInputs<F, C, D>> {
         // assertion
@@ -136,7 +137,7 @@ where
         let mut pw = PartialWitness::<F>::new();
         self.transition_target.set_witness(
             &mut pw,
-            account_registoration_proof_dummy,
+            account_registration_proof_dummy,
             account_update_proof_dummy,
             transition_value,
         );

@@ -27,7 +27,7 @@ pub fn sign_to_tx_root(privkey: Fr, tx_tree_root: Bytes32, pubkey_hash: Bytes32)
 
     // message point
     let tx_tree_root = tx_tree_root
-        .limbs()
+        .to_u32_vec()
         .iter()
         .map(|x| GoldilocksField::from_canonical_u32(*x))
         .collect::<Vec<_>>();
@@ -38,9 +38,9 @@ pub fn sign_to_tx_root(privkey: Fr, tx_tree_root: Bytes32, pubkey_hash: Bytes32)
 pub(crate) fn hash_to_weight(my_pubkey: U256, pubkey_hash: Bytes32) -> U256 {
     type F = GoldilocksField;
     let flattened = my_pubkey
-        .limbs()
+        .to_u32_vec()
         .into_iter()
-        .chain(pubkey_hash.limbs())
+        .chain(pubkey_hash.to_u32_vec())
         .map(|x| F::from_canonical_u32(x))
         .collect::<Vec<_>>();
     let mut challenger = Challenger::<F, PoseidonHash>::new();
@@ -55,9 +55,9 @@ pub(crate) fn hash_to_weight_circuit<F: RichField + Extendable<D>, const D: usiz
     pubkey_hash: Bytes32Target,
 ) -> U256Target {
     let flattened = my_pubkey
-        .limbs()
+        .to_vec()
         .into_iter()
-        .chain(pubkey_hash.limbs())
+        .chain(pubkey_hash.to_vec())
         .map(|x| x)
         .collect::<Vec<_>>();
     let mut challenger = RecursiveChallenger::<F, PoseidonHash, D>::new(builder);
@@ -65,7 +65,7 @@ pub(crate) fn hash_to_weight_circuit<F: RichField + Extendable<D>, const D: usiz
     let output = challenger.get_n_challenges(builder, 8);
     let output = target_slice_to_biguint_target(builder, &output);
 
-    U256Target::from_limbs(
+    U256Target::from_slice(
         &output
             .limbs
             .into_iter()

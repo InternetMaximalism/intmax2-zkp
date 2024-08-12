@@ -76,7 +76,7 @@ impl AssetLeaf {
     pub fn to_u32_vec(&self) -> Vec<u32> {
         let vec = vec![self.is_insufficient as u32]
             .into_iter()
-            .chain(self.amount.limbs().into_iter())
+            .chain(self.amount.to_u32_vec().into_iter())
             .collect::<Vec<_>>();
         vec
     }
@@ -149,7 +149,7 @@ impl AssetLeafTarget {
     pub fn to_vec(&self) -> Vec<Target> {
         let vec = vec![self.is_insufficient.target]
             .into_iter()
-            .chain(self.amount.limbs().into_iter())
+            .chain(self.amount.to_vec().into_iter())
             .collect::<Vec<_>>();
         vec
     }

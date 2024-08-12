@@ -121,7 +121,7 @@ impl From<U256> for Fq {
 
 impl<F: RichField + Extendable<D>, const D: usize> From<FqTarget<F, D>> for U256Target {
     fn from(value: FqTarget<F, D>) -> Self {
-        U256Target::from_limbs(
+        U256Target::from_slice(
             value
                 .value()
                 .limbs
@@ -136,14 +136,14 @@ impl<F: RichField + Extendable<D>, const D: usize> From<FqTarget<F, D>> for U256
 
 impl<F: RichField + Extendable<D>, const D: usize> From<U256Target> for FqTarget<F, D> {
     fn from(value: U256Target) -> Self {
-        FqTarget::from_slice(&value.limbs().into_iter().rev().collect::<Vec<_>>())
+        FqTarget::from_slice(&value.to_vec().into_iter().rev().collect::<Vec<_>>())
     }
 }
 
 impl From<U256Target> for BigUintTarget {
     fn from(value: U256Target) -> Self {
         let limbs = value
-            .limbs()
+            .to_vec()
             .into_iter()
             .rev()
             .map(|x| U32Target(x))
@@ -153,10 +153,10 @@ impl From<U256Target> for BigUintTarget {
 }
 
 impl U32LimbTrait<U256_LEN> for U256 {
-    fn limbs(&self) -> Vec<u32> {
+    fn to_u32_vec(&self) -> Vec<u32> {
         self.limbs.to_vec()
     }
-    fn from_limbs(limbs: &[u32]) -> Self {
+    fn from_u32_slice(limbs: &[u32]) -> Self {
         Self {
             limbs: limbs.try_into().unwrap(),
         }
@@ -169,7 +169,7 @@ impl U256 {
         let mut limbs = rng.gen::<[u32; 6]>().to_vec();
         limbs.resize(U256_LEN, 0);
         limbs.reverse();
-        Self::from_limbs(&limbs)
+        Self::from_u32_slice(&limbs)
     }
 }
 
@@ -241,10 +241,10 @@ impl U256 {
 }
 
 impl U32LimbTargetTrait<U256_LEN> for U256Target {
-    fn limbs(&self) -> Vec<Target> {
+    fn to_vec(&self) -> Vec<Target> {
         self.limbs.to_vec()
     }
-    fn from_limbs(limbs: &[Target]) -> Self {
+    fn from_slice(limbs: &[Target]) -> Self {
         Self {
             limbs: limbs.try_into().unwrap(),
         }
@@ -365,17 +365,17 @@ mod tests {
 
     #[test]
     fn u256_order() {
-        let a = U256::from_limbs(&[0, 0, 0, 0, 2, 0, 0, 0]);
-        let b = U256::from_limbs(&[0, 0, 0, 1, 1, 0, 0, 0]);
+        let a = U256::from_u32_slice(&[0, 0, 0, 0, 2, 0, 0, 0]);
+        let b = U256::from_u32_slice(&[0, 0, 0, 1, 1, 0, 0, 0]);
         assert!(a < b);
     }
 
     #[test]
     fn u256_add_sub() {
-        let a = U256::from_limbs(&[0, 0, 0, 1, 2, 0, 0, 0]);
-        let b = U256::from_limbs(&[0, 0, 0, 0, u32::MAX, 0, 0, 0]);
-        let c = U256::from_limbs(&[0, 0, 0, 2, 1, 0, 0, 0]);
-        let d = U256::from_limbs(&[0, 0, 0, 0, 3, 0, 0, 0]);
+        let a = U256::from_u32_slice(&[0, 0, 0, 1, 2, 0, 0, 0]);
+        let b = U256::from_u32_slice(&[0, 0, 0, 0, u32::MAX, 0, 0, 0]);
+        let c = U256::from_u32_slice(&[0, 0, 0, 2, 1, 0, 0, 0]);
+        let d = U256::from_u32_slice(&[0, 0, 0, 0, 3, 0, 0, 0]);
         assert_eq!(a + b, c);
         assert_eq!(a - b, d);
     }
@@ -383,16 +383,16 @@ mod tests {
     #[test]
     #[should_panic]
     fn u256_sub_underflow() {
-        let a = U256::from_limbs(&[0, 0, 0, 1, 2, 0, 0, 0]);
-        let b = U256::from_limbs(&[0, 0, 0, 0, u32::MAX, 0, 0, 0]);
+        let a = U256::from_u32_slice(&[0, 0, 0, 1, 2, 0, 0, 0]);
+        let b = U256::from_u32_slice(&[0, 0, 0, 0, u32::MAX, 0, 0, 0]);
 
         _ = b - a;
     }
 
     #[test]
     fn u256_le() {
-        let a = U256::from_limbs(&[0, 0, 0, 1, 2, 0, 0, 0]);
-        let b = U256::from_limbs(&[0, 0, 0, 0, u32::MAX, 0, 0, 0]);
+        let a = U256::from_u32_slice(&[0, 0, 0, 1, 2, 0, 0, 0]);
+        let b = U256::from_u32_slice(&[0, 0, 0, 0, u32::MAX, 0, 0, 0]);
 
         let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::default());
         let a_t = U256Target::constant(&mut builder, a);

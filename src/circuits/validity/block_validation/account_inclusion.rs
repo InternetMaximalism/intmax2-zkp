@@ -51,11 +51,11 @@ pub struct AccountInclusionPublicInputsTarget {
 }
 
 impl AccountInclusionPublicInputs {
-    pub fn from_u64_vec(input: &[u64]) -> Self {
+    pub fn from_u64_slice(input: &[u64]) -> Self {
         assert_eq!(input.len(), ACCOUNT_INCLUSION_PUBLIC_INPUTS_LEN);
-        let account_id_hash = Bytes32::from_u64_vec(&input[0..8]);
-        let account_tree_root = PoseidonHashOut::from_u64_vec(&input[8..12]);
-        let pubkey_commitment = PoseidonHashOut::from_u64_vec(&input[12..16]);
+        let account_id_hash = Bytes32::from_u64_slice(&input[0..8]);
+        let account_tree_root = PoseidonHashOut::from_u64_slice(&input[8..12]);
+        let pubkey_commitment = PoseidonHashOut::from_u64_slice(&input[12..16]);
         let is_valid = input[16] == 1;
         Self {
             account_id_hash,
@@ -70,7 +70,7 @@ impl AccountInclusionPublicInputsTarget {
     pub fn to_vec(&self) -> Vec<Target> {
         let vec = self
             .account_id_hash
-            .limbs()
+            .to_vec()
             .into_iter()
             .chain(self.account_tree_root.elements.into_iter())
             .chain(self.pubkey_commitment.elements.into_iter())
@@ -82,7 +82,7 @@ impl AccountInclusionPublicInputsTarget {
 
     pub fn from_slice(input: &[Target]) -> Self {
         assert_eq!(input.len(), ACCOUNT_INCLUSION_PUBLIC_INPUTS_LEN);
-        let account_id_hash = Bytes32Target::from_limbs(&input[0..8]);
+        let account_id_hash = Bytes32Target::from_slice(&input[0..8]);
         let account_tree_root = PoseidonHashOutTarget {
             elements: input[8..12].try_into().unwrap(),
         };
@@ -222,6 +222,7 @@ impl AccountInclusionTarget {
     }
 }
 
+#[derive(Debug)]
 pub struct AccountInclusionCircuit<F, C, const D: usize>
 where
     F: RichField + Extendable<D>,

@@ -94,7 +94,7 @@ impl Leafable for Bytes32 {
 
     // Output as is in the case of a hash.
     fn hash(&self) -> PoseidonHashOut {
-        PoseidonHashOut::hash_inputs_u32(&self.limbs())
+        PoseidonHashOut::hash_inputs_u32(&self.to_u32_vec())
     }
 }
 
@@ -129,7 +129,7 @@ impl Leafable for U256 {
 
     // Output as is in the case of a hash.
     fn hash(&self) -> PoseidonHashOut {
-        PoseidonHashOut::hash_inputs_u32(&self.limbs())
+        PoseidonHashOut::hash_inputs_u32(&self.to_u32_vec())
     }
 }
 

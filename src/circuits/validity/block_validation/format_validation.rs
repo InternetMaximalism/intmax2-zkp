@@ -46,10 +46,10 @@ pub struct FormatValidationPublicInputsTarget {
 }
 
 impl FormatValidationPublicInputs {
-    pub fn from_u64_vec(input: &[u64]) -> Self {
+    pub fn from_u64_slice(input: &[u64]) -> Self {
         assert_eq!(input.len(), FORMAT_VALIDATION_PUBLIC_INPUTS_LEN);
-        let pubkey_commitment = PoseidonHashOut::from_u64_vec(&input[0..4]);
-        let signature_commitment = PoseidonHashOut::from_u64_vec(&input[4..8]);
+        let pubkey_commitment = PoseidonHashOut::from_u64_slice(&input[0..4]);
+        let signature_commitment = PoseidonHashOut::from_u64_slice(&input[4..8]);
         let is_valid = input[8] == 1;
         Self {
             pubkey_commitment,
@@ -97,6 +97,7 @@ pub struct FormatValidationValue {
     pub is_valid: bool,
 }
 
+#[derive(Debug, Clone)]
 pub struct FormatValidationTarget {
     pub pubkeys: Vec<U256Target>,
     pub signature: SignatureContentTarget,
@@ -109,7 +110,7 @@ impl FormatValidationValue {
     pub fn new(pubkeys: Vec<U256>, signature: SignatureContent) -> Self {
         let pubkey_commitment = get_pubkey_commitment(&pubkeys);
         let signature_commitment = signature.commitment();
-        let is_valid = signature.is_valid_format(&pubkeys).is_ok();
+        let is_valid = signature.is_valid_format(&pubkeys);
         Self {
             pubkeys,
             signature,
@@ -160,6 +161,7 @@ impl FormatValidationTarget {
     }
 }
 
+#[derive(Debug)]
 pub struct FormatValidationCircuit<F, C, const D: usize>
 where
     F: RichField + Extendable<D>,

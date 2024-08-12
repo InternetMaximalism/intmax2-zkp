@@ -18,11 +18,12 @@ use crate::utils::{
 
 pub const TX_LEN: usize = POSEIDON_HASH_OUT_LEN + 1;
 
+/// A transaction, which contains multiple transfers of tokens.
 #[derive(Clone, Default, Copy, Debug, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Tx {
-    pub transfer_tree_root: PoseidonHashOut,
-    pub nonce: u32,
+    pub transfer_tree_root: PoseidonHashOut, // The root of the transfer tree
+    pub nonce: u32,                          // The nonce of the sernder's accounts
 }
 
 impl Tx {
@@ -37,9 +38,9 @@ impl Tx {
         vec
     }
 
-    pub fn from_u64_vec(input: &[u64]) -> Self {
+    pub fn from_u64_slice(input: &[u64]) -> Self {
         assert_eq!(input.len(), TX_LEN);
-        let transfer_tree_root = PoseidonHashOut::from_u64_vec(&input[0..4]);
+        let transfer_tree_root = PoseidonHashOut::from_u64_slice(&input[0..4]);
         let nonce = input[4] as u32;
         Self {
             transfer_tree_root,

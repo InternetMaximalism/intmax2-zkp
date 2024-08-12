@@ -39,9 +39,9 @@ pub struct FraudProofPublicInputs {
 impl FraudProofPublicInputs {
     pub fn to_u32_vec(&self) -> Vec<u32> {
         let vec = vec![
-            self.block_hash.limbs(),
+            self.block_hash.to_u32_vec(),
             vec![self.block_number],
-            self.challenger.limbs(),
+            self.challenger.to_u32_vec(),
         ]
         .concat();
         assert_eq!(vec.len(), FRAUD_PROOF_PUBLIC_INPUTS_LEN);
@@ -49,7 +49,7 @@ impl FraudProofPublicInputs {
     }
 
     pub fn hash(&self) -> Bytes32 {
-        Bytes32::from_limbs(&solidity_keccak256(&self.to_u32_vec()))
+        Bytes32::from_u32_slice(&solidity_keccak256(&self.to_u32_vec()))
     }
 }
 
@@ -83,7 +83,7 @@ impl FraudProofPublicInputsTarget {
     where
         <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
     {
-        Bytes32Target::from_limbs(&builder.keccak256::<C>(&self.to_vec()))
+        Bytes32Target::from_slice(&builder.keccak256::<C>(&self.to_vec()))
     }
 }
 

@@ -66,7 +66,7 @@ pub struct MainValidationPublicInputs {
     pub tx_tree_root: Bytes32,
     pub sender_tree_root: PoseidonHashOut,
     pub block_number: u32,
-    pub is_registoration_block: bool,
+    pub is_registration_block: bool,
     pub is_valid: bool,
 }
 
@@ -79,21 +79,21 @@ pub struct MainValidationPublicInputsTarget {
     pub tx_tree_root: Bytes32Target,
     pub sender_tree_root: PoseidonHashOutTarget,
     pub block_number: Target,
-    pub is_registoration_block: BoolTarget,
+    pub is_registration_block: BoolTarget,
     pub is_valid: BoolTarget,
 }
 
 impl MainValidationPublicInputs {
-    pub fn from_u64_vec(input: &[u64]) -> Self {
+    pub fn from_u64_slice(input: &[u64]) -> Self {
         assert_eq!(input.len(), MAIN_VALIDATION_PUBLIC_INPUT_LEN);
-        let prev_block_hash = Bytes32::from_u64_vec(&input[0..8]);
-        let block_hash = Bytes32::from_u64_vec(&input[8..16]);
-        let deposit_tree_root = Bytes32::from_u64_vec(&input[16..24]);
-        let account_tree_root = PoseidonHashOut::from_u64_vec(&input[24..28]);
-        let tx_tree_root = Bytes32::from_u64_vec(&input[28..36]);
-        let sender_tree_root = PoseidonHashOut::from_u64_vec(&input[36..40]);
+        let prev_block_hash = Bytes32::from_u64_slice(&input[0..8]);
+        let block_hash = Bytes32::from_u64_slice(&input[8..16]);
+        let deposit_tree_root = Bytes32::from_u64_slice(&input[16..24]);
+        let account_tree_root = PoseidonHashOut::from_u64_slice(&input[24..28]);
+        let tx_tree_root = Bytes32::from_u64_slice(&input[28..36]);
+        let sender_tree_root = PoseidonHashOut::from_u64_slice(&input[36..40]);
         let block_number = input[40] as u32;
-        let is_registoration_block = input[41] == 1;
+        let is_registration_block = input[41] == 1;
         let is_valid = input[42] == 1;
         Self {
             prev_block_hash,
@@ -103,7 +103,7 @@ impl MainValidationPublicInputs {
             tx_tree_root,
             sender_tree_root,
             block_number,
-            is_registoration_block,
+            is_registration_block,
             is_valid,
         }
     }
@@ -115,11 +115,11 @@ impl MainValidationPublicInputsTarget {
         is_checked: bool,
     ) -> Self {
         let block_number = builder.add_virtual_target();
-        let is_registoration_block = builder.add_virtual_bool_target_unsafe();
+        let is_registration_block = builder.add_virtual_bool_target_unsafe();
         let is_valid = builder.add_virtual_bool_target_unsafe();
         if is_checked {
             builder.range_check(block_number, 32);
-            builder.assert_bool(is_registoration_block);
+            builder.assert_bool(is_registration_block);
             builder.assert_bool(is_valid);
         }
         Self {
@@ -130,7 +130,7 @@ impl MainValidationPublicInputsTarget {
             tx_tree_root: Bytes32Target::new(builder, is_checked),
             sender_tree_root: PoseidonHashOutTarget::new(builder),
             block_number,
-            is_registoration_block,
+            is_registration_block,
             is_valid,
         }
     }
@@ -138,16 +138,16 @@ impl MainValidationPublicInputsTarget {
     pub fn to_vec(&self) -> Vec<Target> {
         let vec = self
             .prev_block_hash
-            .limbs()
+            .to_vec()
             .into_iter()
-            .chain(self.block_hash.limbs().into_iter())
-            .chain(self.deposit_tree_root.limbs().into_iter())
+            .chain(self.block_hash.to_vec().into_iter())
+            .chain(self.deposit_tree_root.to_vec().into_iter())
             .chain(self.account_tree_root.elements.into_iter())
-            .chain(self.tx_tree_root.limbs().into_iter())
+            .chain(self.tx_tree_root.to_vec().into_iter())
             .chain(self.sender_tree_root.elements.into_iter())
             .chain([
                 self.block_number,
-                self.is_registoration_block.target,
+                self.is_registration_block.target,
                 self.is_valid.target,
             ])
             .collect::<Vec<_>>();
@@ -157,14 +157,14 @@ impl MainValidationPublicInputsTarget {
 
     pub fn from_slice(input: &[Target]) -> Self {
         assert_eq!(input.len(), MAIN_VALIDATION_PUBLIC_INPUT_LEN);
-        let prev_block_hash = Bytes32Target::from_limbs(&input[0..8]);
-        let block_hash = Bytes32Target::from_limbs(&input[8..16]);
-        let deposit_tree_root = Bytes32Target::from_limbs(&input[16..24]);
+        let prev_block_hash = Bytes32Target::from_slice(&input[0..8]);
+        let block_hash = Bytes32Target::from_slice(&input[8..16]);
+        let deposit_tree_root = Bytes32Target::from_slice(&input[16..24]);
         let account_tree_root = PoseidonHashOutTarget::from_slice(&input[24..28]);
-        let tx_tree_root = Bytes32Target::from_limbs(&input[28..36]);
+        let tx_tree_root = Bytes32Target::from_slice(&input[28..36]);
         let sender_tree_root = PoseidonHashOutTarget::from_slice(&input[36..40]);
         let block_number = input[40];
-        let is_registoration_block = BoolTarget::new_unsafe(input[41]);
+        let is_registration_block = BoolTarget::new_unsafe(input[41]);
         let is_valid = BoolTarget::new_unsafe(input[42]);
         Self {
             prev_block_hash,
@@ -174,7 +174,7 @@ impl MainValidationPublicInputsTarget {
             tx_tree_root,
             sender_tree_root,
             block_number,
-            is_registoration_block,
+            is_registration_block,
             is_valid,
         }
     }
@@ -195,7 +195,7 @@ impl MainValidationPublicInputsTarget {
         self.sender_tree_root
             .set_witness(witness, value.sender_tree_root);
         witness.set_target(self.block_number, F::from_canonical_u32(value.block_number));
-        witness.set_bool_target(self.is_registoration_block, value.is_registoration_block);
+        witness.set_bool_target(self.is_registration_block, value.is_registration_block);
         witness.set_bool_target(self.is_valid, value.is_valid);
     }
 }
@@ -218,7 +218,7 @@ pub struct MainValidationValue<
     prev_block_hash: Bytes32,
     block_hash: Bytes32,
     sender_tree_root: PoseidonHashOut,
-    is_registoration_block: bool,
+    is_registration_block: bool,
     is_valid: bool,
 }
 
@@ -242,15 +242,15 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         let mut result = true;
         let pubkey_commitment = get_pubkey_commitment(&pubkeys);
         let pubkey_hash = get_pubkey_hash(&pubkeys);
-        let is_registoration_block = signature.is_registoration_block;
+        let is_registration_block = signature.is_registration_block;
         let is_pubkey_eq = signature.pubkey_hash == pubkey_hash;
-        if is_registoration_block {
+        if is_registration_block {
             // When pubkey is directly given, the constraint is that signature.pubkey_hash and
             // pubkey_hash match.
             assert!(is_pubkey_eq, "pubkey hash mismatch");
         } else {
             // In the account id case, The value of signature.pubkey_hash can be freely chosen by
-            // the block builder, so it should not be constrained to match in the circuit.
+            // the block builder, so it should not be constrained in the circuit.
             result = result && is_pubkey_eq;
         }
 
@@ -261,7 +261,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
             "signature hash mismatch"
         );
 
-        if is_registoration_block {
+        if is_registration_block {
             // Account exclusion verification
             let account_exclusion_proof = account_exclusion_proof
                 .clone()
@@ -270,7 +270,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
                 .data
                 .verify(account_exclusion_proof.clone())
                 .expect("account exclusion proof verification failed");
-            let pis = AccountExclusionPublicInputs::from_u64_vec(
+            let pis = AccountExclusionPublicInputs::from_u64_slice(
                 &account_exclusion_proof.public_inputs.to_u64_vec(),
             );
             assert_eq!(
@@ -291,7 +291,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
                 .data
                 .verify(account_inclusion_proof.clone())
                 .expect("account inclusion proof verification failed");
-            let pis = AccountInclusionPublicInputs::from_u64_vec(
+            let pis = AccountInclusionPublicInputs::from_u64_slice(
                 &account_inclusion_proof
                     .public_inputs
                     .into_iter()
@@ -318,7 +318,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
             .data
             .verify(format_validation_proof.clone())
             .expect("format validation proof verification failed");
-        let format_validation_pis = FormatValidationPublicInputs::from_u64_vec(
+        let format_validation_pis = FormatValidationPublicInputs::from_u64_slice(
             &format_validation_proof.public_inputs.to_u64_vec(),
         );
         assert_eq!(
@@ -340,7 +340,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
                 .data
                 .verify(aggregation_proof.clone())
                 .unwrap();
-            let pis = AggregationPublicInputs::from_u64_vec(
+            let pis = AggregationPublicInputs::from_u64_slice(
                 &aggregation_proof
                     .public_inputs
                     .into_iter()
@@ -377,12 +377,13 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
             prev_block_hash,
             block_hash,
             sender_tree_root,
-            is_registoration_block,
+            is_registration_block,
             is_valid: result,
         }
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct MainValidationTarget<const D: usize> {
     block: BlockTarget,
     signature: SignatureContentTarget,
@@ -397,7 +398,7 @@ pub struct MainValidationTarget<const D: usize> {
     prev_block_hash: Bytes32Target,
     block_hash: Bytes32Target,
     sender_tree_root: PoseidonHashOutTarget,
-    is_registoration_block: BoolTarget,
+    is_registration_block: BoolTarget,
     is_valid: BoolTarget,
 }
 
@@ -422,13 +423,13 @@ impl<const D: usize> MainValidationTarget<D> {
         let pubkey_hash = get_pubkey_hash_circuit::<F, C, D>(builder, &pubkeys);
         let account_tree_root = PoseidonHashOutTarget::new(builder);
 
-        let is_registoration_block = signature.is_registoration_block;
-        let is_not_registoration_block = builder.not(is_registoration_block);
+        let is_registration_block = signature.is_registration_block;
+        let is_not_registration_block = builder.not(is_registration_block);
         let is_pubkey_eq = signature.pubkey_hash.is_equal(builder, &pubkey_hash);
         // pubkey case
-        builder.conditional_assert_true(is_registoration_block, is_pubkey_eq);
+        builder.conditional_assert_true(is_registration_block, is_pubkey_eq);
         // account id case
-        result = builder.conditional_and(is_not_registoration_block, result, is_pubkey_eq);
+        result = builder.conditional_and(is_not_registration_block, result, is_pubkey_eq);
 
         // signature.pubkey_hash.connect(builder, pubkey_hash);
         let signature_commitment = signature.commitment(builder);
@@ -437,39 +438,39 @@ impl<const D: usize> MainValidationTarget<D> {
 
         // Account exclusion verification
         let account_exclusion_proof = account_exclusion_circuit
-            .add_proof_target_and_conditionally_verify(builder, is_registoration_block);
+            .add_proof_target_and_conditionally_verify(builder, is_registration_block);
         let account_exclusion_pis =
             AccountExclusionPublicInputsTarget::from_slice(&account_exclusion_proof.public_inputs);
         account_exclusion_pis
             .pubkey_commitment
-            .conditional_assert_eq(builder, pubkey_commitment, is_registoration_block);
+            .conditional_assert_eq(builder, pubkey_commitment, is_registration_block);
         account_exclusion_pis
             .account_tree_root
-            .conditional_assert_eq(builder, account_tree_root, is_registoration_block);
+            .conditional_assert_eq(builder, account_tree_root, is_registration_block);
         result = builder.conditional_and(
-            is_registoration_block,
+            is_registration_block,
             result,
             account_exclusion_pis.is_valid,
         );
 
         // Account inclusion verification
         let account_inclusion_proof = account_inclusion_circuit
-            .add_proof_target_and_conditionally_verify(builder, is_not_registoration_block);
+            .add_proof_target_and_conditionally_verify(builder, is_not_registration_block);
         let account_inclusion_pis =
             AccountInclusionPublicInputsTarget::from_slice(&account_inclusion_proof.public_inputs);
         account_inclusion_pis
             .pubkey_commitment
-            .conditional_assert_eq(builder, pubkey_commitment, is_not_registoration_block);
+            .conditional_assert_eq(builder, pubkey_commitment, is_not_registration_block);
         account_inclusion_pis
             .account_tree_root
-            .conditional_assert_eq(builder, account_tree_root, is_not_registoration_block);
+            .conditional_assert_eq(builder, account_tree_root, is_not_registration_block);
         account_inclusion_pis.account_id_hash.conditional_assert_eq(
             builder,
             signature.account_id_hash,
-            is_not_registoration_block,
+            is_not_registration_block,
         );
         result = builder.conditional_and(
-            is_not_registoration_block,
+            is_not_registration_block,
             result,
             account_inclusion_pis.is_valid,
         );
@@ -521,7 +522,7 @@ impl<const D: usize> MainValidationTarget<D> {
             prev_block_hash,
             block_hash,
             sender_tree_root,
-            is_registoration_block,
+            is_registration_block,
             is_valid: result,
         }
     }
@@ -571,11 +572,12 @@ impl<const D: usize> MainValidationTarget<D> {
         self.block_hash.set_witness(witness, value.block_hash);
         self.sender_tree_root
             .set_witness(witness, value.sender_tree_root);
-        witness.set_bool_target(self.is_registoration_block, value.is_registoration_block);
+        witness.set_bool_target(self.is_registration_block, value.is_registration_block);
         witness.set_bool_target(self.is_valid, value.is_valid);
     }
 }
 
+#[derive(Debug)]
 pub struct MainValidationCircuit<F, C, const D: usize>
 where
     F: RichField + Extendable<D>,
@@ -613,7 +615,7 @@ where
             tx_tree_root: target.signature.tx_tree_root,
             sender_tree_root: target.sender_tree_root,
             block_number: target.block.block_number,
-            is_registoration_block: target.is_registoration_block,
+            is_registration_block: target.is_registration_block,
             is_valid: target.is_valid,
         };
         builder.register_public_inputs(&pis.to_vec());

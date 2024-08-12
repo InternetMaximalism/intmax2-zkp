@@ -21,13 +21,14 @@ use crate::{
 
 use super::trees::deposit_tree::DepositTree;
 
+/// A block of intmax2.
 #[derive(Clone, Default, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Block {
-    pub prev_block_hash: Bytes32,
-    pub deposit_tree_root: Bytes32,
-    pub signature_hash: Bytes32,
-    pub block_number: u32,
+    pub prev_block_hash: Bytes32,   // The hash of the previous block
+    pub deposit_tree_root: Bytes32, // The root of the deposit tree
+    pub signature_hash: Bytes32,    // The hash of the signature of the block
+    pub block_number: u32,          // The number of the block
 }
 
 #[derive(Clone, Debug)]
@@ -51,9 +52,9 @@ impl Block {
 
     pub fn to_u32_vec(&self) -> Vec<u32> {
         vec![
-            self.prev_block_hash.limbs(),
-            self.deposit_tree_root.limbs(),
-            self.signature_hash.limbs(),
+            self.prev_block_hash.to_u32_vec(),
+            self.deposit_tree_root.to_u32_vec(),
+            self.signature_hash.to_u32_vec(),
             vec![self.block_number],
         ]
         .concat()
@@ -65,7 +66,7 @@ impl Block {
     }
 
     pub fn hash(&self) -> Bytes32 {
-        Bytes32::from_limbs(&solidity_keccak256(&self.to_u32_vec()))
+        Bytes32::from_u32_slice(&solidity_keccak256(&self.to_u32_vec()))
     }
 }
 
@@ -114,7 +115,7 @@ impl BlockTarget {
     where
         <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
     {
-        Bytes32Target::from_limbs(&builder.keccak256::<C>(&self.to_vec()))
+        Bytes32Target::from_slice(&builder.keccak256::<C>(&self.to_vec()))
     }
 
     pub fn set_witness<F: RichField, W: Witness<F>>(&self, witness: &mut W, value: &Block) {

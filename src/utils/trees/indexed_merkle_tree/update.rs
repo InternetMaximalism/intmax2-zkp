@@ -8,6 +8,7 @@ use plonky2::{
         config::{AlgebraicHasher, GenericConfig},
     },
 };
+use serde::{Deserialize, Serialize};
 
 use crate::{
     ethereum_types::{
@@ -23,7 +24,8 @@ use super::{
 };
 
 /// Proof of membership/non-membership of indexed merkle tree
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct UpdateProof {
     pub leaf_proof: IndexedMerkleProof,
     pub leaf_index: usize,

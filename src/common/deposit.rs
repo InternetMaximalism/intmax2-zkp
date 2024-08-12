@@ -26,12 +26,13 @@ use crate::{
 
 use super::salt::{Salt, SaltTarget};
 
+/// A deposit of tokens to the contract
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Deposit {
-    pub pubkey_salt_hash: Bytes32,
-    pub token_index: u32,
-    pub amount: U256,
+    pub pubkey_salt_hash: Bytes32, // The poseidon hash of the pubkey and salt, to hide the pubkey
+    pub token_index: u32,          // The index of the token
+    pub amount: U256,              // The amount of the token, which is the amount of the deposit
 }
 
 #[derive(Debug, Clone)]
@@ -44,9 +45,9 @@ pub struct DepositTarget {
 impl Deposit {
     pub fn to_u32_vec(&self) -> Vec<u32> {
         let vec = vec![
-            self.pubkey_salt_hash.limbs(),
+            self.pubkey_salt_hash.to_u32_vec(),
             vec![self.token_index],
-            self.amount.limbs(),
+            self.amount.to_u32_vec(),
         ]
         .concat();
         vec
@@ -68,9 +69,9 @@ impl Deposit {
 impl DepositTarget {
     pub fn to_vec(&self) -> Vec<Target> {
         let vec = vec![
-            self.pubkey_salt_hash.limbs(),
+            self.pubkey_salt_hash.to_vec(),
             vec![self.token_index],
-            self.amount.limbs(),
+            self.amount.to_vec(),
         ]
         .concat();
         vec
@@ -127,7 +128,7 @@ impl Leafable for Deposit {
     }
 
     fn hash(&self) -> Bytes32 {
-        Bytes32::from_limbs(&solidity_keccak256(&self.to_u32_vec()))
+        Bytes32::from_u32_slice(&solidity_keccak256(&self.to_u32_vec()))
     }
 }
 
@@ -148,7 +149,7 @@ impl LeafableTarget for DepositTarget {
         <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
     {
         let limbs = self.to_vec();
-        Bytes32Target::from_limbs(&builder.keccak256::<C>(&limbs))
+        Bytes32Target::from_slice(&builder.keccak256::<C>(&limbs))
     }
 }
 

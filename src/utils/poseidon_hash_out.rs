@@ -50,7 +50,7 @@ impl PoseidonHashOut {
         self.elements.to_vec()
     }
 
-    pub fn from_u64_vec(input: &[u64]) -> Self {
+    pub fn from_u64_slice(input: &[u64]) -> Self {
         assert_eq!(input.len(), POSEIDON_HASH_OUT_LEN);
         Self {
             elements: input.try_into().unwrap(),
@@ -226,14 +226,14 @@ impl From<PoseidonHashOut> for Bytes32 {
                 [high, low]
             })
             .collect::<Vec<_>>();
-        Self::from_limbs(&limbs)
+        Self::from_u32_slice(&limbs)
     }
 }
 
 impl Bytes32 {
     pub fn reduce_to_hash_out(&self) -> PoseidonHashOut {
         let elements = self
-            .limbs()
+            .to_u32_vec()
             .chunks(2)
             .map(|chunk| {
                 let low = chunk[1];
@@ -272,7 +272,7 @@ impl Bytes32Target {
                 [high, low]
             })
             .collect::<Vec<_>>();
-        Self::from_limbs(&limbs)
+        Self::from_slice(&limbs)
     }
 
     pub fn reduce_to_hash_out<F: RichField + Extendable<D>, const D: usize>(
@@ -280,7 +280,7 @@ impl Bytes32Target {
         builder: &mut CircuitBuilder<F, D>,
     ) -> PoseidonHashOutTarget {
         let mut result = vec![];
-        for chunk in self.limbs().chunks(2) {
+        for chunk in self.to_vec().chunks(2) {
             let low = chunk[1];
             let high = chunk[0];
             result.push(builder.mul_const_add(F::from_canonical_u64(1 << 32), high, low));

@@ -19,6 +19,7 @@ use crate::{
     common::witness::block_witness::BlockWitness,
 };
 
+#[derive(Debug)]
 pub struct MainValidationProcessor<F, C, const D: usize>
 where
     F: RichField + Extendable<D>,
@@ -60,7 +61,7 @@ where
 
     pub fn prove(&self, block_witness: &BlockWitness) -> Result<ProofWithPublicInputs<F, C, D>> {
         let (account_exclusion_proof, account_inclusion_proof) =
-            if block_witness.signature.is_registoration_block {
+            if block_witness.signature.is_registration_block {
                 let account_exclusion_value = AccountExclusionValue::new(
                     block_witness.prev_account_tree_root,
                     block_witness

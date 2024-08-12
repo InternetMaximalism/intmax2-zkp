@@ -57,9 +57,9 @@ where
         let withdrawal_inner_proof =
             withdrawal_innser_circuit.add_proof_target_and_verify(&mut builder);
         let prev_withdrawal_hash =
-            Bytes32Target::from_limbs(&withdrawal_inner_proof.public_inputs[0..BYTES32_LEN]);
+            Bytes32Target::from_slice(&withdrawal_inner_proof.public_inputs[0..BYTES32_LEN]);
         let withdrawal_hash =
-            Bytes32Target::from_limbs(&withdrawal_inner_proof.public_inputs[BYTES32_LEN..]);
+            Bytes32Target::from_slice(&withdrawal_inner_proof.public_inputs[BYTES32_LEN..]);
         builder.register_public_inputs(&withdrawal_hash.to_vec());
 
         let common_data = common_data_for_withdrawal_circuit::<F, C, D>();
@@ -73,7 +73,7 @@ where
                 &common_data,
             )
             .unwrap();
-        let prev_pis = Bytes32Target::from_limbs(&prev_proof.public_inputs[0..BYTES32_LEN]);
+        let prev_pis = Bytes32Target::from_slice(&prev_proof.public_inputs[0..BYTES32_LEN]);
         prev_pis.connect(&mut builder, prev_withdrawal_hash);
         // initial condition
         let zero = Bytes32Target::zero::<F, D, Bytes32>(&mut builder);

@@ -53,21 +53,21 @@ impl AccountUpdateValue {
         assert_eq!(
             account_update_proofs.len(),
             NUM_SENDERS_IN_BLOCK,
-            "Invalid number of account registoration proofs"
+            "Invalid number of account registration proofs"
         );
         let sender_tree_root = get_merkle_root_from_leaves(SENDER_TREE_HEIGHT, &sender_leaves);
 
         let mut account_tree_root = prev_account_tree_root;
-        for (sender_leaf, account_registoration_proof) in
+        for (sender_leaf, account_registration_proof) in
             sender_leaves.iter().zip(account_update_proofs.iter())
         {
-            let prev_last_block_number = account_registoration_proof.prev_leaf.value as u32;
+            let prev_last_block_number = account_registration_proof.prev_leaf.value as u32;
             let last_block_number = if sender_leaf.is_valid {
                 block_number
             } else {
                 prev_last_block_number
             };
-            account_tree_root = account_registoration_proof
+            account_tree_root = account_registration_proof
                 .get_new_root(
                     sender_leaf.sender,
                     prev_last_block_number as u64,
@@ -88,6 +88,7 @@ impl AccountUpdateValue {
     }
 }
 
+#[derive(Debug)]
 pub(crate) struct AccountUpdateTarget {
     pub(crate) prev_account_tree_root: PoseidonHashOutTarget,
     pub(crate) new_account_tree_root: PoseidonHashOutTarget,
@@ -179,6 +180,7 @@ impl AccountUpdateTarget {
     }
 }
 
+#[derive(Debug)]
 pub struct AccountUpdateCircuit<F, C, const D: usize>
 where
     F: RichField + Extendable<D>,
@@ -282,20 +284,20 @@ mod tests {
         }
         let new_account_tree_root = tree.get_root();
 
-        let account_registoration_value = AccountUpdateValue::new(
+        let account_registration_value = AccountUpdateValue::new(
             prev_account_tree_root,
             block_number,
             sender_leaves,
             account_update_proofs,
         );
         assert_eq!(
-            account_registoration_value.new_account_tree_root,
+            account_registration_value.new_account_tree_root,
             new_account_tree_root
         );
 
-        let account_registoration_circuit = AccountUpdateCircuit::<F, C, D>::new();
-        let _proof = account_registoration_circuit
-            .prove(&account_registoration_value)
+        let account_registration_circuit = AccountUpdateCircuit::<F, C, D>::new();
+        let _proof = account_registration_circuit
+            .prove(&account_registration_value)
             .unwrap();
     }
 }

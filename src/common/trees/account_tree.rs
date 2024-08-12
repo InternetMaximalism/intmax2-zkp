@@ -27,6 +27,7 @@ use plonky2::{
         config::{AlgebraicHasher, GenericConfig},
     },
 };
+use serde::{Deserialize, Serialize};
 
 pub type AccountTree = IndexedMerkleTree;
 
@@ -34,8 +35,8 @@ pub type AccountTree = IndexedMerkleTree;
 pub type AccountMembershipProof = MembershipProof;
 pub type AccountMembershipProofTarget = MembershipProofTarget;
 
-pub type AccountRegistorationProof = IndexedInsertionProof;
-pub type AccountRegistorationProofTarget = IndexedInsertionProofTarget;
+pub type AccountRegistrationProof = IndexedInsertionProof;
+pub type AccountRegistrationProofTarget = IndexedInsertionProofTarget;
 pub type AccountUpdateProof = UpdateProof;
 pub type AccountUpdateProofTarget = UpdateProofTarget;
 
@@ -54,7 +55,8 @@ impl AccountTree {
 }
 
 ///  Proof that demonstrates whether the given account id exists or not in the account tree.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct AccountMerkleProof {
     pub merkle_proof: IndexedMerkleProof,
     pub leaf: IndexedMerkleLeaf,

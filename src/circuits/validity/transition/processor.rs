@@ -11,7 +11,7 @@ use crate::{
     circuits::validity::{
         block_validation::processor::MainValidationProcessor,
         transition::{
-            account_registoration::AccountRegistorationValue, account_update::AccountUpdateValue,
+            account_registration::AccountregistrationValue, account_update::AccountUpdateValue,
             transition::ValidityTransitionValue,
         },
         validity_pis::ValidityPublicInputs,
@@ -20,18 +20,19 @@ use crate::{
 };
 
 use super::{
-    account_registoration::AccountRegistorationCircuit, account_update::AccountUpdateCircuit,
+    account_registration::AccountregistrationCircuit, account_update::AccountUpdateCircuit,
     wrapper::TransitionWrapperCircuit,
 };
 use anyhow::Result;
 
+#[derive(Debug)]
 pub struct TransitionProcessor<F, C, const D: usize>
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
 {
     pub main_validation_processor: MainValidationProcessor<F, C, D>,
-    pub account_registoration_circuit: AccountRegistorationCircuit<F, C, D>,
+    pub account_registration_circuit: AccountregistrationCircuit<F, C, D>,
     pub account_update_circuit: AccountUpdateCircuit<F, C, D>,
     pub transition_wrapper_circuit: TransitionWrapperCircuit<F, C, D>,
 }
@@ -44,16 +45,16 @@ where
 {
     pub fn new() -> Self {
         let main_validation_processor = MainValidationProcessor::new();
-        let account_registoration_circuit = AccountRegistorationCircuit::new();
+        let account_registration_circuit = AccountregistrationCircuit::new();
         let account_update_circuit = AccountUpdateCircuit::new();
         let transition_wrapper_circuit = TransitionWrapperCircuit::new(
             &main_validation_processor.main_validation_circuit,
-            &account_registoration_circuit,
+            &account_registration_circuit,
             &account_update_circuit,
         );
         Self {
             main_validation_processor,
-            account_registoration_circuit,
+            account_registration_circuit,
             account_update_circuit,
             transition_wrapper_circuit,
         }
@@ -69,29 +70,29 @@ where
 
         let block_pis = validity_witness.block_witness.to_main_validation_pis();
 
-        let account_registoration_proof = if block_pis.is_valid && block_pis.is_registoration_block
+        let account_registration_proof = if block_pis.is_valid && block_pis.is_registration_block
         {
             let account_registration_proofs = validity_witness
                 .validity_transition_witness
                 .account_registration_proofs
                 .clone()
-                .expect("Account registoration proofs are missing");
+                .expect("Account registration proofs are missing");
             let sender_leaves = get_sender_leaves(
                 &validity_witness.block_witness.pubkeys,
                 validity_witness.block_witness.signature.sender_flag,
             );
-            let value = AccountRegistorationValue::new(
+            let value = AccountregistrationValue::new(
                 prev_account_tree_root,
                 block_pis.block_number,
                 sender_leaves.clone(),
                 account_registration_proofs,
             );
-            let proof = self.account_registoration_circuit.prove(&value)?;
+            let proof = self.account_registration_circuit.prove(&value)?;
             Some(proof)
         } else {
             None
         };
-        let account_update_proof = if block_pis.is_valid && (!block_pis.is_registoration_block) {
+        let account_update_proof = if block_pis.is_valid && (!block_pis.is_registration_block) {
             let account_update_proofs = validity_witness
                 .validity_transition_witness
                 .account_update_proofs
@@ -113,12 +114,12 @@ where
             None
         };
         let transition_value = ValidityTransitionValue::new(
-            &self.account_registoration_circuit,
+            &self.account_registration_circuit,
             &self.account_update_circuit,
             validity_witness.block_witness.to_main_validation_pis(),
             prev_account_tree_root,
             prev_block_tree_root,
-            account_registoration_proof,
+            account_registration_proof,
             account_update_proof,
             validity_witness
                 .validity_transition_witness
@@ -132,7 +133,7 @@ where
             &main_validation_proof,
             &transition_value,
             &prev_pis,
-            self.account_registoration_circuit.dummy_proof.clone(),
+            self.account_registration_circuit.dummy_proof.clone(),
             self.account_update_circuit.dummy_proof.clone(),
         )?;
         Ok(proof)

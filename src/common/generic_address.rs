@@ -20,7 +20,7 @@ use super::signature::key_set::KeySet;
 
 pub const GENERIC_ADDRESS_LEN: usize = 1 + U256_LEN;
 
-// A structure representing a pubkey or Ethereum address
+/// A structure representing a pubkey or Ethereum address
 #[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GenericAddress {
@@ -52,11 +52,11 @@ impl GenericAddress {
     }
 
     pub fn from_address(address: Address) -> Self {
-        let mut limbs = address.limbs();
+        let mut limbs = address.to_u32_vec();
         limbs.resize(U256_LEN, 0);
         Self {
             is_pubkey: false,
-            data: U256::from_limbs(&limbs),
+            data: U256::from_u32_slice(&limbs),
         }
     }
 
@@ -67,8 +67,8 @@ impl GenericAddress {
 
     pub fn to_address(&self) -> Result<Address> {
         ensure!(!self.is_pubkey, "not an address");
-        let limbs = self.data.limbs();
-        Ok(Address::from_limbs(&limbs[0..ADDRESS_LEN]))
+        let limbs = self.data.to_u32_vec();
+        Ok(Address::from_u32_slice(&limbs[0..ADDRESS_LEN]))
     }
 
     pub fn rand_pubkey<R: Rng>(rng: &mut R) -> Self {
@@ -128,8 +128,8 @@ impl GenericAddressTarget {
         builder: &mut CircuitBuilder<F, D>,
     ) -> AddressTarget {
         builder.assert_zero(self.is_pubkey.target);
-        let limbs = self.data.limbs();
-        AddressTarget::from_limbs(&limbs[0..ADDRESS_LEN])
+        let limbs = self.data.to_vec();
+        AddressTarget::from_slice(&limbs[0..ADDRESS_LEN])
     }
 
     pub fn to_pubkey<F: RichField + Extendable<D>, const D: usize>(

@@ -58,7 +58,7 @@ where
         prev_withdrawal_proof: &Option<ProofWithPublicInputs<F, C, D>>,
     ) -> Result<ProofWithPublicInputs<F, C, D>> {
         let prev_withdrawal_hash = if prev_withdrawal_proof.is_some() {
-            Bytes32::from_u64_vec(
+            Bytes32::from_u64_slice(
                 &prev_withdrawal_proof.as_ref().unwrap().public_inputs[0..BYTES32_LEN].to_u64_vec(),
             )
         } else {

@@ -1,4 +1,3 @@
-use anyhow::{ensure, Result};
 use ark_bn254::{Fq, G1Affine, G2Affine};
 use num::BigUint;
 use plonky2::{
@@ -33,57 +32,45 @@ impl SignatureContent {
     /// ensure that the subsequent ZKP works without any problems
     /// correctness of pubkey hash and account id hash is not checked here
     /// pubkeys are given as witnesses
-    /// - pubkeys are in the correct order, unused pubkeys are one
-    pub fn is_valid_format(&self, pubkeys: &[U256]) -> Result<()> {
+    pub fn is_valid_format(&self, pubkeys: &[U256]) -> bool {
         assert_eq!(
             pubkeys.len(),
             NUM_SENDERS_IN_BLOCK,
             "pubkeys length is invalid"
         );
 
+        let mut result = true;
+
         // sender flag check
-        ensure!(
-            self.sender_flag != Bytes16::default(),
-            "sender_flag is zero"
-        );
+        result &= self.sender_flag != Bytes16::zero();
 
         // pubkey order check
         let mut cur_pubkey = pubkeys[0];
         for pubkey in pubkeys.iter().skip(1) {
-            ensure!(
-                cur_pubkey > *pubkey || *pubkey == U256::one(), // use one for dummy pubkeys
-                "pubkey order check failed"
-            );
+            result &= cur_pubkey > *pubkey || *pubkey == U256::one(); // use one for dummy pubkeys
             cur_pubkey = *pubkey;
         }
 
         // pubkey range-check
         // it's enough to check only the first pubkey since the order is checked
-        ensure!(pubkey_range_check(pubkeys[0]), "pubkey range check failed");
+        result &= pubkey_range_check(pubkeys[0]);
 
         // pubkey recovery check
         for pubkey in pubkeys.iter() {
             let pubkey_fq: Fq = BigUint::from(*pubkey).into();
-            ensure!(
-                G1Affine::is_recoverable_from_x(pubkey_fq),
-                "pubkey is not recoverable"
-            );
+            result &= G1Affine::is_recoverable_from_x(pubkey_fq);
         }
-
         // message point check
         let tx_tree_root = self
             .tx_tree_root
-            .limbs()
+            .to_u32_vec()
             .iter()
             .map(|x| GoldilocksField::from_canonical_u32(*x))
             .collect::<Vec<_>>();
         let message_point_expected = G2Target::<GoldilocksField, 2>::hash_to_g2(&tx_tree_root);
         let message_point: G2Affine = self.message_point.clone().into();
-        ensure!(
-            message_point_expected == message_point,
-            "message_point is invalid"
-        );
-        Ok(())
+        result &= message_point_expected == message_point;
+        result
     }
 }
 
@@ -137,7 +124,7 @@ impl SignatureContentTarget {
         }
         // message point check
         let message_point: FlatG2Target =
-            G2Target::<F, D>::hash_to_g2_circuit::<C>(builder, &self.tx_tree_root.limbs()).into();
+            G2Target::<F, D>::hash_to_g2_circuit::<C>(builder, &self.tx_tree_root.to_vec()).into();
         let is_message_eq = message_point.is_equal(builder, &self.message_point);
         result = builder.and(result, is_message_eq);
         result
@@ -179,7 +166,8 @@ mod tests {
             .iter()
             .map(|keyset| keyset.pubkey)
             .collect::<Vec<_>>();
-        signature.is_valid_format(&pubkeys).unwrap();
+        let result = signature.is_valid_format(&pubkeys);
+        assert!(result);
 
         let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::default());
         let pubkeys_t = pubkeys
@@ -187,10 +175,10 @@ mod tests {
             .map(|x| U256Target::constant(&mut builder, *x))
             .collect::<Vec<_>>();
         let signature_t = SignatureContentTarget::constant(&mut builder, &signature);
-        let result = signature_t.is_valid_format::<F, C, D>(&mut builder, &pubkeys_t);
+        let result_t = signature_t.is_valid_format::<F, C, D>(&mut builder, &pubkeys_t);
 
         let mut pw = PartialWitness::new();
-        pw.set_bool_target(result, true);
+        pw.set_bool_target(result_t, result);
 
         let circuit = builder.build::<C>();
         let proof = circuit.prove(pw).unwrap();

@@ -12,6 +12,7 @@ use serde::{Deserialize, Serialize};
 
 pub const INSUFFICIENT_FLAGS_LEN: usize = NUM_TRANSFERS_IN_TX / 32;
 
+/// The insufficient flags which are used to determine if a tx is invalid or not
 #[derive(Clone, Copy, Debug, PartialEq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct InsufficientFlags {
@@ -37,7 +38,7 @@ impl InsufficientFlagsTarget {
     ) -> BoolTarget {
         let num_bits = NUM_TRANSFERS_IN_TX.trailing_zeros() as usize;
         let (bit_selector, limb_selector) = builder.split_low_high(index, 5, num_bits);
-        let selected_limb = builder.random_access(limb_selector, self.limbs());
+        let selected_limb = builder.random_access(limb_selector, self.to_vec());
         let limb_bits = builder
             .split_le(selected_limb, 32)
             .into_iter()
@@ -50,11 +51,11 @@ impl InsufficientFlagsTarget {
 }
 
 impl U32LimbTrait<INSUFFICIENT_FLAGS_LEN> for InsufficientFlags {
-    fn limbs(&self) -> Vec<u32> {
+    fn to_u32_vec(&self) -> Vec<u32> {
         self.limbs.to_vec()
     }
 
-    fn from_limbs(limbs: &[u32]) -> Self {
+    fn from_u32_slice(limbs: &[u32]) -> Self {
         assert_eq!(limbs.len(), INSUFFICIENT_FLAGS_LEN);
         Self {
             limbs: limbs.try_into().unwrap(),
@@ -63,11 +64,11 @@ impl U32LimbTrait<INSUFFICIENT_FLAGS_LEN> for InsufficientFlags {
 }
 
 impl U32LimbTargetTrait<INSUFFICIENT_FLAGS_LEN> for InsufficientFlagsTarget {
-    fn limbs(&self) -> Vec<Target> {
+    fn to_vec(&self) -> Vec<Target> {
         self.limbs.to_vec()
     }
 
-    fn from_limbs(limbs: &[Target]) -> Self {
+    fn from_slice(limbs: &[Target]) -> Self {
         assert_eq!(limbs.len(), INSUFFICIENT_FLAGS_LEN);
         Self {
             limbs: limbs.try_into().unwrap(),

@@ -29,12 +29,12 @@ pub const PUBLIC_STATE_LEN: usize = POSEIDON_HASH_OUT_LEN * 3 + BYTES32_LEN * 2 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PublicState {
-    pub block_tree_root: PoseidonHashOut,
-    pub prev_account_tree_root: PoseidonHashOut,
-    pub account_tree_root: PoseidonHashOut,
-    pub deposit_tree_root: Bytes32,
-    pub block_hash: Bytes32,
-    pub block_number: u32,
+    pub block_tree_root: PoseidonHashOut, // The root of the block hash tree
+    pub prev_account_tree_root: PoseidonHashOut, // The previous account tree root.
+    pub account_tree_root: PoseidonHashOut, // The root of the account tree
+    pub deposit_tree_root: Bytes32,       // The root of the deposit tree
+    pub block_hash: Bytes32,              // The hash of the current block
+    pub block_number: u32,                // The number of the current block
 }
 
 impl PublicState {
@@ -69,13 +69,13 @@ impl PublicState {
         vec
     }
 
-    pub fn from_u64_vec(input: &[u64]) -> Self {
+    pub fn from_u64_slice(input: &[u64]) -> Self {
         assert_eq!(input.len(), PUBLIC_STATE_LEN);
-        let block_tree_root = PoseidonHashOut::from_u64_vec(&input[0..4]);
-        let prev_account_tree_root = PoseidonHashOut::from_u64_vec(&input[4..8]);
-        let account_tree_root = PoseidonHashOut::from_u64_vec(&input[8..12]);
-        let deposit_tree_root = Bytes32::from_u64_vec(&input[12..20]);
-        let block_hash = Bytes32::from_u64_vec(&input[20..28]);
+        let block_tree_root = PoseidonHashOut::from_u64_slice(&input[0..4]);
+        let prev_account_tree_root = PoseidonHashOut::from_u64_slice(&input[4..8]);
+        let account_tree_root = PoseidonHashOut::from_u64_slice(&input[8..12]);
+        let deposit_tree_root = Bytes32::from_u64_slice(&input[12..20]);
+        let block_hash = Bytes32::from_u64_slice(&input[20..28]);
         let block_number = input[28] as u32;
         Self {
             block_tree_root,
@@ -118,8 +118,8 @@ impl PublicStateTarget {
             self.block_tree_root.to_vec(),
             self.prev_account_tree_root.to_vec(),
             self.account_tree_root.to_vec(),
-            self.deposit_tree_root.limbs(),
-            self.block_hash.limbs(),
+            self.deposit_tree_root.to_vec(),
+            self.block_hash.to_vec(),
             vec![self.block_number],
         ]
         .concat();
@@ -132,8 +132,8 @@ impl PublicStateTarget {
         let block_tree_root = PoseidonHashOutTarget::from_slice(&input[0..4]);
         let prev_account_tree_root = PoseidonHashOutTarget::from_slice(&input[4..8]);
         let account_tree_root = PoseidonHashOutTarget::from_slice(&input[8..12]);
-        let deposit_tree_root = Bytes32Target::from_limbs(&input[12..20]);
-        let block_hash = Bytes32Target::from_limbs(&input[20..28]);
+        let deposit_tree_root = Bytes32Target::from_slice(&input[12..20]);
+        let block_hash = Bytes32Target::from_slice(&input[20..28]);
         let block_number = input[28];
         Self {
             block_tree_root,

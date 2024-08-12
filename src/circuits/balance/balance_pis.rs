@@ -67,19 +67,19 @@ impl BalancePublicInputs {
         vec
     }
 
-    pub fn from_u64_vec(input: &[u64]) -> Self {
+    pub fn from_u64_slice(input: &[u64]) -> Self {
         assert_eq!(input.len(), BALANCE_PUBLIC_INPUTS_LEN);
-        let pubkey = U256::from_u64_vec(&input[0..U256_LEN]);
+        let pubkey = U256::from_u64_slice(&input[0..U256_LEN]);
         let private_commitment =
-            PoseidonHashOut::from_u64_vec(&input[U256_LEN..U256_LEN + POSEIDON_HASH_OUT_LEN]);
-        let last_tx_hash = PoseidonHashOut::from_u64_vec(
+            PoseidonHashOut::from_u64_slice(&input[U256_LEN..U256_LEN + POSEIDON_HASH_OUT_LEN]);
+        let last_tx_hash = PoseidonHashOut::from_u64_slice(
             &input[U256_LEN + POSEIDON_HASH_OUT_LEN..U256_LEN + 2 * POSEIDON_HASH_OUT_LEN],
         );
-        let last_tx_insufficient_flags = InsufficientFlags::from_u64_vec(
+        let last_tx_insufficient_flags = InsufficientFlags::from_u64_slice(
             &input[U256_LEN + 2 * POSEIDON_HASH_OUT_LEN
                 ..U256_LEN + 2 * POSEIDON_HASH_OUT_LEN + INSUFFICIENT_FLAGS_LEN],
         );
-        let public_state = PublicState::from_u64_vec(
+        let public_state = PublicState::from_u64_slice(
             &input[U256_LEN + 2 * POSEIDON_HASH_OUT_LEN + INSUFFICIENT_FLAGS_LEN..],
         );
         Self {
@@ -92,7 +92,7 @@ impl BalancePublicInputs {
     }
 
     pub fn from_pis<F: PrimeField64>(pis: &[F]) -> Self {
-        Self::from_u64_vec(&pis[0..BALANCE_PUBLIC_INPUTS_LEN].to_u64_vec())
+        Self::from_u64_slice(&pis[0..BALANCE_PUBLIC_INPUTS_LEN].to_u64_vec())
     }
 
     pub fn commitment(&self) -> PoseidonHashOut {
@@ -187,13 +187,13 @@ impl BalancePublicInputsTarget {
 
     pub fn from_slice(input: &[Target]) -> Self {
         assert_eq!(input.len(), BALANCE_PUBLIC_INPUTS_LEN);
-        let pubkey = U256Target::from_limbs(&input[0..U256_LEN]);
+        let pubkey = U256Target::from_slice(&input[0..U256_LEN]);
         let private_commitment =
             PoseidonHashOutTarget::from_slice(&input[U256_LEN..U256_LEN + POSEIDON_HASH_OUT_LEN]);
         let last_tx_hash = PoseidonHashOutTarget::from_slice(
             &input[U256_LEN + POSEIDON_HASH_OUT_LEN..U256_LEN + 2 * POSEIDON_HASH_OUT_LEN],
         );
-        let last_tx_insufficient_flags = InsufficientFlagsTarget::from_limbs(
+        let last_tx_insufficient_flags = InsufficientFlagsTarget::from_slice(
             &input[U256_LEN + 2 * POSEIDON_HASH_OUT_LEN
                 ..U256_LEN + 2 * POSEIDON_HASH_OUT_LEN + INSUFFICIENT_FLAGS_LEN],
         );
