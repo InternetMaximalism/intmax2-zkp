@@ -147,9 +147,6 @@ impl BlockWitness {
     }
 
     pub fn decompress(compressed: &CompressedBlockWitness) -> Self {
-        // let significant_height = ACCOUNT_TREE_HEIGHT -
-        // compressed.common_account_merkle_proof.len();
-
         let account_merkle_proofs = if let Some(significant_account_merkle_proofs) =
             &compressed.significant_account_merkle_proofs
         {
