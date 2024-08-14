@@ -1,3 +1,5 @@
+use serde::{Deserialize, Serialize};
+
 use crate::{
     circuits::validity::validity_pis::ValidityPublicInputs,
     common::{
@@ -11,7 +13,8 @@ use crate::{
 };
 
 /// Information needed to prove that a tx has been included in a block
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct TxWitness {
     pub validity_pis: ValidityPublicInputs,
     pub sender_leaves: Vec<SenderLeaf>,

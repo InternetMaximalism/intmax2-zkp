@@ -7,6 +7,7 @@ use plonky2::{
     },
     plonk::circuit_builder::CircuitBuilder,
 };
+use serde::{Deserialize, Serialize};
 
 use crate::{
     common::public_state::{PublicState, PublicStateTarget, PUBLIC_STATE_LEN},
@@ -24,7 +25,8 @@ pub const VALIDITY_PUBLIC_INPUTS_LEN: usize =
     PUBLIC_STATE_LEN + BYTES32_LEN + POSEIDON_HASH_OUT_LEN + 1;
 
 /// Public inputs for the validity circuit
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ValidityPublicInputs {
     pub public_state: PublicState,
     pub tx_tree_root: Bytes32,

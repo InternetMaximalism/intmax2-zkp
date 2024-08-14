@@ -1,3 +1,5 @@
+use serde::{Deserialize, Serialize};
+
 use crate::{
     common::{
         private_state::PrivateState,
@@ -10,7 +12,8 @@ use crate::{
     ethereum_types::{bytes32::Bytes32, u256::U256},
 };
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct PrivateWitness {
     pub token_index: u32,
     pub amount: U256,

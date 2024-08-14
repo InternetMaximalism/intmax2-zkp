@@ -8,7 +8,7 @@ use plonky2::{
     },
 };
 use rand::Rng;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::utils::{
     leafable::{Leafable, LeafableTarget},
@@ -19,11 +19,14 @@ use crate::utils::{
 pub const TX_LEN: usize = POSEIDON_HASH_OUT_LEN + 1;
 
 /// A transaction, which contains multiple transfers of tokens.
-#[derive(Clone, Default, Copy, Debug, PartialEq, Serialize)]
+#[derive(Clone, Default, Copy, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Tx {
-    pub transfer_tree_root: PoseidonHashOut, // The root of the transfer tree
-    pub nonce: u32,                          // The nonce of the sernder's accounts
+    /// The root of the transfer tree
+    pub transfer_tree_root: PoseidonHashOut,
+
+    /// The nonce of the sernder's accounts
+    pub nonce: u32,
 }
 
 impl Tx {

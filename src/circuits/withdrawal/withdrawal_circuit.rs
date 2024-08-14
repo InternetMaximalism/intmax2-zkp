@@ -37,7 +37,7 @@ where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
 {
-    pub(crate) data: CircuitData<F, C, D>,
+    pub data: CircuitData<F, C, D>,
     is_first_step: BoolTarget,
     withdrawal_inner_proof: ProofWithPublicInputsTarget<D>,
     prev_proof: ProofWithPublicInputsTarget<D>,

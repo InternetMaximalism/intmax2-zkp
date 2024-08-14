@@ -18,6 +18,7 @@ use plonky2::{
     },
 };
 use rand::Rng;
+use serde::{Deserialize, Serialize};
 
 use crate::{
     ethereum_types::{
@@ -38,7 +39,8 @@ pub type AssetMerkleProofTarget = SparseMerkleProofTarget<AssetLeafTarget>;
 /// index. The amount represents the balance of the token. `is_insufficient` indicates whether
 /// the balance was insufficient when paying. Once a balance shortage occurs, all payments for that
 /// token become impossible.
-#[derive(Clone, Debug, Default, Copy, PartialEq)]
+#[derive(Clone, Debug, Default, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct AssetLeaf {
     pub is_insufficient: bool,
     pub amount: U256,

@@ -10,6 +10,7 @@ use plonky2::{
     },
     plonk::circuit_builder::CircuitBuilder,
 };
+use serde::{Deserialize, Serialize};
 
 use crate::{
     common::{
@@ -30,7 +31,8 @@ use crate::{
 pub const BALANCE_PUBLIC_INPUTS_LEN: usize =
     U256_LEN + POSEIDON_HASH_OUT_LEN * 2 + INSUFFICIENT_FLAGS_LEN + PUBLIC_STATE_LEN;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct BalancePublicInputs {
     pub pubkey: U256,
     pub private_commitment: PoseidonHashOut,
