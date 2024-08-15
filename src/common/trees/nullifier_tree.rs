@@ -23,9 +23,11 @@ use plonky2::{
         config::{AlgebraicHasher, GenericConfig},
     },
 };
+use serde::{Deserialize, Serialize};
+
 #[derive(Debug, Clone)]
 pub struct NullifierTree(IndexedMerkleTree);
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NullifierInsersionProof(IndexedInsertionProof);
 #[derive(Debug, Clone)]
 pub struct NullifierInsersionProofTarget(IndexedInsertionProofTarget);

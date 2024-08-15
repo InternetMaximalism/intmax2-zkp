@@ -1,3 +1,5 @@
+use serde::{Deserialize, Serialize};
+
 use crate::{
     circuits::balance::{balance_pis::BalancePublicInputs, send::spent_circuit::SpentValue},
     common::{
@@ -13,7 +15,8 @@ use crate::{
 use super::tx_witness::TxWitness;
 
 /// Information needed to prove that a balance has been sent
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct SendWitness {
     pub prev_balance_pis: BalancePublicInputs,
     pub prev_private_state: PrivateState,

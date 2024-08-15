@@ -8,6 +8,7 @@ use plonky2::{
         config::{AlgebraicHasher, GenericConfig},
     },
 };
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use super::merkle_tree::{MerkleProof, MerkleProofTarget, MerkleTree};
 use crate::utils::{
@@ -97,6 +98,33 @@ impl<V: Leafable> SparseMerkleProof<V> {
         let height = self.0.height();
         let index_bits = usize_le_bits(index, height);
         self.0.verify(leaf_data, index_bits, merkle_root)
+    }
+}
+
+
+impl<V: Leafable> Serialize for SparseMerkleProof<V>
+where
+    <V::LeafableHasher as LeafableHasher>::HashOut: Serialize,
+{
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        self.0.siblings.serialize(serializer)
+    }
+}
+
+impl<'de, V: Leafable> Deserialize<'de> for SparseMerkleProof<V>
+where
+    <V::LeafableHasher as LeafableHasher>::HashOut: Deserialize<'de>,
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let siblings =
+            Vec::<<V::LeafableHasher as LeafableHasher>::HashOut>::deserialize(deserializer)?;
+        Ok(SparseMerkleProof(MerkleProof { siblings }))
     }
 }
 

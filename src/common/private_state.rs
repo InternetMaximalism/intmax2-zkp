@@ -20,11 +20,17 @@ use super::{
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PrivateState {
-    pub asset_tree_root: PoseidonHashOut, // The root of the asset tree
-    pub nullifier_tree_root: PoseidonHashOut, // The root of the nullifier tree
-    pub nonce: u32,                       /* The nonce of the account which is corresponding to
-                                           * the next tx's nonce */
-    pub salt: Salt, // The salt which is used to blind this private state
+    /// The root of the asset tree
+    pub asset_tree_root: PoseidonHashOut, 
+
+    /// The root of the nullifier tree
+    pub nullifier_tree_root: PoseidonHashOut,
+
+    /// The nonce of the account which is corresponding to the next tx's nonce
+    pub nonce: u32,
+
+    /// The salt which is used to blind this private state
+    pub salt: Salt,
 }
 
 #[derive(Clone, Debug)]
