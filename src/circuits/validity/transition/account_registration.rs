@@ -29,7 +29,7 @@ use crate::{
 
 use super::account_transition_pis::AccountTransitionPublicInputsTarget;
 
-pub struct AccountregistrationValue {
+pub struct AccountRegistrationValue {
     pub prev_account_tree_root: PoseidonHashOut,
     pub new_account_tree_root: PoseidonHashOut,
     pub sender_tree_root: PoseidonHashOut,
@@ -38,7 +38,7 @@ pub struct AccountregistrationValue {
     pub account_registration_proofs: Vec<AccountRegistrationProof>,
 }
 
-impl AccountregistrationValue {
+impl AccountRegistrationValue {
     pub fn new(
         prev_account_tree_root: PoseidonHashOut,
         block_number: u32,
@@ -89,7 +89,7 @@ impl AccountregistrationValue {
 }
 
 #[derive(Debug)]
-pub struct AccountregistrationTarget {
+pub struct AccountRegistrationTarget {
     pub prev_account_tree_root: PoseidonHashOutTarget,
     pub new_account_tree_root: PoseidonHashOutTarget,
     pub sender_tree_root: PoseidonHashOutTarget,
@@ -98,7 +98,7 @@ pub struct AccountregistrationTarget {
     pub account_registration_proofs: Vec<AccountRegistrationProofTarget>,
 }
 
-impl AccountregistrationTarget {
+impl AccountRegistrationTarget {
     pub fn new<F: RichField + Extendable<D>, C: GenericConfig<D, F = F> + 'static, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
     ) -> Self
@@ -151,7 +151,7 @@ impl AccountregistrationTarget {
     pub fn set_witness<F: RichField, W: Witness<F>>(
         &self,
         witness: &mut W,
-        value: &AccountregistrationValue,
+        value: &AccountRegistrationValue,
     ) {
         self.prev_account_tree_root
             .set_witness(witness, value.prev_account_tree_root);
@@ -178,17 +178,17 @@ impl AccountregistrationTarget {
 }
 
 #[derive(Debug)]
-pub struct AccountregistrationCircuit<F, C, const D: usize>
+pub struct AccountRegistrationCircuit<F, C, const D: usize>
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
 {
     pub(crate) data: CircuitData<F, C, D>,
-    pub(crate) target: AccountregistrationTarget,
+    pub(crate) target: AccountRegistrationTarget,
     pub(crate) dummy_proof: DummyProof<F, C, D>,
 }
 
-impl<F, C, const D: usize> AccountregistrationCircuit<F, C, D>
+impl<F, C, const D: usize> AccountRegistrationCircuit<F, C, D>
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F> + 'static,
@@ -197,7 +197,7 @@ where
     pub(crate) fn new() -> Self {
         let config = CircuitConfig::default();
         let mut builder = CircuitBuilder::<F, D>::new(config.clone());
-        let target = AccountregistrationTarget::new::<F, C, D>(&mut builder);
+        let target = AccountRegistrationTarget::new::<F, C, D>(&mut builder);
         let pis = AccountTransitionPublicInputsTarget {
             prev_account_tree_root: target.prev_account_tree_root.clone(),
             new_account_tree_root: target.new_account_tree_root.clone(),
@@ -220,7 +220,7 @@ where
 
     pub(crate) fn prove(
         &self,
-        value: &AccountregistrationValue,
+        value: &AccountRegistrationValue,
     ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
         let mut pw = PartialWitness::<F>::new();
         self.target.set_witness(&mut pw, value);
@@ -229,7 +229,7 @@ where
 }
 
 impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F> + 'static, const D: usize>
-    RecursivelyVerifiable<F, C, D> for AccountregistrationCircuit<F, C, D>
+    RecursivelyVerifiable<F, C, D> for AccountRegistrationCircuit<F, C, D>
 where
     <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
 {
@@ -290,7 +290,7 @@ mod tests {
             };
             account_registration_proofs.push(proof);
         }
-        let account_registration_value = AccountregistrationValue::new(
+        let account_registration_value = AccountRegistrationValue::new(
             prev_account_tree_root,
             block_number,
             sender_leaves,
@@ -302,7 +302,7 @@ mod tests {
             new_account_tree_root
         );
 
-        let account_registration_circuit = AccountregistrationCircuit::<F, C, D>::new();
+        let account_registration_circuit = AccountRegistrationCircuit::<F, C, D>::new();
         let _proof = account_registration_circuit
             .prove(&account_registration_value)
             .unwrap();
