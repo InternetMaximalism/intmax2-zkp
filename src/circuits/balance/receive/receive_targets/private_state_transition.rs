@@ -31,7 +31,7 @@ pub struct PrivateStateTransitionValue {
     pub token_index: u32,                 // token index of incoming transfer/deposit
     pub amount: U256,                     // token amount of incoming transfer/deposit
     pub nullifier: Bytes32,               // nullifier of corresponding transfer/deposit
-    pub new_salt: Salt,                   // new salt of the private state
+    pub new_private_state_salt: Salt,                   // new salt of the private state
     pub prev_private_state: PrivateState, // previous private state
     pub nullifier_proof: NullifierInsersionProof, // merkle proof to update nullifier tree
     pub prev_asset_leaf: AssetLeaf,       /* previous asset leaf (balance) of correspoing
@@ -74,7 +74,7 @@ impl PrivateStateTransitionValue {
             token_index,
             amount,
             nullifier,
-            new_salt,
+            new_private_state_salt: new_salt,
             prev_private_state: prev_private_state.clone(),
             nullifier_proof: nullifier_proof.clone(),
             prev_asset_leaf: prev_asset_leaf.clone(),
@@ -89,7 +89,7 @@ pub struct PrivateStateTransitionTarget {
     pub token_index: Target,
     pub amount: U256Target,
     pub nullifier: Bytes32Target,
-    pub new_salt: SaltTarget,
+    pub new_private_state_salt: SaltTarget,
     pub prev_private_state: PrivateStateTarget,
     pub nullifier_proof: NullifierInsersionProofTarget,
     pub prev_asset_leaf: AssetLeafTarget,
@@ -138,7 +138,7 @@ impl PrivateStateTransitionTarget {
             token_index,
             amount,
             nullifier,
-            new_salt,
+            new_private_state_salt: new_salt,
             prev_private_state,
             nullifier_proof,
             prev_asset_leaf,
@@ -155,7 +155,7 @@ impl PrivateStateTransitionTarget {
         witness.set_target(self.token_index, F::from_canonical_u32(value.token_index));
         self.amount.set_witness(witness, value.amount);
         self.nullifier.set_witness(witness, value.nullifier);
-        self.new_salt.set_witness(witness, value.new_salt);
+        self.new_private_state_salt.set_witness(witness, value.new_private_state_salt);
         self.prev_private_state
             .set_witness(witness, &value.prev_private_state);
         self.nullifier_proof
