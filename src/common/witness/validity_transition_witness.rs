@@ -34,6 +34,7 @@ pub struct CompressedValidityTransitionWitness {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct AccountRegistrationProofOrDummy {
     pub index: usize,
     pub low_leaf_index: usize,

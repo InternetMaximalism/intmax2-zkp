@@ -1,10 +1,11 @@
 use plonky2::{
     field::extension::Extendable,
+    gates::noop::NoopGate,
     hash::hash_types::RichField,
     iop::target::BoolTarget,
     plonk::{
         circuit_builder::CircuitBuilder,
-        circuit_data::{CommonCircuitData, VerifierCircuitTarget},
+        circuit_data::{CircuitData, CommonCircuitData, VerifierCircuitTarget},
         config::{AlgebraicHasher, GenericConfig},
         proof::{ProofWithPublicInputs, ProofWithPublicInputsTarget},
     },
@@ -31,6 +32,49 @@ where
         let proof = dummy_proof(&data, vec![].into_iter().enumerate().collect()).unwrap();
         Self { proof }
     }
+
+    pub(crate) fn new_with_hiding_degree(
+        common: &CommonCircuitData<F, D>,
+        hiding_degree: usize,
+    ) -> Self {
+        let data = dummy_circuit_with_hiding_degree::<F, C, D>(&common, hiding_degree);
+        let proof = dummy_proof(&data, vec![].into_iter().enumerate().collect()).unwrap();
+        Self { proof }
+    }
+}
+
+/// Generate a circuit matching a given `CommonCircuitData`.
+pub fn dummy_circuit_with_hiding_degree<
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    const D: usize,
+>(
+    common_data: &CommonCircuitData<F, D>,
+    hiding_degree: usize,
+) -> CircuitData<F, C, D> {
+    let config = common_data.config.clone();
+
+    // Number of `NoopGate`s to add to get a circuit of size `degree` in the end.
+    // Need to account for public input hashing, a `PublicInputGate` and a `ConstantGate`.
+    let degree = common_data.degree();
+
+    let mut builder = CircuitBuilder::<F, D>::new(config.clone());
+
+    let num_noop_gate = degree - common_data.num_public_inputs.div_ceil(8) - hiding_degree - 2;
+    for _ in 0..num_noop_gate {
+        builder.add_gate(NoopGate, vec![]);
+    }
+
+    for gate in &common_data.gates {
+        builder.add_gate_to_gate_set(gate.clone());
+    }
+    for _ in 0..common_data.num_public_inputs {
+        builder.add_virtual_public_input();
+    }
+
+    let circuit = builder.build::<C>();
+    assert_eq!(&circuit.common, common_data);
+    circuit
 }
 
 /// Conditionally verify a proof
