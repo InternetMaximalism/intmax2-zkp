@@ -309,7 +309,7 @@ where
         };
         builder.register_public_inputs(&pis.to_vec(&config));
         let data = builder.build();
-        let dummy_proof = DummyProof::new_with_hiding_degree(&data.common, 12000);
+        let dummy_proof = DummyProof::new_with_blinding_degree(&data.common, 8326);
         Self {
             data,
             target,

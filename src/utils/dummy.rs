@@ -33,24 +33,24 @@ where
         Self { proof }
     }
 
-    pub(crate) fn new_with_hiding_degree(
+    pub(crate) fn new_with_blinding_degree(
         common: &CommonCircuitData<F, D>,
-        hiding_degree: usize,
+        blinding_degree: usize,
     ) -> Self {
-        let data = dummy_circuit_with_hiding_degree::<F, C, D>(&common, hiding_degree);
+        let data = dummy_circuit_with_blinding_degree::<F, C, D>(&common, blinding_degree);
         let proof = dummy_proof(&data, vec![].into_iter().enumerate().collect()).unwrap();
         Self { proof }
     }
 }
 
 /// Generate a circuit matching a given `CommonCircuitData`.
-pub fn dummy_circuit_with_hiding_degree<
+pub fn dummy_circuit_with_blinding_degree<
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
     const D: usize,
 >(
     common_data: &CommonCircuitData<F, D>,
-    hiding_degree: usize,
+    blinding_degree: usize,
 ) -> CircuitData<F, C, D> {
     let config = common_data.config.clone();
 
@@ -60,7 +60,7 @@ pub fn dummy_circuit_with_hiding_degree<
 
     let mut builder = CircuitBuilder::<F, D>::new(config.clone());
 
-    let num_noop_gate = degree - common_data.num_public_inputs.div_ceil(8) - hiding_degree - 2;
+    let num_noop_gate = degree - common_data.num_public_inputs.div_ceil(8) - blinding_degree - 2;
     for _ in 0..num_noop_gate {
         builder.add_gate(NoopGate, vec![]);
     }
@@ -93,7 +93,13 @@ pub(crate) fn conditionally_verify_proof<
 ) where
     C::Hasher: AlgebraicHasher<F>,
 {
-    let dummy_circuit = dummy_circuit::<F, C, D>(inner_common_data);
+    let blinding_degree: usize = if inner_common_data.config.zero_knowledge {
+        10342
+    } else {
+        0
+    };
+    let dummy_circuit =
+        dummy_circuit_with_blinding_degree::<F, C, D>(inner_common_data, blinding_degree);
     let dummy_verifier_data_target = builder.constant_verifier_data(&dummy_circuit.verifier_only);
     let selected_verifier_data =
         builder.select_verifier_data(condition, inner_verifier_data, &dummy_verifier_data_target);

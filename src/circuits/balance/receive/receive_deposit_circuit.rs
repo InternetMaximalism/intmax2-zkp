@@ -284,7 +284,7 @@ where
         let constant_gate = ConstantGate::new(config.num_constants);
         builder.add_gate(constant_gate, vec![]);
         let data = builder.build();
-        let dummy_proof = DummyProof::new_with_hiding_degree(&data.common, 12000);
+        let dummy_proof = DummyProof::new_with_blinding_degree(&data.common, 10342);
         Self {
             data,
             target,
