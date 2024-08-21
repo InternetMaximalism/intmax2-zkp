@@ -26,6 +26,7 @@ use plonky2::{
         circuit_builder::CircuitBuilder,
         config::{AlgebraicHasher, GenericConfig},
     },
+    util::serialization::{Buffer, IoResult},
 };
 use serde::{Deserialize, Serialize};
 
@@ -131,4 +132,40 @@ impl AccountMerkleProofTarget {
         self.merkle_proof.set_witness(witness, &value.merkle_proof);
         self.leaf.set_witness(witness, &value.leaf);
     }
+
+    pub fn to_buffer(&self, buffer: &mut Vec<u8>) -> IoResult<()> {
+        self.merkle_proof.to_buffer(buffer)?;
+        self.leaf.to_buffer(buffer)?;
+
+        Ok(())
+    }
+
+    pub fn from_buffer(buffer: &mut Buffer) -> IoResult<Self> {
+        let merkle_proof = IndexedMerkleProofTarget::from_buffer(buffer)?;
+        let leaf = IndexedMerkleLeafTarget::from_buffer(buffer)?;
+
+        Ok(Self { merkle_proof, leaf })
+    }
 }
+
+// impl AccountUpdateProofTarget {
+//     pub fn to_buffer(&self, buffer: &mut Vec<u8>) -> IoResult<()> {
+//         self.merkle_proof.to_buffer(buffer)?;
+//         self.old_leaf.to_buffer(buffer)?;
+//         self.new_leaf.to_buffer(buffer)?;
+
+//         Ok(())
+//     }
+
+//     pub fn from_buffer(buffer: &mut Buffer) -> IoResult<Self> {
+//         let merkle_proof = IndexedMerkleProofTarget::from_buffer(buffer)?;
+//         let old_leaf = IndexedMerkleLeafTarget::from_buffer(buffer)?;
+//         let new_leaf = IndexedMerkleLeafTarget::from_buffer(buffer)?;
+
+//         Ok(Self {
+//             merkle_proof,
+//             old_leaf,
+//             new_leaf,
+//         })
+//     }
+// }

@@ -11,6 +11,9 @@ use plonky2::{
         config::{AlgebraicHasher, GenericConfig},
         proof::ProofWithPublicInputs,
     },
+    util::serialization::{
+        Buffer, GateSerializer, IoResult, Read, WitnessGeneratorSerializer, Write,
+    },
 };
 
 use crate::{
@@ -178,6 +181,53 @@ impl AccountUpdateTarget {
             account_update_proof_t.set_witness(witness, account_update_proof);
         }
     }
+
+    pub fn to_buffer(&self, buffer: &mut Vec<u8>) -> IoResult<()> {
+        self.prev_account_tree_root.to_buffer(buffer)?;
+        self.new_account_tree_root.to_buffer(buffer)?;
+        self.sender_tree_root.to_buffer(buffer)?;
+        buffer.write_target(self.block_number)?;
+
+        buffer.write_usize(self.sender_leaves.len())?;
+        for sender_leaf in &self.sender_leaves {
+            sender_leaf.to_buffer(buffer)?;
+        }
+
+        buffer.write_usize(self.account_update_proofs.len())?;
+        for account_update_proof in &self.account_update_proofs {
+            account_update_proof.to_buffer(buffer)?;
+        }
+
+        Ok(())
+    }
+
+    pub fn from_buffer(buffer: &mut Buffer) -> IoResult<Self> {
+        let prev_account_tree_root = PoseidonHashOutTarget::from_buffer(buffer)?;
+        let new_account_tree_root = PoseidonHashOutTarget::from_buffer(buffer)?;
+        let sender_tree_root = PoseidonHashOutTarget::from_buffer(buffer)?;
+        let block_number = buffer.read_target()?;
+
+        let sender_leaves_len = buffer.read_usize()?;
+        let mut sender_leaves = Vec::with_capacity(sender_leaves_len);
+        for _ in 0..sender_leaves_len {
+            sender_leaves.push(SenderLeafTarget::from_buffer(buffer)?);
+        }
+
+        let account_update_proofs_len = buffer.read_usize()?;
+        let mut account_update_proofs = Vec::with_capacity(account_update_proofs_len);
+        for _ in 0..account_update_proofs_len {
+            account_update_proofs.push(AccountUpdateProofTarget::from_buffer(buffer)?);
+        }
+
+        Ok(Self {
+            prev_account_tree_root,
+            new_account_tree_root,
+            sender_tree_root,
+            block_number,
+            sender_leaves,
+            account_update_proofs,
+        })
+    }
 }
 
 #[derive(Debug)]
@@ -225,6 +275,34 @@ where
         let mut pw = PartialWitness::<F>::new();
         self.target.set_witness(&mut pw, value);
         self.data.prove(pw)
+    }
+
+    pub fn to_buffer(
+        &self,
+        buffer: &mut Vec<u8>,
+        gate_serializer: &dyn GateSerializer<F, D>,
+        generator_serializer: &dyn WitnessGeneratorSerializer<F, D>,
+    ) -> IoResult<()> {
+        self.target.to_buffer(buffer)?;
+        buffer.write_circuit_data(&self.data, gate_serializer, generator_serializer)?;
+
+        Ok(())
+    }
+
+    pub fn from_buffer(
+        buffer: &mut Buffer,
+        gate_serializer: &dyn GateSerializer<F, D>,
+        generator_serializer: &dyn WitnessGeneratorSerializer<F, D>,
+    ) -> IoResult<Self> {
+        let target = AccountUpdateTarget::from_buffer(buffer)?;
+        let data = buffer.read_circuit_data(gate_serializer, generator_serializer)?;
+        let dummy_proof = DummyProof::new(&data.common);
+
+        Ok(Self {
+            data,
+            target,
+            dummy_proof,
+        })
     }
 }
 

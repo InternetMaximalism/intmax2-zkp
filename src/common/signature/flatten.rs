@@ -7,6 +7,7 @@ use plonky2::{
         witness::WitnessWrite,
     },
     plonk::circuit_builder::CircuitBuilder,
+    util::serialization::{Buffer, IoResult},
 };
 use plonky2_bn254::{
     curves::{g1::G1Target, g2::G2Target},
@@ -162,6 +163,22 @@ impl<F: RichField + Extendable<D>, const D: usize> From<FlatG2Target> for G2Targ
     }
 }
 
+impl FlatG1Target {
+    pub fn to_buffer(&self, buffer: &mut Vec<u8>) -> IoResult<()> {
+        self.0[0].to_buffer(buffer)?;
+        self.0[1].to_buffer(buffer)?;
+
+        Ok(())
+    }
+
+    pub fn from_buffer(buffer: &mut Buffer) -> IoResult<Self> {
+        let x = U256Target::from_buffer(buffer)?;
+        let y = U256Target::from_buffer(buffer)?;
+
+        Ok(Self([x, y]))
+    }
+}
+
 impl FlatG2Target {
     pub fn to_vec(&self) -> Vec<Target> {
         [
@@ -213,5 +230,22 @@ impl FlatG2Target {
         self.0[1].set_witness(witness, value.0[1]);
         self.0[2].set_witness(witness, value.0[2]);
         self.0[3].set_witness(witness, value.0[3]);
+    }
+
+    pub fn to_buffer(&self, buffer: &mut Vec<u8>) -> IoResult<()> {
+        self.0[0].to_buffer(buffer)?;
+        self.0[1].to_buffer(buffer)?;
+        self.0[2].to_buffer(buffer)?;
+        self.0[3].to_buffer(buffer)?;
+
+        Ok(())
+    }
+
+    pub fn from_buffer(buffer: &mut Buffer) -> IoResult<Self> {
+        let x_c1 = U256Target::from_buffer(buffer)?;
+        let x_c0 = U256Target::from_buffer(buffer)?;
+        let y_c1 = U256Target::from_buffer(buffer)?;
+        let y_c0 = U256Target::from_buffer(buffer)?;
+        Ok(Self([x_c1, x_c0, y_c1, y_c0]))
     }
 }

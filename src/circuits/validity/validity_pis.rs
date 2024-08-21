@@ -6,6 +6,7 @@ use plonky2::{
         witness::Witness,
     },
     plonk::circuit_builder::CircuitBuilder,
+    util::serialization::{Buffer, IoResult, Read, Write},
 };
 use serde::{Deserialize, Serialize};
 
@@ -200,5 +201,28 @@ impl ValidityPublicInputsTarget {
         self.sender_tree_root
             .set_witness(witness, value.sender_tree_root);
         witness.set_bool_target(self.is_valid_block, value.is_valid_block);
+    }
+
+    pub fn to_buffer(&self, buffer: &mut Vec<u8>) -> IoResult<()> {
+        self.public_state.to_buffer(buffer)?;
+        self.tx_tree_root.to_buffer(buffer)?;
+        self.sender_tree_root.to_buffer(buffer)?;
+        buffer.write_target_bool(self.is_valid_block)?;
+
+        Ok(())
+    }
+
+    pub fn from_buffer(buffer: &mut Buffer) -> IoResult<Self> {
+        let public_state = PublicStateTarget::from_buffer(buffer)?;
+        let tx_tree_root = Bytes32Target::from_buffer(buffer)?;
+        let sender_tree_root = PoseidonHashOutTarget::from_buffer(buffer)?;
+        let is_valid_block = buffer.read_target_bool()?;
+
+        Ok(Self {
+            public_state,
+            tx_tree_root,
+            sender_tree_root,
+            is_valid_block,
+        })
     }
 }

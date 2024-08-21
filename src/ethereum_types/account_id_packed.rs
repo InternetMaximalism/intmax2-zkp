@@ -12,6 +12,7 @@ use plonky2::{
         circuit_builder::CircuitBuilder,
         config::{AlgebraicHasher, GenericConfig},
     },
+    util::serialization::{Buffer, IoResult, Read, Write},
 };
 use serde::{Deserialize, Serialize};
 pub const ACCOUNT_ID_PACKED_LEN: usize = ACCOUNT_ID_BITS * NUM_SENDERS_IN_BLOCK / 32;
@@ -139,6 +140,15 @@ impl AccountIdPackedTarget {
         <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
     {
         Bytes32Target::from_slice(&builder.keccak256::<C>(&self.to_vec()))
+    }
+
+    pub fn to_buffer(&self, buffer: &mut Vec<u8>) -> IoResult<()> {
+        buffer.write_target_array(&self.limbs)
+    }
+
+    pub fn from_buffer(buffer: &mut Buffer) -> IoResult<Self> {
+        let limbs = buffer.read_target_array()?;
+        Ok(Self { limbs })
     }
 }
 

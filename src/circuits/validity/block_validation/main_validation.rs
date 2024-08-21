@@ -29,6 +29,9 @@ use plonky2::{
         config::{AlgebraicHasher, GenericConfig},
         proof::{ProofWithPublicInputs, ProofWithPublicInputsTarget},
     },
+    util::serialization::{
+        Buffer, GateSerializer, IoResult, Read, WitnessGeneratorSerializer, Write,
+    },
 };
 
 use crate::{
@@ -197,6 +200,44 @@ impl MainValidationPublicInputsTarget {
         witness.set_target(self.block_number, F::from_canonical_u32(value.block_number));
         witness.set_bool_target(self.is_registration_block, value.is_registration_block);
         witness.set_bool_target(self.is_valid, value.is_valid);
+    }
+
+    pub fn to_buffer(&self, buffer: &mut Vec<u8>) -> IoResult<()> {
+        self.prev_block_hash.to_buffer(buffer)?;
+        self.block_hash.to_buffer(buffer)?;
+        self.deposit_tree_root.to_buffer(buffer)?;
+        self.account_tree_root.to_buffer(buffer)?;
+        self.tx_tree_root.to_buffer(buffer)?;
+        self.sender_tree_root.to_buffer(buffer)?;
+        buffer.write_target(self.block_number)?;
+        buffer.write_target_bool(self.is_registration_block)?;
+        buffer.write_target_bool(self.is_valid)?;
+
+        Ok(())
+    }
+
+    pub fn from_buffer(buffer: &mut Buffer) -> IoResult<Self> {
+        let prev_block_hash = Bytes32Target::from_buffer(buffer)?;
+        let block_hash = Bytes32Target::from_buffer(buffer)?;
+        let deposit_tree_root = Bytes32Target::from_buffer(buffer)?;
+        let account_tree_root = PoseidonHashOutTarget::from_buffer(buffer)?;
+        let tx_tree_root = Bytes32Target::from_buffer(buffer)?;
+        let sender_tree_root = PoseidonHashOutTarget::from_buffer(buffer)?;
+        let block_number = buffer.read_target()?;
+        let is_registration_block = buffer.read_target_bool()?;
+        let is_valid = buffer.read_target_bool()?;
+
+        Ok(Self {
+            prev_block_hash,
+            block_hash,
+            deposit_tree_root,
+            account_tree_root,
+            tx_tree_root,
+            sender_tree_root,
+            block_number,
+            is_registration_block,
+            is_valid,
+        })
     }
 }
 
@@ -574,6 +615,69 @@ impl<const D: usize> MainValidationTarget<D> {
         witness.set_bool_target(self.is_registration_block, value.is_registration_block);
         witness.set_bool_target(self.is_valid, value.is_valid);
     }
+
+    pub fn to_buffer(&self, buffer: &mut Vec<u8>) -> IoResult<()> {
+        self.block.to_buffer(buffer)?;
+        self.signature.to_buffer(buffer)?;
+        buffer.write_usize(self.pubkeys.len())?;
+        for pubkey in &self.pubkeys {
+            pubkey.to_buffer(buffer)?;
+        }
+        self.account_tree_root.to_buffer(buffer)?;
+        buffer.write_target_proof_with_public_inputs(&self.account_inclusion_proof)?;
+        buffer.write_target_proof_with_public_inputs(&self.account_exclusion_proof)?;
+        buffer.write_target_proof_with_public_inputs(&self.format_validation_proof)?;
+        buffer.write_target_proof_with_public_inputs(&self.aggregation_proof)?;
+        self.signature_commitment.to_buffer(buffer)?;
+        self.pubkey_commitment.to_buffer(buffer)?;
+        self.prev_block_hash.to_buffer(buffer)?;
+        self.block_hash.to_buffer(buffer)?;
+        self.sender_tree_root.to_buffer(buffer)?;
+        buffer.write_target_bool(self.is_registration_block)?;
+        buffer.write_target_bool(self.is_valid)?;
+
+        Ok(())
+    }
+
+    pub fn from_buffer(buffer: &mut Buffer) -> IoResult<Self> {
+        let block = BlockTarget::from_buffer(buffer)?;
+        let signature = SignatureContentTarget::from_buffer(buffer)?;
+        let pubkeys_len = buffer.read_usize()?;
+        let mut pubkeys = Vec::with_capacity(pubkeys_len);
+        for _ in 0..pubkeys_len {
+            pubkeys.push(U256Target::from_buffer(buffer)?);
+        }
+        let account_tree_root = PoseidonHashOutTarget::from_buffer(buffer)?;
+        let account_inclusion_proof = buffer.read_target_proof_with_public_inputs()?;
+        let account_exclusion_proof = buffer.read_target_proof_with_public_inputs()?;
+        let format_validation_proof = buffer.read_target_proof_with_public_inputs()?;
+        let aggregation_proof = buffer.read_target_proof_with_public_inputs()?;
+        let signature_commitment = PoseidonHashOutTarget::from_buffer(buffer)?;
+        let pubkey_commitment = PoseidonHashOutTarget::from_buffer(buffer)?;
+        let prev_block_hash = Bytes32Target::from_buffer(buffer)?;
+        let block_hash = Bytes32Target::from_buffer(buffer)?;
+        let sender_tree_root = PoseidonHashOutTarget::from_buffer(buffer)?;
+        let is_registration_block = buffer.read_target_bool()?;
+        let is_valid = buffer.read_target_bool()?;
+
+        Ok(Self {
+            block,
+            signature,
+            pubkeys,
+            account_tree_root,
+            account_inclusion_proof,
+            account_exclusion_proof,
+            format_validation_proof,
+            aggregation_proof,
+            signature_commitment,
+            pubkey_commitment,
+            prev_block_hash,
+            block_hash,
+            sender_tree_root,
+            is_registration_block,
+            is_valid,
+        })
+    }
 }
 
 #[derive(Debug)]
@@ -639,6 +743,27 @@ where
             value,
         );
         self.data.prove(pw)
+    }
+
+    pub fn to_buffer(
+        &self,
+        buffer: &mut Vec<u8>,
+        gate_serializer: &dyn GateSerializer<F, D>,
+        generator_serializer: &dyn WitnessGeneratorSerializer<F, D>,
+    ) -> IoResult<()> {
+        self.target.to_buffer(buffer)?;
+        buffer.write_circuit_data(&self.data, gate_serializer, generator_serializer)
+    }
+
+    pub fn from_buffer(
+        buffer: &mut Buffer,
+        gate_serializer: &dyn GateSerializer<F, D>,
+        generator_serializer: &dyn WitnessGeneratorSerializer<F, D>,
+    ) -> IoResult<Self> {
+        let target = MainValidationTarget::from_buffer(buffer)?;
+        let data = buffer.read_circuit_data(gate_serializer, generator_serializer)?;
+
+        Ok(Self { data, target })
     }
 }
 

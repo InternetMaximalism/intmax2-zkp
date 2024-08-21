@@ -6,6 +6,7 @@ use plonky2::{
         config::{AlgebraicHasher, GenericConfig},
         proof::ProofWithPublicInputs,
     },
+    util::serialization::{Buffer, GateSerializer, IoResult, WitnessGeneratorSerializer},
 };
 
 use crate::{
@@ -68,6 +69,30 @@ where
             &update_circuit,
             &sender_processor.sender_circuit,
         );
+        println!(
+            "receive_transfer_circuit: {}",
+            receive_transfer_circuit.data.common.degree_bits()
+        );
+        println!(
+            "receive_deposit_circuit: {}",
+            receive_deposit_circuit.data.common.degree_bits()
+        );
+        println!(
+            "update_circuit: {}",
+            update_circuit.data.common.degree_bits()
+        );
+        println!(
+            "sender_circuit: {}",
+            sender_processor.sender_circuit.data.common.degree_bits()
+        );
+        println!(
+            "spent_circuit: {}",
+            sender_processor.spent_circuit.data.common.degree_bits()
+        );
+        println!(
+            "balance_transition_circuit: {}",
+            balance_transition_circuit.data.common.degree_bits()
+        );
         Self {
             receive_transfer_circuit,
             receive_deposit_circuit,
@@ -77,16 +102,61 @@ where
         }
     }
 
+    pub fn to_buffer(
+        &self,
+        buffer: &mut Vec<u8>,
+        gate_serializer: &dyn GateSerializer<F, D>,
+        generator_serializer: &dyn WitnessGeneratorSerializer<F, D>,
+    ) -> IoResult<()> {
+        self.receive_transfer_circuit
+            .to_buffer(buffer, gate_serializer, generator_serializer)?;
+        self.receive_deposit_circuit
+            .to_buffer(buffer, gate_serializer, generator_serializer)?;
+        self.update_circuit
+            .to_buffer(buffer, gate_serializer, generator_serializer)?;
+        self.sender_processor
+            .to_buffer(buffer, gate_serializer, generator_serializer)?;
+        self.balance_transition_circuit
+            .to_buffer(buffer, gate_serializer, generator_serializer)?;
+
+        Ok(())
+    }
+
+    pub fn from_buffer(
+        buffer: &mut Buffer,
+        gate_serializer: &dyn GateSerializer<F, D>,
+        generator_serializer: &dyn WitnessGeneratorSerializer<F, D>,
+    ) -> IoResult<Self> {
+        let receive_transfer_circuit =
+            ReceiveTransferCircuit::from_buffer(buffer, gate_serializer, generator_serializer)?;
+        let receive_deposit_circuit =
+            ReceiveDepositCircuit::from_buffer(buffer, gate_serializer, generator_serializer)?;
+        let update_circuit =
+            UpdateCircuit::from_buffer(buffer, gate_serializer, generator_serializer)?;
+        let sender_processor =
+            SenderProcessor::from_buffer(buffer, gate_serializer, generator_serializer)?;
+        let balance_transition_circuit =
+            BalanceTransitionCircuit::from_buffer(buffer, gate_serializer, generator_serializer)?;
+
+        Ok(Self {
+            receive_transfer_circuit,
+            receive_deposit_circuit,
+            update_circuit,
+            sender_processor,
+            balance_transition_circuit,
+        })
+    }
+
     pub fn prove_send(
         &self,
-        validity_circuit: &ValidityCircuit<F, C, D>,
+        validity_verifier_data: &VerifierCircuitData<F, C, D>,
         balance_circuit_vd: &VerifierOnlyCircuitData<C, D>,
         send_witness: &SendWitness,
         update_witness: &UpdateWitness<F, C, D>,
     ) -> ProofWithPublicInputs<F, C, D> {
         let sender_proof =
             self.sender_processor
-                .prove(validity_circuit, send_witness, update_witness);
+                .prove(validity_verifier_data, send_witness, update_witness);
 
         let balance_transition_value = BalanceTransitionValue::new(
             &CircuitConfig::default(),
@@ -342,7 +412,11 @@ mod tests {
         let balance_circuit_vd = balance_processor.get_verifier_only_data();
 
         let _ = balance_processor.balance_transition_processor.prove_send(
-            &sync_prover.validity_processor.validity_circuit,
+            &sync_prover
+                .validity_processor
+                .validity_circuit
+                .data
+                .verifier_data(),
             &balance_circuit_vd,
             &send_witness,
             &update_witness,

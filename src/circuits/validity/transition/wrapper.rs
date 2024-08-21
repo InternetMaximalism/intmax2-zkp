@@ -9,6 +9,9 @@ use plonky2::{
         config::{AlgebraicHasher, GenericConfig},
         proof::{ProofWithPublicInputs, ProofWithPublicInputsTarget},
     },
+    util::serialization::{
+        Buffer, GateSerializer, IoResult, Read, WitnessGeneratorSerializer, Write,
+    },
 };
 
 use crate::{
@@ -107,6 +110,38 @@ where
             transition_target,
             prev_pis,
         }
+    }
+
+    pub fn to_buffer(
+        &self,
+        buffer: &mut Vec<u8>,
+        gate_serializer: &dyn GateSerializer<F, D>,
+        generator_serializer: &dyn WitnessGeneratorSerializer<F, D>,
+    ) -> IoResult<()> {
+        buffer.write_target_proof_with_public_inputs(&self.main_validation_proof)?;
+        self.transition_target.to_buffer(buffer)?;
+        self.prev_pis.to_buffer(buffer)?;
+        buffer.write_circuit_data(&self.data, gate_serializer, generator_serializer)?;
+
+        Ok(())
+    }
+
+    pub fn from_buffer(
+        buffer: &mut Buffer,
+        gate_serializer: &dyn GateSerializer<F, D>,
+        generator_serializer: &dyn WitnessGeneratorSerializer<F, D>,
+    ) -> IoResult<Self> {
+        let main_validation_proof = buffer.read_target_proof_with_public_inputs()?;
+        let transition_target = ValidityTransitionTarget::from_buffer(buffer)?;
+        let prev_pis = ValidityPublicInputsTarget::from_buffer(buffer)?;
+        let data = buffer.read_circuit_data(gate_serializer, generator_serializer)?;
+
+        Ok(Self {
+            data,
+            main_validation_proof,
+            transition_target,
+            prev_pis,
+        })
     }
 }
 

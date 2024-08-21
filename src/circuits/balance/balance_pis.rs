@@ -9,6 +9,7 @@ use plonky2::{
         witness::WitnessWrite,
     },
     plonk::circuit_builder::CircuitBuilder,
+    util::serialization::{Buffer, IoResult},
 };
 use serde::{Deserialize, Serialize};
 
@@ -220,5 +221,31 @@ impl BalancePublicInputsTarget {
         builder: &mut CircuitBuilder<F, D>,
     ) -> PoseidonHashOutTarget {
         PoseidonHashOutTarget::hash_inputs(builder, &self.to_vec())
+    }
+
+    pub fn to_buffer(&self, buffer: &mut Vec<u8>) -> IoResult<()> {
+        self.pubkey.to_buffer(buffer)?;
+        self.private_commitment.to_buffer(buffer)?;
+        self.last_tx_hash.to_buffer(buffer)?;
+        self.last_tx_insufficient_flags.to_buffer(buffer)?;
+        self.public_state.to_buffer(buffer)?;
+
+        Ok(())
+    }
+
+    pub fn from_buffer(buffer: &mut Buffer) -> IoResult<Self> {
+        let pubkey = U256Target::from_buffer(buffer)?;
+        let private_commitment = PoseidonHashOutTarget::from_buffer(buffer)?;
+        let last_tx_hash = PoseidonHashOutTarget::from_buffer(buffer)?;
+        let last_tx_insufficient_flags = InsufficientFlagsTarget::from_buffer(buffer)?;
+        let public_state = PublicStateTarget::from_buffer(buffer)?;
+
+        Ok(Self {
+            pubkey,
+            private_commitment,
+            last_tx_hash,
+            last_tx_insufficient_flags,
+            public_state,
+        })
     }
 }

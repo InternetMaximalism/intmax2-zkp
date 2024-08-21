@@ -20,6 +20,7 @@ use plonky2::{
         circuit_builder::CircuitBuilder,
         config::{AlgebraicHasher, GenericConfig},
     },
+    util::serialization::{Buffer, IoResult, Read, Write},
 };
 
 use plonky2_keccak::{builder::BuilderKeccak256 as _, utils::solidity_keccak256};
@@ -180,6 +181,41 @@ impl SignatureContentTarget {
         <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
     {
         Bytes32Target::from_slice(&builder.keccak256::<C>(&self.to_vec::<F>()))
+    }
+
+    pub fn to_buffer(&self, buffer: &mut Vec<u8>) -> IoResult<()> {
+        self.tx_tree_root.to_buffer(buffer)?;
+        buffer.write_target_bool(self.is_registration_block)?;
+        self.sender_flag.to_buffer(buffer)?;
+        self.pubkey_hash.to_buffer(buffer)?;
+        self.account_id_hash.to_buffer(buffer)?;
+        self.agg_pubkey.to_buffer(buffer)?;
+        self.agg_signature.to_buffer(buffer)?;
+        self.message_point.to_buffer(buffer)?;
+
+        Ok(())
+    }
+
+    pub fn from_buffer(buffer: &mut Buffer) -> IoResult<Self> {
+        let tx_tree_root = Bytes32Target::from_buffer(buffer)?;
+        let is_registration_block = buffer.read_target_bool()?;
+        let sender_flag = Bytes16Target::from_buffer(buffer)?;
+        let pubkey_hash = Bytes32Target::from_buffer(buffer)?;
+        let account_id_hash = Bytes32Target::from_buffer(buffer)?;
+        let agg_pubkey = FlatG1Target::from_buffer(buffer)?;
+        let agg_signature = FlatG2Target::from_buffer(buffer)?;
+        let message_point = FlatG2Target::from_buffer(buffer)?;
+
+        Ok(Self {
+            tx_tree_root,
+            is_registration_block,
+            sender_flag,
+            pubkey_hash,
+            account_id_hash,
+            agg_pubkey,
+            agg_signature,
+            message_point,
+        })
     }
 }
 

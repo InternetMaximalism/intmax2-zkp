@@ -84,7 +84,7 @@ where
                 true,
             );
             let balance_proof = balance_processor.prove_send(
-                sync_validity_prover.validity_circuit(),
+                &sync_validity_prover.validity_circuit().data.verifier_data(),
                 wallet.get_pubkey(),
                 &send_witness,
                 &update_witness,

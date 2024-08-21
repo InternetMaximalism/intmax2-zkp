@@ -2,14 +2,21 @@ use plonky2::{
     field::extension::Extendable,
     hash::hash_types::RichField,
     plonk::{
+        circuit_data::VerifierCircuitData,
         config::{AlgebraicHasher, GenericConfig},
         proof::ProofWithPublicInputs,
     },
+    util::serialization::{Buffer, GateSerializer, IoResult, WitnessGeneratorSerializer},
 };
 
 use crate::{
-    circuits::validity::{validity_circuit::ValidityCircuit, validity_pis::ValidityPublicInputs},
-    common::witness::{send_witness::SendWitness, update_witness::UpdateWitness},
+    circuits::{
+        balance::balance_pis::BalancePublicInputs,
+        validity::{validity_circuit::ValidityCircuit, validity_pis::ValidityPublicInputs},
+    },
+    common::witness::{
+        send_witness::SendWitness, tx_witness::TxWitness, update_witness::UpdateWitness,
+    },
 };
 
 use super::{
@@ -47,7 +54,7 @@ where
 
     pub fn prove(
         &self,
-        validity_circuit: &ValidityCircuit<F, C, D>,
+        validity_verifier_data: &VerifierCircuitData<F, C, D>,
         send_witness: &SendWitness,
         update_witness: &UpdateWitness<F, C, D>,
     ) -> ProofWithPublicInputs<F, C, D> {
@@ -58,22 +65,37 @@ where
             validity_pis, send_witness.tx_witness.validity_pis,
             "validity proof pis mismatch"
         );
-        let spent_value = SpentValue::new(
-            &send_witness.prev_private_state,
-            &send_witness.prev_balances,
-            send_witness.new_private_state_salt,
-            &send_witness.transfers,
-            &send_witness.asset_merkle_proofs,
-            send_witness.tx_witness.tx.nonce,
-        );
+
+        let spent_proof = self.prove_spent_circuit(send_witness);
         let tx_witness = &send_witness.tx_witness;
-        let sender_tree = send_witness.tx_witness.get_sender_tree();
+        let prev_balance_pis = &send_witness.prev_balance_pis;
+        let sender_proof = self.prove_sender_circuit(
+            validity_verifier_data,
+            &spent_proof,
+            update_witness,
+            tx_witness,
+            prev_balance_pis,
+        );
+
+        sender_proof
+    }
+
+    pub fn prove_sender_circuit(
+        &self,
+        validity_verifier_data: &VerifierCircuitData<F, C, D>,
+        spent_proof: &ProofWithPublicInputs<F, C, D>,
+        update_witness: &UpdateWitness<F, C, D>,
+        tx_witness: &TxWitness,
+        prev_balance_pis: &BalancePublicInputs,
+    ) -> ProofWithPublicInputs<F, C, D> {
+        let sender_tree = tx_witness.get_sender_tree();
         let sender_leaf = sender_tree.get_leaf(tx_witness.tx_index);
         let sender_merkle_proof = sender_tree.prove(tx_witness.tx_index);
+
         let tx_inclusion_value = TxInclusionValue::new(
-            validity_circuit,
-            send_witness.prev_balance_pis.pubkey,
-            &send_witness.prev_balance_pis.public_state,
+            &validity_verifier_data,
+            prev_balance_pis.pubkey,
+            &prev_balance_pis.public_state,
             &update_witness.validity_proof,
             &update_witness.block_merkle_proof,
             &update_witness.account_membership_proof,
@@ -83,7 +105,7 @@ where
             &sender_leaf,
             &sender_merkle_proof,
         );
-        let spent_proof = self.spent_circuit.prove(&spent_value).unwrap();
+
         let tx_inclusion_proof = self
             .tx_inclusion_circuit
             .prove(&tx_inclusion_value)
@@ -93,9 +115,62 @@ where
             &self.tx_inclusion_circuit,
             &spent_proof,
             &tx_inclusion_proof,
-            &send_witness.prev_balance_pis,
+            &prev_balance_pis,
         );
+
         self.sender_circuit.prove(&sender_value).unwrap()
+    }
+
+    pub fn prove_spent_circuit(
+        &self,
+        send_witness: &SendWitness,
+    ) -> ProofWithPublicInputs<F, C, D> {
+        let spent_value = SpentValue::new(
+            &send_witness.prev_private_state,
+            &send_witness.prev_balances,
+            send_witness.new_private_state_salt,
+            &send_witness.transfers,
+            &send_witness.asset_merkle_proofs,
+            send_witness.tx_witness.tx.nonce,
+        );
+        let spent_proof = self.spent_circuit.prove(&spent_value).unwrap();
+
+        spent_proof
+    }
+
+    pub fn to_buffer(
+        &self,
+        buffer: &mut Vec<u8>,
+        gate_serializer: &dyn GateSerializer<F, D>,
+        generator_serializer: &dyn WitnessGeneratorSerializer<F, D>,
+    ) -> IoResult<()> {
+        self.spent_circuit
+            .to_buffer(buffer, gate_serializer, generator_serializer)?;
+        self.tx_inclusion_circuit
+            .to_buffer(buffer, gate_serializer, generator_serializer)?;
+        self.sender_circuit
+            .to_buffer(buffer, gate_serializer, generator_serializer)?;
+
+        Ok(())
+    }
+
+    pub fn from_buffer(
+        buffer: &mut Buffer,
+        gate_serializer: &dyn GateSerializer<F, D>,
+        generator_serializer: &dyn WitnessGeneratorSerializer<F, D>,
+    ) -> IoResult<Self> {
+        let spent_circuit =
+            SpentCircuit::from_buffer(buffer, gate_serializer, generator_serializer)?;
+        let tx_inclusion_circuit =
+            TxInclusionCircuit::from_buffer(buffer, gate_serializer, generator_serializer)?;
+        let sender_circuit =
+            SenderCircuit::from_buffer(buffer, gate_serializer, generator_serializer)?;
+
+        Ok(Self {
+            spent_circuit,
+            tx_inclusion_circuit,
+            sender_circuit,
+        })
     }
 }
 
@@ -155,7 +230,11 @@ mod tests {
         );
 
         sender_processor.prove(
-            &sync_prover.validity_processor.validity_circuit,
+            &sync_prover
+                .validity_processor
+                .validity_circuit
+                .data
+                .verifier_data(),
             &send_witness,
             &update_witness,
         );

@@ -28,6 +28,9 @@ use plonky2::{
         config::{AlgebraicHasher, GenericConfig},
         proof::ProofWithPublicInputs,
     },
+    util::serialization::{
+        Buffer, GateSerializer, IoResult, Read, WitnessGeneratorSerializer, Write,
+    },
 };
 
 use super::utils::get_pubkey_commitment_circuit;
@@ -220,6 +223,50 @@ impl AccountInclusionTarget {
             .set_witness(witness, value.pubkey_commitment);
         witness.set_bool_target(self.is_valid, value.is_valid);
     }
+
+    pub fn to_buffer(&self, buffer: &mut Vec<u8>) -> IoResult<()> {
+        self.account_id_packed.to_buffer(buffer)?;
+        self.account_tree_root.to_buffer(buffer)?;
+        buffer.write_usize(self.account_merkle_proofs.len())?;
+        for proof in &self.account_merkle_proofs {
+            proof.to_buffer(buffer)?;
+        }
+        buffer.write_usize(self.pubkeys.len())?;
+        for pubkey in &self.pubkeys {
+            pubkey.to_buffer(buffer)?;
+        }
+        self.account_id_hash.to_buffer(buffer)?;
+        self.pubkey_commitment.to_buffer(buffer)?;
+        buffer.write_target_bool(self.is_valid)?;
+
+        Ok(())
+    }
+
+    pub fn from_buffer(buffer: &mut Buffer) -> IoResult<Self> {
+        let account_id_packed = AccountIdPackedTarget::from_buffer(buffer)?;
+        let account_tree_root = PoseidonHashOutTarget::from_buffer(buffer)?;
+        let account_merkle_siblings_len = buffer.read_usize()?;
+        let account_merkle_proofs = (0..account_merkle_siblings_len)
+            .map(|_| AccountMerkleProofTarget::from_buffer(buffer))
+            .collect::<IoResult<Vec<_>>>()?;
+        let pubkeys_len = buffer.read_usize()?;
+        let pubkeys = (0..pubkeys_len)
+            .map(|_| U256Target::from_buffer(buffer))
+            .collect::<IoResult<Vec<_>>>()?;
+        let account_id_hash = Bytes32Target::from_buffer(buffer)?;
+        let pubkey_commitment = PoseidonHashOutTarget::from_buffer(buffer)?;
+        let is_valid = buffer.read_target_bool()?;
+
+        Ok(Self {
+            account_id_packed,
+            account_tree_root,
+            account_merkle_proofs,
+            pubkeys,
+            account_id_hash,
+            pubkey_commitment,
+            is_valid,
+        })
+    }
 }
 
 #[derive(Debug)]
@@ -270,6 +317,34 @@ where
         let mut pw = PartialWitness::<F>::new();
         self.target.set_witness(&mut pw, value);
         self.data.prove(pw)
+    }
+
+    pub fn to_buffer(
+        &self,
+        buffer: &mut Vec<u8>,
+        gate_serializer: &dyn GateSerializer<F, D>,
+        generator_serializer: &dyn WitnessGeneratorSerializer<F, D>,
+    ) -> IoResult<()> {
+        self.target.to_buffer(buffer)?;
+        buffer.write_circuit_data(&self.data, gate_serializer, generator_serializer)?;
+
+        Ok(())
+    }
+
+    pub fn from_buffer(
+        buffer: &mut Buffer,
+        gate_serializer: &dyn GateSerializer<F, D>,
+        generator_serializer: &dyn WitnessGeneratorSerializer<F, D>,
+    ) -> IoResult<Self> {
+        let target = AccountInclusionTarget::from_buffer(buffer)?;
+        let data = buffer.read_circuit_data(gate_serializer, generator_serializer)?;
+        let dummy_proof = DummyProof::new(&data.common);
+
+        Ok(Self {
+            data,
+            target,
+            dummy_proof,
+        })
     }
 }
 

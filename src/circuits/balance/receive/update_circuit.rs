@@ -11,7 +11,9 @@ use plonky2::{
         config::{AlgebraicHasher, GenericConfig},
         proof::{ProofWithPublicInputs, ProofWithPublicInputsTarget},
     },
-    util::serialization::{Buffer, IoResult, Read, Write},
+    util::serialization::{
+        Buffer, GateSerializer, IoResult, Read, WitnessGeneratorSerializer, Write,
+    },
 };
 
 use crate::{
@@ -307,6 +309,34 @@ where
         let mut pw = PartialWitness::<F>::new();
         self.target.set_witness(&mut pw, value);
         self.data.prove(pw)
+    }
+
+    pub fn to_buffer(
+        &self,
+        buffer: &mut Vec<u8>,
+        gate_serializer: &dyn GateSerializer<F, D>,
+        generator_serializer: &dyn WitnessGeneratorSerializer<F, D>,
+    ) -> IoResult<()> {
+        self.target.to_buffer(buffer)?;
+        buffer.write_circuit_data(&self.data, gate_serializer, generator_serializer)?;
+
+        Ok(())
+    }
+
+    pub fn from_buffer(
+        buffer: &mut Buffer,
+        gate_serializer: &dyn GateSerializer<F, D>,
+        generator_serializer: &dyn WitnessGeneratorSerializer<F, D>,
+    ) -> IoResult<Self> {
+        let target = UpdateTarget::from_buffer(buffer)?;
+        let data = buffer.read_circuit_data(gate_serializer, generator_serializer)?;
+        let dummy_proof = DummyProof::new(&data.common);
+
+        Ok(Self {
+            data,
+            target,
+            dummy_proof,
+        })
     }
 }
 

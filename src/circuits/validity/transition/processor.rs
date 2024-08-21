@@ -5,6 +5,7 @@ use plonky2::{
         config::{AlgebraicHasher, GenericConfig},
         proof::ProofWithPublicInputs,
     },
+    util::serialization::{Buffer, GateSerializer, IoResult, WitnessGeneratorSerializer},
 };
 
 use crate::{
@@ -136,6 +137,49 @@ where
             self.account_update_circuit.dummy_proof.clone(),
         )?;
         Ok(proof)
+    }
+
+    pub fn to_buffer(
+        &self,
+        buffer: &mut Vec<u8>,
+        gate_serializer: &dyn GateSerializer<F, D>,
+        generator_serializer: &dyn WitnessGeneratorSerializer<F, D>,
+    ) -> IoResult<()> {
+        self.main_validation_processor
+            .to_buffer(buffer, gate_serializer, generator_serializer)?;
+        self.account_registration_circuit.to_buffer(
+            buffer,
+            gate_serializer,
+            generator_serializer,
+        )?;
+        self.account_update_circuit
+            .to_buffer(buffer, gate_serializer, generator_serializer)?;
+        self.transition_wrapper_circuit
+            .to_buffer(buffer, gate_serializer, generator_serializer)?;
+
+        Ok(())
+    }
+
+    pub fn from_buffer(
+        buffer: &mut Buffer,
+        gate_serializer: &dyn GateSerializer<F, D>,
+        generator_serializer: &dyn WitnessGeneratorSerializer<F, D>,
+    ) -> IoResult<Self> {
+        let main_validation_processor =
+            MainValidationProcessor::from_buffer(buffer, gate_serializer, generator_serializer)?;
+        let account_registration_circuit =
+            AccountRegistrationCircuit::from_buffer(buffer, gate_serializer, generator_serializer)?;
+        let account_update_circuit =
+            AccountUpdateCircuit::from_buffer(buffer, gate_serializer, generator_serializer)?;
+        let transition_wrapper_circuit =
+            TransitionWrapperCircuit::from_buffer(buffer, gate_serializer, generator_serializer)?;
+
+        Ok(Self {
+            main_validation_processor,
+            account_registration_circuit,
+            account_update_circuit,
+            transition_wrapper_circuit,
+        })
     }
 }
 

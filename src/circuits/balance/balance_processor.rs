@@ -6,6 +6,7 @@ use plonky2::{
         config::{AlgebraicHasher, GenericConfig},
         proof::ProofWithPublicInputs,
     },
+    util::serialization::{Buffer, GateSerializer, IoResult, WitnessGeneratorSerializer},
 };
 
 use crate::{
@@ -59,14 +60,14 @@ where
 
     pub fn prove_send(
         &self,
-        validity_circuit: &ValidityCircuit<F, C, D>,
+        validity_verifier_data: &VerifierCircuitData<F, C, D>,
         pubkey: U256,
         send_witness: &SendWitness,
         update_witness: &UpdateWitness<F, C, D>,
         prev_proof: &Option<ProofWithPublicInputs<F, C, D>>,
     ) -> ProofWithPublicInputs<F, C, D> {
         let transition_proof = self.balance_transition_processor.prove_send(
-            validity_circuit,
+            validity_verifier_data,
             &self.get_verifier_only_data(),
             send_witness,
             update_witness,
@@ -147,6 +148,39 @@ where
             .prove(pubkey, &transition_proof, prev_proof)
             .unwrap();
         proof
+    }
+
+    pub fn to_buffer(
+        &self,
+        buffer: &mut Vec<u8>,
+        gate_serializer: &dyn GateSerializer<F, D>,
+        generator_serializer: &dyn WitnessGeneratorSerializer<F, D>,
+    ) -> IoResult<()> {
+        self.balance_circuit
+            .to_buffer(buffer, gate_serializer, generator_serializer)?;
+        self.balance_transition_processor.to_buffer(
+            buffer,
+            gate_serializer,
+            generator_serializer,
+        )?;
+
+        Ok(())
+    }
+
+    pub fn from_buffer(
+        buffer: &mut Buffer,
+        gate_serializer: &dyn GateSerializer<F, D>,
+        generator_serializer: &dyn WitnessGeneratorSerializer<F, D>,
+    ) -> IoResult<Self> {
+        let balance_circuit =
+            BalanceCircuit::from_buffer(buffer, gate_serializer, generator_serializer)?;
+        let balance_transition_processor =
+            BalanceTransitionProcessor::from_buffer(buffer, gate_serializer, generator_serializer)?;
+
+        Ok(Self {
+            balance_transition_processor,
+            balance_circuit,
+        })
     }
 }
 

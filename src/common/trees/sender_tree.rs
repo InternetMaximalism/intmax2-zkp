@@ -12,6 +12,7 @@ use crate::{
             incremental_merkle_tree::{
                 IncrementalMerkleProof, IncrementalMerkleProofTarget, IncrementalMerkleTree,
             },
+            merkle_tree::MerkleProofTarget,
         },
     },
 };
@@ -26,6 +27,7 @@ use plonky2::{
         circuit_builder::CircuitBuilder,
         config::{AlgebraicHasher, GenericConfig},
     },
+    util::serialization::{Buffer, IoResult, Read, Write},
 };
 use serde::{Deserialize, Serialize};
 
@@ -40,6 +42,28 @@ use crate::{
 pub type SenderTree = IncrementalMerkleTree<SenderLeaf>;
 pub type SenderMerkleProof = IncrementalMerkleProof<SenderLeaf>;
 pub type SenderMerkleProofTarget = IncrementalMerkleProofTarget<SenderLeafTarget>;
+
+impl SenderMerkleProofTarget {
+    pub fn to_buffer(&self, buffer: &mut Vec<u8>) -> IoResult<()> {
+        buffer.write_usize(self.0.siblings.len())?;
+        for sibling in self.0.siblings.iter() {
+            sibling.to_buffer(buffer)?;
+        }
+
+        Ok(())
+    }
+
+    pub fn from_buffer(buffer: &mut Buffer) -> IoResult<Self> {
+        let siblings_len = buffer.read_usize()?;
+        let mut siblings = Vec::with_capacity(siblings_len);
+        for _ in 0..siblings_len {
+            let sibling = PoseidonHashOutTarget::from_buffer(buffer)?;
+            siblings.push(sibling);
+        }
+
+        Ok(IncrementalMerkleProofTarget(MerkleProofTarget { siblings }))
+    }
+}
 
 pub const SENDER_LEAF_LEN: usize = U256_LEN + 1;
 
@@ -124,6 +148,20 @@ impl SenderLeafTarget {
     ) {
         self.sender.set_witness(witness, value.sender);
         witness.set_bool_target(self.is_valid, value.is_valid);
+    }
+
+    pub fn to_buffer(&self, buffer: &mut Vec<u8>) -> IoResult<()> {
+        self.sender.to_buffer(buffer)?;
+        buffer.write_target_bool(self.is_valid)?;
+
+        Ok(())
+    }
+
+    pub fn from_buffer(buffer: &mut Buffer) -> IoResult<Self> {
+        let sender = U256Target::from_buffer(buffer)?;
+        let is_valid = buffer.read_target_bool()?;
+
+        Ok(Self { sender, is_valid })
     }
 }
 

@@ -7,9 +7,12 @@ use plonky2::{
     },
     plonk::{
         circuit_builder::CircuitBuilder,
-        circuit_data::{CircuitConfig, CircuitData},
+        circuit_data::{CircuitConfig, CircuitData, VerifierCircuitData},
         config::{AlgebraicHasher, GenericConfig},
         proof::{ProofWithPublicInputs, ProofWithPublicInputsTarget},
+    },
+    util::serialization::{
+        Buffer, GateSerializer, IoResult, Read, WitnessGeneratorSerializer, Write,
     },
 };
 
@@ -146,7 +149,7 @@ where
     <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
 {
     pub fn new(
-        validity_circuit: &ValidityCircuit<F, C, D>,
+        validity_verifier_data: &VerifierCircuitData<F, C, D>,
         pubkey: U256,
         prev_public_state: &PublicState, // public state of balance proof(old)
         validity_proof: &ProofWithPublicInputs<F, C, D>, // new public state
@@ -158,8 +161,8 @@ where
         sender_leaf: &SenderLeaf,
         sender_merkle_proof: &SenderMerkleProof,
     ) -> Self {
-        validity_circuit
-            .verify(validity_proof)
+        validity_verifier_data
+            .verify(validity_proof.clone())
             .expect("validity proof is invalid");
         let validity_pis = ValidityPublicInputs::from_u64_slice(
             &validity_proof.public_inputs[0..VALIDITY_PUBLIC_INPUTS_LEN].to_u64_vec(),
@@ -321,6 +324,53 @@ impl<const D: usize> TxInclusionTarget<D> {
             .set_witness(witness, &value.sender_merkle_proof);
         witness.set_bool_target(self.is_valid, value.is_valid);
     }
+
+    pub fn to_buffer(&self, buffer: &mut Vec<u8>) -> IoResult<()> {
+        self.pubkey.to_buffer(buffer)?;
+        self.prev_public_state.to_buffer(buffer)?;
+        self.new_public_state.to_buffer(buffer)?;
+        buffer.write_target_proof_with_public_inputs(&self.validity_proof)?;
+        self.block_merkle_proof.to_buffer(buffer)?;
+        self.prev_account_membership_proof.to_buffer(buffer)?;
+        buffer.write_target(self.sender_index)?;
+        self.tx.to_buffer(buffer)?;
+        self.tx_merkle_proof.to_buffer(buffer)?;
+        self.sender_leaf.to_buffer(buffer)?;
+        self.sender_merkle_proof.to_buffer(buffer)?;
+        buffer.write_target_bool(self.is_valid)?;
+
+        Ok(())
+    }
+
+    pub fn from_buffer(buffer: &mut Buffer) -> IoResult<Self> {
+        let pubkey = U256Target::from_buffer(buffer)?;
+        let prev_public_state = PublicStateTarget::from_buffer(buffer)?;
+        let new_public_state = PublicStateTarget::from_buffer(buffer)?;
+        let validity_proof = buffer.read_target_proof_with_public_inputs()?;
+        let block_merkle_proof = BlockHashMerkleProofTarget::from_buffer(buffer)?;
+        let prev_account_membership_proof = AccountMembershipProofTarget::from_buffer(buffer)?;
+        let sender_index = buffer.read_target()?;
+        let tx = TxTarget::from_buffer(buffer)?;
+        let tx_merkle_proof = TxMerkleProofTarget::from_buffer(buffer)?;
+        let sender_leaf = SenderLeafTarget::from_buffer(buffer)?;
+        let sender_merkle_proof = SenderMerkleProofTarget::from_buffer(buffer)?;
+        let is_valid = buffer.read_target_bool()?;
+
+        Ok(Self {
+            pubkey,
+            prev_public_state,
+            new_public_state,
+            validity_proof,
+            block_merkle_proof,
+            prev_account_membership_proof,
+            sender_index,
+            tx,
+            tx_merkle_proof,
+            sender_leaf,
+            sender_merkle_proof,
+            is_valid,
+        })
+    }
 }
 
 pub struct TxInclusionCircuit<F, C, const D: usize>
@@ -360,6 +410,27 @@ where
         let mut pw = PartialWitness::<F>::new();
         self.target.set_witness(&mut pw, value);
         self.data.prove(pw)
+    }
+
+    pub fn to_buffer(
+        &self,
+        buffer: &mut Vec<u8>,
+        gate_serializer: &dyn GateSerializer<F, D>,
+        generator_serializer: &dyn WitnessGeneratorSerializer<F, D>,
+    ) -> IoResult<()> {
+        self.target.to_buffer(buffer)?;
+        buffer.write_circuit_data(&self.data, gate_serializer, generator_serializer)
+    }
+
+    pub fn from_buffer(
+        buffer: &mut Buffer,
+        gate_serializer: &dyn GateSerializer<F, D>,
+        generator_serializer: &dyn WitnessGeneratorSerializer<F, D>,
+    ) -> IoResult<Self> {
+        let target = TxInclusionTarget::<D>::from_buffer(buffer)?;
+        let data = buffer.read_circuit_data(gate_serializer, generator_serializer)?;
+
+        Ok(Self { data, target })
     }
 }
 
@@ -429,7 +500,11 @@ mod tests {
         let sender_leaf = sender_tree.get_leaf(tx_index);
         let sender_merkle_proof = sender_tree.prove(tx_index);
         let value = TxInclusionValue::new(
-            &sync_prover.validity_processor.validity_circuit,
+            &sync_prover
+                .validity_processor
+                .validity_circuit
+                .data
+                .verifier_data(),
             pubkey,
             &prev_public_state,
             &update_witness.validity_proof,

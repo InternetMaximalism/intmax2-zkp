@@ -11,6 +11,9 @@ use plonky2::{
         config::{AlgebraicHasher, GenericConfig},
         proof::ProofWithPublicInputs,
     },
+    util::serialization::{
+        Buffer, GateSerializer, IoResult, Read, WitnessGeneratorSerializer, Write,
+    },
 };
 
 use crate::{
@@ -182,6 +185,44 @@ impl AccountExclusionTarget {
             .set_witness(witness, value.pubkey_commitment);
         witness.set_bool_target(self.is_valid, value.is_valid);
     }
+
+    pub fn to_buffer(&self, buffer: &mut Vec<u8>) -> IoResult<()> {
+        self.account_tree_root.to_buffer(buffer)?;
+        buffer.write_usize(self.account_membership_proofs.len())?;
+        for proof in self.account_membership_proofs.iter() {
+            proof.to_buffer(buffer)?;
+        }
+        buffer.write_usize(self.pubkeys.len())?;
+        for pubkey in self.pubkeys.iter() {
+            pubkey.to_buffer(buffer)?;
+        }
+        self.pubkey_commitment.to_buffer(buffer)?;
+        buffer.write_target_bool(self.is_valid)
+    }
+
+    pub fn from_buffer(buffer: &mut Buffer) -> IoResult<Self> {
+        let account_tree_root = PoseidonHashOutTarget::from_buffer(buffer)?;
+        let account_merkle_siblings_len = buffer.read_usize()?;
+        let mut account_membership_proofs = Vec::with_capacity(account_merkle_siblings_len);
+        for _ in 0..account_merkle_siblings_len {
+            account_membership_proofs.push(AccountMembershipProofTarget::from_buffer(buffer)?);
+        }
+        let pubkeys_len = buffer.read_usize()?;
+        let mut pubkeys = Vec::with_capacity(pubkeys_len);
+        for _ in 0..pubkeys_len {
+            pubkeys.push(U256Target::from_buffer(buffer)?);
+        }
+        let pubkey_commitment = PoseidonHashOutTarget::from_buffer(buffer)?;
+        let is_valid = buffer.read_target_bool()?;
+
+        Ok(Self {
+            account_tree_root,
+            account_membership_proofs,
+            pubkeys,
+            pubkey_commitment,
+            is_valid,
+        })
+    }
 }
 
 #[derive(Debug)]
@@ -227,6 +268,31 @@ where
         let mut pw = PartialWitness::<F>::new();
         self.target.set_witness(&mut pw, value);
         self.data.prove(pw)
+    }
+
+    pub fn to_buffer(
+        &self,
+        buffer: &mut Vec<u8>,
+        gate_serializer: &dyn GateSerializer<F, D>,
+        generator_serializer: &dyn WitnessGeneratorSerializer<F, D>,
+    ) -> IoResult<()> {
+        self.target.to_buffer(buffer)?;
+        buffer.write_circuit_data(&self.data, gate_serializer, generator_serializer)
+    }
+
+    pub fn from_buffer(
+        buffer: &mut Buffer,
+        gate_serializer: &dyn GateSerializer<F, D>,
+        generator_serializer: &dyn WitnessGeneratorSerializer<F, D>,
+    ) -> IoResult<Self> {
+        let target = AccountExclusionTarget::from_buffer(buffer)?;
+        let data = buffer.read_circuit_data(gate_serializer, generator_serializer)?;
+        let dummy_proof = DummyProof::new(&data.common);
+        Ok(Self {
+            data,
+            target,
+            dummy_proof,
+        })
     }
 }
 

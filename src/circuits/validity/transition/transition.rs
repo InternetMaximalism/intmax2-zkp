@@ -7,6 +7,7 @@ use plonky2::{
         config::{AlgebraicHasher, GenericConfig},
         proof::{ProofWithPublicInputs, ProofWithPublicInputsTarget},
     },
+    util::serialization::{Buffer, IoResult, Read, Write},
 };
 
 use crate::{
@@ -275,6 +276,41 @@ impl<const D: usize> ValidityTransitionTarget<D> {
         witness.set_proof_with_pis_target(&self.account_update_proof, &account_update_proof);
         self.block_hash_merkle_proof
             .set_witness(witness, &value.block_hash_merkle_proof);
+    }
+
+    pub fn to_buffer(&self, buffer: &mut Vec<u8>) -> IoResult<()> {
+        self.block_pis.to_buffer(buffer)?;
+        self.prev_account_tree_root.to_buffer(buffer)?;
+        self.prev_block_tree_root.to_buffer(buffer)?;
+        self.new_account_tree_root.to_buffer(buffer)?;
+        self.new_block_tree_root.to_buffer(buffer)?;
+        buffer.write_target_proof_with_public_inputs(&self.account_registration_proof)?;
+        buffer.write_target_proof_with_public_inputs(&self.account_update_proof)?;
+        self.block_hash_merkle_proof.to_buffer(buffer)?;
+
+        Ok(())
+    }
+
+    pub fn from_buffer(buffer: &mut Buffer) -> IoResult<Self> {
+        let block_pis = MainValidationPublicInputsTarget::from_buffer(buffer)?;
+        let prev_account_tree_root = PoseidonHashOutTarget::from_buffer(buffer)?;
+        let prev_block_tree_root = PoseidonHashOutTarget::from_buffer(buffer)?;
+        let new_account_tree_root = PoseidonHashOutTarget::from_buffer(buffer)?;
+        let new_block_tree_root = PoseidonHashOutTarget::from_buffer(buffer)?;
+        let account_registration_proof = buffer.read_target_proof_with_public_inputs()?;
+        let account_update_proof = buffer.read_target_proof_with_public_inputs()?;
+        let block_hash_merkle_proof = BlockHashMerkleProofTarget::from_buffer(buffer)?;
+
+        Ok(Self {
+            block_pis,
+            prev_account_tree_root,
+            prev_block_tree_root,
+            new_account_tree_root,
+            new_block_tree_root,
+            account_registration_proof,
+            account_update_proof,
+            block_hash_merkle_proof,
+        })
     }
 }
 

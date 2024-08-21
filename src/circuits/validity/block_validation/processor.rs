@@ -6,6 +6,7 @@ use plonky2::{
         config::{AlgebraicHasher, GenericConfig},
         proof::ProofWithPublicInputs,
     },
+    util::serialization::{Buffer, GateSerializer, IoResult, WitnessGeneratorSerializer},
 };
 
 use crate::{
@@ -129,6 +130,51 @@ where
             &main_validation_value,
         )?;
         Ok(main_validation_proof)
+    }
+
+    pub fn to_buffer(
+        &self,
+        buffer: &mut Vec<u8>,
+        gate_serializer: &dyn GateSerializer<F, D>,
+        generator_serializer: &dyn WitnessGeneratorSerializer<F, D>,
+    ) -> IoResult<()> {
+        self.account_inclusion_circuit
+            .to_buffer(buffer, gate_serializer, generator_serializer)?;
+        self.account_exclusion_circuit
+            .to_buffer(buffer, gate_serializer, generator_serializer)?;
+        self.aggregation_circuit
+            .to_buffer(buffer, gate_serializer, generator_serializer)?;
+        self.format_validation_circuit
+            .to_buffer(buffer, gate_serializer, generator_serializer)?;
+        self.main_validation_circuit
+            .to_buffer(buffer, gate_serializer, generator_serializer)?;
+
+        Ok(())
+    }
+
+    pub fn from_buffer(
+        buffer: &mut Buffer,
+        gate_serializer: &dyn GateSerializer<F, D>,
+        generator_serializer: &dyn WitnessGeneratorSerializer<F, D>,
+    ) -> IoResult<Self> {
+        let account_inclusion_circuit =
+            AccountInclusionCircuit::from_buffer(buffer, gate_serializer, generator_serializer)?;
+        let account_exclusion_circuit =
+            AccountExclusionCircuit::from_buffer(buffer, gate_serializer, generator_serializer)?;
+        let aggregation_circuit =
+            AggregationCircuit::from_buffer(buffer, gate_serializer, generator_serializer)?;
+        let format_validation_circuit =
+            FormatValidationCircuit::from_buffer(buffer, gate_serializer, generator_serializer)?;
+        let main_validation_circuit =
+            MainValidationCircuit::from_buffer(buffer, gate_serializer, generator_serializer)?;
+
+        Ok(Self {
+            account_exclusion_circuit,
+            account_inclusion_circuit,
+            aggregation_circuit,
+            format_validation_circuit,
+            main_validation_circuit,
+        })
     }
 }
 

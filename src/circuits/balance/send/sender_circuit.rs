@@ -12,6 +12,9 @@ use plonky2::{
         config::{AlgebraicHasher, GenericConfig},
         proof::{ProofWithPublicInputs, ProofWithPublicInputsTarget},
     },
+    util::serialization::{
+        Buffer, GateSerializer, IoResult, Read, WitnessGeneratorSerializer, Write,
+    },
 };
 
 use crate::{
@@ -265,6 +268,29 @@ impl<const D: usize> SenderTarget<D> {
         self.new_balance_pis
             .set_witness(witness, &value.new_balance_pis);
     }
+
+    pub fn to_buffer<F: RichField + Extendable<D>>(&self, buffer: &mut Vec<u8>) -> IoResult<()> {
+        buffer.write_target_proof_with_public_inputs(&self.spent_proof)?;
+        buffer.write_target_proof_with_public_inputs(&self.tx_inclusion_proof)?;
+        self.prev_balance_pis.to_buffer(buffer)?;
+        self.new_balance_pis.to_buffer(buffer)?;
+
+        Ok(())
+    }
+
+    pub fn from_buffer(buffer: &mut Buffer) -> IoResult<Self> {
+        let spent_proof = buffer.read_target_proof_with_public_inputs()?;
+        let tx_inclusion_proof = buffer.read_target_proof_with_public_inputs()?;
+        let prev_balance_pis = BalancePublicInputsTarget::from_buffer(buffer)?;
+        let new_balance_pis = BalancePublicInputsTarget::from_buffer(buffer)?;
+
+        Ok(Self {
+            spent_proof,
+            tx_inclusion_proof,
+            prev_balance_pis,
+            new_balance_pis,
+        })
+    }
 }
 
 pub struct SenderCircuit<F, C, const D: usize>
@@ -315,6 +341,34 @@ where
         let mut pw = PartialWitness::<F>::new();
         self.target.set_witness(&mut pw, value);
         self.data.prove(pw)
+    }
+
+    pub fn to_buffer(
+        &self,
+        buffer: &mut Vec<u8>,
+        gate_serializer: &dyn GateSerializer<F, D>,
+        generator_serializer: &dyn WitnessGeneratorSerializer<F, D>,
+    ) -> IoResult<()> {
+        self.target.to_buffer::<F>(buffer)?;
+        buffer.write_circuit_data(&self.data, gate_serializer, generator_serializer)?;
+
+        Ok(())
+    }
+
+    pub fn from_buffer(
+        buffer: &mut Buffer,
+        gate_serializer: &dyn GateSerializer<F, D>,
+        generator_serializer: &dyn WitnessGeneratorSerializer<F, D>,
+    ) -> IoResult<Self> {
+        let target = SenderTarget::from_buffer(buffer)?;
+        let data = buffer.read_circuit_data(gate_serializer, generator_serializer)?;
+        let dummy_proof = DummyProof::new(&data.common);
+
+        Ok(Self {
+            data,
+            target,
+            dummy_proof,
+        })
     }
 }
 

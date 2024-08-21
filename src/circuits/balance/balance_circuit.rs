@@ -19,6 +19,9 @@ use plonky2::{
     recursion::{
         cyclic_recursion::check_cyclic_proof_verifier_data, dummy_circuit::cyclic_base_proof,
     },
+    util::serialization::{
+        Buffer, GateSerializer, IoResult, Read, WitnessGeneratorSerializer, Write,
+    },
 };
 
 use crate::{
@@ -207,6 +210,49 @@ where
         );
         builder.verify_proof::<C>(&proof, &vd_target, &self.data.common);
         proof
+    }
+
+    pub fn to_buffer(
+        &self,
+        buffer: &mut Vec<u8>,
+        gate_serializer: &dyn GateSerializer<F, D>,
+        generator_serializer: &dyn WitnessGeneratorSerializer<F, D>,
+    ) -> IoResult<()> {
+        buffer.write_target_bool(self.is_first_step)?;
+        self.pubkey.to_buffer(buffer)?;
+        buffer.write_target_proof_with_public_inputs(&self.transition_proof)?;
+        buffer.write_target_proof_with_public_inputs(&self.prev_proof)?;
+        buffer.write_target_verifier_circuit(&self.verifier_data_target)?;
+        let mut serialized_balance_verifier_data: Vec<u8> = vec![];
+        serialized_balance_verifier_data
+            .write_circuit_data(&self.data, gate_serializer, generator_serializer)
+            .unwrap();
+
+        Ok(())
+    }
+
+    pub fn from_buffer(
+        buffer: &mut Buffer,
+        gate_serializer: &dyn GateSerializer<F, D>,
+        generator_serializer: &dyn WitnessGeneratorSerializer<F, D>,
+    ) -> IoResult<Self> {
+        let is_first_step = buffer.read_target_bool()?;
+        let pubkey = U256Target::from_buffer(buffer)?;
+        let transition_proof = buffer.read_target_proof_with_public_inputs()?;
+        let prev_proof = buffer.read_target_proof_with_public_inputs()?;
+        let verifier_data_target = buffer.read_target_verifier_circuit()?;
+        let balance_circuit_data = buffer
+            .read_circuit_data(gate_serializer, generator_serializer)
+            .unwrap();
+
+        Ok(Self {
+            data: balance_circuit_data,
+            is_first_step,
+            pubkey,
+            transition_proof,
+            prev_proof,
+            verifier_data_target,
+        })
     }
 }
 

@@ -6,6 +6,7 @@ use plonky2::{
         circuit_builder::CircuitBuilder,
         config::{AlgebraicHasher, GenericConfig},
     },
+    util::serialization::{Buffer, IoResult, Read, Write},
 };
 use plonky2_keccak::{builder::BuilderKeccak256, utils::solidity_keccak256};
 use serde::{Deserialize, Serialize};
@@ -126,6 +127,26 @@ impl BlockTarget {
         self.signature_hash
             .set_witness(witness, value.signature_hash);
         witness.set_target(self.block_number, F::from_canonical_u32(value.block_number));
+    }
+
+    pub fn to_buffer(&self, buffer: &mut Vec<u8>) -> IoResult<()> {
+        self.prev_block_hash.to_buffer(buffer)?;
+        self.deposit_tree_root.to_buffer(buffer)?;
+        self.signature_hash.to_buffer(buffer)?;
+        buffer.write_target(self.block_number)
+    }
+
+    pub fn from_buffer(buffer: &mut Buffer) -> IoResult<Self> {
+        let prev_block_hash = Bytes32Target::from_buffer(buffer)?;
+        let deposit_tree_root = Bytes32Target::from_buffer(buffer)?;
+        let signature_hash = Bytes32Target::from_buffer(buffer)?;
+        let block_number = buffer.read_target()?;
+        Ok(Self {
+            prev_block_hash,
+            deposit_tree_root,
+            signature_hash,
+            block_number,
+        })
     }
 }
 

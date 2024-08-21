@@ -7,6 +7,7 @@ use plonky2::{
         circuit_builder::CircuitBuilder,
         config::{AlgebraicHasher, GenericConfig},
     },
+    util::serialization::{Buffer, IoResult, Read, Write},
 };
 use serde::{Deserialize, Serialize};
 
@@ -167,6 +168,26 @@ impl UpdateProofTarget {
         let expected_new_root =
             self.get_new_root::<F, C, D>(builder, key, prev_value, new_value, prev_root);
         new_root.connect(builder, expected_new_root);
+    }
+
+    pub fn to_buffer(&self, buffer: &mut Vec<u8>) -> IoResult<()> {
+        self.leaf_proof.to_buffer(buffer)?;
+        buffer.write_target(self.leaf_index)?;
+        self.prev_leaf.to_buffer(buffer)?;
+
+        Ok(())
+    }
+
+    pub fn from_buffer(buffer: &mut Buffer) -> IoResult<Self> {
+        let leaf_proof = IndexedMerkleProofTarget::from_buffer(buffer)?;
+        let leaf_index = buffer.read_target()?;
+        let prev_leaf = IndexedMerkleLeafTarget::from_buffer(buffer)?;
+
+        Ok(Self {
+            leaf_proof,
+            leaf_index,
+            prev_leaf,
+        })
     }
 }
 

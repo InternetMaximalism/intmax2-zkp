@@ -6,6 +6,7 @@ use plonky2::{
         config::{AlgebraicHasher, GenericConfig},
         proof::ProofWithPublicInputs,
     },
+    util::serialization::{Buffer, GateSerializer, IoResult, WitnessGeneratorSerializer},
 };
 
 use crate::common::witness::validity_witness::ValidityWitness;
@@ -86,5 +87,49 @@ where
             .dummy_transition_circuit
             .prove(&prev_pis, &validity_witness)?;
         self.validity_circuit.prove(&transition_proof, &prev_proof)
+    }
+
+    pub fn to_buffer(
+        &self,
+        buffer: &mut Vec<u8>,
+        gate_serializer: &dyn GateSerializer<F, D>,
+        generator_serializer: &dyn WitnessGeneratorSerializer<F, D>,
+    ) -> IoResult<()> {
+        self.validity_circuit
+            .to_buffer(buffer, gate_serializer, generator_serializer)?;
+        #[cfg(not(feature = "dummy_validity_proof"))]
+        self.transition_processor
+            .to_buffer(buffer, gate_serializer, generator_serializer)?;
+        #[cfg(feature = "dummy_validity_proof")]
+        self.dummy_transition_circuit
+            .to_buffer(buffer, gate_serializer, generator_serializer)?;
+
+        Ok(())
+    }
+
+    pub fn from_buffer(
+        buffer: &mut Buffer,
+        gate_serializer: &dyn GateSerializer<F, D>,
+        generator_serializer: &dyn WitnessGeneratorSerializer<F, D>,
+    ) -> IoResult<Self> {
+        #[cfg(not(feature = "dummy_validity_proof"))]
+        let transition_processor =
+            TransitionProcessor::from_buffer(buffer, gate_serializer, generator_serializer)?;
+        #[cfg(feature = "dummy_validity_proof")]
+        let dummy_transition_circuit = DummyTransitionWrapperCircuit::from_buffer(
+            buffer,
+            gate_serializer,
+            generator_serializer,
+        )?;
+        let validity_circuit =
+            ValidityCircuit::from_buffer(buffer, gate_serializer, generator_serializer)?;
+
+        Ok(Self {
+            #[cfg(not(feature = "dummy_validity_proof"))]
+            transition_processor,
+            #[cfg(feature = "dummy_validity_proof")]
+            dummy_transition_circuit,
+            validity_circuit,
+        })
     }
 }

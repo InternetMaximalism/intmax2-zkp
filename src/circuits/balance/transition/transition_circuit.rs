@@ -13,6 +13,9 @@ use plonky2::{
         config::{AlgebraicHasher, GenericConfig},
         proof::{ProofWithPublicInputs, ProofWithPublicInputsTarget},
     },
+    util::serialization::{
+        Buffer, GateSerializer, IoResult, Read, WitnessGeneratorSerializer, Write,
+    },
 };
 
 use crate::{
@@ -421,6 +424,54 @@ impl<const D: usize> BalanceTransitionTarget<D> {
             .set_witness(witness, value.new_balance_pis_commitment);
         witness.set_verifier_data_target(&self.balance_circuit_vd, &value.balance_circuit_vd);
     }
+
+    pub fn to_buffer(&self, buffer: &mut Vec<u8>) -> IoResult<()> {
+        buffer.write_target(self.circuit_type)?;
+        for flag in &self.circuit_flags {
+            buffer.write_target_bool(*flag)?;
+        }
+        buffer.write_target_proof_with_public_inputs(&self.receive_transfer_proof)?;
+        buffer.write_target_proof_with_public_inputs(&self.receive_deposit_proof)?;
+        buffer.write_target_proof_with_public_inputs(&self.update_proof)?;
+        buffer.write_target_proof_with_public_inputs(&self.sender_proof)?;
+        self.prev_balance_pis.to_buffer(buffer)?;
+        self.new_balance_pis.to_buffer(buffer)?;
+        self.new_balance_pis_commitment.to_buffer(buffer)?;
+        buffer.write_target_verifier_circuit(&self.balance_circuit_vd)?;
+
+        Ok(())
+    }
+
+    pub fn from_buffer(buffer: &mut Buffer) -> IoResult<Self> {
+        let circuit_type = buffer.read_target()?;
+        let circuit_flags = [
+            buffer.read_target_bool()?,
+            buffer.read_target_bool()?,
+            buffer.read_target_bool()?,
+            buffer.read_target_bool()?,
+        ];
+        let receive_transfer_proof = buffer.read_target_proof_with_public_inputs()?;
+        let receive_deposit_proof = buffer.read_target_proof_with_public_inputs()?;
+        let update_proof = buffer.read_target_proof_with_public_inputs()?;
+        let sender_proof = buffer.read_target_proof_with_public_inputs()?;
+        let prev_balance_pis = BalancePublicInputsTarget::from_buffer(buffer)?;
+        let new_balance_pis = BalancePublicInputsTarget::from_buffer(buffer)?;
+        let new_balance_pis_commitment = PoseidonHashOutTarget::from_buffer(buffer)?;
+        let balance_circuit_vd = buffer.read_target_verifier_circuit()?;
+
+        Ok(Self {
+            circuit_type,
+            circuit_flags,
+            receive_transfer_proof,
+            receive_deposit_proof,
+            update_proof,
+            sender_proof,
+            prev_balance_pis,
+            new_balance_pis,
+            new_balance_pis_commitment,
+            balance_circuit_vd,
+        })
+    }
 }
 
 pub struct BalanceTransitionCircuit<F, C, const D: usize>
@@ -491,6 +542,35 @@ where
         );
         pw.set_verifier_data_target(&self.balance_circuit_vd, &value.balance_circuit_vd);
         self.data.prove(pw)
+    }
+
+    pub fn to_buffer(
+        &self,
+        buffer: &mut Vec<u8>,
+        gate_serializer: &dyn GateSerializer<F, D>,
+        generator_serializer: &dyn WitnessGeneratorSerializer<F, D>,
+    ) -> IoResult<()> {
+        buffer.write_circuit_data(&self.data, gate_serializer, generator_serializer)?;
+        self.target.to_buffer(buffer)?;
+        buffer.write_target_verifier_circuit(&self.balance_circuit_vd)?;
+
+        Ok(())
+    }
+
+    pub fn from_buffer(
+        buffer: &mut Buffer,
+        gate_serializer: &dyn GateSerializer<F, D>,
+        generator_serializer: &dyn WitnessGeneratorSerializer<F, D>,
+    ) -> IoResult<Self> {
+        let data = buffer.read_circuit_data(gate_serializer, generator_serializer)?;
+        let target = BalanceTransitionTarget::from_buffer(buffer)?;
+        let balance_circuit_vd = buffer.read_target_verifier_circuit()?;
+
+        Ok(Self {
+            data,
+            target,
+            balance_circuit_vd,
+        })
     }
 }
 
