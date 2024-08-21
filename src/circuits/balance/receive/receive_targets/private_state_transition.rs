@@ -6,6 +6,7 @@ use plonky2::{
         circuit_builder::CircuitBuilder,
         config::{AlgebraicHasher, GenericConfig},
     },
+    util::serialization::{Buffer, IoResult, Read as _, Write as _},
 };
 
 use crate::{
@@ -31,7 +32,7 @@ pub struct PrivateStateTransitionValue {
     pub token_index: u32,                 // token index of incoming transfer/deposit
     pub amount: U256,                     // token amount of incoming transfer/deposit
     pub nullifier: Bytes32,               // nullifier of corresponding transfer/deposit
-    pub new_private_state_salt: Salt,                   // new salt of the private state
+    pub new_private_state_salt: Salt,     // new salt of the private state
     pub prev_private_state: PrivateState, // previous private state
     pub nullifier_proof: NullifierInsersionProof, // merkle proof to update nullifier tree
     pub prev_asset_leaf: AssetLeaf,       /* previous asset leaf (balance) of correspoing
@@ -84,7 +85,7 @@ impl PrivateStateTransitionValue {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PrivateStateTransitionTarget {
     pub token_index: Target,
     pub amount: U256Target,
@@ -155,7 +156,8 @@ impl PrivateStateTransitionTarget {
         witness.set_target(self.token_index, F::from_canonical_u32(value.token_index));
         self.amount.set_witness(witness, value.amount);
         self.nullifier.set_witness(witness, value.nullifier);
-        self.new_private_state_salt.set_witness(witness, value.new_private_state_salt);
+        self.new_private_state_salt
+            .set_witness(witness, value.new_private_state_salt);
         self.prev_private_state
             .set_witness(witness, &value.prev_private_state);
         self.nullifier_proof
@@ -166,6 +168,41 @@ impl PrivateStateTransitionTarget {
             .set_witness(witness, &value.asset_merkle_proof);
         self.new_private_state
             .set_witness(witness, &value.new_private_state);
+    }
+
+    pub fn to_buffer(&self, buffer: &mut Vec<u8>) -> IoResult<()> {
+        buffer.write_target(self.token_index)?;
+        self.amount.to_buffer(buffer)?;
+        self.nullifier.to_buffer(buffer)?;
+        self.new_private_state_salt.to_buffer(buffer)?;
+        self.prev_private_state.to_buffer(buffer)?;
+        self.nullifier_proof.to_buffer(buffer)?;
+        self.prev_asset_leaf.to_buffer(buffer)?;
+        self.asset_merkle_proof.to_buffer(buffer)?;
+        self.new_private_state.to_buffer(buffer)
+    }
+
+    pub fn from_buffer(buffer: &mut Buffer) -> IoResult<Self> {
+        let token_index = buffer.read_target()?;
+        let amount = U256Target::from_buffer(buffer)?;
+        let nullifier = Bytes32Target::from_buffer(buffer)?;
+        let new_private_state_salt = SaltTarget::from_buffer(buffer)?;
+        let prev_private_state = PrivateStateTarget::from_buffer(buffer)?;
+        let nullifier_proof = NullifierInsersionProofTarget::from_buffer(buffer)?;
+        let prev_asset_leaf = AssetLeafTarget::from_buffer(buffer)?;
+        let asset_merkle_proof = AssetMerkleProofTarget::from_buffer(buffer)?;
+        let new_private_state = PrivateStateTarget::from_buffer(buffer)?;
+        Ok(Self {
+            token_index,
+            amount,
+            nullifier,
+            new_private_state_salt,
+            prev_private_state,
+            nullifier_proof,
+            prev_asset_leaf,
+            asset_merkle_proof,
+            new_private_state,
+        })
     }
 }
 

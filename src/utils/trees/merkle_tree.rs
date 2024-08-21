@@ -192,7 +192,32 @@ impl<V: Leafable> MerkleProof<V> {
 
 #[derive(Clone, Debug)]
 pub(crate) struct MerkleProofTarget<VT: LeafableTarget> {
-    siblings: Vec<<<VT::Leaf as Leafable>::LeafableHasher as LeafableHasher>::HashOutTarget>,
+    pub siblings: Vec<<<VT::Leaf as Leafable>::LeafableHasher as LeafableHasher>::HashOutTarget>,
+}
+
+impl<VT: LeafableTarget> PartialEq for MerkleProofTarget<VT>
+where
+    <<VT::Leaf as Leafable>::LeafableHasher as LeafableHasher>::HashOutTarget: PartialEq,
+{
+    fn eq(&self, other: &Self) -> bool {
+        if self.siblings.len() != other.siblings.len() {
+            return false;
+        }
+        for (a, b) in self.siblings.iter().zip(other.siblings.iter()) {
+            if a != b {
+                return false;
+            }
+        }
+
+        true
+    }
+}
+
+impl<VT: LeafableTarget> Eq for MerkleProofTarget<VT>
+where
+    <<VT::Leaf as Leafable>::LeafableHasher as LeafableHasher>::HashOutTarget: Eq,
+{
+    // Nothing to implement
 }
 
 impl<VT: LeafableTarget> MerkleProofTarget<VT> {

@@ -33,7 +33,7 @@ where
         Self { proof }
     }
 
-    pub(crate) fn new_with_blinding_degree(
+    pub fn new_with_blinding_degree(
         common: &CommonCircuitData<F, D>,
         blinding_degree: usize,
     ) -> Self {

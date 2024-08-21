@@ -55,11 +55,11 @@ where
     C: GenericConfig<D, F = F>,
 {
     pub data: CircuitData<F, C, D>,
-    is_first_step: BoolTarget,
-    pubkey: U256Target,
-    transition_proof: ProofWithPublicInputsTarget<D>,
-    prev_proof: ProofWithPublicInputsTarget<D>,
-    verifier_data_target: VerifierCircuitTarget,
+    pub is_first_step: BoolTarget,
+    pub pubkey: U256Target,
+    pub transition_proof: ProofWithPublicInputsTarget<D>,
+    pub prev_proof: ProofWithPublicInputsTarget<D>,
+    pub verifier_data_target: VerifierCircuitTarget,
 }
 
 impl<F, C, const D: usize> BalanceCircuit<F, C, D>

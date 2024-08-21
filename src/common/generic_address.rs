@@ -12,6 +12,7 @@ use plonky2::{
         witness::WitnessWrite,
     },
     plonk::circuit_builder::CircuitBuilder,
+    util::serialization::{Buffer, IoResult, Read, Write},
 };
 use rand::Rng;
 use serde::{Deserialize, Serialize};
@@ -28,7 +29,7 @@ pub struct GenericAddress {
     pub data: U256,
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct GenericAddressTarget {
     pub is_pubkey: BoolTarget,
     pub data: U256Target,
@@ -143,5 +144,18 @@ impl GenericAddressTarget {
     pub fn set_witness<F: Field, W: WitnessWrite<F>>(&self, pw: &mut W, address: GenericAddress) {
         pw.set_bool_target(self.is_pubkey, address.is_pubkey);
         self.data.set_witness(pw, address.data);
+    }
+
+    pub fn to_buffer(&self, buffer: &mut Vec<u8>) -> IoResult<()> {
+        buffer.write_target_bool(self.is_pubkey)?;
+        self.data.to_buffer(buffer)?;
+
+        Ok(())
+    }
+
+    pub fn from_buffer(buffer: &mut Buffer) -> IoResult<Self> {
+        let is_pubkey = buffer.read_target_bool()?;
+        let data = U256Target::from_buffer(buffer)?;
+        Ok(Self { is_pubkey, data })
     }
 }

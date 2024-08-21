@@ -7,6 +7,7 @@ use plonky2::{
     hash::hash_types::RichField,
     iop::target::{BoolTarget, Target},
     plonk::circuit_builder::CircuitBuilder,
+    util::serialization::{Buffer, IoResult, Read, Write},
 };
 use serde::{Deserialize, Serialize};
 
@@ -25,7 +26,7 @@ impl InsufficientFlags {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct InsufficientFlagsTarget {
     limbs: [Target; INSUFFICIENT_FLAGS_LEN],
 }
@@ -47,6 +48,16 @@ impl InsufficientFlagsTarget {
             .collect();
         let selected_bit = builder.random_access(bit_selector, limb_bits);
         BoolTarget::new_unsafe(selected_bit)
+    }
+
+    pub fn to_buffer(&self, buffer: &mut Vec<u8>) -> IoResult<()> {
+        buffer.write_target_array(&self.limbs)?;
+        Ok(())
+    }
+
+    pub fn from_buffer(buffer: &mut Buffer) -> IoResult<Self> {
+        let limbs = buffer.read_target_array()?;
+        Ok(Self { limbs })
     }
 }
 

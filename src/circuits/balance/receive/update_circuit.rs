@@ -11,6 +11,7 @@ use plonky2::{
         config::{AlgebraicHasher, GenericConfig},
         proof::{ProofWithPublicInputs, ProofWithPublicInputsTarget},
     },
+    util::serialization::{Buffer, IoResult, Read, Write},
 };
 
 use crate::{
@@ -233,6 +234,35 @@ impl<const D: usize> UpdateTarget<D> {
             .set_witness(witness, &value.block_merkle_proof);
         self.account_membership_proof
             .set_witness(witness, &value.account_membership_proof);
+    }
+
+    pub fn to_buffer(&self, buffer: &mut Vec<u8>) -> IoResult<()> {
+        self.pubkey.to_buffer(buffer)?;
+        self.prev_public_state.to_buffer(buffer)?;
+        self.new_public_state.to_buffer(buffer)?;
+        buffer.write_target_proof_with_public_inputs(&self.validity_proof)?;
+        self.block_merkle_proof.to_buffer(buffer)?;
+        self.account_membership_proof.to_buffer(buffer)?;
+
+        Ok(())
+    }
+
+    pub fn from_buffer(buffer: &mut Buffer) -> IoResult<Self> {
+        let pubkey = U256Target::from_buffer(buffer)?;
+        let prev_public_state = PublicStateTarget::from_buffer(buffer)?;
+        let new_public_state = PublicStateTarget::from_buffer(buffer)?;
+        let validity_proof = buffer.read_target_proof_with_public_inputs()?;
+        let block_merkle_proof = BlockHashMerkleProofTarget::from_buffer(buffer)?;
+        let account_membership_proof = AccountMembershipProofTarget::from_buffer(buffer)?;
+
+        Ok(Self {
+            pubkey,
+            prev_public_state,
+            new_public_state,
+            validity_proof,
+            block_merkle_proof,
+            account_membership_proof,
+        })
     }
 }
 
