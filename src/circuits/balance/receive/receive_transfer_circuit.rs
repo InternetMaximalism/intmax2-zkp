@@ -33,6 +33,9 @@ use plonky2::{
         config::{AlgebraicHasher, GenericConfig},
         proof::ProofWithPublicInputs,
     },
+    util::serialization::{
+        Buffer, GateSerializer, IoResult, Read, WitnessGeneratorSerializer, Write,
+    },
 };
 
 use super::receive_targets::{
@@ -187,7 +190,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ReceiveTransferTarget<const D: usize> {
     pub pubkey: U256Target,
     pub public_state: PublicStateTarget,
@@ -277,6 +280,41 @@ impl<const D: usize> ReceiveTransferTarget<D> {
             .set_witness(witness, value.new_private_commitment);
         witness.set_verifier_data_target(&self.balance_circuit_vd, &value.balance_circuit_vd);
     }
+
+    pub fn to_buffer(&self, buffer: &mut Vec<u8>) -> IoResult<()> {
+        self.pubkey.to_buffer(buffer)?;
+        self.public_state.to_buffer(buffer)?;
+        self.block_merkle_proof.to_buffer(buffer)?;
+        self.transfer_inclusion.to_buffer(buffer)?;
+        self.private_state_transition.to_buffer(buffer)?;
+        self.prev_private_commitment.to_buffer(buffer)?;
+        self.new_private_commitment.to_buffer(buffer)?;
+        buffer.write_target_verifier_circuit(&self.balance_circuit_vd)?;
+
+        Ok(())
+    }
+
+    pub fn from_buffer(buffer: &mut Buffer) -> IoResult<Self> {
+        let pubkey = U256Target::from_buffer(buffer)?;
+        let public_state = PublicStateTarget::from_buffer(buffer)?;
+        let block_merkle_proof = BlockHashMerkleProofTarget::from_buffer(buffer)?;
+        let transfer_inclusion = TransferInclusionTarget::from_buffer(buffer)?;
+        let private_state_transition = PrivateStateTransitionTarget::from_buffer(buffer)?;
+        let prev_private_commitment = PoseidonHashOutTarget::from_buffer(buffer)?;
+        let new_private_commitment = PoseidonHashOutTarget::from_buffer(buffer)?;
+        let balance_circuit_vd = buffer.read_target_verifier_circuit()?;
+
+        Ok(ReceiveTransferTarget {
+            pubkey,
+            public_state,
+            block_merkle_proof,
+            transfer_inclusion,
+            private_state_transition,
+            prev_private_commitment,
+            new_private_commitment,
+            balance_circuit_vd,
+        })
+    }
 }
 
 pub struct ReceiveTransferCircuit<F, C, const D: usize>
@@ -324,6 +362,41 @@ where
         let mut pw = PartialWitness::<F>::new();
         self.target.set_witness(&mut pw, value);
         self.data.prove(pw)
+    }
+
+    pub fn to_buffer(
+        &self,
+        buffer: &mut Vec<u8>,
+        gate_serializer: &dyn GateSerializer<F, D>,
+        generator_serializer: &dyn WitnessGeneratorSerializer<F, D>,
+    ) -> IoResult<()> {
+        buffer.write_circuit_data(&self.data, gate_serializer, generator_serializer)?;
+        self.target.to_buffer(buffer)?;
+
+        // NOTE: Skip writing dummy proof because it can be recovered from
+        // decoded_receive_receive_deposit_circuit_data.
+
+        Ok(())
+    }
+
+    pub fn from_buffer(
+        buffer: &mut Buffer,
+        gate_serializer: &dyn GateSerializer<F, D>,
+        generator_serializer: &dyn WitnessGeneratorSerializer<F, D>,
+    ) -> IoResult<Self> {
+        let decoded_receive_transfer_circuit_data =
+            buffer.read_circuit_data::<F, C, D>(gate_serializer, generator_serializer)?;
+        let receive_transfer_circuit_target = ReceiveTransferTarget::from_buffer(buffer)?;
+        let decoded_receive_transfer_circuit = Self {
+            dummy_proof: DummyProof::new_with_blinding_degree(
+                &decoded_receive_transfer_circuit_data.common,
+                10342,
+            ),
+            data: decoded_receive_transfer_circuit_data,
+            target: receive_transfer_circuit_target,
+        };
+
+        Ok(decoded_receive_transfer_circuit)
     }
 }
 

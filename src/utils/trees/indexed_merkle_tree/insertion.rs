@@ -10,6 +10,7 @@ use plonky2::{
         circuit_builder::CircuitBuilder,
         config::{AlgebraicHasher, GenericConfig},
     },
+    util::serialization::{Buffer, IoResult, Read, Write},
 };
 use serde::{Deserialize, Serialize};
 
@@ -39,7 +40,7 @@ pub struct IndexedInsertionProof {
     pub prev_low_leaf: IndexedMerkleLeaf,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct IndexedInsertionProofTarget {
     pub index: Target,
     pub low_leaf_proof: IndexedMerkleProofTarget,
@@ -365,6 +366,29 @@ impl IndexedInsertionProofTarget {
             .leaf_proof
             .get_root::<F, C, D>(builder, &leaf, self.index);
         PoseidonHashOutTarget::select(builder, condition, new_root, prev_root)
+    }
+
+    pub fn to_buffer(&self, buffer: &mut Vec<u8>) -> IoResult<()> {
+        buffer.write_target(self.index)?;
+        self.low_leaf_proof.to_buffer(buffer)?;
+        self.leaf_proof.to_buffer(buffer)?;
+        buffer.write_target(self.low_leaf_index)?;
+        self.prev_low_leaf.to_buffer(buffer)
+    }
+
+    pub fn from_buffer(buffer: &mut Buffer) -> IoResult<Self> {
+        let index = buffer.read_target()?;
+        let low_leaf_proof = IndexedMerkleProofTarget::from_buffer(buffer)?;
+        let leaf_proof = IndexedMerkleProofTarget::from_buffer(buffer)?;
+        let low_leaf_index = buffer.read_target()?;
+        let prev_low_leaf = IndexedMerkleLeafTarget::from_buffer(buffer)?;
+        Ok(Self {
+            index,
+            low_leaf_proof,
+            leaf_proof,
+            low_leaf_index,
+            prev_low_leaf,
+        })
     }
 }
 

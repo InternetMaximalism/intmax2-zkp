@@ -4,6 +4,7 @@ use plonky2::{
     hash::hash_types::RichField,
     iop::{target::Target, witness::WitnessWrite},
     plonk::circuit_builder::CircuitBuilder,
+    util::serialization::{Buffer, IoResult},
 };
 use rand::Rng;
 use serde::{Deserialize, Serialize};
@@ -37,8 +38,8 @@ impl Display for Salt {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
-pub struct SaltTarget(PoseidonHashOutTarget);
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SaltTarget(pub PoseidonHashOutTarget);
 
 impl Salt {
     pub fn to_u64_vec(&self) -> Vec<u64> {
@@ -80,5 +81,14 @@ impl SaltTarget {
 
     pub fn set_witness<F: Field, W: WitnessWrite<F>>(&self, witness: &mut W, value: Salt) {
         self.0.set_witness(witness, value.0)
+    }
+
+    pub fn to_buffer(&self, buffer: &mut Vec<u8>) -> IoResult<()> {
+        self.0.to_buffer(buffer)
+    }
+
+    pub fn from_buffer(buffer: &mut Buffer) -> IoResult<Self> {
+        let hash = PoseidonHashOutTarget::from_buffer(buffer)?;
+        Ok(Self(hash))
     }
 }

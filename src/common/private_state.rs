@@ -3,6 +3,7 @@ use plonky2::{
     hash::hash_types::RichField,
     iop::{target::Target, witness::WitnessWrite},
     plonk::circuit_builder::CircuitBuilder,
+    util::serialization::{Buffer, IoResult, Read, Write},
 };
 use serde::{Deserialize, Serialize};
 
@@ -21,7 +22,7 @@ use super::{
 #[serde(rename_all = "camelCase")]
 pub struct PrivateState {
     /// The root of the asset tree
-    pub asset_tree_root: PoseidonHashOut, 
+    pub asset_tree_root: PoseidonHashOut,
 
     /// The root of the nullifier tree
     pub nullifier_tree_root: PoseidonHashOut,
@@ -33,7 +34,7 @@ pub struct PrivateState {
     pub salt: Salt,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct PrivateStateTarget {
     pub asset_tree_root: PoseidonHashOutTarget,
     pub nullifier_tree_root: PoseidonHashOutTarget,
@@ -106,5 +107,25 @@ impl PrivateStateTarget {
             .set_witness(witness, value.nullifier_tree_root);
         witness.set_target(self.nonce, F::from_canonical_u32(value.nonce));
         self.salt.set_witness(witness, value.salt);
+    }
+
+    pub fn to_buffer(&self, buffer: &mut Vec<u8>) -> IoResult<()> {
+        self.asset_tree_root.to_buffer(buffer)?;
+        self.nullifier_tree_root.to_buffer(buffer)?;
+        buffer.write_target(self.nonce)?;
+        self.salt.to_buffer(buffer)
+    }
+
+    pub fn from_buffer(buffer: &mut Buffer) -> IoResult<Self> {
+        let asset_tree_root = PoseidonHashOutTarget::from_buffer(buffer)?;
+        let nullifier_tree_root = PoseidonHashOutTarget::from_buffer(buffer)?;
+        let nonce = buffer.read_target()?;
+        let salt = SaltTarget::from_buffer(buffer)?;
+        Ok(Self {
+            asset_tree_root,
+            nullifier_tree_root,
+            nonce,
+            salt,
+        })
     }
 }

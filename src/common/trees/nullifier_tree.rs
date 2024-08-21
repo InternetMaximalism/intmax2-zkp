@@ -22,6 +22,7 @@ use plonky2::{
         circuit_builder::CircuitBuilder,
         config::{AlgebraicHasher, GenericConfig},
     },
+    util::serialization::{Buffer, IoResult},
 };
 use serde::{Deserialize, Serialize};
 
@@ -29,7 +30,7 @@ use serde::{Deserialize, Serialize};
 pub struct NullifierTree(IndexedMerkleTree);
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NullifierInsersionProof(IndexedInsertionProof);
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NullifierInsersionProofTarget(IndexedInsertionProofTarget);
 
 impl NullifierTree {
@@ -140,5 +141,14 @@ impl NullifierInsersionProofTarget {
     {
         let expected_new_root = self.get_new_root::<F, C, D>(builder, prev_root, nullifier);
         expected_new_root.connect(builder, new_root);
+    }
+
+    pub fn to_buffer(&self, buffer: &mut Vec<u8>) -> IoResult<()> {
+        self.0.to_buffer(buffer)
+    }
+
+    pub fn from_buffer(buffer: &mut Buffer) -> IoResult<Self> {
+        let proof = IndexedInsertionProofTarget::from_buffer(buffer)?;
+        Ok(Self(proof))
     }
 }
