@@ -327,7 +327,7 @@ where
     C::Hasher: AlgebraicHasher<F>,
 {
     pub fn new() -> Self {
-        let config = CircuitConfig::standard_recursion_zk_config();
+        let config = CircuitConfig::default();
         let mut builder = CircuitBuilder::<F, D>::new(config.clone());
         let target = ReceiveDepositTarget::new::<F, C, D>(&mut builder, true);
         let pis = ReceiveDepositPublicInputsTarget {
@@ -341,7 +341,7 @@ where
         let constant_gate = ConstantGate::new(config.num_constants);
         builder.add_gate(constant_gate, vec![]);
         let data = builder.build();
-        let dummy_proof = DummyProof::new_with_blinding_degree(&data.common, 10342);
+        let dummy_proof = DummyProof::new(&data.common);
         Self {
             data,
             target,
