@@ -4,11 +4,12 @@ pub mod membership;
 pub mod update;
 
 use anyhow::{anyhow, ensure};
+use plonky2::util::serialization::{Buffer, IoResult, Read, Write};
 
 use crate::{
     ethereum_types::u256::U256,
     utils::{
-        poseidon_hash_out::PoseidonHashOut,
+        poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget},
         trees::incremental_merkle_tree::{
             IncrementalMerkleProof, IncrementalMerkleProofTarget, IncrementalMerkleTree,
         },
@@ -16,6 +17,8 @@ use crate::{
 };
 use anyhow::Result;
 use leaf::{IndexedMerkleLeaf, IndexedMerkleLeafTarget};
+
+use super::merkle_tree::MerkleProofTarget;
 
 #[derive(Debug, Clone)]
 pub struct IndexedMerkleTree(IncrementalMerkleTree<IndexedMerkleLeaf>);
@@ -95,5 +98,25 @@ impl IndexedMerkleTree {
 
     pub fn len(&self) -> usize {
         self.0.len()
+    }
+}
+
+impl IndexedMerkleProofTarget {
+    pub fn to_buffer(&self, buffer: &mut Vec<u8>) -> IoResult<()> {
+        buffer.write_usize(self.0.siblings.len())?;
+        for sibling in self.0.siblings.iter() {
+            sibling.to_buffer(buffer)?;
+        }
+
+        Ok(())
+    }
+
+    pub fn from_buffer(buffer: &mut Buffer) -> IoResult<Self> {
+        let siblings_len = buffer.read_usize()?;
+        let siblings = (0..siblings_len)
+            .map(|_| PoseidonHashOutTarget::from_buffer(buffer))
+            .collect::<Result<Vec<_>, _>>()?;
+
+        Ok(IncrementalMerkleProofTarget(MerkleProofTarget { siblings }))
     }
 }

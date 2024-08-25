@@ -8,6 +8,7 @@ use plonky2::{
         config::{AlgebraicHasher, GenericConfig},
     },
 };
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use super::merkle_tree::{MerkleProof, MerkleProofTarget, MerkleTree};
 use crate::utils::{
@@ -100,8 +101,51 @@ impl<V: Leafable> SparseMerkleProof<V> {
     }
 }
 
+
+impl<V: Leafable> Serialize for SparseMerkleProof<V>
+where
+    <V::LeafableHasher as LeafableHasher>::HashOut: Serialize,
+{
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        self.0.siblings.serialize(serializer)
+    }
+}
+
+impl<'de, V: Leafable> Deserialize<'de> for SparseMerkleProof<V>
+where
+    <V::LeafableHasher as LeafableHasher>::HashOut: Deserialize<'de>,
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let siblings =
+            Vec::<<V::LeafableHasher as LeafableHasher>::HashOut>::deserialize(deserializer)?;
+        Ok(SparseMerkleProof(MerkleProof { siblings }))
+    }
+}
+
 #[derive(Debug, Clone)]
-pub struct SparseMerkleProofTarget<VT: LeafableTarget>(MerkleProofTarget<VT>);
+pub struct SparseMerkleProofTarget<VT: LeafableTarget>(pub(crate) MerkleProofTarget<VT>);
+
+impl<VT: LeafableTarget> PartialEq for SparseMerkleProofTarget<VT>
+where
+    <<VT::Leaf as Leafable>::LeafableHasher as LeafableHasher>::HashOutTarget: PartialEq,
+{
+    fn eq(&self, other: &Self) -> bool {
+        self.0 == other.0
+    }
+}
+
+impl<VT: LeafableTarget> Eq for SparseMerkleProofTarget<VT>
+where
+    <<VT::Leaf as Leafable>::LeafableHasher as LeafableHasher>::HashOutTarget: Eq,
+{
+    // Nothing to implement
+}
 
 impl<VT: LeafableTarget> SparseMerkleProofTarget<VT> {
     pub fn new<F: RichField + Extendable<D>, const D: usize>(

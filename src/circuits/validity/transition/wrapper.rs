@@ -24,7 +24,7 @@ use crate::{
 };
 
 use super::{
-    account_registration::AccountregistrationCircuit,
+    account_registration::AccountRegistrationCircuit,
     account_update::AccountUpdateCircuit,
     transition::{ValidityTransitionTarget, ValidityTransitionValue},
 };
@@ -50,7 +50,7 @@ where
 {
     pub fn new(
         main_validation_circut: &MainValidationCircuit<F, C, D>,
-        account_registration_circuit: &AccountregistrationCircuit<F, C, D>,
+        account_registration_circuit: &AccountRegistrationCircuit<F, C, D>,
         account_update_circuit: &AccountUpdateCircuit<F, C, D>,
     ) -> Self {
         let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::default());

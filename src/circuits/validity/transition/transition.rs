@@ -31,7 +31,7 @@ use crate::{
 };
 
 use super::{
-    account_registration::AccountregistrationCircuit,
+    account_registration::AccountRegistrationCircuit,
     account_transition_pis::AccountTransitionPublicInputsTarget,
     account_update::AccountUpdateCircuit,
 };
@@ -55,7 +55,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     ValidityTransitionValue<F, C, D>
 {
     pub(crate) fn new(
-        account_registration_circuit: &AccountregistrationCircuit<F, C, D>,
+        account_registration_circuit: &AccountRegistrationCircuit<F, C, D>,
         account_update_circuit: &AccountUpdateCircuit<F, C, D>,
         block_pis: MainValidationPublicInputs,
         prev_account_tree_root: PoseidonHashOut,
@@ -145,7 +145,7 @@ pub(crate) struct ValidityTransitionTarget<const D: usize> {
 
 impl<const D: usize> ValidityTransitionTarget<D> {
     pub(crate) fn new<F: RichField + Extendable<D>, C: GenericConfig<D, F = F> + 'static>(
-        account_registration_circuit: &AccountregistrationCircuit<F, C, D>,
+        account_registration_circuit: &AccountRegistrationCircuit<F, C, D>,
         account_update_circuit: &AccountUpdateCircuit<F, C, D>,
         builder: &mut CircuitBuilder<F, D>,
     ) -> Self
@@ -291,7 +291,7 @@ mod tests {
 
     use crate::{
         circuits::validity::transition::{
-            account_registration::{AccountregistrationCircuit, AccountregistrationValue},
+            account_registration::{AccountRegistrationCircuit, AccountRegistrationValue},
             account_update::AccountUpdateCircuit,
             transition::{ValidityTransitionTarget, ValidityTransitionValue},
         },
@@ -310,14 +310,14 @@ mod tests {
         let validity_witness =
             block_builder.post_block(true, generate_random_tx_requests(&mut rng));
 
-        let account_registration_circuit = AccountregistrationCircuit::<F, C, D>::new();
+        let account_registration_circuit = AccountRegistrationCircuit::<F, C, D>::new();
         let account_update_circuit = AccountUpdateCircuit::<F, C, D>::new();
 
         let block_pis = validity_witness.block_witness.to_main_validation_pis();
         let prev_block_tree_root = validity_witness.block_witness.prev_block_tree_root;
         let prev_account_tree_root = validity_witness.block_witness.prev_account_tree_root;
         let transition_witness = validity_witness.validity_transition_witness.clone();
-        let account_registration_value = AccountregistrationValue::new(
+        let account_registration_value = AccountRegistrationValue::new(
             prev_account_tree_root,
             block_pis.block_number,
             transition_witness.sender_leaves,

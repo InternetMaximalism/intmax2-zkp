@@ -6,6 +6,7 @@ use plonky2::{
         witness::WitnessWrite,
     },
     plonk::circuit_builder::CircuitBuilder,
+    util::serialization::{Buffer, IoResult, Read, Write},
 };
 use serde::{Deserialize, Serialize};
 
@@ -88,7 +89,7 @@ impl PublicState {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct PublicStateTarget {
     pub block_tree_root: PoseidonHashOutTarget,
     pub prev_account_tree_root: PoseidonHashOutTarget,
@@ -211,5 +212,31 @@ impl PublicStateTarget {
             .set_witness(witness, value.deposit_tree_root);
         self.block_hash.set_witness(witness, value.block_hash);
         witness.set_target(self.block_number, F::from_canonical_u32(value.block_number));
+    }
+
+    pub fn to_buffer(&self, buffer: &mut Vec<u8>) -> IoResult<()> {
+        self.block_tree_root.to_buffer(buffer)?;
+        self.prev_account_tree_root.to_buffer(buffer)?;
+        self.account_tree_root.to_buffer(buffer)?;
+        self.deposit_tree_root.to_buffer(buffer)?;
+        self.block_hash.to_buffer(buffer)?;
+        buffer.write_target(self.block_number)
+    }
+
+    pub fn from_buffer(buffer: &mut Buffer) -> IoResult<Self> {
+        let block_tree_root = PoseidonHashOutTarget::from_buffer(buffer)?;
+        let prev_account_tree_root = PoseidonHashOutTarget::from_buffer(buffer)?;
+        let account_tree_root = PoseidonHashOutTarget::from_buffer(buffer)?;
+        let deposit_tree_root = Bytes32Target::from_buffer(buffer)?;
+        let block_hash = Bytes32Target::from_buffer(buffer)?;
+        let block_number = buffer.read_target()?;
+        Ok(Self {
+            block_tree_root,
+            prev_account_tree_root,
+            account_tree_root,
+            deposit_tree_root,
+            block_hash,
+            block_number,
+        })
     }
 }

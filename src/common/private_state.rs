@@ -3,6 +3,7 @@ use plonky2::{
     hash::hash_types::RichField,
     iop::{target::Target, witness::WitnessWrite},
     plonk::circuit_builder::CircuitBuilder,
+    util::serialization::{Buffer, IoResult, Read, Write},
 };
 use serde::{Deserialize, Serialize};
 
@@ -20,14 +21,20 @@ use super::{
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PrivateState {
-    pub asset_tree_root: PoseidonHashOut, // The root of the asset tree
-    pub nullifier_tree_root: PoseidonHashOut, // The root of the nullifier tree
-    pub nonce: u32,                       /* The nonce of the account which is corresponding to
-                                           * the next tx's nonce */
-    pub salt: Salt, // The salt which is used to blind this private state
+    /// The root of the asset tree
+    pub asset_tree_root: PoseidonHashOut,
+
+    /// The root of the nullifier tree
+    pub nullifier_tree_root: PoseidonHashOut,
+
+    /// The nonce of the account which is corresponding to the next tx's nonce
+    pub nonce: u32,
+
+    /// The salt which is used to blind this private state
+    pub salt: Salt,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct PrivateStateTarget {
     pub asset_tree_root: PoseidonHashOutTarget,
     pub nullifier_tree_root: PoseidonHashOutTarget,
@@ -100,5 +107,25 @@ impl PrivateStateTarget {
             .set_witness(witness, value.nullifier_tree_root);
         witness.set_target(self.nonce, F::from_canonical_u32(value.nonce));
         self.salt.set_witness(witness, value.salt);
+    }
+
+    pub fn to_buffer(&self, buffer: &mut Vec<u8>) -> IoResult<()> {
+        self.asset_tree_root.to_buffer(buffer)?;
+        self.nullifier_tree_root.to_buffer(buffer)?;
+        buffer.write_target(self.nonce)?;
+        self.salt.to_buffer(buffer)
+    }
+
+    pub fn from_buffer(buffer: &mut Buffer) -> IoResult<Self> {
+        let asset_tree_root = PoseidonHashOutTarget::from_buffer(buffer)?;
+        let nullifier_tree_root = PoseidonHashOutTarget::from_buffer(buffer)?;
+        let nonce = buffer.read_target()?;
+        let salt = SaltTarget::from_buffer(buffer)?;
+        Ok(Self {
+            asset_tree_root,
+            nullifier_tree_root,
+            nonce,
+            salt,
+        })
     }
 }

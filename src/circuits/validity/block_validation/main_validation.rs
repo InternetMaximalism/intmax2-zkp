@@ -431,7 +431,6 @@ impl<const D: usize> MainValidationTarget<D> {
         // account id case
         result = builder.conditional_and(is_not_registration_block, result, is_pubkey_eq);
 
-        // signature.pubkey_hash.connect(builder, pubkey_hash);
         let signature_commitment = signature.commitment(builder);
         let signature_hash = signature.hash::<F, C, D>(builder);
         block.signature_hash.connect(builder, signature_hash);

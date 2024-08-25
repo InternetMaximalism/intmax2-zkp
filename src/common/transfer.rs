@@ -6,6 +6,7 @@ use plonky2::{
         circuit_builder::CircuitBuilder,
         config::{AlgebraicHasher, GenericConfig},
     },
+    util::serialization::{Buffer, IoResult, Read, Write},
 };
 use rand::Rng;
 use serde::{Deserialize, Serialize};
@@ -38,7 +39,7 @@ pub struct Transfer {
     pub salt: Salt,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TransferTarget {
     pub recipient: GenericAddressTarget,
     pub token_index: Target,
@@ -153,6 +154,28 @@ impl TransferTarget {
         builder: &mut CircuitBuilder<F, D>,
     ) -> PoseidonHashOutTarget {
         PoseidonHashOutTarget::hash_inputs(builder, &self.to_vec())
+    }
+
+    pub fn to_buffer(&self, buffer: &mut Vec<u8>) -> IoResult<()> {
+        self.recipient.to_buffer(buffer)?;
+        buffer.write_target(self.token_index)?;
+        self.amount.to_buffer(buffer)?;
+        self.salt.to_buffer(buffer)?;
+
+        Ok(())
+    }
+
+    pub fn from_buffer(buffer: &mut Buffer) -> IoResult<Self> {
+        let recipient = GenericAddressTarget::from_buffer(buffer)?;
+        let token_index = buffer.read_target()?;
+        let amount = U256Target::from_buffer(buffer)?;
+        let salt = SaltTarget::from_buffer(buffer)?;
+        Ok(Self {
+            recipient,
+            token_index,
+            amount,
+            salt,
+        })
     }
 }
 
