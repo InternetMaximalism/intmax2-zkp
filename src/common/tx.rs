@@ -6,6 +6,7 @@ use plonky2::{
         circuit_builder::CircuitBuilder,
         config::{AlgebraicHasher, GenericConfig},
     },
+    util::serialization::{Buffer, IoResult, Read, Write},
 };
 use rand::Rng;
 use serde::{Deserialize, Serialize};
@@ -59,7 +60,7 @@ impl Tx {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct TxTarget {
     pub transfer_tree_root: PoseidonHashOutTarget,
     pub nonce: Target,
@@ -120,6 +121,23 @@ impl TxTarget {
         self.transfer_tree_root
             .set_witness(witness, value.transfer_tree_root);
         witness.set_target(self.nonce, F::from_canonical_u32(value.nonce));
+    }
+
+    pub fn to_buffer(&self, buffer: &mut Vec<u8>) -> IoResult<()> {
+        self.transfer_tree_root.to_buffer(buffer)?;
+        buffer.write_target(self.nonce)?;
+
+        Ok(())
+    }
+
+    pub fn from_buffer(buffer: &mut Buffer) -> IoResult<Self> {
+        let transfer_tree_root = PoseidonHashOutTarget::from_buffer(buffer)?;
+        let nonce = buffer.read_target()?;
+
+        Ok(Self {
+            transfer_tree_root,
+            nonce,
+        })
     }
 }
 

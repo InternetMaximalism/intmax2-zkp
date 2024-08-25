@@ -2,7 +2,10 @@ use crate::{
     ethereum_types::u256::U256Target,
     utils::{
         leafable_hasher::PoseidonLeafableHasher,
-        trees::sparse_merkle_tree::{SparseMerkleProof, SparseMerkleProofTarget, SparseMerkleTree},
+        trees::{
+            merkle_tree::MerkleProofTarget,
+            sparse_merkle_tree::{SparseMerkleProof, SparseMerkleProofTarget, SparseMerkleTree},
+        },
     },
 };
 use plonky2::{
@@ -16,6 +19,7 @@ use plonky2::{
         circuit_builder::CircuitBuilder,
         config::{AlgebraicHasher, GenericConfig},
     },
+    util::serialization::{Buffer, IoResult, Read as _, Write as _},
 };
 use rand::Rng;
 use serde::{Deserialize, Serialize};
@@ -46,7 +50,7 @@ pub struct AssetLeaf {
     pub amount: U256,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct AssetLeafTarget {
     pub is_insufficient: BoolTarget,
     pub amount: U256Target,
@@ -155,6 +159,20 @@ impl AssetLeafTarget {
             .collect::<Vec<_>>();
         vec
     }
+
+    pub fn to_buffer(&self, buffer: &mut Vec<u8>) -> IoResult<()> {
+        buffer.write_target_bool(self.is_insufficient)?;
+        self.amount.to_buffer(buffer)
+    }
+
+    pub fn from_buffer(buffer: &mut Buffer) -> IoResult<Self> {
+        let is_insufficient = buffer.read_target_bool()?;
+        let amount = U256Target::from_buffer(buffer)?;
+        Ok(Self {
+            is_insufficient,
+            amount,
+        })
+    }
 }
 
 impl Leafable for AssetLeaf {
@@ -187,5 +205,26 @@ impl LeafableTarget for AssetLeafTarget {
         <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
     {
         PoseidonHashOutTarget::hash_inputs(builder, &self.to_vec())
+    }
+}
+
+impl AssetMerkleProofTarget {
+    pub fn to_buffer(&self, buffer: &mut Vec<u8>) -> IoResult<()> {
+        buffer.write_usize(self.0.siblings.len())?;
+        for sibling in self.0.siblings.iter() {
+            sibling.to_buffer(buffer)?;
+        }
+
+        Ok(())
+    }
+
+    pub fn from_buffer(buffer: &mut Buffer) -> IoResult<Self> {
+        let siblings_len = buffer.read_usize()?;
+        let mut siblings = Vec::with_capacity(siblings_len);
+        for _ in 0..siblings_len {
+            let sibling = PoseidonHashOutTarget::from_buffer(buffer)?;
+            siblings.push(sibling);
+        }
+        Ok(SparseMerkleProofTarget(MerkleProofTarget { siblings }))
     }
 }
