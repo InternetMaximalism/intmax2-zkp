@@ -206,9 +206,6 @@ where
         };
         builder.register_public_inputs(&pis.to_vec());
 
-        // // Add a ContantGate to create a dummy proof.
-        // builder.add_gate(ConstantGate::new(config.num_constants), vec![]);
-
         let data = builder.build();
         let dummy_proof = DummyProof::new(&data.common);
         Self {
