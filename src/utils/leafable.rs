@@ -7,6 +7,7 @@ use plonky2::{
     self,
     field::extension::Extendable,
     hash::hash_types::RichField,
+    iop::target::Target,
     plonk::{
         circuit_builder::CircuitBuilder,
         config::{AlgebraicHasher, GenericConfig},
@@ -117,6 +118,7 @@ impl LeafableTarget for Bytes32Target {
         PoseidonHashOutTarget::hash_inputs(builder, &self.to_vec())
     }
 }
+
 /*
  * Leafable for U256
  */
@@ -150,5 +152,41 @@ impl LeafableTarget for U256Target {
         <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
     {
         PoseidonHashOutTarget::hash_inputs(builder, &self.to_vec())
+    }
+}
+
+/*
+ * Leafable for u32
+ */
+impl Leafable for u32 {
+    type LeafableHasher = PoseidonLeafableHasher;
+
+    fn empty_leaf() -> Self {
+        Self::default()
+    }
+
+    // Output as is in the case of a hash.
+    fn hash(&self) -> PoseidonHashOut {
+        PoseidonHashOut::hash_inputs_u32(&[*self])
+    }
+}
+
+impl LeafableTarget for Target {
+    type Leaf = u32;
+
+    fn empty_leaf<F: RichField + Extendable<D>, const D: usize>(
+        builder: &mut CircuitBuilder<F, D>,
+    ) -> Self {
+        builder.zero()
+    }
+
+    fn hash<F: RichField + Extendable<D>, C: GenericConfig<D, F = F> + 'static, const D: usize>(
+        &self,
+        builder: &mut CircuitBuilder<F, D>,
+    ) -> PoseidonHashOutTarget
+    where
+        <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
+    {
+        PoseidonHashOutTarget::hash_inputs(builder, &[*self])
     }
 }
