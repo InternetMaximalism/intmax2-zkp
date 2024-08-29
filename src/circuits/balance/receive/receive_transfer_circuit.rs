@@ -334,7 +334,7 @@ where
     C::Hasher: AlgebraicHasher<F>,
 {
     pub fn new(balance_common_data: &CommonCircuitData<F, D>) -> Self {
-        let config = CircuitConfig::standard_recursion_zk_config();
+        let config = CircuitConfig::default();
         let mut builder = CircuitBuilder::<F, D>::new(config.clone());
         let target =
             ReceiveTransferTarget::<D>::new::<F, C>(balance_common_data, &mut builder, true);
@@ -347,7 +347,7 @@ where
         };
         builder.register_public_inputs(&pis.to_vec(&config));
         let data = builder.build();
-        let dummy_proof = DummyProof::new_with_blinding_degree(&data.common, 8326);
+        let dummy_proof = DummyProof::new(&data.common);
         Self {
             data,
             target,
