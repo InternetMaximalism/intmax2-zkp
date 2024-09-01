@@ -80,7 +80,7 @@ where
     C: GenericConfig<D, F = F>,
 {
     data: CircuitData<F, C, D>,
-    withdrawal_wrapper_proof: ProofWithPublicInputsTarget<D>,
+    withdrawal_proof: ProofWithPublicInputsTarget<D>,
     withdrawal_aggregator: AddressTarget, // Who makes the withdrawal proof and receive the reward
 }
 
@@ -92,9 +92,9 @@ where
 {
     pub fn new(withdrawal_circuit: &WithdrawalCircuit<F, C, D>) -> Self {
         let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::default());
-        let withdrawal_wrapper_proof = withdrawal_circuit.add_proof_target_and_verify(&mut builder);
+        let withdrawal_proof = withdrawal_circuit.add_proof_target_and_verify(&mut builder);
         let last_withdrawal_hash =
-            Bytes32Target::from_slice(&withdrawal_wrapper_proof.public_inputs[0..BYTES32_LEN]);
+            Bytes32Target::from_slice(&withdrawal_proof.public_inputs[0..BYTES32_LEN]);
         let withdrawal_aggregator = AddressTarget::new(&mut builder, true);
         let pis = WithdrawalProofPublicInputsTarget {
             last_withdrawal_hash,
@@ -105,7 +105,7 @@ where
         let data = builder.build();
         Self {
             data,
-            withdrawal_wrapper_proof,
+            withdrawal_proof,
             withdrawal_aggregator,
         }
     }
@@ -116,7 +116,7 @@ where
         withdrawal_aggregator: Address,
     ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
         let mut pw = PartialWitness::<F>::new();
-        pw.set_proof_with_pis_target(&self.withdrawal_wrapper_proof, withdrawal_proof);
+        pw.set_proof_with_pis_target(&self.withdrawal_proof, withdrawal_proof);
         self.withdrawal_aggregator
             .set_witness(&mut pw, withdrawal_aggregator);
         self.data.prove(pw)
