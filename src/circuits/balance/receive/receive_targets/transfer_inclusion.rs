@@ -10,10 +10,6 @@ use crate::{
     utils::{
         cyclic::{vd_from_pis_slice, vd_from_pis_slice_target},
         leafable::{Leafable as _, LeafableTarget},
-        poseidon_hash_out::PoseidonHashOutTarget,
-        trees::{
-            incremental_merkle_tree::IncrementalMerkleProofTarget, merkle_tree::MerkleProofTarget,
-        },
     },
 };
 use plonky2::{
@@ -28,7 +24,6 @@ use plonky2::{
         config::{AlgebraicHasher, GenericConfig},
         proof::{ProofWithPublicInputs, ProofWithPublicInputsTarget},
     },
-    util::serialization::{Buffer, IoResult, Read, Write},
 };
 
 // Data to verify that the balance proof includes the transfer and that the transfer is valid
@@ -174,46 +169,6 @@ impl<const D: usize> TransferInclusionTarget<D> {
         witness.set_proof_with_pis_target(&self.balance_proof, &value.balance_proof);
         witness.set_verifier_data_target(&self.balance_circuit_vd, &value.balance_circuit_vd);
         self.public_state.set_witness(witness, &value.public_state);
-    }
-
-    pub fn to_buffer(&self, buffer: &mut Vec<u8>) -> IoResult<()> {
-        self.transfer.to_buffer(buffer)?;
-        buffer.write_target(self.transfer_index)?;
-        buffer.write_usize(self.transfer_merkle_proof.0.siblings.len())?;
-        for sibling in self.transfer_merkle_proof.0.siblings.iter() {
-            sibling.to_buffer(buffer)?;
-        }
-        self.tx.to_buffer(buffer)?;
-        buffer.write_target_proof_with_public_inputs(&self.balance_proof)?;
-        buffer.write_target_verifier_circuit(&self.balance_circuit_vd)?;
-        self.public_state.to_buffer(buffer)?;
-
-        Ok(())
-    }
-
-    pub fn from_buffer(buffer: &mut Buffer) -> IoResult<Self> {
-        let transfer = TransferTarget::from_buffer(buffer)?;
-        let transfer_index = buffer.read_target()?;
-        let siblings_len = buffer.read_usize()?;
-        let mut siblings = Vec::with_capacity(siblings_len);
-        for _ in 0..siblings_len {
-            siblings.push(PoseidonHashOutTarget::from_buffer(buffer)?);
-        }
-        let transfer_merkle_proof = IncrementalMerkleProofTarget(MerkleProofTarget { siblings });
-        let tx = TxTarget::from_buffer(buffer)?;
-        let balance_proof = buffer.read_target_proof_with_public_inputs()?;
-        let balance_circuit_vd = buffer.read_target_verifier_circuit()?;
-        let public_state = PublicStateTarget::from_buffer(buffer)?;
-
-        Ok(Self {
-            transfer,
-            transfer_index,
-            transfer_merkle_proof,
-            tx,
-            balance_proof,
-            balance_circuit_vd,
-            public_state,
-        })
     }
 }
 

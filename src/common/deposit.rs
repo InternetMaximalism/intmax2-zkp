@@ -6,7 +6,6 @@ use plonky2::{
         circuit_builder::CircuitBuilder,
         config::{AlgebraicHasher, GenericConfig},
     },
-    util::serialization::{Buffer, IoResult, Read, Write},
 };
 use plonky2_keccak::{builder::BuilderKeccak256 as _, utils::solidity_keccak256};
 use rand::Rng;
@@ -118,23 +117,6 @@ impl DepositTarget {
             .set_witness(witness, value.pubkey_salt_hash);
         witness.set_target(self.token_index, F::from_canonical_u32(value.token_index));
         self.amount.set_witness(witness, value.amount);
-    }
-
-    pub fn to_buffer(&self, buffer: &mut Vec<u8>) -> IoResult<()> {
-        self.pubkey_salt_hash.to_buffer(buffer)?;
-        buffer.write_target(self.token_index)?;
-        self.amount.to_buffer(buffer)
-    }
-
-    pub fn from_buffer(buffer: &mut Buffer) -> IoResult<Self> {
-        let pubkey_salt_hash = Bytes32Target::from_buffer(buffer)?;
-        let token_index = buffer.read_target()?;
-        let amount = U256Target::from_buffer(buffer)?;
-        Ok(Self {
-            pubkey_salt_hash,
-            token_index,
-            amount,
-        })
     }
 }
 
