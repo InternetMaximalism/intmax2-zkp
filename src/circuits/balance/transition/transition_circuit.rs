@@ -445,7 +445,7 @@ where
         update_circuit: &UpdateCircuit<F, C, D>,
         sender_circuit: &SenderCircuit<F, C, D>,
     ) -> Self {
-        let config = CircuitConfig::default();
+        let config = CircuitConfig::standard_recursion_zk_config();
         let mut builder = CircuitBuilder::<F, D>::new(config.clone());
         let target = BalanceTransitionTarget::new::<F, C>(
             receive_transfer_circuit,

@@ -385,10 +385,7 @@ where
             buffer.read_circuit_data::<F, C, D>(gate_serializer, generator_serializer)?;
         let receive_deposit_circuit_target = ReceiveDepositTarget::from_buffer(buffer).unwrap();
         let decoded_receive_deposit_circuit = Self {
-            dummy_proof: DummyProof::new_with_blinding_degree(
-                &decoded_receive_deposit_circuit_data.common,
-                10342,
-            ),
+            dummy_proof: DummyProof::new(&decoded_receive_deposit_circuit_data.common),
             data: decoded_receive_deposit_circuit_data,
             target: receive_deposit_circuit_target,
         };
