@@ -13,7 +13,7 @@ use plonky2::{
     },
 };
 
-pub(crate) fn vd_vec_len(config: &CircuitConfig) -> usize {
+pub fn vd_vec_len(config: &CircuitConfig) -> usize {
     4 + 4 * config.fri_config.num_cap_elements()
 }
 
@@ -72,7 +72,7 @@ where
     })
 }
 
-pub(crate) fn vd_from_pis_slice_target(
+pub fn vd_from_pis_slice_target(
     slice: &[Target],
     config: &CircuitConfig,
 ) -> Result<VerifierCircuitTarget> {

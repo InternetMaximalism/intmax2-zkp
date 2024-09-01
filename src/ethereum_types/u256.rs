@@ -7,7 +7,6 @@ use plonky2::{
     hash::hash_types::RichField,
     iop::target::{BoolTarget, Target},
     plonk::circuit_builder::CircuitBuilder,
-    util::serialization::{Buffer, IoResult, Read, Write as _},
 };
 use plonky2_bn254::fields::{biguint::BigUintTarget, fq::FqTarget};
 use plonky2_u32::gadgets::{
@@ -332,16 +331,6 @@ impl U256Target {
         let is_eq = self.is_equal(builder, other);
         let is_not_eq = builder.not(is_eq);
         builder.and(is_le, is_not_eq)
-    }
-
-    pub fn to_buffer(&self, buffer: &mut Vec<u8>) -> IoResult<()> {
-        buffer.write_target_array(&self.limbs)
-    }
-
-    pub fn from_buffer(buffer: &mut Buffer) -> IoResult<Self> {
-        let limbs = buffer.read_target_array::<U256_LEN>()?;
-
-        Ok(Self { limbs })
     }
 }
 

@@ -17,7 +17,6 @@ use plonky2::{
         circuit_builder::CircuitBuilder,
         config::{AlgebraicHasher, GenericConfig},
     },
-    util::serialization::{Buffer, IoResult, Read, Write},
 };
 use serde::{Deserialize, Serialize};
 
@@ -111,28 +110,6 @@ impl IndexedMerkleLeafTarget {
         self.key.set_witness(witness, value.key);
         self.next_key.set_witness(witness, value.next_key);
         witness.set_target(self.value, F::from_canonical_u64(value.value));
-    }
-
-    pub fn to_buffer(&self, buffer: &mut Vec<u8>) -> IoResult<()> {
-        self.key.to_buffer(buffer)?;
-        buffer.write_target(self.value)?;
-        buffer.write_target(self.next_index)?;
-        self.next_key.to_buffer(buffer)?;
-
-        Ok(())
-    }
-
-    pub fn from_buffer(buffer: &mut Buffer) -> IoResult<Self> {
-        let key = U256Target::from_buffer(buffer)?;
-        let value = buffer.read_target()?;
-        let next_index = buffer.read_target()?;
-        let next_key = U256Target::from_buffer(buffer)?;
-        Ok(Self {
-            next_index,
-            key,
-            next_key,
-            value,
-        })
     }
 }
 

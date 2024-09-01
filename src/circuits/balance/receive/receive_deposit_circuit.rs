@@ -15,9 +15,6 @@ use crate::{
         dummy::DummyProof,
         poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget, POSEIDON_HASH_OUT_LEN},
         recursively_verifiable::RecursivelyVerifiable,
-        trees::{
-            incremental_merkle_tree::IncrementalMerkleProofTarget, merkle_tree::MerkleProofTarget,
-        },
     },
 };
 use plonky2::{
@@ -33,9 +30,6 @@ use plonky2::{
         circuit_data::{CircuitConfig, CircuitData},
         config::{AlgebraicHasher, GenericConfig},
         proof::ProofWithPublicInputs,
-    },
-    util::serialization::{
-        Buffer, GateSerializer, IoResult, Read, WitnessGeneratorSerializer, Write as _,
     },
 };
 
@@ -257,56 +251,6 @@ impl ReceiveDepositTarget {
         self.new_private_commitment
             .set_witness(witness, value.new_private_commitment);
     }
-
-    pub fn to_buffer(&self, buffer: &mut Vec<u8>) -> IoResult<()> {
-        self.pubkey.to_buffer(buffer)?;
-        self.deposit_salt.to_buffer(buffer)?;
-        buffer.write_target(self.deposit_index)?;
-        self.deposit.to_buffer(buffer)?;
-
-        buffer.write_usize(self.deposit_merkle_proof.0.siblings.len())?;
-        for v in self.deposit_merkle_proof.0.siblings.iter() {
-            v.to_buffer(buffer)?;
-        }
-
-        self.public_state.to_buffer(buffer)?;
-        self.private_state_transition.to_buffer(buffer)?;
-        self.prev_private_commitment.to_buffer(buffer)?;
-        self.new_private_commitment.to_buffer(buffer)?;
-
-        Ok(())
-    }
-
-    pub fn from_buffer(buffer: &mut Buffer) -> IoResult<Self> {
-        let pubkey = U256Target::from_buffer(buffer)?;
-        let deposit_salt = SaltTarget::from_buffer(buffer)?;
-        let deposit_index = buffer.read_target()?;
-        let deposit = DepositTarget::from_buffer(buffer)?;
-
-        let siblings_len = buffer.read_usize()?;
-        let mut siblings = vec![];
-        for _ in 0..siblings_len {
-            siblings.push(Bytes32Target::from_buffer(buffer)?);
-        }
-        let deposit_merkle_proof = IncrementalMerkleProofTarget(MerkleProofTarget { siblings });
-
-        let public_state = PublicStateTarget::from_buffer(buffer)?;
-        let private_state_transition = PrivateStateTransitionTarget::from_buffer(buffer)?;
-        let prev_private_commitment = PoseidonHashOutTarget::from_buffer(buffer)?;
-        let new_private_commitment = PoseidonHashOutTarget::from_buffer(buffer)?;
-
-        Ok(ReceiveDepositTarget {
-            pubkey,
-            deposit_salt,
-            deposit_index,
-            deposit,
-            deposit_merkle_proof,
-            public_state,
-            private_state_transition,
-            prev_private_commitment,
-            new_private_commitment,
-        })
-    }
 }
 
 #[derive(Debug)]
@@ -327,7 +271,7 @@ where
     C::Hasher: AlgebraicHasher<F>,
 {
     pub fn new() -> Self {
-        let config = CircuitConfig::standard_recursion_zk_config();
+        let config = CircuitConfig::default();
         let mut builder = CircuitBuilder::<F, D>::new(config.clone());
         let target = ReceiveDepositTarget::new::<F, C, D>(&mut builder, true);
         let pis = ReceiveDepositPublicInputsTarget {
@@ -341,7 +285,7 @@ where
         let constant_gate = ConstantGate::new(config.num_constants);
         builder.add_gate(constant_gate, vec![]);
         let data = builder.build();
-        let dummy_proof = DummyProof::new_with_blinding_degree(&data.common, 10342);
+        let dummy_proof = DummyProof::new(&data.common);
         Self {
             data,
             target,
@@ -356,44 +300,6 @@ where
         let mut pw = PartialWitness::<F>::new();
         self.target.set_witness(&mut pw, value);
         self.data.prove(pw)
-    }
-
-    pub fn to_buffer(
-        &self,
-        buffer: &mut Vec<u8>,
-        gate_serializer: &dyn GateSerializer<F, D>,
-        generator_serializer: &dyn WitnessGeneratorSerializer<F, D>,
-    ) -> IoResult<()> {
-        buffer
-            .write_circuit_data(&self.data, gate_serializer, generator_serializer)
-            .unwrap();
-
-        self.target.to_buffer(buffer).unwrap();
-
-        // NOTE: Skip writing dummy proof because it can be recovered from
-        // decoded_receive_receive_deposit_circuit_data.
-
-        Ok(())
-    }
-
-    pub fn from_buffer(
-        buffer: &mut Buffer,
-        gate_serializer: &dyn GateSerializer<F, D>,
-        generator_serializer: &dyn WitnessGeneratorSerializer<F, D>,
-    ) -> IoResult<Self> {
-        let decoded_receive_deposit_circuit_data =
-            buffer.read_circuit_data::<F, C, D>(gate_serializer, generator_serializer)?;
-        let receive_deposit_circuit_target = ReceiveDepositTarget::from_buffer(buffer).unwrap();
-        let decoded_receive_deposit_circuit = Self {
-            dummy_proof: DummyProof::new_with_blinding_degree(
-                &decoded_receive_deposit_circuit_data.common,
-                10342,
-            ),
-            data: decoded_receive_deposit_circuit_data,
-            target: receive_deposit_circuit_target,
-        };
-
-        Ok(decoded_receive_deposit_circuit)
     }
 }
 

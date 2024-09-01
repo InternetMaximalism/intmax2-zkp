@@ -11,7 +11,6 @@ use plonky2::{
         config::{AlgebraicHasher, GenericConfig},
         proof::ProofWithPublicInputs,
     },
-    util::serialization::{Buffer, IoResult, Read, Write},
 };
 
 use crate::{
@@ -294,65 +293,6 @@ impl SpentTarget {
             .set_witness(witness, value.new_private_commitment);
         self.tx.set_witness(witness, value.tx);
         witness.set_bool_target(self.is_valid, value.is_valid);
-    }
-
-    pub fn to_buffer(&self, buffer: &mut Vec<u8>) -> IoResult<()> {
-        self.prev_private_state.to_buffer(buffer)?;
-        self.new_private_state_salt.to_buffer(buffer)?;
-        buffer.write_usize(self.transfers.len())?;
-        for transfer in &self.transfers {
-            transfer.to_buffer(buffer)?;
-        }
-        buffer.write_usize(self.prev_balances.len())?;
-        for balance in &self.prev_balances {
-            balance.to_buffer(buffer)?;
-        }
-        buffer.write_usize(self.asset_merkle_proofs.len())?;
-        for proof in &self.asset_merkle_proofs {
-            proof.to_buffer(buffer)?;
-        }
-        self.prev_private_commitment.to_buffer(buffer)?;
-        self.new_private_commitment.to_buffer(buffer)?;
-        self.tx.to_buffer(buffer)?;
-        self.insufficient_flags.to_buffer(buffer)?;
-        buffer.write_target_bool(self.is_valid)?;
-
-        Ok(())
-    }
-
-    pub fn from_buffer(buffer: &mut Buffer) -> IoResult<Self> {
-        let prev_private_state = PrivateStateTarget::from_buffer(buffer)?;
-        let new_private_state_salt = SaltTarget::from_buffer(buffer)?;
-        let transfers_len = buffer.read_usize()?;
-        let transfers = (0..transfers_len)
-            .map(|_| TransferTarget::from_buffer(buffer))
-            .collect::<IoResult<Vec<_>>>()?;
-        let prev_balances_len = buffer.read_usize()?;
-        let prev_balances = (0..prev_balances_len)
-            .map(|_| AssetLeafTarget::from_buffer(buffer))
-            .collect::<IoResult<Vec<_>>>()?;
-        let asset_merkle_proofs_len = buffer.read_usize()?;
-        let asset_merkle_proofs = (0..asset_merkle_proofs_len)
-            .map(|_| AssetMerkleProofTarget::from_buffer(buffer))
-            .collect::<IoResult<Vec<_>>>()?;
-        let prev_private_commitment = PoseidonHashOutTarget::from_buffer(buffer)?;
-        let new_private_commitment = PoseidonHashOutTarget::from_buffer(buffer)?;
-        let tx = TxTarget::from_buffer(buffer)?;
-        let insufficient_flags = InsufficientFlagsTarget::from_buffer(buffer)?;
-        let is_valid = buffer.read_target_bool()?;
-
-        Ok(Self {
-            prev_private_state,
-            new_private_state_salt,
-            transfers,
-            prev_balances,
-            asset_merkle_proofs,
-            prev_private_commitment,
-            new_private_commitment,
-            tx,
-            insufficient_flags,
-            is_valid,
-        })
     }
 }
 

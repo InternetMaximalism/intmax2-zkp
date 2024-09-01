@@ -4,7 +4,6 @@ use plonky2::{
     hash::hash_types::RichField,
     iop::{target::Target, witness::WitnessWrite},
     plonk::circuit_builder::CircuitBuilder,
-    util::serialization::{Buffer, IoResult},
 };
 use rand::Rng;
 use serde::{Deserialize, Serialize};
@@ -81,14 +80,5 @@ impl SaltTarget {
 
     pub fn set_witness<F: Field, W: WitnessWrite<F>>(&self, witness: &mut W, value: Salt) {
         self.0.set_witness(witness, value.0)
-    }
-
-    pub fn to_buffer(&self, buffer: &mut Vec<u8>) -> IoResult<()> {
-        self.0.to_buffer(buffer)
-    }
-
-    pub fn from_buffer(buffer: &mut Buffer) -> IoResult<Self> {
-        let hash = PoseidonHashOutTarget::from_buffer(buffer)?;
-        Ok(Self(hash))
     }
 }

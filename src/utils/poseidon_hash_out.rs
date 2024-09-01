@@ -23,7 +23,6 @@ use plonky2::{
         circuit_builder::CircuitBuilder,
         config::{AlgebraicHasher, Hasher},
     },
-    util::serialization::{Buffer, IoResult, Read, Write},
 };
 use rand::Rng;
 use serde::{Deserialize, Serialize};
@@ -202,18 +201,6 @@ impl PoseidonHashOutTarget {
         for (target, value) in self.elements.iter().zip(value.elements.iter()) {
             witness.set_target(*target, F::from_canonical_u64(*value));
         }
-    }
-
-    pub fn to_buffer(&self, buffer: &mut Vec<u8>) -> IoResult<()> {
-        buffer.write_target_array(&self.elements)?;
-
-        Ok(())
-    }
-
-    pub fn from_buffer(buffer: &mut Buffer) -> IoResult<Self> {
-        let elements = buffer.read_target_array::<4>()?;
-
-        Ok(Self { elements })
     }
 }
 

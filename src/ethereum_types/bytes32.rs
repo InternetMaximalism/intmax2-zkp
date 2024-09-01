@@ -1,9 +1,6 @@
 use std::fmt::Debug;
 
-use plonky2::{
-    iop::target::Target,
-    util::serialization::{Buffer, IoResult, Read, Write},
-};
+use plonky2::iop::target::Target;
 use serde::{Deserialize, Serialize};
 
 use super::{
@@ -84,17 +81,5 @@ impl U32LimbTargetTrait<BYTES32_LEN> for Bytes32Target {
         Self {
             limbs: limbs.try_into().unwrap(),
         }
-    }
-}
-
-impl Bytes32Target {
-    pub fn to_buffer(&self, buffer: &mut Vec<u8>) -> IoResult<()> {
-        buffer.write_target_array(&self.limbs)
-    }
-
-    pub fn from_buffer(buffer: &mut Buffer) -> IoResult<Self> {
-        let limbs = buffer.read_target_array::<BYTES32_LEN>()?;
-
-        Ok(Self { limbs })
     }
 }

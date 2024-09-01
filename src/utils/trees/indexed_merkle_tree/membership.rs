@@ -10,7 +10,6 @@ use plonky2::{
         circuit_builder::CircuitBuilder,
         config::{AlgebraicHasher, GenericConfig},
     },
-    util::serialization::{Buffer, IoResult, Read, Write},
 };
 use serde::{Deserialize, Serialize};
 
@@ -174,28 +173,6 @@ impl MembershipProofTarget {
     ) -> Target {
         let zero = builder.zero();
         builder.select(self.is_included, self.leaf.value, zero)
-    }
-
-    pub fn to_buffer(&self, buffer: &mut Vec<u8>) -> IoResult<()> {
-        buffer.write_target_bool(self.is_included)?;
-        self.leaf_proof.to_buffer(buffer)?;
-        buffer.write_target(self.leaf_index)?;
-        self.leaf.to_buffer(buffer)?;
-
-        Ok(())
-    }
-
-    pub fn from_buffer(buffer: &mut Buffer) -> IoResult<Self> {
-        let is_included = buffer.read_target_bool()?;
-        let leaf_proof = IndexedMerkleProofTarget::from_buffer(buffer)?;
-        let leaf_index = buffer.read_target()?;
-        let leaf = IndexedMerkleLeafTarget::from_buffer(buffer)?;
-        Ok(Self {
-            is_included,
-            leaf_proof,
-            leaf_index,
-            leaf,
-        })
     }
 }
 
