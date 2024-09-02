@@ -35,7 +35,7 @@ pub const POSEIDON_HASH_OUT_LEN: usize = 4;
 
 /// A struct equivalent to plonky2's `HashOut`, but implemented with u64 fixed instead of
 /// generics. This is convenient for implementing serialize and leafable.
-#[derive(Debug, Clone, Copy, Default, PartialEq)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash)]
 pub struct PoseidonHashOut {
     pub elements: [u64; 4],
 }
