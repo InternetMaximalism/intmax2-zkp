@@ -14,10 +14,10 @@ use crate::ethereum_types::{
     bytes32::{Bytes32, Bytes32Target},
     u32limb_trait::{U32LimbTargetTrait as _, U32LimbTrait as _},
 };
-use core::fmt::Debug;
+use core::{fmt::Debug, hash::Hash};
 
 pub trait LeafableHasher: Debug + Clone {
-    type HashOut: Clone + Copy + Debug + Default + PartialEq;
+    type HashOut: Clone + Copy + Debug + Default + PartialEq + Eq + Hash;
     type HashOutTarget: Clone + Debug;
 
     fn two_to_one(left: Self::HashOut, right: Self::HashOut) -> Self::HashOut;
