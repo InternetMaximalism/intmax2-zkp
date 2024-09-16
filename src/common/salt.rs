@@ -16,7 +16,7 @@ pub const SALT_LEN: usize = POSEIDON_HASH_OUT_LEN;
 
 /// The salt which is used to blind values
 #[derive(Debug, Clone, Copy, Default, PartialEq)]
-pub struct Salt(PoseidonHashOut);
+pub struct Salt(pub PoseidonHashOut);
 
 impl Serialize for Salt {
     fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
