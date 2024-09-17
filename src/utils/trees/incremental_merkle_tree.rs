@@ -103,7 +103,7 @@ pub struct IncrementalMerkleProof<V: Leafable>(
         serialize = "<V::LeafableHasher as LeafableHasher>::HashOut: Serialize",
         deserialize = "<V::LeafableHasher as LeafableHasher>::HashOut: Deserialize<'de>"
     ))]
-    pub(crate) MerkleProof<V>,
+    pub MerkleProof<V>,
 );
 
 impl<V: Leafable> IncrementalMerkleProof<V> {

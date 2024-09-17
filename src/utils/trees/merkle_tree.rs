@@ -119,8 +119,8 @@ impl<V: Leafable> MerkleTree<V> {
 }
 
 #[derive(Clone, Debug)]
-pub(crate) struct MerkleProof<V: Leafable> {
-    pub(crate) siblings: Vec<<V::LeafableHasher as LeafableHasher>::HashOut>,
+pub struct MerkleProof<V: Leafable> {
+    pub siblings: Vec<<V::LeafableHasher as LeafableHasher>::HashOut>,
 }
 
 impl<V: Leafable> Serialize for MerkleProof<V>
