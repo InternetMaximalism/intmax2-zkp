@@ -260,6 +260,7 @@ impl TryFrom<Bytes32> for PoseidonHashOut {
 }
 
 impl Bytes32Target {
+    // Convert HashOutTarget to Bytes32Target. This conversion is deterministic.
     pub fn from_hash_out<F: RichField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
         input: PoseidonHashOutTarget,
@@ -268,7 +269,14 @@ impl Bytes32Target {
             .elements
             .iter()
             .flat_map(|e| {
-                let (low, high) = builder.split_low_high(*e, 32, 32);
+                let (low, high) = builder.split_low_high(*e, 32, 64);
+                // if hi = 2^32 - 1, then lo should be 0
+                // because hi * 2^32 + lo = 2^64 - 2^32 + lo < 2^64 - 2^32 + 1 = p therefore lo = 0
+                let hi_max = builder.constant(F::from_canonical_u64((1 << 32) - 1));
+                let is_hi_max = builder.is_equal(high, hi_max);
+                // t = is_hi_max * low = 0
+                let t = builder.mul(is_hi_max.target, low);
+                builder.assert_zero(t);
                 [high, low]
             })
             .collect::<Vec<_>>();
