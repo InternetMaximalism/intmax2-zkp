@@ -268,15 +268,8 @@ impl Bytes32Target {
         let limbs = input
             .elements
             .iter()
-            .flat_map(|e| {
-                let (low, high) = builder.split_low_high(*e, 32, 64);
-                // if hi = 2^32 - 1, then lo should be 0
-                // because hi * 2^32 + lo = 2^64 - 2^32 + lo < 2^64 - 2^32 + 1 = p therefore lo = 0
-                let hi_max = builder.constant(F::from_canonical_u64((1 << 32) - 1));
-                let is_hi_max = builder.is_equal(high, hi_max);
-                // t = is_hi_max * low = 0
-                let t = builder.mul(is_hi_max.target, low);
-                builder.assert_zero(t);
+            .flat_map(|x| {
+                let (low, high) = safe_split_lo_and_hi(builder, *x);
                 [high, low]
             })
             .collect::<Vec<_>>();
@@ -326,5 +319,49 @@ impl Display for PoseidonHashOut {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let bytes32: Bytes32 = (*self).into();
         write!(f, "{}", bytes32)
+    }
+}
+
+// deterministic conversion from a goldilocks element to low and high u32s
+fn safe_split_lo_and_hi<F: RichField + Extendable<D>, const D: usize>(
+    builder: &mut CircuitBuilder<F, D>,
+    x: Target,
+) -> (Target, Target) {
+    let (lo, hi) = builder.split_low_high(x, 32, 64);
+    // if hi = 2^32 - 1, then lo should be 0
+    // because when hi = 2^32 - 1, x =  hi* 2^32 + lo = 2^64 - 2^32 + lo < 2^64 - 2^32 + 1 = p,
+    // so lo = 0
+    // With this contraint, we can deterministically split a goldilocks element into two u32s.
+    let hi_max = builder.constant(F::from_canonical_u64((1 << 32) - 1));
+    let is_hi_max = builder.is_equal(hi, hi_max);
+    let t = builder.mul(is_hi_max.target, lo);
+    builder.assert_zero(t);
+    (lo, hi)
+}
+
+#[cfg(test)]
+mod tests {
+    use plonky2::{
+        iop::witness::PartialWitness,
+        plonk::{circuit_data::CircuitConfig, config::PoseidonGoldilocksConfig},
+    };
+
+    use super::*;
+
+    type F = GoldilocksField;
+    const D: usize = 2;
+    type C = PoseidonGoldilocksConfig;
+
+    #[test]
+    fn test_safe_split_lo_and_hi() {
+        let x = F::NEG_ONE;
+
+        let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::default());
+        let x = builder.constant(x);
+        let (lo, _hi) = safe_split_lo_and_hi(&mut builder, x);
+        builder.assert_zero(lo);
+
+        let circuit = builder.build::<C>();
+        let _proof = circuit.prove(PartialWitness::new()).unwrap();
     }
 }
