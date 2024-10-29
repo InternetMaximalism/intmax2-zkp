@@ -62,7 +62,7 @@ impl AccountUpdateValue {
             sender_leaves.iter().zip(account_update_proofs.iter())
         {
             let prev_last_block_number = account_registration_proof.prev_leaf.value as u32;
-            let last_block_number = if sender_leaf.is_valid {
+            let last_block_number = if sender_leaf.did_return_sig {
                 block_number
             } else {
                 prev_last_block_number
@@ -131,7 +131,7 @@ impl AccountUpdateTarget {
         {
             let prev_last_block_number = account_update_proof.prev_leaf.value;
             let last_block_number =
-                builder.select(sender_leaf.is_valid, block_number, prev_last_block_number);
+                builder.select(sender_leaf.did_return_sig, block_number, prev_last_block_number);
             account_tree_root = account_update_proof.get_new_root::<F, C, D>(
                 builder,
                 sender_leaf.sender.clone(),
@@ -274,7 +274,7 @@ mod tests {
             let account_id = tree.index(sender_leaf.sender).unwrap();
             let prev_leaf = tree.get_leaf(account_id);
             let prev_last_block_number = prev_leaf.value as u32;
-            let last_block_number = if sender_leaf.is_valid {
+            let last_block_number = if sender_leaf.did_return_sig {
                 block_number
             } else {
                 prev_last_block_number

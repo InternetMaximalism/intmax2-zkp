@@ -200,7 +200,7 @@ impl MockBlockBuilder {
             if block_pis.is_valid && block_pis.is_registration_block {
                 let mut account_registration_proofs = Vec::new();
                 for sender_leaf in &sender_leaves {
-                    let last_block_number = if sender_leaf.is_valid {
+                    let last_block_number = if sender_leaf.did_return_sig {
                         block_pis.block_number
                     } else {
                         0
@@ -229,7 +229,7 @@ impl MockBlockBuilder {
                     let account_id = self.account_tree.index(sender_leaf.sender).unwrap();
                     let prev_leaf = self.account_tree.get_leaf(account_id);
                     let prev_last_block_number = prev_leaf.value as u32;
-                    let last_block_number = if sender_leaf.is_valid {
+                    let last_block_number = if sender_leaf.did_return_sig {
                         block_number
                     } else {
                         prev_last_block_number

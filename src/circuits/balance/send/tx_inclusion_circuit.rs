@@ -189,7 +189,7 @@ where
             .expect("sender merkle proof is invalid");
 
         assert_eq!(sender_leaf.sender, pubkey);
-        let is_valid = sender_leaf.is_valid && validity_pis.is_valid_block;
+        let is_valid = sender_leaf.did_return_sig && validity_pis.is_valid_block;
 
         Self {
             pubkey,
@@ -272,7 +272,7 @@ impl<const D: usize> TxInclusionTarget<D> {
             validity_pis.sender_tree_root,
         );
         sender_leaf.sender.connect(builder, pubkey);
-        let is_valid = builder.and(sender_leaf.is_valid, validity_pis.is_valid_block);
+        let is_valid = builder.and(sender_leaf.did_return_sig, validity_pis.is_valid_block);
         Self {
             pubkey,
             prev_public_state,

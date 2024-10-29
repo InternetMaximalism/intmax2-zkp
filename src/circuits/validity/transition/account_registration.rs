@@ -61,7 +61,7 @@ impl AccountRegistrationValue {
         for (sender_leaf, account_registration_proof) in
             sender_leaves.iter().zip(account_registration_proofs.iter())
         {
-            let last_block_number = if sender_leaf.is_valid {
+            let last_block_number = if sender_leaf.did_return_sig {
                 block_number
             } else {
                 0
@@ -126,7 +126,7 @@ impl AccountRegistrationTarget {
         for (sender_leaf, account_registration_proof) in
             sender_leaves.iter().zip(account_registration_proofs.iter())
         {
-            let last_block_number = builder.select(sender_leaf.is_valid, block_number, zero);
+            let last_block_number = builder.select(sender_leaf.did_return_sig, block_number, zero);
             let is_dummy_pubkey = sender_leaf.sender.is_dummy_pubkey(builder);
             let is_not_dummy_pubkey = builder.not(is_dummy_pubkey);
             account_tree_root = account_registration_proof.conditional_get_new_root::<F, C, D>(
@@ -273,7 +273,7 @@ mod tests {
         let block_number: u32 = 1000;
         let mut account_registration_proofs = Vec::new();
         for sender_leaf in sender_leaves.iter() {
-            let last_block_number = if sender_leaf.is_valid {
+            let last_block_number = if sender_leaf.did_return_sig {
                 block_number
             } else {
                 0

@@ -84,7 +84,7 @@ impl ValidityWitness {
                 .iter()
                 .zip(account_registration_proofs)
             {
-                let last_block_number = if sender_leaf.is_valid {
+                let last_block_number = if sender_leaf.did_return_sig {
                     block.block_number
                 } else {
                     0
@@ -113,7 +113,7 @@ impl ValidityWitness {
                 .zip(account_update_proofs)
             {
                 let prev_last_block_number = account_update_proof.prev_leaf.value as u32;
-                let last_block_number = if sender_leaf.is_valid {
+                let last_block_number = if sender_leaf.did_return_sig {
                     block.block_number
                 } else {
                     prev_last_block_number

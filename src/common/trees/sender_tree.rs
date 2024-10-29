@@ -47,13 +47,13 @@ pub const SENDER_LEAF_LEN: usize = U256_LEN + 1;
 #[serde(rename_all = "camelCase")]
 pub struct SenderLeaf {
     pub sender: U256,
-    pub is_valid: bool,
+    pub did_return_sig: bool,
 }
 
 #[derive(Debug, Clone)]
 pub struct SenderLeafTarget {
     pub sender: U256Target,
-    pub is_valid: BoolTarget,
+    pub did_return_sig: BoolTarget,
 }
 
 impl SenderLeaf {
@@ -62,7 +62,7 @@ impl SenderLeaf {
             .sender
             .to_u32_vec()
             .into_iter()
-            .chain([self.is_valid as u32].iter().cloned())
+            .chain([self.did_return_sig as u32].iter().cloned())
             .collect::<Vec<_>>();
         assert_eq!(vec.len(), SENDER_LEAF_LEN);
         vec
@@ -86,13 +86,13 @@ impl SenderLeafTarget {
         builder: &mut CircuitBuilder<F, D>,
         is_checked: bool,
     ) -> Self {
-        let is_valid = builder.add_virtual_bool_target_unsafe();
+        let did_return_sig = builder.add_virtual_bool_target_unsafe();
         if is_checked {
-            builder.assert_bool(is_valid);
+            builder.assert_bool(did_return_sig);
         }
         Self {
             sender: U256Target::new(builder, is_checked),
-            is_valid,
+            did_return_sig,
         }
     }
 
@@ -101,7 +101,7 @@ impl SenderLeafTarget {
             .sender
             .to_vec()
             .into_iter()
-            .chain([self.is_valid.target])
+            .chain([self.did_return_sig.target])
             .collect::<Vec<_>>();
         assert_eq!(vec.len(), SENDER_LEAF_LEN);
         vec
@@ -113,7 +113,7 @@ impl SenderLeafTarget {
     ) -> Self {
         Self {
             sender: U256Target::constant(builder, value.sender),
-            is_valid: builder.constant_bool(value.is_valid),
+            did_return_sig: builder.constant_bool(value.did_return_sig),
         }
     }
 
@@ -123,7 +123,7 @@ impl SenderLeafTarget {
         value: &SenderLeaf,
     ) {
         self.sender.set_witness(witness, value.sender);
-        witness.set_bool_target(self.is_valid, value.is_valid);
+        witness.set_bool_target(self.did_return_sig, value.did_return_sig);
     }
 }
 
@@ -154,7 +154,10 @@ pub fn get_sender_leaves(pubkeys: &[U256], sender_flag: Bytes16) -> Vec<SenderLe
     let leaves = pubkeys
         .iter()
         .zip(sender_bits.iter())
-        .map(|(&sender, &is_valid)| SenderLeaf { sender, is_valid })
+        .map(|(&sender, &did_return_sig)| SenderLeaf {
+            sender,
+            did_return_sig,
+        })
         .collect::<Vec<_>>();
     leaves
 }
@@ -168,7 +171,10 @@ pub fn get_sender_leaves_circuit<F: RichField + Extendable<D>, const D: usize>(
     let leaves = pubkeys
         .iter()
         .zip(sender_bits.iter())
-        .map(|(&sender, &is_valid)| SenderLeafTarget { sender, is_valid })
+        .map(|(&sender, &did_return_sig)| SenderLeafTarget {
+            sender,
+            did_return_sig,
+        })
         .collect::<Vec<_>>();
     leaves
 }
