@@ -430,7 +430,7 @@ mod tests {
             &block_builder,
             wallet.get_pubkey(),
             block_builder.last_block_number(),
-            0,
+            prev_public_state.block_number,
             true,
         );
 
