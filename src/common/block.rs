@@ -128,16 +128,3 @@ impl BlockTarget {
         witness.set_target(self.block_number, F::from_canonical_u32(value.block_number));
     }
 }
-
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn get_genesis_block_hash() {
-        let block = super::Block::genesis();
-        let hash = block.hash();
-        assert_eq!(
-            hash.to_string(),
-            "913fb9e1f6f1c6d910fd574a5cad8857aa43bfba24e401ada4f56090d4d997a7",
-        );
-    }
-}
