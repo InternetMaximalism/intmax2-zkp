@@ -17,6 +17,7 @@ use crate::{
         recursively_verifiable::RecursivelyVerifiable,
     },
 };
+use anyhow::ensure;
 use plonky2::{
     field::{extension::Extendable, types::Field},
     gates::constant::ConstantGate,
@@ -132,23 +133,35 @@ impl ReceiveDepositValue {
         deposit_merkle_proof: &DepositMerkleProof,
         public_state: &PublicState,
         private_state_transition: &PrivateStateTransitionValue,
-    ) -> Self {
+    ) -> anyhow::Result<Self> {
         // verify deposit inclusion
         let pubkey_salt_hash = get_pubkey_salt_hash(pubkey, deposit_salt);
-        assert_eq!(pubkey_salt_hash, deposit.pubkey_salt_hash);
+        ensure!(
+            pubkey_salt_hash == deposit.pubkey_salt_hash,
+            "Invalid pubkey salt hash"
+        );
         deposit_merkle_proof
             .verify(&deposit, deposit_index, public_state.deposit_tree_root)
-            .expect("Invalid deposit merkle proof");
+            .map_err(|e| anyhow::anyhow!("Invalid deposit merkle proof: {}", e))?;
 
         let nullifier: Bytes32 = deposit.poseidon_hash().into();
-        assert_eq!(deposit.token_index, private_state_transition.token_index);
-        assert_eq!(deposit.amount, private_state_transition.amount);
-        assert_eq!(nullifier, private_state_transition.nullifier);
+        ensure!(
+            deposit.token_index == private_state_transition.token_index,
+            "Invalid token index"
+        );
+        ensure!(
+            deposit.amount == private_state_transition.amount,
+            "Invalid amount"
+        );
+        ensure!(
+            nullifier == private_state_transition.nullifier,
+            "Invalid nullifier"
+        );
 
         let prev_private_commitment = private_state_transition.prev_private_state.commitment();
         let new_private_commitment = private_state_transition.new_private_state.commitment();
 
-        ReceiveDepositValue {
+        Ok(ReceiveDepositValue {
             pubkey,
             deposit_salt,
             deposit_index,
@@ -158,7 +171,7 @@ impl ReceiveDepositValue {
             private_state_transition: private_state_transition.clone(),
             prev_private_commitment,
             new_private_commitment,
-        }
+        })
     }
 }
 

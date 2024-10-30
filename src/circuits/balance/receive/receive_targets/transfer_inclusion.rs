@@ -12,6 +12,7 @@ use crate::{
         leafable::{Leafable as _, LeafableTarget},
     },
 };
+use anyhow::ensure;
 use plonky2::{
     field::extension::Extendable,
     hash::hash_types::RichField,
@@ -54,31 +55,31 @@ where
         transfer_merkle_proof: &TransferMerkleProof,
         tx: &Tx,
         balance_proof: &ProofWithPublicInputs<F, C, D>,
-    ) -> Self {
+    ) -> anyhow::Result<Self> {
         let balance_pis = BalancePublicInputs::from_pis(&balance_proof.public_inputs);
         let balance_circuit_vd = vd_from_pis_slice::<F, C, D>(
             &balance_proof.public_inputs,
             &balance_verifier_data.common.config,
         )
-        .expect("Failed to parse balance vd");
-        assert_eq!(
-            balance_circuit_vd, balance_verifier_data.verifier_only,
+        .map_err(|e| anyhow::anyhow!("Failed to parse balance vd: {}", e))?;
+        ensure!(
+            balance_circuit_vd == balance_verifier_data.verifier_only,
             "Balance vd mismatch"
         );
         balance_verifier_data
             .verify(balance_proof.clone())
-            .expect("Balance proof is invalid");
+            .map_err(|e| anyhow::anyhow!("Failed to verify balance proof: {}", e))?;
         assert_eq!(balance_pis.last_tx_hash, tx.hash());
         let _is_insufficient = balance_pis
             .last_tx_insufficient_flags
             .random_access(transfer_index);
         #[cfg(not(feature = "skip_insufficient_check"))]
-        assert!(!_is_insufficient, "Transfer is insufficient");
+        ensure!(!_is_insufficient, "Transfer is insufficient");
         // check merkle proof
         transfer_merkle_proof
             .verify(&transfer, transfer_index, tx.transfer_tree_root)
-            .expect("Invalid transfer merkle proof");
-        Self {
+            .map_err(|e| anyhow::anyhow!("Invalid transfer merkle proof: {}", e))?;
+        Ok(Self {
             transfer: transfer.clone(),
             transfer_index,
             transfer_merkle_proof: transfer_merkle_proof.clone(),
@@ -86,7 +87,7 @@ where
             balance_proof: balance_proof.clone(),
             balance_circuit_vd,
             public_state: balance_pis.public_state.clone(),
-        }
+        })
     }
 }
 

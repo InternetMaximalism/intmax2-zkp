@@ -75,12 +75,13 @@ where
             .clone();
         let block_merkle_proof =
             block_builder.get_block_merkle_proof(current_block_number, target_block_number);
-        let account_membership_proof = if !is_prev_account_tree {
-            block_builder.get_account_membership_proof(current_block_number, pubkey)
-        } else {
+        let account_membership_proof = if is_prev_account_tree {
             block_builder.get_account_membership_proof(current_block_number - 1, pubkey)
+        } else {
+            block_builder.get_account_membership_proof(current_block_number, pubkey)
         };
         UpdateWitness {
+            is_prev_account_tree,
             validity_proof,
             block_merkle_proof,
             account_membership_proof,

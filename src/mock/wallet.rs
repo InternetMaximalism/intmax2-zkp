@@ -112,12 +112,17 @@ impl MockWallet {
             last_tx_hash: last_send_witness
                 .clone()
                 .map_or(PoseidonHashOut::default(), |send_witness| {
-                    send_witness.get_next_last_tx().last_tx_hash
+                    send_witness.get_next_last_tx().unwrap().last_tx_hash
                 }),
-            last_tx_insufficient_flags: last_send_witness
-                .map_or(InsufficientFlags::default(), |send_witness| {
-                    send_witness.get_next_last_tx().last_tx_insufficient_flags
-                }),
+            last_tx_insufficient_flags: last_send_witness.map_or(
+                InsufficientFlags::default(),
+                |send_witness| {
+                    send_witness
+                        .get_next_last_tx()
+                        .unwrap()
+                        .last_tx_insufficient_flags
+                },
+            ),
             public_state: self.public_state.clone(),
         }
     }

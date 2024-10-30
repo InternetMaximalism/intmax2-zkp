@@ -49,7 +49,7 @@ impl SendWitness {
     // get last_tx_hash and last_tx_insufficient_flags
     // assuming that the tx is included in the block
     // TODO: consider include validity proof verification
-    pub fn get_next_last_tx(&self) -> SendWitnessResult {
+    pub fn get_next_last_tx(&self) -> anyhow::Result<SendWitnessResult> {
         let spent_value = SpentValue::new(
             &self.prev_private_state,
             &self.prev_balances,
@@ -57,7 +57,8 @@ impl SendWitness {
             &self.transfers,
             &self.asset_merkle_proofs,
             self.tx_witness.tx.nonce,
-        );
+        )
+        .map_err(|e| anyhow::anyhow!("Invalid spent value: {}", e))?;
         let is_valid = spent_value.is_valid;
         let last_tx_hash = if is_valid {
             spent_value.tx.hash()
@@ -69,10 +70,10 @@ impl SendWitness {
         } else {
             self.prev_balance_pis.last_tx_insufficient_flags
         };
-        SendWitnessResult {
+        Ok(SendWitnessResult {
             is_valid,
             last_tx_hash,
             last_tx_insufficient_flags,
-        }
+        })
     }
 }

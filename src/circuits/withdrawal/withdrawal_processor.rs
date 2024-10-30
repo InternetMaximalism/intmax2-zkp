@@ -72,13 +72,16 @@ where
             &transfer_witness.transfer_merkle_proof,
             &transfer_witness.tx,
             &withdrawal_witness.balance_proof,
-        );
+        )
+        .map_err(|e| anyhow::anyhow!("Failed to create transfer inclusion value: {}", e))?;
         let withdrawal_inner_proof = self
             .withdrawal_inner_circuit
-            .prove(prev_withdrawal_hash, &transition_inclusion_value)?;
+            .prove(prev_withdrawal_hash, &transition_inclusion_value)
+            .map_err(|e| anyhow::anyhow!("Failed to prove withdrawal inner: {}", e))?;
         let withdrawal_proof = self
             .withdrawal_circuit
-            .prove(&withdrawal_inner_proof, prev_withdrawal_proof)?;
+            .prove(&withdrawal_inner_proof, prev_withdrawal_proof)
+            .map_err(|e| anyhow::anyhow!("Failed to prove withdrawal: {}", e))?;
         Ok(withdrawal_proof)
     }
 }

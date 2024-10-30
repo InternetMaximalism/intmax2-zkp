@@ -1,3 +1,4 @@
+use anyhow::ensure;
 use plonky2::{
     field::extension::Extendable,
     hash::hash_types::RichField,
@@ -131,10 +132,10 @@ where
         prev_public_state: &PublicState,
         block_merkle_proof: &BlockHashMerkleProof,
         account_membership_proof: &AccountMembershipProof,
-    ) -> Self {
+    ) -> anyhow::Result<Self> {
         validity_circuit
             .verify(validity_proof)
-            .expect("validity proof is invalid");
+            .map_err(|e| anyhow::anyhow!("validity proof is invalid: {:?}", e))?;
         let validity_pis = ValidityPublicInputs::from_pis(&validity_proof.public_inputs);
         block_merkle_proof
             .verify(
@@ -142,20 +143,23 @@ where
                 prev_public_state.block_number as usize,
                 validity_pis.public_state.block_tree_root,
             )
-            .expect("block merkle proof is invalid");
+            .map_err(|e| anyhow::anyhow!("block merkle proof is invalid: {:?}", e))?;
         account_membership_proof
             .verify(pubkey, validity_pis.public_state.account_tree_root)
-            .expect("account membership proof is invalid");
+            .map_err(|e| anyhow::anyhow!("account membership proof is invalid: {:?}", e))?;
         let last_block_number = account_membership_proof.get_value() as u32;
-        assert!(last_block_number <= prev_public_state.block_number); // there is no send tx till the last block
-        Self {
+        ensure!(
+            last_block_number <= prev_public_state.block_number,
+            "last block number is invalid"
+        ); // there is no send tx till the last block
+        Ok(Self {
             pubkey,
             prev_public_state: prev_public_state.clone(),
             new_public_state: validity_pis.public_state.clone(),
             validity_proof: validity_proof.clone(),
             block_merkle_proof: block_merkle_proof.clone(),
             account_membership_proof: account_membership_proof.clone(),
-        }
+        })
     }
 }
 

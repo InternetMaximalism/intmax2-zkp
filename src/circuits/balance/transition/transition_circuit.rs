@@ -1,3 +1,4 @@
+use anyhow::ensure;
 use plonky2::{
     field::extension::Extendable,
     hash::hash_types::{HashOutTarget, RichField},
@@ -83,7 +84,7 @@ where
         sender_proof: Option<ProofWithPublicInputs<F, C, D>>,
         prev_balance_pis: BalancePublicInputs,
         balance_circuit_vd: VerifierOnlyCircuitData<C, D>,
-    ) -> Self {
+    ) -> anyhow::Result<Self> {
         let mut circuit_flags = [false; 4];
         circuit_flags[circuit_type as usize] = true;
 
@@ -91,25 +92,31 @@ where
             BalanceTransitionType::ReceiveTransfer => {
                 let receive_transfer_proof = receive_transfer_proof
                     .clone()
-                    .expect("receive_transfer_proof is None");
+                    .ok_or_else(|| anyhow::anyhow!("receive_transfer_proof is None"))?;
                 receive_transfer_circuit
                     .data
                     .verify(receive_transfer_proof.clone())
-                    .expect("receive_transfer_proof is invalid");
+                    .map_err(|e| anyhow::anyhow!("receive_transfer_proof is invalid: {}", e))?;
                 let pis = ReceiveTransferPublicInputs::<F, C, D>::from_slice(
                     config,
                     &receive_transfer_proof.public_inputs,
                 );
-                assert_eq!(
-                    pis.balance_circuit_vd, balance_circuit_vd,
+                ensure!(
+                    pis.balance_circuit_vd == balance_circuit_vd,
                     "balance_circuit_vd mismatch in receive_transfer_proof"
                 );
-                assert_eq!(
-                    pis.prev_private_commitment,
-                    prev_balance_pis.private_commitment,
+                ensure!(
+                    pis.prev_private_commitment == prev_balance_pis.private_commitment,
+                    "prev_private_commitment mismatch in receive_transfer_proof"
                 );
-                assert_eq!(pis.pubkey, prev_balance_pis.pubkey);
-                assert_eq!(pis.public_state, prev_balance_pis.public_state);
+                ensure!(
+                    pis.pubkey == prev_balance_pis.pubkey,
+                    "pubkey mismatch in receive_transfer_proof"
+                );
+                ensure!(
+                    pis.public_state == prev_balance_pis.public_state,
+                    "public_state mismatch in receive_transfer_proof"
+                );
                 BalancePublicInputs {
                     pubkey: pis.pubkey,
                     private_commitment: pis.new_private_commitment,
@@ -119,11 +126,11 @@ where
             BalanceTransitionType::ReceiveDeposit => {
                 let receive_deposit_proof = receive_deposit_proof
                     .clone()
-                    .expect("receive_deposit_proof is None");
+                    .ok_or_else(|| anyhow::anyhow!("receive_deposit_proof is None"))?;
                 receive_deposit_circuit
                     .data
                     .verify(receive_deposit_proof.clone())
-                    .expect("receive_deposit_proof is invalid");
+                    .map_err(|e| anyhow::anyhow!("receive_deposit_proof is invalid: {}", e))?;
                 let pis = ReceiveDepositPublicInputs::from_u64_slice(
                     &receive_deposit_proof
                         .public_inputs
@@ -131,12 +138,18 @@ where
                         .map(|x| x.to_canonical_u64())
                         .collect::<Vec<_>>(),
                 );
-                assert_eq!(
-                    pis.prev_private_commitment,
-                    prev_balance_pis.private_commitment,
+                ensure!(
+                    pis.prev_private_commitment == prev_balance_pis.private_commitment,
+                    "prev_private_commitment mismatch in receive_deposit_proof"
                 );
-                assert_eq!(pis.pubkey, prev_balance_pis.pubkey);
-                assert_eq!(pis.public_state, prev_balance_pis.public_state);
+                ensure!(
+                    pis.pubkey == prev_balance_pis.pubkey,
+                    "pubkey mismatch in receive_deposit_proof"
+                );
+                ensure!(
+                    pis.public_state == prev_balance_pis.public_state,
+                    "public_state mismatch in receive_deposit_proof"
+                );
                 BalancePublicInputs {
                     pubkey: pis.pubkey,
                     private_commitment: pis.new_private_commitment,
@@ -144,14 +157,19 @@ where
                 }
             }
             BalanceTransitionType::Update => {
-                let update_proof = update_proof.clone().expect("update_proof is None");
+                let update_proof = update_proof
+                    .clone()
+                    .ok_or_else(|| anyhow::anyhow!("update_proof is None"))?;
                 update_circuit
                     .data
                     .verify(update_proof.clone())
-                    .expect("update_proof is invalid");
+                    .map_err(|e| anyhow::anyhow!("update_proof is invalid: {}", e))?;
                 let pis =
                     UpdatePublicInputs::from_u64_slice(&update_proof.public_inputs.to_u64_vec());
-                assert_eq!(pis.prev_public_state, prev_balance_pis.public_state);
+                ensure!(
+                    pis.prev_public_state == prev_balance_pis.public_state,
+                    "prev_public_state mismatch in update_proof"
+                );
                 BalancePublicInputs {
                     public_state: pis.new_public_state,
                     ..prev_balance_pis
@@ -162,7 +180,7 @@ where
                 sender_circuit
                     .data
                     .verify(sender_proof.clone())
-                    .expect("sender_proof is invalid");
+                    .map_err(|e| anyhow::anyhow!("sender_proof is invalid: {}", e))?;
                 let pis = SenderPublicInputs::from_u64_slice(
                     &sender_proof
                         .public_inputs
@@ -170,14 +188,17 @@ where
                         .map(|x| x.to_canonical_u64())
                         .collect::<Vec<_>>(),
                 );
-                assert_eq!(pis.prev_balance_pis, prev_balance_pis);
+                ensure!(
+                    pis.prev_balance_pis == prev_balance_pis,
+                    "prev_balance_pis mismatch"
+                );
                 pis.new_balance_pis
             }
         };
 
         let new_balance_pis_commitment = new_balance_pis.commitment();
 
-        Self {
+        Ok(Self {
             circuit_type,
             circuit_flags,
             receive_transfer_proof,
@@ -188,7 +209,7 @@ where
             new_balance_pis,
             new_balance_pis_commitment,
             balance_circuit_vd,
-        }
+        })
     }
 }
 

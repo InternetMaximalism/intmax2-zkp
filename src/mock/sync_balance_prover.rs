@@ -83,13 +83,15 @@ where
                 prev_block_number,
                 true,
             );
-            let balance_proof = balance_processor.prove_send(
-                sync_validity_prover.validity_circuit(),
-                wallet.get_pubkey(),
-                &send_witness,
-                &update_witness,
-                &self.last_balance_proof,
-            );
+            let balance_proof = balance_processor
+                .prove_send(
+                    sync_validity_prover.validity_circuit(),
+                    wallet.get_pubkey(),
+                    &send_witness,
+                    &update_witness,
+                    &self.last_balance_proof,
+                )
+                .expect("Failed to prove send");
             let balance_pis = BalancePublicInputs::from_pis(&balance_proof.public_inputs);
             self.last_block_number = block_number;
             self.last_balance_proof = Some(balance_proof);
@@ -123,12 +125,14 @@ where
             self.last_block_number,
             false,
         );
-        let balance_proof = balance_processor.prove_update(
-            sync_validity_prover.validity_circuit(),
-            wallet.get_pubkey(),
-            &update_witness,
-            &self.last_balance_proof,
-        );
+        let balance_proof = balance_processor
+            .prove_update(
+                sync_validity_prover.validity_circuit(),
+                wallet.get_pubkey(),
+                &update_witness,
+                &self.last_balance_proof,
+            )
+            .expect("Failed to prove update");
         let balance_pis = BalancePublicInputs::from_pis(&balance_proof.public_inputs);
         self.last_block_number = current_block_number;
         self.last_balance_proof = Some(balance_proof);
@@ -167,11 +171,13 @@ where
     ) {
         let receive_deposit_witness =
             wallet.receive_deposit_and_update(rng, block_builder, deposit_index);
-        let balance_proof = balance_processor.prove_receive_deposit(
-            wallet.get_pubkey(),
-            &receive_deposit_witness,
-            &self.last_balance_proof,
-        );
+        let balance_proof = balance_processor
+            .prove_receive_deposit(
+                wallet.get_pubkey(),
+                &receive_deposit_witness,
+                &self.last_balance_proof,
+            )
+            .expect("Failed to prove receive deposit");
         // public state is unchanged
         self.last_balance_proof = Some(balance_proof);
     }
@@ -192,11 +198,13 @@ where
             transfer_witness,
             sender_balance_proof,
         );
-        let balance_proof = balance_processor.prove_receive_transfer(
-            wallet.get_pubkey(),
-            &receive_transfer_witness,
-            &self.last_balance_proof,
-        );
+        let balance_proof = balance_processor
+            .prove_receive_transfer(
+                wallet.get_pubkey(),
+                &receive_transfer_witness,
+                &self.last_balance_proof,
+            )
+            .expect("Failed to prove receive transfer");
         // public state is unchanged
         self.last_balance_proof = Some(balance_proof);
     }

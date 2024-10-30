@@ -17,6 +17,7 @@ use crate::{
         recursively_verifiable::RecursivelyVerifiable,
     },
 };
+use anyhow::ensure;
 use plonky2::{
     field::extension::Extendable,
     hash::hash_types::RichField,
@@ -152,7 +153,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         block_merkle_proof: &BlockHashMerkleProof,
         transfer_inclusion: &TransferInclusionValue<F, C, D>,
         private_state_transition: &PrivateStateTransitionValue,
-    ) -> Self
+    ) -> anyhow::Result<Self>
     where
         C::Hasher: AlgebraicHasher<F>,
     {
@@ -163,18 +164,30 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
                 transfer_inclusion.public_state.block_number as usize,
                 public_state.block_tree_root,
             )
-            .expect("Invalid block merkle proof");
+            .map_err(|e| anyhow::anyhow!("block merkle proof verification failed: {:?}", e))?;
 
         let transfer = transfer_inclusion.transfer;
         let nullifier: Bytes32 = transfer.commitment().into();
-        let pubkey = transfer.recipient.to_pubkey().expect("Invalid recipient");
-        assert_eq!(private_state_transition.token_index, transfer.token_index);
-        assert_eq!(private_state_transition.amount, transfer.amount);
-        assert_eq!(private_state_transition.nullifier, nullifier);
+        let pubkey = transfer
+            .recipient
+            .to_pubkey()
+            .map_err(|e| anyhow::anyhow!("transfer recipient is not pubkey: {:?}", e))?;
+        ensure!(
+            private_state_transition.token_index == transfer.token_index,
+            "token index mismatch"
+        );
+        ensure!(
+            private_state_transition.amount == transfer.amount,
+            "amount mismatch"
+        );
+        ensure!(
+            private_state_transition.nullifier == nullifier,
+            "nullifier mismatch"
+        );
         let prev_private_commitment = private_state_transition.prev_private_state.commitment();
         let new_private_commitment = private_state_transition.new_private_state.commitment();
         let balance_circuit_vd = transfer_inclusion.balance_circuit_vd.clone();
-        ReceiveTransferValue {
+        Ok(ReceiveTransferValue {
             pubkey,
             public_state: public_state.clone(),
             block_merkle_proof: block_merkle_proof.clone(),
@@ -183,7 +196,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
             prev_private_commitment,
             new_private_commitment,
             balance_circuit_vd,
-        }
+        })
     }
 }
 

@@ -1,3 +1,4 @@
+use anyhow::ensure;
 use plonky2::{
     field::{extension::Extendable, types::Field},
     hash::hash_types::RichField,
@@ -155,10 +156,19 @@ impl SpentValue {
         transfers: &[Transfer],
         asset_merkle_proofs: &[AssetMerkleProof],
         tx_nonce: u32,
-    ) -> Self {
-        assert_eq!(prev_balances.len(), NUM_TRANSFERS_IN_TX);
-        assert_eq!(transfers.len(), NUM_TRANSFERS_IN_TX);
-        assert_eq!(asset_merkle_proofs.len(), NUM_TRANSFERS_IN_TX);
+    ) -> anyhow::Result<Self> {
+        ensure!(
+            prev_balances.len() == NUM_TRANSFERS_IN_TX,
+            "invalid number of balances"
+        );
+        ensure!(
+            transfers.len() == NUM_TRANSFERS_IN_TX,
+            "invalid number of transfers"
+        );
+        ensure!(
+            asset_merkle_proofs.len() == NUM_TRANSFERS_IN_TX,
+            "invalid number of proofs"
+        );
         let mut insufficient_bits = vec![];
         let mut asset_tree_root = prev_private_state.asset_tree_root;
         for ((transfer, proof), prev_balance) in transfers
@@ -168,7 +178,7 @@ impl SpentValue {
         {
             proof
                 .verify(prev_balance, transfer.token_index as usize, asset_tree_root)
-                .expect("asset merkle proof verification failed");
+                .map_err(|e| anyhow::anyhow!("asset merkle proof verification failed: {}", e))?;
             let new_balance = prev_balance.sub(transfer.amount);
             asset_tree_root = proof.get_root(&new_balance, transfer.token_index as usize);
             insufficient_bits.push(new_balance.is_insufficient);
@@ -188,7 +198,7 @@ impl SpentValue {
             transfer_tree_root: transfer_root,
             nonce: tx_nonce,
         };
-        Self {
+        Ok(Self {
             prev_private_state: prev_private_state.clone(),
             new_private_state_salt,
             transfers: transfers.to_vec(),
@@ -199,7 +209,7 @@ impl SpentValue {
             tx,
             insufficient_flags,
             is_valid,
-        }
+        })
     }
 }
 
@@ -411,7 +421,8 @@ mod tests {
             &transfers,
             &asset_merkle_proofs,
             prev_private_state.nonce,
-        );
+        )
+        .expect("failed to create spent value");
         assert!(value.is_valid);
         let circuit = SpentCircuit::<F, C, D>::new();
         let instant = std::time::Instant::now();

@@ -65,7 +65,7 @@ impl SpentWitness {
         })
     }
 
-    pub fn value(&self) -> SpentValue {
+    pub fn to_value(&self) -> anyhow::Result<SpentValue> {
         SpentValue::new(
             &self.prev_private_state,
             &self.prev_balances,

@@ -1,3 +1,4 @@
+use anyhow::ensure;
 use plonky2::{
     field::extension::Extendable,
     hash::hash_types::RichField,
@@ -50,12 +51,12 @@ where
         validity_circuit: &ValidityCircuit<F, C, D>,
         send_witness: &SendWitness,
         update_witness: &UpdateWitness<F, C, D>,
-    ) -> ProofWithPublicInputs<F, C, D> {
+    ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
         // assert validity proof pis for debug
         let validity_pis =
             ValidityPublicInputs::from_pis(&update_witness.validity_proof.public_inputs);
-        assert_eq!(
-            validity_pis, send_witness.tx_witness.validity_pis,
+        ensure!(
+            validity_pis == send_witness.tx_witness.validity_pis,
             "validity proof pis mismatch"
         );
         let spent_value = SpentValue::new(
@@ -65,7 +66,8 @@ where
             &send_witness.transfers,
             &send_witness.asset_merkle_proofs,
             send_witness.tx_witness.tx.nonce,
-        );
+        )
+        .map_err(|e| anyhow::anyhow!("failed to create spent value: {}", e))?;
         let tx_witness = &send_witness.tx_witness;
         let sender_tree = send_witness.tx_witness.get_sender_tree();
         let sender_leaf = sender_tree.get_leaf(tx_witness.tx_index);
@@ -82,20 +84,24 @@ where
             &tx_witness.tx_merkle_proof,
             &sender_leaf,
             &sender_merkle_proof,
-        );
+        )
+        .map_err(|e| anyhow::anyhow!("failed to create tx inclusion value: {}", e))?;
         let spent_proof = self.spent_circuit.prove(&spent_value).unwrap();
         let tx_inclusion_proof = self
             .tx_inclusion_circuit
             .prove(&tx_inclusion_value)
-            .unwrap();
+            .map_err(|e| anyhow::anyhow!("failed to prove tx inclusion: {}", e))?;
         let sender_value = SenderValue::new(
             &self.spent_circuit,
             &self.tx_inclusion_circuit,
             &spent_proof,
             &tx_inclusion_proof,
             &send_witness.prev_balance_pis,
-        );
-        self.sender_circuit.prove(&sender_value).unwrap()
+        )
+        .map_err(|e| anyhow::anyhow!("failed to create sender value: {}", e))?;
+        self.sender_circuit
+            .prove(&sender_value)
+            .map_err(|e| anyhow::anyhow!("failed to prove sender: {}", e))
     }
 }
 
@@ -154,10 +160,12 @@ mod tests {
             true,
         );
 
-        sender_processor.prove(
-            &sync_prover.validity_processor.validity_circuit,
-            &send_witness,
-            &update_witness,
-        );
+        sender_processor
+            .prove(
+                &sync_prover.validity_processor.validity_circuit,
+                &send_witness,
+                &update_witness,
+            )
+            .unwrap();
     }
 }

@@ -1,3 +1,4 @@
+use anyhow::ensure;
 use plonky2::{
     field::extension::Extendable,
     hash::hash_types::RichField,
@@ -148,19 +149,26 @@ where
     pub fn new(
         validity_circuit: &ValidityCircuit<F, C, D>,
         pubkey: U256,
-        prev_public_state: &PublicState, // public state of balance proof(old)
-        validity_proof: &ProofWithPublicInputs<F, C, D>, // new public state
-        block_merkle_proof: &BlockHashMerkleProof,
-        prev_account_membership_proof: &AccountMembershipProof,
+        prev_public_state: &PublicState, // public state of the old balance proof
+        validity_proof: &ProofWithPublicInputs<F, C, D>, /* validity proof of the new public
+                                          * state which contains the tx */
+        block_merkle_proof: &BlockHashMerkleProof, /* block merkle proof that shows the
+                                                    * block of prev_public_state is included in
+                                                    * the
+                                                    * block tree of validity_proof */
+        prev_account_membership_proof: &AccountMembershipProof, /* account membership proof that
+                                                                 * shows no tx has been sent
+                                                                 * before
+                                                                 * the block of validity proof. */
         sender_index: usize,
         tx: &Tx,
         tx_merkle_proof: &TxMerkleProof,
         sender_leaf: &SenderLeaf,
         sender_merkle_proof: &SenderMerkleProof,
-    ) -> Self {
+    ) -> anyhow::Result<Self> {
         validity_circuit
             .verify(validity_proof)
-            .expect("validity proof is invalid");
+            .map_err(|e| anyhow::anyhow!("validity proof is invalid: {:?}", e))?;
         let validity_pis = ValidityPublicInputs::from_u64_slice(
             &validity_proof.public_inputs[0..VALIDITY_PUBLIC_INPUTS_LEN].to_u64_vec(),
         );
@@ -170,28 +178,31 @@ where
                 prev_public_state.block_number as usize,
                 validity_pis.public_state.block_tree_root,
             )
-            .expect("block merkle proof is invalid");
+            .map_err(|e| anyhow::anyhow!("block merkle proof is invalid: {:?}", e))?;
         prev_account_membership_proof
             .verify(pubkey, validity_pis.public_state.prev_account_tree_root)
-            .expect("prev account membership proof is invalid");
+            .map_err(|e| anyhow::anyhow!("account membership proof is invalid: {:?}", e))?;
         let last_block_number = prev_account_membership_proof.get_value() as u32;
-        assert!(last_block_number <= prev_public_state.block_number); // no send tx till one before the last block
+        ensure!(
+            last_block_number <= prev_public_state.block_number,
+            "there is a sent tx before the last block"
+        ); // no send tx till one before the last block
 
         let tx_tree_root: PoseidonHashOut = validity_pis
             .tx_tree_root
             .try_into()
-            .expect("tx tree root is invalid");
+            .map_err(|e| anyhow::anyhow!("tx tree root is invalid: {:?}", e))?;
         tx_merkle_proof
             .verify(tx, sender_index, tx_tree_root)
-            .expect("tx merkle proof is invalid");
+            .map_err(|e| anyhow::anyhow!("tx merkle proof is invalid: {:?}", e))?;
         sender_merkle_proof
             .verify(sender_leaf, sender_index, validity_pis.sender_tree_root)
-            .expect("sender merkle proof is invalid");
+            .map_err(|e| anyhow::anyhow!("sender merkle proof is invalid: {:?}", e))?;
 
-        assert_eq!(sender_leaf.sender, pubkey);
+        ensure!(sender_leaf.sender == pubkey, "sender pubkey mismatch");
         let is_valid = sender_leaf.did_return_sig && validity_pis.is_valid_block;
 
-        Self {
+        Ok(Self {
             pubkey,
             prev_public_state: prev_public_state.clone(),
             new_public_state: validity_pis.public_state.clone(),
@@ -204,7 +215,7 @@ where
             sender_leaf: sender_leaf.clone(),
             sender_merkle_proof: sender_merkle_proof.clone(),
             is_valid,
-        }
+        })
     }
 }
 
@@ -440,7 +451,8 @@ mod tests {
             &send_witness.tx_witness.tx_merkle_proof,
             &sender_leaf,
             &sender_merkle_proof,
-        );
+        )
+        .expect("failed to create tx inclusion value");
         let tx_inclusion_circuit = super::TxInclusionCircuit::<F, C, D>::new(
             &sync_prover.validity_processor.validity_circuit,
         );

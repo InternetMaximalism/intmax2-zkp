@@ -50,17 +50,17 @@ impl PrivateStateTransitionValue {
         nullifier_proof: &NullifierInsersionProof,
         prev_asset_leaf: &AssetLeaf,
         asset_merkle_proof: &AssetMerkleProof,
-    ) -> Self {
+    ) -> anyhow::Result<Self> {
         let new_nullifier_tree_root = nullifier_proof
             .get_new_root(prev_private_state.nullifier_tree_root, nullifier)
-            .expect("Invalid nullifier proof");
+            .map_err(|e| anyhow::anyhow!("Invalid nullifier merkle proof: {}", e))?;
         asset_merkle_proof
             .verify(
                 &prev_asset_leaf,
                 token_index as usize,
                 prev_private_state.asset_tree_root,
             )
-            .expect("Invalid asset merkle proof");
+            .map_err(|e| anyhow::anyhow!("Invalid asset merkle proof: {}", e))?;
         let new_asset_leaf = prev_asset_leaf.add(amount);
         let new_asset_tree_root =
             asset_merkle_proof.get_root(&new_asset_leaf, token_index as usize);
@@ -70,7 +70,7 @@ impl PrivateStateTransitionValue {
             salt: new_salt,
             ..prev_private_state.clone()
         };
-        Self {
+        Ok(Self {
             token_index,
             amount,
             nullifier,
@@ -80,7 +80,7 @@ impl PrivateStateTransitionValue {
             prev_asset_leaf: prev_asset_leaf.clone(),
             asset_merkle_proof: asset_merkle_proof.clone(),
             new_private_state,
-        }
+        })
     }
 }
 
@@ -233,7 +233,8 @@ mod tests {
             &nullifier_proof,
             &prev_asset_leaf,
             &asset_merkle_proof,
-        );
+        )
+        .unwrap();
 
         let expected_new_private_state = PrivateState {
             asset_tree_root: asset_tree.get_root(),

@@ -64,18 +64,21 @@ where
         send_witness: &SendWitness,
         update_witness: &UpdateWitness<F, C, D>,
         prev_proof: &Option<ProofWithPublicInputs<F, C, D>>,
-    ) -> ProofWithPublicInputs<F, C, D> {
-        let transition_proof = self.balance_transition_processor.prove_send(
-            validity_circuit,
-            &self.get_verifier_only_data(),
-            send_witness,
-            update_witness,
-        );
+    ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
+        let transition_proof = self
+            .balance_transition_processor
+            .prove_send(
+                validity_circuit,
+                &self.get_verifier_only_data(),
+                send_witness,
+                update_witness,
+            )
+            .map_err(|e| anyhow::anyhow!("failed to prove send: {:?}", e))?;
         let proof = self
             .balance_circuit
             .prove(pubkey, &transition_proof, prev_proof)
-            .unwrap();
-        proof
+            .map_err(|e| anyhow::anyhow!("failed to prove send: {:?}", e))?;
+        Ok(proof)
     }
 
     pub fn prove_update(
@@ -84,23 +87,26 @@ where
         pubkey: U256,
         update_witness: &UpdateWitness<F, C, D>,
         prev_proof: &Option<ProofWithPublicInputs<F, C, D>>,
-    ) -> ProofWithPublicInputs<F, C, D> {
+    ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
         let prev_balance_pis = if prev_proof.is_some() {
             BalancePublicInputs::from_pis(&prev_proof.as_ref().unwrap().public_inputs)
         } else {
             BalancePublicInputs::new(pubkey)
         };
-        let transition_proof = self.balance_transition_processor.prove_update(
-            validity_circuit,
-            &self.get_verifier_only_data(),
-            &prev_balance_pis,
-            update_witness,
-        );
+        let transition_proof = self
+            .balance_transition_processor
+            .prove_update(
+                validity_circuit,
+                &self.get_verifier_only_data(),
+                &prev_balance_pis,
+                update_witness,
+            )
+            .map_err(|e| anyhow::anyhow!("failed to prove update: {:?}", e))?;
         let proof = self
             .balance_circuit
             .prove(pubkey, &transition_proof, prev_proof)
-            .unwrap();
-        proof
+            .map_err(|e| anyhow::anyhow!("failed to prove update: {:?}", e))?;
+        Ok(proof)
     }
 
     pub fn prove_receive_transfer(
@@ -108,22 +114,25 @@ where
         pubkey: U256,
         receive_transfer_witness: &ReceiveTransferWitness<F, C, D>,
         prev_proof: &Option<ProofWithPublicInputs<F, C, D>>,
-    ) -> ProofWithPublicInputs<F, C, D> {
+    ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
         let prev_balance_pis = if prev_proof.is_some() {
             BalancePublicInputs::from_pis(&prev_proof.as_ref().unwrap().public_inputs)
         } else {
             BalancePublicInputs::new(pubkey)
         };
-        let transition_proof = self.balance_transition_processor.prove_receive_transfer(
-            &self.get_verifier_data(),
-            &prev_balance_pis,
-            receive_transfer_witness,
-        );
+        let transition_proof = self
+            .balance_transition_processor
+            .prove_receive_transfer(
+                &self.get_verifier_data(),
+                &prev_balance_pis,
+                receive_transfer_witness,
+            )
+            .map_err(|e| anyhow::anyhow!("failed to prove receive transfer: {:?}", e))?;
         let proof = self
             .balance_circuit
             .prove(pubkey, &transition_proof, prev_proof)
-            .unwrap();
-        proof
+            .map_err(|e| anyhow::anyhow!("failed to prove receive transfer: {:?}", e))?;
+        Ok(proof)
     }
 
     pub fn prove_receive_deposit(
@@ -131,22 +140,25 @@ where
         pubkey: U256,
         receive_deposit_witness: &ReceiveDepositWitness,
         prev_proof: &Option<ProofWithPublicInputs<F, C, D>>,
-    ) -> ProofWithPublicInputs<F, C, D> {
+    ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
         let prev_balance_pis = if prev_proof.is_some() {
             BalancePublicInputs::from_pis(&prev_proof.as_ref().unwrap().public_inputs)
         } else {
             BalancePublicInputs::new(pubkey)
         };
-        let transition_proof = self.balance_transition_processor.prove_receive_deposit(
-            &self.get_verifier_data(),
-            &prev_balance_pis,
-            receive_deposit_witness,
-        );
+        let transition_proof = self
+            .balance_transition_processor
+            .prove_receive_deposit(
+                &self.get_verifier_data(),
+                &prev_balance_pis,
+                receive_deposit_witness,
+            )
+            .map_err(|e| anyhow::anyhow!("failed to prove receive deposit: {:?}", e))?;
         let proof = self
             .balance_circuit
             .prove(pubkey, &transition_proof, prev_proof)
-            .unwrap();
-        proof
+            .map_err(|e| anyhow::anyhow!("failed to prove receive deposit: {:?}", e))?;
+        Ok(proof)
     }
 }
 

@@ -1,3 +1,4 @@
+use anyhow::ensure;
 use plonky2::{
     field::extension::Extendable,
     gates::constant::ConstantGate,
@@ -111,7 +112,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         spent_proof: &ProofWithPublicInputs<F, C, D>,
         tx_inclusion_proof: &ProofWithPublicInputs<F, C, D>,
         prev_balance_pis: &BalancePublicInputs,
-    ) -> Self
+    ) -> anyhow::Result<Self>
     where
         C::Hasher: AlgebraicHasher<F>,
     {
@@ -119,11 +120,11 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         spent_circuit
             .data
             .verify(spent_proof.clone())
-            .expect("invalid spent proof");
+            .map_err(|_| anyhow::anyhow!("invalid spent proof"))?;
         tx_inclusion_circuit
             .data
             .verify(tx_inclusion_proof.clone())
-            .expect("invalid tx inclusion proof");
+            .map_err(|_| anyhow::anyhow!("invalid tx inclusion proof"))?;
         let spent_pis = SpentPublicInputs::from_u64_slice(
             &spent_proof
                 .public_inputs
@@ -154,10 +155,13 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         };
 
         // check prev balance pis
-        assert_eq!(prev_balance_pis.pubkey, tx_inclusion_pis.pubkey);
-        assert_eq!(
-            prev_balance_pis.public_state,
-            tx_inclusion_pis.prev_public_state
+        ensure!(
+            prev_balance_pis.pubkey == tx_inclusion_pis.pubkey,
+            "invalid pubkey"
+        );
+        ensure!(
+            prev_balance_pis.public_state == tx_inclusion_pis.prev_public_state,
+            "invalid public state"
         );
         let new_balance_pis = BalancePublicInputs {
             pubkey: tx_inclusion_pis.pubkey,
@@ -166,12 +170,12 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
             last_tx_insufficient_flags,
             public_state: tx_inclusion_pis.new_public_state,
         };
-        Self {
+        Ok(Self {
             spent_proof: spent_proof.clone(),
             tx_inclusion_proof: tx_inclusion_proof.clone(),
             prev_balance_pis: prev_balance_pis.clone(),
             new_balance_pis,
-        }
+        })
     }
 }
 
