@@ -106,7 +106,7 @@ impl AccountIdPacked {
         account_ids
     }
 
-    // recover account id packed from bytes representation of account ids where
+    // Recovers account id packed from bytes representation of account ids where
     // dummy accounts are trimmed.
     pub fn from_trimmed_bytes(input: &[u8]) -> anyhow::Result<Self> {
         ensure!(

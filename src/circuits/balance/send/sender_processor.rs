@@ -11,19 +11,16 @@ use plonky2::{
 use crate::{
     circuits::{
         balance::{balance_pis::BalancePublicInputs, send::spent_circuit::SpentPublicInputs},
-        validity::{validity_circuit::ValidityCircuit, validity_pis::ValidityPublicInputs},
+        validity::validity_circuit::ValidityCircuit,
     },
-    common::{
-        trees::sender_tree,
-        witness::{
-            spent_witness::SpentWitness, tx_witness::TxWitness, update_witness::UpdateWitness,
-        },
+    common::witness::{
+        spent_witness::SpentWitness, tx_witness::TxWitness, update_witness::UpdateWitness,
     },
 };
 
 use super::{
     sender_circuit::{SenderCircuit, SenderValue},
-    spent_circuit::{SpentCircuit, SpentValue},
+    spent_circuit::SpentCircuit,
     tx_inclusion_circuit::{TxInclusionCircuit, TxInclusionValue},
 };
 

@@ -5,10 +5,7 @@ use crate::{
     ethereum_types::bytes32::Bytes32,
 };
 
-use super::{
-    block_witness::BlockWitness,
-    validity_transition_witness::{CompressedValidityTransitionWitness, ValidityTransitionWitness},
-};
+use super::{block_witness::BlockWitness, validity_transition_witness::ValidityTransitionWitness};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

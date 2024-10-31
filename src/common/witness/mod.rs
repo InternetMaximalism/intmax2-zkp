@@ -11,3 +11,6 @@ pub mod update_witness;
 pub mod validity_transition_witness;
 pub mod validity_witness;
 pub mod withdrawal_witness;
+
+// Compress witness to reduce communication cost of nodes
+pub mod compressed;
