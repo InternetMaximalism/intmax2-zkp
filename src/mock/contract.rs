@@ -2,7 +2,6 @@ use anyhow::ensure;
 use ark_bn254::{Bn254, G1Affine, G2Affine};
 use ark_ec::{pairing::Pairing as _, AffineRepr};
 
-use super::full_block::FullBlock;
 use crate::{
     common::{
         block::Block,
@@ -13,8 +12,9 @@ use crate::{
             SignatureContent,
         },
         trees::deposit_tree::DepositTree,
+        witness::full_block::FullBlock,
     },
-    constants::NUM_SENDERS_IN_BLOCK,
+    constants::{DEPOSIT_TREE_HEIGHT, NUM_SENDERS_IN_BLOCK},
     ethereum_types::{
         account_id_packed::AccountIdPacked, bytes16::Bytes16, bytes32::Bytes32, u256::U256,
     },
@@ -26,6 +26,15 @@ pub struct MockContract {
 }
 
 impl MockContract {
+    pub fn new() -> Self {
+        let full_blocks = vec![FullBlock::genesis()];
+        let deposit_tree = DepositTree::new(DEPOSIT_TREE_HEIGHT);
+        Self {
+            full_blocks,
+            deposit_tree,
+        }
+    }
+
     // returns the next block number
     pub fn get_block_number(&self) -> u32 {
         self.full_blocks.len() as u32

@@ -1,5 +1,6 @@
 pub mod block_witness;
 pub mod deposit_witness;
+pub mod full_block;
 pub mod private_witness;
 pub mod receive_deposit_witness;
 pub mod receive_transfer_witness;

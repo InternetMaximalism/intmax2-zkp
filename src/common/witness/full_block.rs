@@ -22,6 +22,16 @@ pub struct FullBlock {
 }
 
 impl FullBlock {
+    /// Creates a genesis block
+    pub fn genesis() -> Self {
+        Self {
+            block: Block::genesis(),
+            signature: SignatureContent::default(),
+            pubkeys: None,
+            account_ids: None,
+        }
+    }
+
     /// Generates block witness. Account/Block trees are the latest trees before relfecting the
     /// block.
     pub fn to_block_witness(
@@ -29,6 +39,7 @@ impl FullBlock {
         account_tree: &AccountTree,
         block_tree: &BlockHashTree,
     ) -> anyhow::Result<BlockWitness> {
+        ensure!(self.block.block_number != 0, "genesis block is not allowed");
         let is_registration_block = self.signature.is_registration_block;
         let (pubkeys, account_id_packed, account_merkle_proofs, account_membership_proofs) =
             if is_registration_block {

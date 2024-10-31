@@ -1,96 +1,53 @@
 use crate::{
     common::{
-        block::Block,
-        deposit::Deposit,
         signature::{
             sign::{hash_to_weight, sign_to_tx_root},
             utils::get_pubkey_hash,
             SignatureContent,
         },
-        trees::{
-            account_tree::{AccountMembershipProof, AccountRegistrationProof, AccountTree},
-            block_hash_tree::{BlockHashMerkleProof, BlockHashTree},
-            deposit_tree::DepositTree,
-            sender_tree::get_sender_leaves,
-            tx_tree::TxTree,
-        },
-        witness::{
-            block_witness::BlockWitness, validity_transition_witness::ValidityTransitionWitness,
-            validity_witness::ValidityWitness,
-        },
+        trees::tx_tree::TxTree,
     },
-    constants::{
-        ACCOUNT_TREE_HEIGHT, BLOCK_HASH_TREE_HEIGHT, DEPOSIT_TREE_HEIGHT, NUM_SENDERS_IN_BLOCK,
-        TX_TREE_HEIGHT,
-    },
+    constants::{NUM_SENDERS_IN_BLOCK, TX_TREE_HEIGHT},
     ethereum_types::{
-        account_id_packed::AccountIdPacked, bytes16::Bytes16, bytes32::Bytes32, u256::U256,
+        account_id_packed::AccountIdPacked, bytes16::Bytes16, bytes32::Bytes32,
         u32limb_trait::U32LimbTrait,
     },
 };
+use anyhow::ensure;
 use ark_bn254::{Bn254, Fr, G1Affine, G2Affine};
 use ark_ec::{pairing::Pairing as _, AffineRepr as _};
-use hashbrown::HashMap;
 use num::BigUint;
-use plonky2::field::{goldilocks_field::GoldilocksField, types::Field};
+use plonky2::{
+    field::{extension::Extendable, goldilocks_field::GoldilocksField, types::Field},
+    hash::hash_types::RichField,
+    plonk::config::{AlgebraicHasher, GenericConfig},
+};
 use plonky2_bn254::{curves::g2::G2Target, utils::hash_to_g2::HashToG2 as _};
 
-use super::tx_request::MockTxRequest;
+use super::{
+    contract::MockContract, sync_validity_prover::SyncValidityProver, tx_request::MockTxRequest,
+};
 
-pub struct MockBlockBuilder {
-    pub last_block_number: u32,
-    pub account_tree: AccountTree, // current account tree
-    pub block_tree: BlockHashTree, // current block hash tree
-    pub deposit_tree: DepositTree, // current deposit tree
-    pub last_validity_witness: ValidityWitness,
-    pub aux_info: HashMap<u32, AuxInfo>,
-}
+pub struct BlockBuilder;
 
-/// Information not required for validity proof but required for balance proof construction
-pub struct AuxInfo {
-    pub tx_tree: TxTree,
-    pub validity_witness: ValidityWitness,
-    pub account_tree: AccountTree,
-    pub block_tree: BlockHashTree,
-}
-
-impl MockBlockBuilder {
-    // instantiate a new MockBlockBuilder
-    // post the genesis block
-    pub fn new() -> Self {
-        let account_tree = AccountTree::initialize();
-        let mut block_tree = BlockHashTree::new(BLOCK_HASH_TREE_HEIGHT);
-        block_tree.push(Block::genesis().hash());
-        let deposit_tree = DepositTree::new(DEPOSIT_TREE_HEIGHT);
-        let validity_witness = ValidityWitness::genesis();
-        let mut aux_info = HashMap::new();
-        aux_info.insert(
-            0,
-            AuxInfo {
-                tx_tree: TxTree::new(TX_TREE_HEIGHT),
-                validity_witness: validity_witness.clone(),
-                account_tree: account_tree.clone(),
-                block_tree: block_tree.clone(),
-            },
-        );
-        MockBlockBuilder {
-            last_block_number: 0,
-            last_validity_witness: validity_witness,
-            account_tree,
-            block_tree,
-            deposit_tree,
-            aux_info,
-        }
-    }
-}
-
-impl MockBlockBuilder {
-    fn generate_block(
+impl BlockBuilder {
+    pub fn post_block<F, C, const D: usize>(
         &self,
+        contract: &mut MockContract,
+        sync_validity_prover: &SyncValidityProver<F, C, D>,
         is_registration_block: bool,
         txs: Vec<MockTxRequest>,
-    ) -> (BlockWitness, TxTree) {
-        assert!(txs.len() <= NUM_SENDERS_IN_BLOCK, "too many txs");
+    ) -> anyhow::Result<TxTree>
+    where
+        F: RichField + Extendable<D>,
+        C: GenericConfig<D, F = F> + 'static,
+        <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
+    {
+        ensure!(
+            contract.get_block_number() == sync_validity_prover.last_block_number + 1,
+            "sync validity prover is not up to date"
+        );
+        ensure!(txs.len() <= NUM_SENDERS_IN_BLOCK, "too many txs");
         // sort and pad txs
         let mut sorted_txs = txs.clone();
         sorted_txs.sort_by(|a, b| b.sender.pubkey.cmp(&a.sender.pubkey));
@@ -102,33 +59,27 @@ impl MockBlockBuilder {
             .collect::<Vec<_>>();
         let pubkey_hash = get_pubkey_hash(&pubkeys);
 
-        // account lookup
-        let (account_id_packed, account_merkle_proofs, account_membership_proofs) =
-            if is_registration_block {
-                let mut account_membership_proofs = Vec::new();
-                for pubkey in pubkeys.iter() {
-                    let is_dummy = pubkey.is_dummy_pubkey();
-                    assert!(
-                        self.account_tree.index(*pubkey).is_none() || is_dummy,
-                        "account already exists"
-                    );
-                    let proof = self.account_tree.prove_membership(*pubkey);
-                    account_membership_proofs.push(proof);
-                }
-                (None, None, Some(account_membership_proofs))
-            } else {
-                let mut account_ids = Vec::new();
-                let mut account_merkle_proofs = Vec::new();
-                for pubkey in pubkeys.iter() {
-                    let account_id = self.account_tree.index(*pubkey).expect("account not found");
-                    let proof = self.account_tree.prove_inclusion(account_id);
-                    account_ids.push(account_id);
-                    account_merkle_proofs.push(proof);
-                }
-                let account_id_packed = AccountIdPacked::pack(&account_ids);
-                (Some(account_id_packed), Some(account_merkle_proofs), None)
-            };
-        let account_id_hash = account_id_packed.map(|x| x.hash()).unwrap_or_default();
+        let account_ids = if is_registration_block {
+            // assertion
+            for pubkey in pubkeys.iter() {
+                let not_exists = sync_validity_prover.get_account_id(*pubkey).is_none();
+                ensure!(
+                    not_exists || pubkey.is_dummy_pubkey(),
+                    "account already exists"
+                );
+            }
+            None
+        } else {
+            let mut account_ids = Vec::new();
+            for pubkey in pubkeys.iter() {
+                let account_id = sync_validity_prover
+                    .get_account_id(*pubkey)
+                    .ok_or(anyhow::anyhow!("account not found"))?;
+                account_ids.push(account_id);
+            }
+            Some(AccountIdPacked::pack(&account_ids))
+        };
+        let account_id_hash = account_ids.map_or(Bytes32::default(), |ids| ids.hash());
 
         // construct tx tree root
         let mut tx_tree = TxTree::new(TX_TREE_HEIGHT);
@@ -144,175 +95,33 @@ impl MockBlockBuilder {
             is_registration_block,
             &sorted_txs,
         );
-        let signature_hash = signature.hash();
 
-        let prev_block = self.last_validity_witness.block_witness.block.clone();
-        let block = Block {
-            prev_block_hash: prev_block.hash(),
-            deposit_tree_root: self.deposit_tree.get_root(),
-            signature_hash,
-            block_number: prev_block.block_number + 1,
-        };
-        let prev_account_tree_root = self.account_tree.get_root();
-        let prev_block_tree_root = self.block_tree.get_root();
-        let block_witness = BlockWitness {
-            block,
-            signature: signature.clone(),
-            pubkeys: pubkeys.clone(),
-            prev_account_tree_root,
-            prev_block_tree_root,
-            account_id_packed,
-            account_merkle_proofs,
-            account_membership_proofs,
-        };
-        assert!(block_witness.to_main_validation_pis().is_valid || txs.len() == 0); // should be valid block
-        (block_witness, tx_tree)
-    }
-
-    // Generate transition witness from the prev block to the current block
-    fn generate_validity_witness(&mut self, block_witness: &BlockWitness) -> ValidityWitness {
-        // assertion
-        {
-            assert!(
-                block_witness.to_main_validation_pis().block_number == self.last_block_number + 1
-            );
-            let prev_pis = self.last_validity_witness.to_validity_pis();
-            assert_eq!(
-                prev_pis.public_state.account_tree_root,
-                self.account_tree.get_root()
-            );
-            assert_eq!(
-                prev_pis.public_state.block_tree_root,
-                self.block_tree.get_root()
-            );
+        if is_registration_block {
+            let trimmed_pubkeys = pubkeys
+                .into_iter()
+                .filter(|pubkey| !pubkey.is_dummy_pubkey())
+                .collect::<Vec<_>>();
+            contract.post_registration_block(
+                tx_tree_root,
+                signature.sender_flag,
+                signature.agg_pubkey,
+                signature.agg_signature,
+                signature.message_point,
+                trimmed_pubkeys,
+            )?;
+        } else {
+            contract.post_non_registration_block(
+                tx_tree_root,
+                signature.sender_flag,
+                signature.agg_pubkey,
+                signature.agg_signature,
+                signature.message_point,
+                pubkey_hash,
+                account_ids.unwrap().to_trimmed_bytes(),
+            )?;
         }
 
-        let block_merkle_proof = self
-            .block_tree
-            .prove(block_witness.block.block_number as usize);
-        self.block_tree.push(block_witness.block.hash());
-
-        let sender_leaves =
-            get_sender_leaves(&block_witness.pubkeys, block_witness.signature.sender_flag);
-        let block_pis = block_witness.to_main_validation_pis();
-
-        let account_registration_proofs = {
-            if block_pis.is_valid && block_pis.is_registration_block {
-                let mut account_registration_proofs = Vec::new();
-                for sender_leaf in &sender_leaves {
-                    let last_block_number = if sender_leaf.did_return_sig {
-                        block_pis.block_number
-                    } else {
-                        0
-                    };
-                    let is_dummy_pubkey = sender_leaf.sender.is_dummy_pubkey();
-                    let proof = if is_dummy_pubkey {
-                        AccountRegistrationProof::dummy(ACCOUNT_TREE_HEIGHT)
-                    } else {
-                        self.account_tree
-                            .prove_and_insert(sender_leaf.sender, last_block_number as u64)
-                            .unwrap()
-                    };
-                    account_registration_proofs.push(proof);
-                }
-                Some(account_registration_proofs)
-            } else {
-                None
-            }
-        };
-
-        let account_update_proofs = {
-            if block_pis.is_valid && (!block_pis.is_registration_block) {
-                let mut account_update_proofs = Vec::new();
-                let block_number = block_pis.block_number;
-                for sender_leaf in sender_leaves.iter() {
-                    let account_id = self.account_tree.index(sender_leaf.sender).unwrap();
-                    let prev_leaf = self.account_tree.get_leaf(account_id);
-                    let prev_last_block_number = prev_leaf.value as u32;
-                    let last_block_number = if sender_leaf.did_return_sig {
-                        block_number
-                    } else {
-                        prev_last_block_number
-                    };
-                    let proof = self
-                        .account_tree
-                        .prove_and_update(sender_leaf.sender, last_block_number as u64);
-                    account_update_proofs.push(proof);
-                }
-                Some(account_update_proofs)
-            } else {
-                None
-            }
-        };
-        let validity_transition_witness = ValidityTransitionWitness {
-            sender_leaves,
-            block_merkle_proof,
-            account_registration_proofs,
-            account_update_proofs,
-        };
-        ValidityWitness {
-            validity_transition_witness,
-            block_witness: block_witness.clone(),
-        }
-    }
-
-    pub fn post_block(
-        &mut self,
-        is_registration_block: bool,
-        txs: Vec<MockTxRequest>,
-    ) -> ValidityWitness {
-        let (block_witness, tx_tree) = self.generate_block(is_registration_block, txs);
-        let validity_witness = self.generate_validity_witness(&block_witness);
-        self.aux_info.insert(
-            block_witness.block.block_number,
-            AuxInfo {
-                tx_tree,
-                validity_witness: validity_witness.clone(),
-                account_tree: self.account_tree.clone(),
-                block_tree: self.block_tree.clone(),
-            },
-        );
-        self.last_block_number = block_witness.block.block_number;
-        self.last_validity_witness = validity_witness.clone();
-
-        validity_witness
-    }
-
-    pub fn get_block_merkle_proof(
-        &self,
-        root_block_number: u32,
-        leaf_block_number: u32,
-    ) -> BlockHashMerkleProof {
-        assert!(root_block_number >= leaf_block_number);
-        let block_tree = &self
-            .aux_info
-            .get(&root_block_number)
-            .expect("current block number not found")
-            .block_tree;
-        block_tree.prove(leaf_block_number as usize)
-    }
-
-    pub fn get_account_membership_proof(
-        &self,
-        current_block_number: u32,
-        pubkey: U256,
-    ) -> AccountMembershipProof {
-        let account_tree = &self
-            .aux_info
-            .get(&current_block_number)
-            .expect("current block number not found")
-            .account_tree;
-        account_tree.prove_membership(pubkey)
-    }
-
-    pub fn last_block_number(&self) -> u32 {
-        self.last_block_number
-    }
-
-    pub fn deposit(&mut self, deposit: &Deposit) -> usize {
-        self.deposit_tree.push(deposit.clone());
-        let deposit_index = self.deposit_tree.len() - 1;
-        deposit_index
+        Ok(tx_tree)
     }
 }
 
@@ -379,16 +188,36 @@ fn construct_signature(
 
 #[cfg(test)]
 mod tests {
-    use crate::utils::test_utils::tx::generate_random_tx_requests;
+    use super::BlockBuilder;
+    use crate::{
+        mock::{contract::MockContract, sync_validity_prover::SyncValidityProver},
+        utils::test_utils::tx::generate_random_tx_requests,
+    };
+    use plonky2::{
+        field::goldilocks_field::GoldilocksField, plonk::config::PoseidonGoldilocksConfig,
+    };
 
-    use super::MockBlockBuilder;
+    type F = GoldilocksField;
+    type C = PoseidonGoldilocksConfig;
+    const D: usize = 2;
 
     #[test]
     fn block_builder() {
         let mut rng = rand::thread_rng();
-        let mut block_builder = MockBlockBuilder::new();
-        for _ in 0..10 {
-            block_builder.post_block(true, generate_random_tx_requests(&mut rng));
+        let block_builder = BlockBuilder;
+        let mut sync_validity_prover = SyncValidityProver::<F, C, D>::new();
+        let mut contract = MockContract::new();
+
+        for _ in 0..3 {
+            block_builder
+                .post_block(
+                    &mut contract,
+                    &sync_validity_prover,
+                    true,
+                    generate_random_tx_requests(&mut rng),
+                )
+                .unwrap();
+            sync_validity_prover.sync(&contract).unwrap();
         }
     }
 }

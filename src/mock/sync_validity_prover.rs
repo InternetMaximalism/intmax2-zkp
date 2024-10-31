@@ -34,9 +34,11 @@ pub struct SyncValidityProver<F, C, const D: usize>
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
+    <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
 {
-    pub validity_processor: ValidityProcessor<F, C, D>,
-    pub last_block_number: u32, // last block number that has been synced
+    pub validity_processor: Option<ValidityProcessor<F, C, D>>, // delayed initialization
+    pub last_block_number: u32,                                 /* last block number that has
+                                                                 * been synced */
     pub account_trees: HashMap<u32, AccountTree>,
     pub block_trees: HashMap<u32, BlockHashTree>,
     pub validity_proofs: HashMap<u32, ProofWithPublicInputs<F, C, D>>,
@@ -60,7 +62,7 @@ where
         block_trees.insert(last_block_number, block_tree);
 
         Self {
-            validity_processor: ValidityProcessor::new(),
+            validity_processor: None,
             last_block_number,
             account_trees,
             block_trees,
@@ -97,7 +99,7 @@ where
                 .update_trees(&mut account_tree, &mut block_tree)
                 .map_err(|e| anyhow::anyhow!("failed to update trees: {}", e))?;
             let validity_proof = self
-                .validity_processor
+                .validity_processor()
                 .prove(&prev_validity_proof, &validity_witness)
                 .unwrap();
 
@@ -143,6 +145,13 @@ where
     }
 
     // utilities
+    pub fn get_account_id(&self, pubkey: U256) -> Option<usize> {
+        self.account_trees
+            .get(&self.last_block_number)
+            .unwrap()
+            .index(pubkey)
+    }
+
     pub fn get_block_merkle_proof(
         &self,
         root_block_number: u32,
@@ -177,7 +186,15 @@ where
         Ok(account_tree.prove_membership(pubkey))
     }
 
-    pub fn validity_circuit(&self) -> &ValidityCircuit<F, C, D> {
-        &self.validity_processor.validity_circuit
+    pub fn validity_processor(&mut self) -> &ValidityProcessor<F, C, D> {
+        if self.validity_processor.is_none() {
+            let validity_processor = ValidityProcessor::new();
+            self.validity_processor = Some(validity_processor);
+        }
+        self.validity_processor.as_ref().unwrap()
+    }
+
+    pub fn validity_circuit(&mut self) -> &ValidityCircuit<F, C, D> {
+        &self.validity_processor().validity_circuit
     }
 }
