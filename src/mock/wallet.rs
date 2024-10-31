@@ -25,7 +25,6 @@ use crate::{
             private_witness::PrivateWitness,
             receive_deposit_witness::ReceiveDepositWitness,
             receive_transfer_witness::ReceiveTransferWitness,
-            send_witness::SendWitness,
             transfer_witness::TransferWitness,
             tx_witness::TxWitness,
         },

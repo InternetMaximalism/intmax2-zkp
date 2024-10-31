@@ -29,8 +29,8 @@ use crate::{
     },
     common::witness::{
         receive_deposit_witness::ReceiveDepositWitness,
-        receive_transfer_witness::ReceiveTransferWitness, send_witness::SendWitness,
-        tx_witness::TxWitness, update_witness::UpdateWitness,
+        receive_transfer_witness::ReceiveTransferWitness, tx_witness::TxWitness,
+        update_witness::UpdateWitness,
     },
     ethereum_types::bytes32::Bytes32,
 };

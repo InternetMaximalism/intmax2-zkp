@@ -3,7 +3,7 @@ pub mod deposit_witness;
 pub mod private_witness;
 pub mod receive_deposit_witness;
 pub mod receive_transfer_witness;
-pub mod send_witness;
+// pub mod send_witness; todo: remove file
 pub mod spent_witness;
 pub mod transfer_witness;
 pub mod tx_witness;

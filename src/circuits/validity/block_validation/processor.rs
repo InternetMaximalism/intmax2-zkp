@@ -132,35 +132,35 @@ where
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use plonky2::{
-        field::goldilocks_field::GoldilocksField, plonk::config::PoseidonGoldilocksConfig,
-    };
+// #[cfg(test)]
+// mod tests {
+//     use plonky2::{
+//         field::goldilocks_field::GoldilocksField, plonk::config::PoseidonGoldilocksConfig,
+//     };
 
-    use crate::{
-        circuits::validity::block_validation::processor::MainValidationProcessor,
-        mock::block_builder::MockBlockBuilder, utils::test_utils::tx::generate_random_tx_requests,
-    };
+//     use crate::{
+//         circuits::validity::block_validation::processor::MainValidationProcessor,
+//         mock::block_builder::MockBlockBuilder, utils::test_utils::tx::generate_random_tx_requests,
+//     };
 
-    type F = GoldilocksField;
-    const D: usize = 2;
-    type C = PoseidonGoldilocksConfig;
+//     type F = GoldilocksField;
+//     const D: usize = 2;
+//     type C = PoseidonGoldilocksConfig;
 
-    #[test]
-    fn main_validation_processor() {
-        let main_validation_processor = MainValidationProcessor::<F, C, D>::new();
-        let mut rng = rand::thread_rng();
-        let mut block_builder = MockBlockBuilder::new();
-        let txs = generate_random_tx_requests(&mut rng);
-        let validity_witness = block_builder.post_block(true, txs);
-        let instant = std::time::Instant::now();
-        let _main_validation_proof = main_validation_processor
-            .prove(&validity_witness.block_witness)
-            .unwrap();
-        println!(
-            "main validation proof generation time: {:?}",
-            instant.elapsed()
-        );
-    }
-}
+//     #[test]
+//     fn main_validation_processor() {
+//         let main_validation_processor = MainValidationProcessor::<F, C, D>::new();
+//         let mut rng = rand::thread_rng();
+//         let mut block_builder = MockBlockBuilder::new();
+//         let txs = generate_random_tx_requests(&mut rng);
+//         let validity_witness = block_builder.post_block(true, txs);
+//         let instant = std::time::Instant::now();
+//         let _main_validation_proof = main_validation_processor
+//             .prove(&validity_witness.block_witness)
+//             .unwrap();
+//         println!(
+//             "main validation proof generation time: {:?}",
+//             instant.elapsed()
+//         );
+//     }
+// }

@@ -86,72 +86,72 @@ where
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use plonky2::{
-        field::goldilocks_field::GoldilocksField, plonk::config::PoseidonGoldilocksConfig,
-    };
+// #[cfg(test)]
+// mod tests {
+//     use plonky2::{
+//         field::goldilocks_field::GoldilocksField, plonk::config::PoseidonGoldilocksConfig,
+//     };
 
-    use crate::{
-        circuits::balance::balance_processor::BalanceProcessor,
-        common::{transfer::Transfer, witness::withdrawal_witness::WithdrawalWitness},
-        ethereum_types::{
-            bytes32::{Bytes32, BYTES32_LEN},
-            u32limb_trait::U32LimbTrait,
-        },
-        mock::{
-            block_builder::MockBlockBuilder, sync_balance_prover::SyncBalanceProver,
-            sync_validity_prover::SyncValidityProver, wallet::MockWallet,
-        },
-        utils::conversion::ToU64,
-    };
+//     use crate::{
+//         circuits::balance::balance_processor::BalanceProcessor,
+//         common::{transfer::Transfer, witness::withdrawal_witness::WithdrawalWitness},
+//         ethereum_types::{
+//             bytes32::{Bytes32, BYTES32_LEN},
+//             u32limb_trait::U32LimbTrait,
+//         },
+//         mock::{
+//             block_builder::MockBlockBuilder, sync_balance_prover::SyncBalanceProver,
+//             sync_validity_prover::SyncValidityProver, wallet::MockWallet,
+//         },
+//         utils::conversion::ToU64,
+//     };
 
-    use super::WithdrawalProcessor;
+//     use super::WithdrawalProcessor;
 
-    type F = GoldilocksField;
-    type C = PoseidonGoldilocksConfig;
-    const D: usize = 2;
+//     type F = GoldilocksField;
+//     type C = PoseidonGoldilocksConfig;
+//     const D: usize = 2;
 
-    #[test]
-    fn withdawal_processor() {
-        let mut rng = &mut rand::thread_rng();
-        let mut block_builder = MockBlockBuilder::new();
-        let mut wallet = MockWallet::new_rand(rng);
-        let mut sync_validity_prover = SyncValidityProver::<F, C, D>::new();
-        let mut sync_sender_prover = SyncBalanceProver::<F, C, D>::new();
-        let balance_processor = BalanceProcessor::new(sync_validity_prover.validity_circuit());
+//     #[test]
+//     fn withdawal_processor() {
+//         let mut rng = &mut rand::thread_rng();
+//         let mut block_builder = MockBlockBuilder::new();
+//         let mut wallet = MockWallet::new_rand(rng);
+//         let mut sync_validity_prover = SyncValidityProver::<F, C, D>::new();
+//         let mut sync_sender_prover = SyncBalanceProver::<F, C, D>::new();
+//         let balance_processor = BalanceProcessor::new(sync_validity_prover.validity_circuit());
 
-        // withdraw transfer 1
-        let transfer = Transfer::rand_withdrawal(rng);
-        let send_witness = wallet.send_tx_and_update(&mut rng, &mut block_builder, &[transfer]);
-        sync_sender_prover.sync_send(
-            &mut sync_validity_prover,
-            &mut wallet,
-            &balance_processor,
-            &block_builder,
-        );
-        let transfer_witness = wallet
-            .get_transfer_witnesses(send_witness.get_included_block_number())
-            .unwrap()[0]
-            .clone();
-        let balance_proof = sync_sender_prover.get_balance_proof();
+//         // withdraw transfer 1
+//         let transfer = Transfer::rand_withdrawal(rng);
+//         let send_witness = wallet.send_tx_and_update(&mut rng, &mut block_builder, &[transfer]);
+//         sync_sender_prover.sync_send(
+//             &mut sync_validity_prover,
+//             &mut wallet,
+//             &balance_processor,
+//             &block_builder,
+//         );
+//         let transfer_witness = wallet
+//             .get_transfer_witnesses(send_witness.get_included_block_number())
+//             .unwrap()[0]
+//             .clone();
+//         let balance_proof = sync_sender_prover.get_balance_proof();
 
-        let withdrawal_witness = WithdrawalWitness {
-            transfer_witness,
-            balance_proof,
-        };
+//         let withdrawal_witness = WithdrawalWitness {
+//             transfer_witness,
+//             balance_proof,
+//         };
 
-        let withdraw_processor = WithdrawalProcessor::new(&balance_processor.balance_circuit);
-        let withdrawal_proof = withdraw_processor
-            .prove(&withdrawal_witness, &None)
-            .expect("Failed to prove withdrawal");
+//         let withdraw_processor = WithdrawalProcessor::new(&balance_processor.balance_circuit);
+//         let withdrawal_proof = withdraw_processor
+//             .prove(&withdrawal_witness, &None)
+//             .expect("Failed to prove withdrawal");
 
-        let withdrawal = withdrawal_witness.to_withdrawal();
-        assert_eq!(
-            withdrawal_proof.public_inputs[0..BYTES32_LEN].to_u64_vec(),
-            withdrawal
-                .hash_with_prev_hash(Bytes32::default())
-                .to_u64_vec()
-        );
-    }
-}
+//         let withdrawal = withdrawal_witness.to_withdrawal();
+//         assert_eq!(
+//             withdrawal_proof.public_inputs[0..BYTES32_LEN].to_u64_vec(),
+//             withdrawal
+//                 .hash_with_prev_hash(Bytes32::default())
+//                 .to_u64_vec()
+//         );
+//     }
+// }

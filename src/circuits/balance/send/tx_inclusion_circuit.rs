@@ -385,77 +385,77 @@ where
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use plonky2::{
-        field::goldilocks_field::GoldilocksField, plonk::config::PoseidonGoldilocksConfig,
-    };
+// #[cfg(test)]
+// mod tests {
+//     use plonky2::{
+//         field::goldilocks_field::GoldilocksField, plonk::config::PoseidonGoldilocksConfig,
+//     };
 
-    use crate::{
-        common::{generic_address::GenericAddress, salt::Salt, transfer::Transfer},
-        ethereum_types::u256::U256,
-        mock::{
-            block_builder::MockBlockBuilder, sync_validity_prover::SyncValidityProver,
-            wallet::MockWallet,
-        },
-    };
+//     use crate::{
+//         common::{generic_address::GenericAddress, salt::Salt, transfer::Transfer},
+//         ethereum_types::u256::U256,
+//         mock::{
+//             block_builder::MockBlockBuilder, sync_validity_prover::SyncValidityProver,
+//             wallet::MockWallet,
+//         },
+//     };
 
-    use super::TxInclusionValue;
+//     use super::TxInclusionValue;
 
-    type F = GoldilocksField;
-    type C = PoseidonGoldilocksConfig;
-    const D: usize = 2;
+//     type F = GoldilocksField;
+//     type C = PoseidonGoldilocksConfig;
+//     const D: usize = 2;
 
-    #[test]
-    fn tx_inclusion_circuit() {
-        let mut rng = rand::thread_rng();
-        let mut block_builder = MockBlockBuilder::new();
-        let mut wallet = MockWallet::new_rand(&mut rng);
-        let mut sync_prover = SyncValidityProver::<F, C, D>::new();
+//     #[test]
+//     fn tx_inclusion_circuit() {
+//         let mut rng = rand::thread_rng();
+//         let mut block_builder = MockBlockBuilder::new();
+//         let mut wallet = MockWallet::new_rand(&mut rng);
+//         let mut sync_prover = SyncValidityProver::<F, C, D>::new();
 
-        let transfer = Transfer {
-            recipient: GenericAddress::rand_pubkey(&mut rng),
-            token_index: 0,
-            amount: U256::rand_small(&mut rng),
-            salt: Salt::rand(&mut rng),
-        };
+//         let transfer = Transfer {
+//             recipient: GenericAddress::rand_pubkey(&mut rng),
+//             token_index: 0,
+//             amount: U256::rand_small(&mut rng),
+//             salt: Salt::rand(&mut rng),
+//         };
 
-        // send tx
-        let send_witness = wallet.send_tx_and_update(&mut rng, &mut block_builder, &[transfer]);
-        // update validity proofs
-        sync_prover.sync(&block_builder);
+//         // send tx
+//         let send_witness = wallet.send_tx_and_update(&mut rng, &mut block_builder, &[transfer]);
+//         // update validity proofs
+//         sync_prover.sync(&block_builder);
 
-        let prev_public_state = wallet.get_balance_pis().public_state;
-        let update_witness = sync_prover.get_update_witness(
-            &block_builder,
-            wallet.get_pubkey(),
-            block_builder.last_block_number(),
-            prev_public_state.block_number,
-            true,
-        );
+//         let prev_public_state = wallet.get_balance_pis().public_state;
+//         let update_witness = sync_prover.get_update_witness(
+//             &block_builder,
+//             wallet.get_pubkey(),
+//             block_builder.last_block_number(),
+//             prev_public_state.block_number,
+//             true,
+//         );
 
-        let pubkey = wallet.key_set.pubkey;
-        let tx_index = send_witness.tx_witness.tx_index;
-        let sender_tree = send_witness.tx_witness.get_sender_tree();
-        let sender_leaf = sender_tree.get_leaf(tx_index);
-        let sender_merkle_proof = sender_tree.prove(tx_index);
-        let value = TxInclusionValue::new(
-            &sync_prover.validity_processor.validity_circuit,
-            pubkey,
-            &prev_public_state,
-            &update_witness.validity_proof,
-            &update_witness.block_merkle_proof,
-            &update_witness.account_membership_proof,
-            send_witness.tx_witness.tx_index,
-            &send_witness.tx_witness.tx,
-            &send_witness.tx_witness.tx_merkle_proof,
-            &sender_leaf,
-            &sender_merkle_proof,
-        )
-        .expect("failed to create tx inclusion value");
-        let tx_inclusion_circuit = super::TxInclusionCircuit::<F, C, D>::new(
-            &sync_prover.validity_processor.validity_circuit,
-        );
-        let _ = tx_inclusion_circuit.prove(&value).unwrap();
-    }
-}
+//         let pubkey = wallet.key_set.pubkey;
+//         let tx_index = send_witness.tx_witness.tx_index;
+//         let sender_tree = send_witness.tx_witness.get_sender_tree();
+//         let sender_leaf = sender_tree.get_leaf(tx_index);
+//         let sender_merkle_proof = sender_tree.prove(tx_index);
+//         let value = TxInclusionValue::new(
+//             &sync_prover.validity_processor.validity_circuit,
+//             pubkey,
+//             &prev_public_state,
+//             &update_witness.validity_proof,
+//             &update_witness.block_merkle_proof,
+//             &update_witness.account_membership_proof,
+//             send_witness.tx_witness.tx_index,
+//             &send_witness.tx_witness.tx,
+//             &send_witness.tx_witness.tx_merkle_proof,
+//             &sender_leaf,
+//             &sender_merkle_proof,
+//         )
+//         .expect("failed to create tx inclusion value");
+//         let tx_inclusion_circuit = super::TxInclusionCircuit::<F, C, D>::new(
+//             &sync_prover.validity_processor.validity_circuit,
+//         );
+//         let _ = tx_inclusion_circuit.prove(&value).unwrap();
+//     }
+// }

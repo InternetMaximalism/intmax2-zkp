@@ -16,8 +16,7 @@ use crate::{
     common::{
         trees::sender_tree,
         witness::{
-            send_witness::SendWitness, spent_witness::SpentWitness, tx_witness::TxWitness,
-            update_witness::UpdateWitness,
+            spent_witness::SpentWitness, tx_witness::TxWitness, update_witness::UpdateWitness,
         },
     },
 };

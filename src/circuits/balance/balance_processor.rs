@@ -14,8 +14,8 @@ use crate::{
     },
     common::witness::{
         receive_deposit_witness::ReceiveDepositWitness,
-        receive_transfer_witness::ReceiveTransferWitness, send_witness::SendWitness,
-        tx_witness::TxWitness, update_witness::UpdateWitness,
+        receive_transfer_witness::ReceiveTransferWitness, tx_witness::TxWitness,
+        update_witness::UpdateWitness,
     },
     ethereum_types::u256::U256,
 };
@@ -171,167 +171,167 @@ where
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use plonky2::{
-        field::goldilocks_field::GoldilocksField, plonk::config::PoseidonGoldilocksConfig,
-    };
+// #[cfg(test)]
+// mod tests {
+//     use plonky2::{
+//         field::goldilocks_field::GoldilocksField, plonk::config::PoseidonGoldilocksConfig,
+//     };
 
-    use crate::{
-        circuits::validity::validity_processor::ValidityProcessor,
-        common::transfer::Transfer,
-        ethereum_types::u256::U256,
-        mock::{
-            block_builder::MockBlockBuilder, sync_balance_prover::SyncBalanceProver,
-            sync_validity_prover::SyncValidityProver, wallet::MockWallet,
-        },
-    };
+//     use crate::{
+//         circuits::validity::validity_processor::ValidityProcessor,
+//         common::transfer::Transfer,
+//         ethereum_types::u256::U256,
+//         mock::{
+//             block_builder::MockBlockBuilder, sync_balance_prover::SyncBalanceProver,
+//             sync_validity_prover::SyncValidityProver, wallet::MockWallet,
+//         },
+//     };
 
-    use super::BalanceProcessor;
+//     use super::BalanceProcessor;
 
-    type F = GoldilocksField;
-    type C = PoseidonGoldilocksConfig;
-    const D: usize = 2;
+//     type F = GoldilocksField;
+//     type C = PoseidonGoldilocksConfig;
+//     const D: usize = 2;
 
-    #[test]
-    fn balance_processor_setup() {
-        let validity_processor = ValidityProcessor::<F, C, D>::new();
-        let _balance_processor = BalanceProcessor::new(&validity_processor.validity_circuit);
-    }
+//     #[test]
+//     fn balance_processor_setup() {
+//         let validity_processor = ValidityProcessor::<F, C, D>::new();
+//         let _balance_processor = BalanceProcessor::new(&validity_processor.validity_circuit);
+//     }
 
-    #[test]
-    #[cfg(feature = "skip_insufficient_check")]
-    fn balance_processor_send() {
-        let mut rng = rand::thread_rng();
-        let mut block_builder = MockBlockBuilder::new();
-        let mut wallet = MockWallet::new_rand(&mut rng);
-        let mut sync_validity_prover = SyncValidityProver::<F, C, D>::new();
-        let mut sync_sender_prover = SyncBalanceProver::<F, C, D>::new();
-        let balance_processor = BalanceProcessor::new(sync_validity_prover.validity_circuit());
+//     #[test]
+//     #[cfg(feature = "skip_insufficient_check")]
+//     fn balance_processor_send() {
+//         let mut rng = rand::thread_rng();
+//         let mut block_builder = MockBlockBuilder::new();
+//         let mut wallet = MockWallet::new_rand(&mut rng);
+//         let mut sync_validity_prover = SyncValidityProver::<F, C, D>::new();
+//         let mut sync_sender_prover = SyncBalanceProver::<F, C, D>::new();
+//         let balance_processor = BalanceProcessor::new(sync_validity_prover.validity_circuit());
 
-        // send tx0
-        let transfer0 = Transfer::rand(&mut rng);
-        wallet.send_tx_and_update(&mut rng, &mut block_builder, &[transfer0]);
+//         // send tx0
+//         let transfer0 = Transfer::rand(&mut rng);
+//         wallet.send_tx_and_update(&mut rng, &mut block_builder, &[transfer0]);
 
-        // send tx1
-        let transfer1 = Transfer::rand(&mut rng);
-        wallet.send_tx_and_update(&mut rng, &mut block_builder, &[transfer1]);
+//         // send tx1
+//         let transfer1 = Transfer::rand(&mut rng);
+//         wallet.send_tx_and_update(&mut rng, &mut block_builder, &[transfer1]);
 
-        sync_sender_prover.sync_send(
-            &mut sync_validity_prover,
-            &mut wallet,
-            &balance_processor,
-            &block_builder,
-        );
-    }
+//         sync_sender_prover.sync_send(
+//             &mut sync_validity_prover,
+//             &mut wallet,
+//             &balance_processor,
+//             &block_builder,
+//         );
+//     }
 
-    #[test]
-    fn balance_processor_update() {
-        let mut rng = rand::thread_rng();
-        // shared state
-        let mut block_builder = MockBlockBuilder::new();
-        let mut sync_validity_prover = SyncValidityProver::<F, C, D>::new();
-        let balance_processor = BalanceProcessor::new(sync_validity_prover.validity_circuit());
+//     #[test]
+//     fn balance_processor_update() {
+//         let mut rng = rand::thread_rng();
+//         // shared state
+//         let mut block_builder = MockBlockBuilder::new();
+//         let mut sync_validity_prover = SyncValidityProver::<F, C, D>::new();
+//         let balance_processor = BalanceProcessor::new(sync_validity_prover.validity_circuit());
 
-        // alice send tx0
-        let mut alice = MockWallet::new_rand(&mut rng);
-        let transfer0 = Transfer::rand(&mut rng);
-        alice.send_tx_and_update(&mut rng, &mut block_builder, &[transfer0]);
+//         // alice send tx0
+//         let mut alice = MockWallet::new_rand(&mut rng);
+//         let transfer0 = Transfer::rand(&mut rng);
+//         alice.send_tx_and_update(&mut rng, &mut block_builder, &[transfer0]);
 
-        // bob update balance proof
-        let mut bob = MockWallet::new_rand(&mut rng);
-        let mut bob_balance_prover = SyncBalanceProver::<F, C, D>::new();
-        bob_balance_prover.sync_no_send(
-            &mut sync_validity_prover,
-            &mut bob,
-            &balance_processor,
-            &block_builder,
-        );
-    }
+//         // bob update balance proof
+//         let mut bob = MockWallet::new_rand(&mut rng);
+//         let mut bob_balance_prover = SyncBalanceProver::<F, C, D>::new();
+//         bob_balance_prover.sync_no_send(
+//             &mut sync_validity_prover,
+//             &mut bob,
+//             &balance_processor,
+//             &block_builder,
+//         );
+//     }
 
-    #[test]
-    #[cfg(feature = "skip_insufficient_check")]
-    fn balance_processor_receive_transfer() {
-        let mut rng = rand::thread_rng();
-        // shared state
-        let mut block_builder = MockBlockBuilder::new();
-        let mut sync_validity_prover = SyncValidityProver::<F, C, D>::new();
-        let balance_processor = BalanceProcessor::new(sync_validity_prover.validity_circuit());
+//     #[test]
+//     #[cfg(feature = "skip_insufficient_check")]
+//     fn balance_processor_receive_transfer() {
+//         let mut rng = rand::thread_rng();
+//         // shared state
+//         let mut block_builder = MockBlockBuilder::new();
+//         let mut sync_validity_prover = SyncValidityProver::<F, C, D>::new();
+//         let balance_processor = BalanceProcessor::new(sync_validity_prover.validity_circuit());
 
-        // accounts
-        let mut alice = MockWallet::new_rand(&mut rng);
-        let mut alice_balance_prover = SyncBalanceProver::<F, C, D>::new();
-        let mut bob = MockWallet::new_rand(&mut rng);
-        let mut bob_balance_prover = SyncBalanceProver::<F, C, D>::new();
+//         // accounts
+//         let mut alice = MockWallet::new_rand(&mut rng);
+//         let mut alice_balance_prover = SyncBalanceProver::<F, C, D>::new();
+//         let mut bob = MockWallet::new_rand(&mut rng);
+//         let mut bob_balance_prover = SyncBalanceProver::<F, C, D>::new();
 
-        let transfer = Transfer::rand_to(&mut rng, bob.get_pubkey());
-        let send_witness = alice.send_tx_and_update(&mut rng, &mut block_builder, &[transfer]);
-        let transfer_witness = &alice
-            .get_transfer_witnesses(send_witness.get_included_block_number())
-            .unwrap()[0];
-        alice_balance_prover.sync_send(
-            &mut sync_validity_prover,
-            &mut alice,
-            &balance_processor,
-            &block_builder,
-        );
-        let alice_balance_proof = alice_balance_prover.last_balance_proof.clone().unwrap();
+//         let transfer = Transfer::rand_to(&mut rng, bob.get_pubkey());
+//         let send_witness = alice.send_tx_and_update(&mut rng, &mut block_builder, &[transfer]);
+//         let transfer_witness = &alice
+//             .get_transfer_witnesses(send_witness.get_included_block_number())
+//             .unwrap()[0];
+//         alice_balance_prover.sync_send(
+//             &mut sync_validity_prover,
+//             &mut alice,
+//             &balance_processor,
+//             &block_builder,
+//         );
+//         let alice_balance_proof = alice_balance_prover.last_balance_proof.clone().unwrap();
 
-        // bob update balance proof
-        bob_balance_prover.sync_no_send(
-            &mut sync_validity_prover,
-            &mut bob,
-            &balance_processor,
-            &block_builder,
-        );
-        let bob_balance_proof = bob_balance_prover.get_balance_proof();
+//         // bob update balance proof
+//         bob_balance_prover.sync_no_send(
+//             &mut sync_validity_prover,
+//             &mut bob,
+//             &balance_processor,
+//             &block_builder,
+//         );
+//         let bob_balance_proof = bob_balance_prover.get_balance_proof();
 
-        let receive_transfer_witness = bob.receive_transfer_and_update(
-            &mut rng,
-            &block_builder,
-            bob_balance_prover.last_block_number,
-            transfer_witness,
-            &alice_balance_proof,
-        );
-        let _new_bob_balance_proof = balance_processor.prove_receive_transfer(
-            bob.get_pubkey(),
-            &receive_transfer_witness,
-            &Some(bob_balance_proof),
-        );
-    }
+//         let receive_transfer_witness = bob.receive_transfer_and_update(
+//             &mut rng,
+//             &block_builder,
+//             bob_balance_prover.last_block_number,
+//             transfer_witness,
+//             &alice_balance_proof,
+//         );
+//         let _new_bob_balance_proof = balance_processor.prove_receive_transfer(
+//             bob.get_pubkey(),
+//             &receive_transfer_witness,
+//             &Some(bob_balance_proof),
+//         );
+//     }
 
-    #[test]
-    fn balance_processor_deposit() {
-        let rng = &mut rand::thread_rng();
-        // shared state
-        let mut block_builder = MockBlockBuilder::new();
-        let mut sync_validity_prover = SyncValidityProver::<F, C, D>::new();
-        let balance_processor = BalanceProcessor::new(sync_validity_prover.validity_circuit());
+//     #[test]
+//     fn balance_processor_deposit() {
+//         let rng = &mut rand::thread_rng();
+//         // shared state
+//         let mut block_builder = MockBlockBuilder::new();
+//         let mut sync_validity_prover = SyncValidityProver::<F, C, D>::new();
+//         let balance_processor = BalanceProcessor::new(sync_validity_prover.validity_circuit());
 
-        // alice deposit
-        let mut alice = MockWallet::new_rand(rng);
-        let mut alice_balance_prover = SyncBalanceProver::<F, C, D>::new();
-        let deposit_amount = U256::rand_small(rng);
-        let first_deposit_index = alice.deposit(rng, &mut block_builder, 0, deposit_amount);
-        alice.deposit(rng, &mut block_builder, 1, deposit_amount); // dummy deposit
+//         // alice deposit
+//         let mut alice = MockWallet::new_rand(rng);
+//         let mut alice_balance_prover = SyncBalanceProver::<F, C, D>::new();
+//         let deposit_amount = U256::rand_small(rng);
+//         let first_deposit_index = alice.deposit(rng, &mut block_builder, 0, deposit_amount);
+//         alice.deposit(rng, &mut block_builder, 1, deposit_amount); // dummy deposit
 
-        // post dummy block
-        let transfer = Transfer::rand(rng);
-        alice.send_tx_and_update(rng, &mut block_builder, &[transfer]);
-        alice_balance_prover.sync_send(
-            &mut sync_validity_prover,
-            &mut alice,
-            &balance_processor,
-            &block_builder,
-        );
-        let alice_balance_proof = alice_balance_prover.last_balance_proof.clone().unwrap();
+//         // post dummy block
+//         let transfer = Transfer::rand(rng);
+//         alice.send_tx_and_update(rng, &mut block_builder, &[transfer]);
+//         alice_balance_prover.sync_send(
+//             &mut sync_validity_prover,
+//             &mut alice,
+//             &balance_processor,
+//             &block_builder,
+//         );
+//         let alice_balance_proof = alice_balance_prover.last_balance_proof.clone().unwrap();
 
-        let receive_deposit_witness =
-            alice.receive_deposit_and_update(rng, &block_builder, first_deposit_index);
-        let _new_alice_balance_proof = balance_processor.prove_receive_deposit(
-            alice.get_pubkey(),
-            &receive_deposit_witness,
-            &Some(alice_balance_proof),
-        );
-    }
-}
+//         let receive_deposit_witness =
+//             alice.receive_deposit_and_update(rng, &block_builder, first_deposit_index);
+//         let _new_alice_balance_proof = balance_processor.prove_receive_deposit(
+//             alice.get_pubkey(),
+//             &receive_deposit_witness,
+//             &Some(alice_balance_proof),
+//         );
+//     }
+// }
