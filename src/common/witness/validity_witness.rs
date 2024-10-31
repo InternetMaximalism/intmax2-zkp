@@ -14,13 +14,6 @@ pub struct ValidityWitness {
     pub validity_transition_witness: ValidityTransitionWitness,
 }
 
-// #[derive(Debug, Clone, Serialize, Deserialize)]
-// #[serde(rename_all = "camelCase")]
-// pub struct CompressedValidityWitness {
-//     pub block_witness: CompressedBlockWitness,
-//     pub validity_transition_witness: CompressedValidityTransitionWitness,
-// }
-
 impl ValidityWitness {
     pub fn genesis() -> Self {
         Self {
@@ -29,23 +22,7 @@ impl ValidityWitness {
         }
     }
 
-    // pub fn compress(&self, max_account_id: usize) -> CompressedValidityWitness {
-    //     CompressedValidityWitness {
-    //         block_witness: self.block_witness.compress(max_account_id),
-    //         validity_transition_witness:
-    // self.validity_transition_witness.compress(max_account_id),     }
-    // }
-
-    // pub fn decompress(compressed: &CompressedValidityWitness) -> Self {
-    //     Self {
-    //         block_witness: BlockWitness::decompress(&compressed.block_witness),
-    //         validity_transition_witness: ValidityTransitionWitness::decompress(
-    //             &compressed.validity_transition_witness,
-    //         ),
-    //     }
-    // }
-
-    pub fn to_validity_pis(&self) -> ValidityPublicInputs {
+    pub fn to_validity_pis(&self) -> anyhow::Result<ValidityPublicInputs> {
         // calculate new roots
         let prev_block_tree_root = self.block_witness.prev_block_tree_root;
 
@@ -64,7 +41,12 @@ impl ValidityWitness {
             .block_merkle_proof
             .get_root(&block.hash(), block.block_number as usize);
 
-        let main_validation_pis = self.block_witness.to_main_validation_pis();
+        let main_validation_pis = self.block_witness.to_main_validation_pis().map_err(|e| {
+            anyhow::anyhow!(
+                "Failed to convert block witness to main validation pis: {}",
+                e
+            )
+        })?;
 
         // transition account tree root
         let prev_account_tree_root = self.block_witness.prev_account_tree_root;
@@ -74,7 +56,9 @@ impl ValidityWitness {
                 .validity_transition_witness
                 .account_registration_proofs
                 .as_ref()
-                .expect("account_registration_proofs should be given");
+                .ok_or(anyhow::anyhow!(
+                    "account_registration_proofs should be given"
+                ))?;
             for (sender_leaf, account_registration_proof) in self
                 .validity_transition_witness
                 .sender_leaves
@@ -94,7 +78,12 @@ impl ValidityWitness {
                         last_block_number as u64,
                         account_tree_root,
                     )
-                    .expect("Invalid account registration proof");
+                    .map_err(|e| {
+                        anyhow::anyhow!(
+                            "Failed to get new root from account registration proof: {}",
+                            e
+                        )
+                    })?;
             }
         }
         if main_validation_pis.is_valid && !main_validation_pis.is_registration_block {
@@ -126,7 +115,7 @@ impl ValidityWitness {
             }
         }
 
-        ValidityPublicInputs {
+        Ok(ValidityPublicInputs {
             public_state: PublicState {
                 prev_account_tree_root,
                 account_tree_root,
@@ -138,7 +127,7 @@ impl ValidityWitness {
             tx_tree_root: main_validation_pis.tx_tree_root,
             sender_tree_root: main_validation_pis.sender_tree_root,
             is_valid_block: main_validation_pis.is_valid,
-        }
+        })
     }
 
     pub fn get_block_number(&self) -> u32 {

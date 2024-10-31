@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{ensure, Result};
 use plonky2::{
     field::extension::Extendable,
     hash::hash_types::RichField,
@@ -61,22 +61,31 @@ where
         prev_pis: &ValidityPublicInputs,
         validity_witness: &ValidityWitness,
     ) -> Result<ProofWithPublicInputs<F, C, D>> {
-        let new_pis = validity_witness.to_validity_pis();
+        let new_pis = validity_witness.to_validity_pis().map_err(|e| {
+            anyhow::anyhow!(
+                "Failed to convert validity witness to validity public inputs: {}",
+                e
+            )
+        })?;
 
         // assertion
-        assert_eq!(
-            prev_pis.public_state.account_tree_root,
-            validity_witness.block_witness.prev_account_tree_root
+        ensure!(
+            prev_pis.public_state.account_tree_root
+                == validity_witness.block_witness.prev_account_tree_root,
+            "Account tree root mismatch"
         );
-        assert_eq!(
-            prev_pis.public_state.block_tree_root,
-            validity_witness.block_witness.prev_block_tree_root
+        ensure!(
+            prev_pis.public_state.block_tree_root
+                == validity_witness.block_witness.prev_block_tree_root,
+            "Block tree root mismatch"
         );
 
         let mut pw = PartialWitness::<F>::new();
         self.prev_pis.set_witness(&mut pw, &prev_pis);
         self.new_pis.set_witness(&mut pw, &new_pis);
-        self.data.prove(pw)
+        self.data
+            .prove(pw)
+            .map_err(|e| anyhow::anyhow!("Failed to prove: {}", e))
     }
 }
 

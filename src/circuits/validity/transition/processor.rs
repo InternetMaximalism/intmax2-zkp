@@ -68,7 +68,15 @@ where
         let prev_account_tree_root = validity_witness.block_witness.prev_account_tree_root;
         let prev_block_tree_root = validity_witness.block_witness.prev_block_tree_root;
 
-        let block_pis = validity_witness.block_witness.to_main_validation_pis();
+        let block_pis = validity_witness
+            .block_witness
+            .to_main_validation_pis()
+            .map_err(|e| {
+                anyhow::anyhow!(
+                    "Failed to convert block witness to main validation pis: {}",
+                    e
+                )
+            })?;
 
         let account_registration_proof = if block_pis.is_valid && block_pis.is_registration_block {
             let account_registration_proofs = validity_witness
@@ -115,7 +123,7 @@ where
         let transition_value = ValidityTransitionValue::new(
             &self.account_registration_circuit,
             &self.account_update_circuit,
-            validity_witness.block_witness.to_main_validation_pis(),
+            block_pis,
             prev_account_tree_root,
             prev_block_tree_root,
             account_registration_proof,
@@ -142,8 +150,8 @@ where
 // #[cfg(test)]
 // mod tests {
 //     use crate::{
-//         mock::block_builder::MockBlockBuilder, utils::test_utils::tx::generate_random_tx_requests,
-//     };
+//         mock::block_builder::MockBlockBuilder,
+// utils::test_utils::tx::generate_random_tx_requests,     };
 //     use plonky2::{
 //         field::goldilocks_field::GoldilocksField, plonk::config::PoseidonGoldilocksConfig,
 //     };

@@ -1,3 +1,4 @@
+use anyhow::ensure;
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -13,14 +14,20 @@ use crate::{
         block::Block,
         signature::{utils::get_pubkey_hash, SignatureContent},
         trees::{
-            account_tree::{AccountMembershipProof, AccountMerkleProof, AccountTree},
+            account_tree::{
+                AccountMembershipProof, AccountMerkleProof, AccountRegistrationProof, AccountTree,
+            },
             block_hash_tree::BlockHashTree,
             sender_tree::{get_sender_leaves, get_sender_tree_root, SenderTree},
         },
     },
-    constants::{BLOCK_HASH_TREE_HEIGHT, SENDER_TREE_HEIGHT},
+    constants::{ACCOUNT_TREE_HEIGHT, BLOCK_HASH_TREE_HEIGHT, SENDER_TREE_HEIGHT},
     ethereum_types::{account_id_packed::AccountIdPacked, u256::U256},
     utils::poseidon_hash_out::PoseidonHashOut,
+};
+
+use super::{
+    validity_transition_witness::ValidityTransitionWitness, validity_witness::ValidityWitness,
 };
 
 /// A structure that holds all the information needed to verify a block
@@ -53,10 +60,10 @@ impl BlockWitness {
         }
     }
 
-    pub fn to_main_validation_pis(&self) -> MainValidationPublicInputs {
+    pub fn to_main_validation_pis(&self) -> anyhow::Result<MainValidationPublicInputs> {
         if self.block == Block::genesis() {
             let validity_pis = ValidityPublicInputs::genesis();
-            return MainValidationPublicInputs {
+            return Ok(MainValidationPublicInputs {
                 prev_block_hash: Block::genesis().prev_block_hash,
                 block_hash: validity_pis.public_state.block_hash,
                 deposit_tree_root: validity_pis.public_state.deposit_tree_root,
@@ -66,7 +73,7 @@ impl BlockWitness {
                 block_number: validity_pis.public_state.block_number,
                 is_registration_block: false, // genesis block is not a registration block
                 is_valid: validity_pis.is_valid_block,
-            };
+            });
         }
 
         let mut result = true;
@@ -79,7 +86,7 @@ impl BlockWitness {
         let is_registration_block = signature.is_registration_block;
         let is_pubkey_eq = signature.pubkey_hash == pubkey_hash;
         if is_registration_block {
-            assert!(is_pubkey_eq, "pubkey hash mismatch");
+            ensure!(is_pubkey_eq, "pubkey hash mismatch");
         } else {
             result = result && is_pubkey_eq;
         }
@@ -87,7 +94,11 @@ impl BlockWitness {
             // Account exclusion verification
             let account_exclusion_value = AccountExclusionValue::new(
                 account_tree_root,
-                self.account_membership_proofs.clone().unwrap(),
+                self.account_membership_proofs
+                    .clone()
+                    .ok_or(anyhow::anyhow!(
+                        "account_membership_proofs is None in registration block"
+                    ))?,
                 pubkeys.clone(),
             );
             result = result && account_exclusion_value.is_valid;
@@ -95,8 +106,12 @@ impl BlockWitness {
             // Account inclusion verification
             let account_inclusion_value = AccountInclusionValue::new(
                 account_tree_root,
-                self.account_id_packed.unwrap(),
-                self.account_merkle_proofs.clone().unwrap(),
+                self.account_id_packed.clone().ok_or(anyhow::anyhow!(
+                    "account_id_packed is None in non-registration block"
+                ))?,
+                self.account_merkle_proofs.clone().ok_or(anyhow::anyhow!(
+                    "account_merkle_proofs is None in non-registration block"
+                ))?,
                 pubkeys.clone(),
             );
             result = result && account_inclusion_value.is_valid;
@@ -117,7 +132,7 @@ impl BlockWitness {
         let sender_tree_root = get_sender_tree_root(&pubkeys, signature.sender_flag);
 
         let tx_tree_root = signature.tx_tree_root;
-        MainValidationPublicInputs {
+        Ok(MainValidationPublicInputs {
             prev_block_hash,
             block_hash,
             deposit_tree_root: block.deposit_tree_root,
@@ -127,7 +142,98 @@ impl BlockWitness {
             block_number: block.block_number,
             is_registration_block,
             is_valid: result,
-        }
+        })
+    }
+
+    pub fn to_validity_witness(
+        &self,
+        account_tree: &AccountTree,
+        block_tree: &BlockHashTree,
+    ) -> anyhow::Result<ValidityWitness> {
+        let mut account_tree = account_tree.clone();
+        let mut block_tree = block_tree.clone();
+        self.update_trees(&mut account_tree, &mut block_tree)
+    }
+
+    pub fn update_trees(
+        &self,
+        account_tree: &mut AccountTree,
+        block_tree: &mut BlockHashTree,
+    ) -> anyhow::Result<ValidityWitness> {
+        let block_pis = self.to_main_validation_pis().map_err(|e| {
+            anyhow::anyhow!("failed to convert to main validation public inputs: {}", e)
+        })?;
+        ensure!(
+            block_pis.block_number == block_tree.len() as u32,
+            "block number mismatch"
+        );
+
+        // Update block tree
+        let block_merkle_proof = block_tree.prove(self.block.block_number as usize);
+        block_tree.push(self.block.hash());
+
+        // Update account tree
+        let sender_leaves = get_sender_leaves(&self.pubkeys, self.signature.sender_flag);
+        let account_registration_proofs = {
+            if block_pis.is_valid && block_pis.is_registration_block {
+                let mut account_registration_proofs = Vec::new();
+                for sender_leaf in &sender_leaves {
+                    let last_block_number = if sender_leaf.did_return_sig {
+                        block_pis.block_number
+                    } else {
+                        0
+                    };
+                    let is_dummy_pubkey = sender_leaf.sender.is_dummy_pubkey();
+                    let proof = if is_dummy_pubkey {
+                        AccountRegistrationProof::dummy(ACCOUNT_TREE_HEIGHT)
+                    } else {
+                        account_tree
+                            .prove_and_insert(sender_leaf.sender, last_block_number as u64)
+                            .map_err(|e| {
+                                anyhow::anyhow!("failed to prove and insert account_tree: {}", e)
+                            })?
+                    };
+                    account_registration_proofs.push(proof);
+                }
+                Some(account_registration_proofs)
+            } else {
+                None
+            }
+        };
+
+        let account_update_proofs = {
+            if block_pis.is_valid && (!block_pis.is_registration_block) {
+                let mut account_update_proofs = Vec::new();
+                let block_number = block_pis.block_number;
+                for sender_leaf in sender_leaves.iter() {
+                    let account_id = account_tree.index(sender_leaf.sender).unwrap();
+                    let prev_leaf = account_tree.get_leaf(account_id);
+                    let prev_last_block_number = prev_leaf.value as u32;
+                    let last_block_number = if sender_leaf.did_return_sig {
+                        block_number
+                    } else {
+                        prev_last_block_number
+                    };
+                    let proof =
+                        account_tree.prove_and_update(sender_leaf.sender, last_block_number as u64);
+                    account_update_proofs.push(proof);
+                }
+                Some(account_update_proofs)
+            } else {
+                None
+            }
+        };
+
+        let validity_transition_witness = ValidityTransitionWitness {
+            sender_leaves,
+            block_merkle_proof,
+            account_registration_proofs,
+            account_update_proofs,
+        };
+        Ok(ValidityWitness {
+            validity_transition_witness,
+            block_witness: self.clone(),
+        })
     }
 
     pub fn get_sender_tree(&self) -> SenderTree {

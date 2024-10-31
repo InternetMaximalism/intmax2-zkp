@@ -31,6 +31,15 @@ impl MockContract {
         self.full_blocks.len() as u32
     }
 
+    pub fn get_full_block(&self, block_number: u32) -> anyhow::Result<FullBlock> {
+        ensure!(
+            block_number < self.get_block_number(),
+            "block number {} is out of range",
+            block_number
+        );
+        Ok(self.full_blocks[block_number as usize].clone())
+    }
+
     pub fn get_prev_block_hash(&self) -> Bytes32 {
         self.full_blocks
             .last()
