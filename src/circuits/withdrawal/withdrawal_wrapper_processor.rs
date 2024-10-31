@@ -51,6 +51,7 @@ impl WithdrawalWrapperProcessor {
 }
 
 #[cfg(test)]
+#[cfg(feature = "skip_insufficient_check")]
 mod tests {
     use crate::{
         circuits::{

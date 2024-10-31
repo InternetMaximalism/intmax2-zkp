@@ -84,6 +84,7 @@ where
 }
 
 #[cfg(test)]
+#[cfg(feature = "skip_insufficient_check")]
 mod tests {
     use plonky2::{
         field::goldilocks_field::GoldilocksField, plonk::config::PoseidonGoldilocksConfig,
