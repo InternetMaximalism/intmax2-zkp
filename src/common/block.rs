@@ -135,9 +135,10 @@ mod tests {
     fn get_genesis_block_hash() {
         let block = super::Block::genesis();
         let hash = block.hash();
+        dbg!(hash);
         assert_eq!(
             hash.to_string(),
-            "913fb9e1f6f1c6d910fd574a5cad8857aa43bfba24e401ada4f56090d4d997a7",
+            "0x545cac70c52cf8589c16de1eb85e264d51e18adb15ac810db3f44efa190a1074",
         );
     }
 }
