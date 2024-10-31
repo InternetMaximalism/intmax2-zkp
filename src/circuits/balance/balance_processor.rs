@@ -15,7 +15,7 @@ use crate::{
     common::witness::{
         receive_deposit_witness::ReceiveDepositWitness,
         receive_transfer_witness::ReceiveTransferWitness, send_witness::SendWitness,
-        update_witness::UpdateWitness,
+        tx_witness::TxWitness, update_witness::UpdateWitness,
     },
     ethereum_types::u256::U256,
 };
@@ -61,17 +61,21 @@ where
         &self,
         validity_circuit: &ValidityCircuit<F, C, D>,
         pubkey: U256,
-        send_witness: &SendWitness,
+        tx_witnes: &TxWitness,
         update_witness: &UpdateWitness<F, C, D>,
+        spent_proof: &ProofWithPublicInputs<F, C, D>,
         prev_proof: &Option<ProofWithPublicInputs<F, C, D>>,
     ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
+        let prev_balance_pis = get_prev_balance_pis(pubkey, prev_proof);
         let transition_proof = self
             .balance_transition_processor
             .prove_send(
                 validity_circuit,
                 &self.get_verifier_only_data(),
-                send_witness,
+                &prev_balance_pis,
+                tx_witnes,
                 update_witness,
+                spent_proof,
             )
             .map_err(|e| anyhow::anyhow!("failed to prove send: {:?}", e))?;
         let proof = self
@@ -88,11 +92,7 @@ where
         update_witness: &UpdateWitness<F, C, D>,
         prev_proof: &Option<ProofWithPublicInputs<F, C, D>>,
     ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
-        let prev_balance_pis = if prev_proof.is_some() {
-            BalancePublicInputs::from_pis(&prev_proof.as_ref().unwrap().public_inputs)
-        } else {
-            BalancePublicInputs::new(pubkey)
-        };
+        let prev_balance_pis = get_prev_balance_pis(pubkey, prev_proof);
         let transition_proof = self
             .balance_transition_processor
             .prove_update(
@@ -115,11 +115,7 @@ where
         receive_transfer_witness: &ReceiveTransferWitness<F, C, D>,
         prev_proof: &Option<ProofWithPublicInputs<F, C, D>>,
     ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
-        let prev_balance_pis = if prev_proof.is_some() {
-            BalancePublicInputs::from_pis(&prev_proof.as_ref().unwrap().public_inputs)
-        } else {
-            BalancePublicInputs::new(pubkey)
-        };
+        let prev_balance_pis = get_prev_balance_pis(pubkey, prev_proof);
         let transition_proof = self
             .balance_transition_processor
             .prove_receive_transfer(
@@ -141,11 +137,7 @@ where
         receive_deposit_witness: &ReceiveDepositWitness,
         prev_proof: &Option<ProofWithPublicInputs<F, C, D>>,
     ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
-        let prev_balance_pis = if prev_proof.is_some() {
-            BalancePublicInputs::from_pis(&prev_proof.as_ref().unwrap().public_inputs)
-        } else {
-            BalancePublicInputs::new(pubkey)
-        };
+        let prev_balance_pis = get_prev_balance_pis(pubkey, prev_proof);
         let transition_proof = self
             .balance_transition_processor
             .prove_receive_deposit(
@@ -159,6 +151,23 @@ where
             .prove(pubkey, &transition_proof, prev_proof)
             .map_err(|e| anyhow::anyhow!("failed to prove receive deposit: {:?}", e))?;
         Ok(proof)
+    }
+}
+
+/// Get previous balance public inputs from previous balance proof
+/// or create new balance public inputs from pubkey if no previous proof
+fn get_prev_balance_pis<F, C, const D: usize>(
+    pubkey: U256,
+    prev_proof: &Option<ProofWithPublicInputs<F, C, D>>,
+) -> BalancePublicInputs
+where
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+{
+    if let Some(prev_proof) = prev_proof {
+        BalancePublicInputs::from_pis(&prev_proof.public_inputs)
+    } else {
+        BalancePublicInputs::new(pubkey)
     }
 }
 

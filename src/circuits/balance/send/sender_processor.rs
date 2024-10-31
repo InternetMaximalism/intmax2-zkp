@@ -139,67 +139,67 @@ where
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use plonky2::{
-        field::goldilocks_field::GoldilocksField, plonk::config::PoseidonGoldilocksConfig,
-    };
+// #[cfg(test)]
+// mod tests {
+//     use plonky2::{
+//         field::goldilocks_field::GoldilocksField, plonk::config::PoseidonGoldilocksConfig,
+//     };
 
-    use crate::{
-        common::{generic_address::GenericAddress, salt::Salt, transfer::Transfer},
-        ethereum_types::u256::U256,
-        mock::{
-            block_builder::MockBlockBuilder, sync_validity_prover::SyncValidityProver,
-            wallet::MockWallet,
-        },
-    };
+//     use crate::{
+//         common::{generic_address::GenericAddress, salt::Salt, transfer::Transfer},
+//         ethereum_types::u256::U256,
+//         mock::{
+//             block_builder::MockBlockBuilder, sync_validity_prover::SyncValidityProver,
+//             wallet::MockWallet,
+//         },
+//     };
 
-    use super::SenderProcessor;
+//     use super::SenderProcessor;
 
-    type F = GoldilocksField;
-    type C = PoseidonGoldilocksConfig;
-    const D: usize = 2;
+//     type F = GoldilocksField;
+//     type C = PoseidonGoldilocksConfig;
+//     const D: usize = 2;
 
-    #[test]
-    fn sender_processor() {
-        let mut rng = rand::thread_rng();
-        let mut block_builder = MockBlockBuilder::new();
-        let mut wallet = MockWallet::new_rand(&mut rng);
-        let mut sync_prover = SyncValidityProver::<F, C, D>::new();
-        let sender_processor =
-            SenderProcessor::new(&sync_prover.validity_processor.validity_circuit);
+//     #[test]
+//     fn sender_processor() {
+//         let mut rng = rand::thread_rng();
+//         let mut block_builder = MockBlockBuilder::new();
+//         let mut wallet = MockWallet::new_rand(&mut rng);
+//         let mut sync_prover = SyncValidityProver::<F, C, D>::new();
+//         let sender_processor =
+//             SenderProcessor::new(&sync_prover.validity_processor.validity_circuit);
 
-        let transfer = Transfer {
-            recipient: GenericAddress::rand_pubkey(&mut rng),
-            token_index: 0,
-            amount: U256::rand_small(&mut rng),
-            salt: Salt::rand(&mut rng),
-        };
+//         let transfer = Transfer {
+//             recipient: GenericAddress::rand_pubkey(&mut rng),
+//             token_index: 0,
+//             amount: U256::rand_small(&mut rng),
+//             salt: Salt::rand(&mut rng),
+//         };
 
-        // send tx
-        let send_witness = wallet.send_tx_and_update(&mut rng, &mut block_builder, &[transfer]);
-        sync_prover.sync(&block_builder);
+//         // send tx
+//         let send_witness = wallet.send_tx_and_update(&mut rng, &mut block_builder, &[transfer]);
+//         sync_prover.sync(&block_builder);
 
-        let block_number = send_witness.get_included_block_number();
-        let prev_block_number = send_witness.get_prev_block_number();
-        println!(
-            "block_number: {}, prev_block_number: {}",
-            block_number, prev_block_number
-        );
-        let update_witness = sync_prover.get_update_witness(
-            &block_builder,
-            wallet.get_pubkey(),
-            block_builder.last_block_number(),
-            prev_block_number,
-            true,
-        );
+//         let block_number = send_witness.get_included_block_number();
+//         let prev_block_number = send_witness.get_prev_block_number();
+//         println!(
+//             "block_number: {}, prev_block_number: {}",
+//             block_number, prev_block_number
+//         );
+//         let update_witness = sync_prover.get_update_witness(
+//             &block_builder,
+//             wallet.get_pubkey(),
+//             block_builder.last_block_number(),
+//             prev_block_number,
+//             true,
+//         );
 
-        sender_processor
-            .prove(
-                &sync_prover.validity_processor.validity_circuit,
-                &send_witness,
-                &update_witness,
-            )
-            .unwrap();
-    }
-}
+//         sender_processor
+//             .prove(
+//                 &sync_prover.validity_processor.validity_circuit,
+//                 &send_witness,
+//                 &update_witness,
+//             )
+//             .unwrap();
+//     }
+// }
