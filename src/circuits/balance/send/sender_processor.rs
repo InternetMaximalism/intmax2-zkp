@@ -9,8 +9,17 @@ use plonky2::{
 };
 
 use crate::{
-    circuits::validity::{validity_circuit::ValidityCircuit, validity_pis::ValidityPublicInputs},
-    common::witness::{send_witness::SendWitness, update_witness::UpdateWitness},
+    circuits::{
+        balance::{balance_pis::BalancePublicInputs, send::spent_circuit::SpentPublicInputs},
+        validity::{validity_circuit::ValidityCircuit, validity_pis::ValidityPublicInputs},
+    },
+    common::{
+        trees::sender_tree,
+        witness::{
+            send_witness::SendWitness, spent_witness::SpentWitness, tx_witness::TxWitness,
+            update_witness::UpdateWitness,
+        },
+    },
 };
 
 use super::{
@@ -46,57 +55,82 @@ where
         }
     }
 
-    pub fn prove(
+    pub fn prove_spent(
+        &self,
+        spent_witness: &SpentWitness,
+    ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
+        let spent_value = spent_witness
+            .to_value()
+            .map_err(|e| anyhow::anyhow!("failed to create spent value: {}", e))?;
+        self.spent_circuit
+            .prove(&spent_value)
+            .map_err(|e| anyhow::anyhow!("failed to prove spent: {}", e))
+    }
+
+    fn prove_tx_inclusion(
         &self,
         validity_circuit: &ValidityCircuit<F, C, D>,
-        send_witness: &SendWitness,
+        prev_balance_pis: &BalancePublicInputs,
+        tx_witnes: &TxWitness,
         update_witness: &UpdateWitness<F, C, D>,
     ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
-        // assert validity proof pis for debug
-        let validity_pis =
-            ValidityPublicInputs::from_pis(&update_witness.validity_proof.public_inputs);
+        let update_validity_pis = update_witness.validity_pis();
         ensure!(
-            validity_pis == send_witness.tx_witness.validity_pis,
+            update_validity_pis == tx_witnes.validity_pis,
             "validity proof pis mismatch"
         );
-        let spent_value = SpentValue::new(
-            &send_witness.prev_private_state,
-            &send_witness.prev_balances,
-            send_witness.new_private_state_salt,
-            &send_witness.transfers,
-            &send_witness.asset_merkle_proofs,
-            send_witness.tx_witness.tx.nonce,
-        )
-        .map_err(|e| anyhow::anyhow!("failed to create spent value: {}", e))?;
-        let tx_witness = &send_witness.tx_witness;
-        let sender_tree = send_witness.tx_witness.get_sender_tree();
-        let sender_leaf = sender_tree.get_leaf(tx_witness.tx_index);
-        let sender_merkle_proof = sender_tree.prove(tx_witness.tx_index);
+        let sender_tree = tx_witnes.get_sender_tree();
+        let sender_leaf = sender_tree.get_leaf(tx_witnes.tx_index);
+        ensure!(
+            sender_leaf.sender == prev_balance_pis.pubkey,
+            "sender pubkey mismatch"
+        );
+        let sender_merkle_proof = sender_tree.prove(tx_witnes.tx_index);
         let tx_inclusion_value = TxInclusionValue::new(
             validity_circuit,
-            send_witness.prev_balance_pis.pubkey,
-            &send_witness.prev_balance_pis.public_state,
+            prev_balance_pis.pubkey,
+            &prev_balance_pis.public_state,
             &update_witness.validity_proof,
             &update_witness.block_merkle_proof,
-            &update_witness.account_membership_proof,
-            tx_witness.tx_index,
-            &tx_witness.tx,
-            &tx_witness.tx_merkle_proof,
+            &update_witness.prev_account_membership_proof()?,
+            tx_witnes.tx_index,
+            &tx_witnes.tx,
+            &tx_witnes.tx_merkle_proof,
             &sender_leaf,
             &sender_merkle_proof,
         )
         .map_err(|e| anyhow::anyhow!("failed to create tx inclusion value: {}", e))?;
-        let spent_proof = self.spent_circuit.prove(&spent_value).unwrap();
-        let tx_inclusion_proof = self
-            .tx_inclusion_circuit
+        self.tx_inclusion_circuit
             .prove(&tx_inclusion_value)
-            .map_err(|e| anyhow::anyhow!("failed to prove tx inclusion: {}", e))?;
+            .map_err(|e| anyhow::anyhow!("failed to prove tx inclusion: {}", e))
+    }
+
+    pub fn prove_send(
+        &self,
+        validity_circuit: &ValidityCircuit<F, C, D>,
+        prev_balance_pis: &BalancePublicInputs,
+        tx_witnes: &TxWitness,
+        update_witness: &UpdateWitness<F, C, D>,
+        spent_proof: &ProofWithPublicInputs<F, C, D>,
+    ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
+        let spent_pis = SpentPublicInputs::from_pis(&spent_proof.public_inputs);
+        ensure!(
+            spent_pis.prev_private_commitment == prev_balance_pis.private_commitment,
+            "prev private commitment mismatch"
+        );
+        ensure!(spent_pis.tx == tx_witnes.tx, "tx mismatch");
+        let tx_inclusion_proof = self.prove_tx_inclusion(
+            validity_circuit,
+            prev_balance_pis,
+            tx_witnes,
+            update_witness,
+        )?;
         let sender_value = SenderValue::new(
             &self.spent_circuit,
             &self.tx_inclusion_circuit,
             &spent_proof,
             &tx_inclusion_proof,
-            &send_witness.prev_balance_pis,
+            &prev_balance_pis,
         )
         .map_err(|e| anyhow::anyhow!("failed to create sender value: {}", e))?;
         self.sender_circuit

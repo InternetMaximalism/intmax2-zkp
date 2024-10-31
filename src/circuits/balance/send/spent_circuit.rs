@@ -1,6 +1,9 @@
 use anyhow::ensure;
 use plonky2::{
-    field::{extension::Extendable, types::Field},
+    field::{
+        extension::Extendable,
+        types::{Field, PrimeField64},
+    },
     hash::hash_types::RichField,
     iop::{
         target::{BoolTarget, Target},
@@ -26,6 +29,7 @@ use crate::{
     constants::{ASSET_TREE_HEIGHT, NUM_TRANSFERS_IN_TX, TRANSFER_TREE_HEIGHT},
     ethereum_types::u32limb_trait::{U32LimbTargetTrait, U32LimbTrait as _},
     utils::{
+        conversion::ToU64,
         poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget, POSEIDON_HASH_OUT_LEN},
         recursively_verifiable::RecursivelyVerifiable,
         trees::get_root::{get_merkle_root_from_leaves, get_merkle_root_from_leaves_circuit},
@@ -67,6 +71,13 @@ impl SpentPublicInputs {
             insufficient_flags,
             is_valid,
         }
+    }
+
+    pub fn from_pis<F>(pis: &[F]) -> Self
+    where
+        F: PrimeField64,
+    {
+        Self::from_u64_slice(&pis.to_u64_vec())
     }
 }
 
