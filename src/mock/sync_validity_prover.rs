@@ -1,3 +1,5 @@
+use std::sync::OnceLock;
+
 use anyhow::ensure;
 use hashbrown::HashMap;
 use plonky2::{
@@ -36,9 +38,9 @@ where
     C: GenericConfig<D, F = F>,
     <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
 {
-    pub validity_processor: Option<ValidityProcessor<F, C, D>>, // delayed initialization
-    pub last_block_number: u32,                                 /* last block number that has
-                                                                 * been synced */
+    pub validity_processor: OnceLock<ValidityProcessor<F, C, D>>, // delayed initialization
+    pub last_block_number: u32,                                   /* last block number that has
+                                                                   * been synced */
     pub account_trees: HashMap<u32, AccountTree>,
     pub block_trees: HashMap<u32, BlockHashTree>,
     pub validity_proofs: HashMap<u32, ProofWithPublicInputs<F, C, D>>,
@@ -62,7 +64,7 @@ where
         block_trees.insert(last_block_number, block_tree);
 
         Self {
-            validity_processor: None,
+            validity_processor: OnceLock::new(),
             last_block_number,
             account_trees,
             block_trees,
@@ -186,15 +188,12 @@ where
         Ok(account_tree.prove_membership(pubkey))
     }
 
-    pub fn validity_processor(&mut self) -> &ValidityProcessor<F, C, D> {
-        if self.validity_processor.is_none() {
-            let validity_processor = ValidityProcessor::new();
-            self.validity_processor = Some(validity_processor);
-        }
-        self.validity_processor.as_ref().unwrap()
+    pub fn validity_processor(&self) -> &ValidityProcessor<F, C, D> {
+        self.validity_processor
+            .get_or_init(|| ValidityProcessor::new())
     }
 
-    pub fn validity_circuit(&mut self) -> &ValidityCircuit<F, C, D> {
+    pub fn validity_circuit(&self) -> &ValidityCircuit<F, C, D> {
         &self.validity_processor().validity_circuit
     }
 }
