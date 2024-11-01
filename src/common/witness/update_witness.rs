@@ -44,6 +44,10 @@ where
         Ok(self.account_membership_proof.clone())
     }
 
+    pub fn get_last_block_number(&self) -> u32 {
+        self.account_membership_proof.get_value() as u32
+    }
+
     pub fn validity_pis(&self) -> ValidityPublicInputs {
         ValidityPublicInputs::from_pis(&self.validity_proof.public_inputs)
     }

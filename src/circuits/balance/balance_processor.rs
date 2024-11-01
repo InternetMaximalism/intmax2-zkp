@@ -156,7 +156,7 @@ where
 
 /// Get previous balance public inputs from previous balance proof
 /// or create new balance public inputs from pubkey if no previous proof
-fn get_prev_balance_pis<F, C, const D: usize>(
+pub fn get_prev_balance_pis<F, C, const D: usize>(
     pubkey: U256,
     prev_proof: &Option<ProofWithPublicInputs<F, C, D>>,
 ) -> BalancePublicInputs

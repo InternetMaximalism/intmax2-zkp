@@ -16,6 +16,8 @@ use crate::{
 
 #[derive(Debug, Clone)]
 pub struct UserData {
+    pub pubkey: U256,
+
     pub block_number: u32,
     pub asset_tree: AssetTree,
     pub nullifiers: NullifierTree,
@@ -30,6 +32,8 @@ pub struct UserData {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct UserDataPacked {
+    pubkey: U256,
+
     block_number: u32,
     asset_tree: AssetTreePacked,
     nullifier_tree: NullifierTreePacked,
@@ -45,6 +49,7 @@ struct UserDataPacked {
 impl UserData {
     fn to_bytes(&self) -> Vec<u8> {
         let packed = UserDataPacked {
+            pubkey: self.pubkey,
             block_number: self.block_number,
             asset_tree: self.asset_tree.pack(),
             nullifier_tree: self.nullifiers.pack(),
@@ -89,6 +94,7 @@ impl UserData {
             .map(|uuid| Uuid::parse_str(uuid).unwrap())
             .collect();
         Ok(Self {
+            pubkey: packed.pubkey,
             block_number: packed.block_number,
             asset_tree,
             nullifiers,

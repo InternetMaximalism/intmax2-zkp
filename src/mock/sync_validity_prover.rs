@@ -44,6 +44,8 @@ where
     pub account_trees: HashMap<u32, AccountTree>,
     pub block_trees: HashMap<u32, BlockHashTree>,
     pub validity_proofs: HashMap<u32, ProofWithPublicInputs<F, C, D>>,
+    pub deposit_correspondence: HashMap<u32, (u32, u32)>, /* deposit_id -> (deposit_index,
+                                                           * block_number) */
 }
 
 impl<F, C, const D: usize> SyncValidityProver<F, C, D>
@@ -69,6 +71,7 @@ where
             account_trees,
             block_trees,
             validity_proofs: HashMap::new(), // no validity proof for genesis block
+            deposit_correspondence: HashMap::new(),
         }
     }
 
@@ -112,6 +115,7 @@ where
             self.block_trees.insert(block_number, block_tree.clone());
             self.validity_proofs.insert(block_number, validity_proof);
         }
+        self.deposit_correspondence = contract.deposit_correspondence.clone();
         Ok(())
     }
 
@@ -152,6 +156,11 @@ where
             .get(&self.last_block_number)
             .unwrap()
             .index(pubkey)
+    }
+
+    // returns deposit index and block number
+    pub fn get_deposit_index_and_block(&self, deposit_id: u32) -> Option<(u32, u32)> {
+        self.deposit_correspondence.get(&deposit_id).cloned()
     }
 
     pub fn get_block_merkle_proof(

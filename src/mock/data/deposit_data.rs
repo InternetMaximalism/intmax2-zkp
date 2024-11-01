@@ -8,8 +8,8 @@ use crate::{
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DepositData {
+    pub deposit_id: u32,
     pub deposit_salt: Salt,
-    pub deposit_index: usize,
     pub deposit: Deposit,
 }
 

@@ -1,6 +1,7 @@
 use anyhow::ensure;
 use ark_bn254::{Bn254, G1Affine, G2Affine};
 use ark_ec::{pairing::Pairing as _, AffineRepr};
+use hashbrown::HashMap;
 
 use crate::{
     common::{
@@ -23,15 +24,19 @@ use crate::{
 pub struct MockContract {
     pub full_blocks: Vec<FullBlock>,
     pub deposit_tree: DepositTree,
+    pub deposit_correspondence: HashMap<u32, (u32, u32)>, /* deposit_id -> (deposit_index,
+                                                           * block_number) */
 }
 
 impl MockContract {
     pub fn new() -> Self {
         let full_blocks = vec![FullBlock::genesis()];
         let deposit_tree = DepositTree::new(DEPOSIT_TREE_HEIGHT);
+        let deposit_correspondence = HashMap::new();
         Self {
             full_blocks,
             deposit_tree,
+            deposit_correspondence,
         }
     }
 
@@ -56,16 +61,19 @@ impl MockContract {
             .unwrap_or_default()
     }
 
-    /// Simpler interface for depositing tokens. Returns the index of the deposit in the deposit
-    /// tree.
-    pub fn deposit(&mut self, pubkey_salt_hash: Bytes32, token_index: u32, amount: U256) -> usize {
+    /// Simpler interface for depositing tokens. Returns the id of deposit
+    pub fn deposit(&mut self, pubkey_salt_hash: Bytes32, token_index: u32, amount: U256) -> u32 {
         self.deposit_tree.push(Deposit {
             pubkey_salt_hash,
             token_index,
             amount,
         });
-        let deposit_index = self.deposit_tree.len() - 1;
-        deposit_index
+        let deposit_index = (self.deposit_tree.len() - 1) as u32;
+        let deposit_id = deposit_index; // mock impl
+        let block_number = self.get_block_number();
+        self.deposit_correspondence
+            .insert(deposit_id, (deposit_index, block_number));
+        deposit_id
     }
 
     /// Posts registration block. Same interface as the contract.
