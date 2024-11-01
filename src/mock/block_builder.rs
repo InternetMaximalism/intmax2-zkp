@@ -34,7 +34,7 @@ impl BlockBuilder {
     pub fn post_block<F, C, const D: usize>(
         &self,
         contract: &mut MockContract,
-        sync_validity_prover: &SyncValidityProver<F, C, D>,
+        sync_validity_prover: &SyncValidityProver<F, C, D>, // used to get the account id
         is_registration_block: bool,
         txs: Vec<MockTxRequest>,
     ) -> anyhow::Result<TxTree>
@@ -190,8 +190,11 @@ fn construct_signature(
 mod tests {
     use super::BlockBuilder;
     use crate::{
-        mock::{contract::MockContract, sync_validity_prover::SyncValidityProver},
-        utils::test_utils::tx::generate_random_tx_requests,
+        common::{signature::key_set::KeySet, tx::Tx},
+        mock::{
+            contract::MockContract, sync_validity_prover::SyncValidityProver,
+            tx_request::MockTxRequest,
+        },
     };
     use plonky2::{
         field::goldilocks_field::GoldilocksField, plonk::config::PoseidonGoldilocksConfig,
@@ -208,13 +211,20 @@ mod tests {
         let mut sync_validity_prover = SyncValidityProver::<F, C, D>::new();
         let mut contract = MockContract::new();
 
-        for _ in 0..3 {
+        let user = KeySet::rand(&mut rng);
+
+        for i in 0..3 {
+            let tx_request = MockTxRequest {
+                tx: Tx::rand(&mut rng),
+                sender: user,
+                will_return_signature: true,
+            };
             block_builder
                 .post_block(
                     &mut contract,
                     &sync_validity_prover,
-                    true,
-                    generate_random_tx_requests(&mut rng),
+                    i == 0, // Use registration block for the first tx
+                    vec![tx_request],
                 )
                 .unwrap();
             sync_validity_prover.sync(&contract).unwrap();
