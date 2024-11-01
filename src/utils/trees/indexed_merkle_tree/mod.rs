@@ -4,6 +4,7 @@ pub mod membership;
 pub mod update;
 
 use anyhow::{anyhow, ensure};
+use serde::{Deserialize, Serialize};
 
 use crate::{
     ethereum_types::u256::U256,
@@ -16,6 +17,8 @@ use crate::{
 };
 use anyhow::Result;
 use leaf::{IndexedMerkleLeaf, IndexedMerkleLeafTarget};
+
+use super::incremental_merkle_tree::IncrementalMerkleTreePacked;
 
 #[derive(Debug, Clone)]
 pub struct IndexedMerkleTree(IncrementalMerkleTree<IndexedMerkleLeaf>);
@@ -95,5 +98,19 @@ impl IndexedMerkleTree {
 
     pub fn len(&self) -> usize {
         self.0.len()
+    }
+}
+
+// serialization
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct IndexedMerkleTreePacked(IncrementalMerkleTreePacked<IndexedMerkleLeaf>);
+
+impl IndexedMerkleTree {
+    pub fn pack(&self) -> IndexedMerkleTreePacked {
+        IndexedMerkleTreePacked(self.0.pack())
+    }
+
+    pub fn unpack(packed: IndexedMerkleTreePacked) -> Self {
+        Self(IncrementalMerkleTree::unpack(packed.0))
     }
 }

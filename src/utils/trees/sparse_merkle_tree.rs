@@ -215,18 +215,19 @@ pub struct SparseMerkleTreePacked<V: Leafable> {
     leaves: Vec<(usize, V)>,
 }
 
-impl<V: Leafable> SparseMerkleTreePacked<V> {
+impl<V: Leafable> SparseMerkleTree<V> {
     pub fn pack(&self) -> SparseMerkleTreePacked<V> {
         SparseMerkleTreePacked {
-            height: self.height,
-            leaves: self.leaves.clone(),
+            height: self.height(),
+            leaves: self.leaves().into_iter().collect(),
         }
     }
 
-    pub fn unpack(packed: &SparseMerkleTreePacked<V>) -> SparseMerkleTree<V> {
+    pub fn unpack(packed: SparseMerkleTreePacked<V>) -> SparseMerkleTree<V> {
         let mut tree = SparseMerkleTree::new(packed.height);
-        for (index, leaf) in &packed.leaves {
-            tree.update(*index, leaf.clone());
+        // todo: batch update
+        for (index, leaf) in packed.leaves {
+            tree.update(index, leaf);
         }
         tree
     }
@@ -320,9 +321,10 @@ mod tests {
         type V = Bytes32;
         let mut tree = SparseMerkleTree::<V>::new(height);
 
-        for i in 0..100 {
+        for _ in 0..100 {
             let new_leaf = Bytes32::rand(&mut rng);
-            tree.update(i, new_leaf);
+            let index = rng.gen_range(0..1 << height);
+            tree.update(index, new_leaf);
         }
 
         let packed = SparseMerkleTreePacked {
@@ -332,9 +334,8 @@ mod tests {
         let packed_str = serde_json::to_string(&packed).unwrap();
         let packed_deserialized: SparseMerkleTreePacked<V> = serde_json::from_str(&packed_str)
             .expect("failed to deserialize SparseMerkleTreePacked");
-        let tree_deserialized = SparseMerkleTreePacked::<V>::unpack(&packed_deserialized);
+        let tree_deserialized = SparseMerkleTree::<V>::unpack(packed_deserialized);
 
-        assert_eq!(tree.height(), tree_deserialized.height());
-        assert_eq!(tree.leaves(), tree_deserialized.leaves());
+        assert_eq!(tree.get_root(), tree_deserialized.get_root());
     }
 }

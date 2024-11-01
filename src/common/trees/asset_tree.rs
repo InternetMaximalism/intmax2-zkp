@@ -2,7 +2,9 @@ use crate::{
     ethereum_types::u256::U256Target,
     utils::{
         leafable_hasher::PoseidonLeafableHasher,
-        trees::sparse_merkle_tree::{SparseMerkleProof, SparseMerkleProofTarget, SparseMerkleTree},
+        trees::sparse_merkle_tree::{
+            SparseMerkleProof, SparseMerkleProofTarget, SparseMerkleTree, SparseMerkleTreePacked,
+        },
     },
 };
 use plonky2::{
@@ -189,3 +191,6 @@ impl LeafableTarget for AssetLeafTarget {
         PoseidonHashOutTarget::hash_inputs(builder, &self.to_vec())
     }
 }
+
+// serialization
+pub type AssetTreePacked = SparseMerkleTreePacked<AssetLeaf>;
