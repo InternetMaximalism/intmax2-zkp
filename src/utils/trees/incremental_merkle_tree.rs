@@ -234,6 +234,31 @@ impl<VT: LeafableTarget> IncrementalMerkleProofTarget<VT> {
     }
 }
 
+// serialization
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct IncrementalMerkleTreePacked<V: Leafable> {
+    height: usize,
+    leaves: Vec<V>,
+}
+
+impl<V: Leafable> IncrementalMerkleTree<V> {
+    pub fn pack(&self) -> IncrementalMerkleTreePacked<V> {
+        IncrementalMerkleTreePacked {
+            height: self.height(),
+            leaves: self.leaves(),
+        }
+    }
+
+    pub fn unpack(packed: IncrementalMerkleTreePacked<V>) -> Self {
+        let mut tree = IncrementalMerkleTree::new(packed.height);
+        // todo: batch update
+        for leaf in packed.leaves {
+            tree.push(leaf);
+        }
+        tree
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::{

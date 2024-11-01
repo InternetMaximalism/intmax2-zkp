@@ -101,7 +101,6 @@ impl<V: Leafable> SparseMerkleProof<V> {
     }
 }
 
-
 impl<V: Leafable> Serialize for SparseMerkleProof<V>
 where
     <V::LeafableHasher as LeafableHasher>::HashOut: Serialize,
@@ -209,6 +208,30 @@ impl<VT: LeafableTarget> SparseMerkleProofTarget<VT> {
     }
 }
 
+// serialization
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SparseMerkleTreePacked<V: Leafable> {
+    height: usize,
+    leaves: Vec<(usize, V)>,
+}
+
+impl<V: Leafable> SparseMerkleTreePacked<V> {
+    pub fn pack(&self) -> SparseMerkleTreePacked<V> {
+        SparseMerkleTreePacked {
+            height: self.height,
+            leaves: self.leaves.clone(),
+        }
+    }
+
+    pub fn unpack(packed: &SparseMerkleTreePacked<V>) -> SparseMerkleTree<V> {
+        let mut tree = SparseMerkleTree::new(packed.height);
+        for (index, leaf) in &packed.leaves {
+            tree.update(*index, leaf.clone());
+        }
+        tree
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::{
@@ -287,5 +310,31 @@ mod tests {
         pw.set_target(index_t, F::from_canonical_usize(index));
         proof_t.set_witness(&mut pw, &proof);
         data.prove(pw).unwrap();
+    }
+
+    #[test]
+    fn sparse_merkle_tree_serialization() {
+        let mut rng = rand::thread_rng();
+        let height = 10;
+
+        type V = Bytes32;
+        let mut tree = SparseMerkleTree::<V>::new(height);
+
+        for i in 0..100 {
+            let new_leaf = Bytes32::rand(&mut rng);
+            tree.update(i, new_leaf);
+        }
+
+        let packed = SparseMerkleTreePacked {
+            height,
+            leaves: tree.leaves().into_iter().collect(),
+        };
+        let packed_str = serde_json::to_string(&packed).unwrap();
+        let packed_deserialized: SparseMerkleTreePacked<V> = serde_json::from_str(&packed_str)
+            .expect("failed to deserialize SparseMerkleTreePacked");
+        let tree_deserialized = SparseMerkleTreePacked::<V>::unpack(&packed_deserialized);
+
+        assert_eq!(tree.height(), tree_deserialized.height());
+        assert_eq!(tree.leaves(), tree_deserialized.leaves());
     }
 }
