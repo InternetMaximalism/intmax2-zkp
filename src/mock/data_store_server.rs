@@ -1,3 +1,4 @@
+use anyhow::Ok;
 use hashbrown::HashMap;
 use plonky2::{
     field::extension::Extendable,
@@ -6,7 +7,9 @@ use plonky2::{
 };
 use uuid::Uuid;
 
-use crate::ethereum_types::u256::U256;
+use crate::{common::signature::key_set::KeySet, ethereum_types::u256::U256};
+
+use super::data::user_data::UserData;
 
 // The proof of transfer is encrypted with the public key of the person who uses it. The
 // balance proof is stored without encryption because the private state is hidden.
@@ -45,5 +48,20 @@ where
             encrypted_tx_data: HashMap::new(),
             encrypted_user_data: HashMap::new(),
         }
+    }
+
+    pub fn save_user_data(&mut self, pubkey: U256, user_data: UserData) {
+        let encrypted = user_data.encrypt(pubkey);
+        self.encrypted_user_data.insert(pubkey, encrypted);
+    }
+
+    pub fn get_user_data(&self, key: KeySet) -> anyhow::Result<Option<UserData>> {
+        let encrypted = self.encrypted_user_data.get(&key.pubkey);
+        if encrypted.is_none() {
+            return Ok(None);
+        }
+        let user_data = UserData::decrypt(&encrypted.unwrap(), key)
+            .map_err(|e| anyhow::anyhow!("failed to decrypt user data{}", e))?;
+        Ok(Some(user_data))
     }
 }
