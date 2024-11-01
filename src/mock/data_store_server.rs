@@ -9,7 +9,7 @@ use uuid::Uuid;
 
 use crate::{common::signature::key_set::KeySet, ethereum_types::u256::U256};
 
-use super::data::user_data::UserData;
+use super::data::{deposit_data::DepositData, user_data::UserData};
 
 // The proof of transfer is encrypted with the public key of the person who uses it. The
 // balance proof is stored without encryption because the private state is hidden.
@@ -48,6 +48,38 @@ where
             encrypted_tx_data: HashMap::new(),
             encrypted_user_data: HashMap::new(),
         }
+    }
+
+    pub fn save_deposit_data(&mut self, pubkey: U256, deposit_data: DepositData) {
+        let encrypted = deposit_data.encrypt(pubkey);
+        let uuid = Uuid::new_v4();
+        self.encrypted_deposit_data
+            .entry(pubkey)
+            .or_insert_with(HashMap::new)
+            .insert(uuid, encrypted);
+    }
+
+    fn get_deposit_data(
+        &self,
+        key: KeySet,
+        exceptions: Vec<Uuid>,
+    ) -> anyhow::Result<Vec<(Uuid, DepositData)>> {
+        let empty = HashMap::new();
+        let list = self
+            .encrypted_deposit_data
+            .get(&key.pubkey)
+            .unwrap_or(&empty);
+
+        let mut result = Vec::new();
+        for (uuid, encrypted) in list.iter() {
+            if exceptions.contains(uuid) {
+                continue;
+            }
+            let data = DepositData::decrypt(encrypted, key)
+                .map_err(|e| anyhow::anyhow!("failed to decrypt deposit data{}", e))?;
+            result.push((*uuid, data));
+        }
+        Ok(result)
     }
 
     pub fn save_user_data(&mut self, pubkey: U256, user_data: UserData) {
