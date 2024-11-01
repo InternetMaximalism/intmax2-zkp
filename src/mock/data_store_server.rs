@@ -53,6 +53,34 @@ where
         }
     }
 
+    pub fn save_balance_proof(
+        &mut self,
+        pubkey: U256,
+        block_number: u32,
+        proof: ProofWithPublicInputs<F, C, D>,
+    ) {
+        // todo: add proof verification & duplicate check
+        self.balance_proofs
+            .entry(pubkey)
+            .or_insert_with(HashMap::new)
+            .entry(block_number)
+            .or_insert_with(Vec::new)
+            .push(proof);
+    }
+
+    pub fn get_balance_proof(
+        &self,
+        pubkey: U256,
+        block_number: u32,
+    ) -> anyhow::Result<Vec<ProofWithPublicInputs<F, C, D>>> {
+        let empty = HashMap::new();
+        let proofs = self.balance_proofs.get(&pubkey).unwrap_or(&empty);
+
+        let empty = Vec::new();
+        let proof = proofs.get(&block_number).unwrap_or(&empty);
+        Ok(proof.clone())
+    }
+
     pub fn save_deposit_data(&mut self, pubkey: U256, deposit_data: DepositData) {
         let encrypted = deposit_data.encrypt(pubkey);
         let uuid = Uuid::new_v4();
