@@ -23,12 +23,12 @@ where
     balance_proofs: HashMap<U256, HashMap<u32, Vec<ProofWithPublicInputs<F, C, D>>>>, /* pubkey -> block_number -> proof */
     encrypted_deposit_data: HashMap<U256, HashMap<Uuid, Vec<u8>>>,                    /* receiver's
                                                                                        * pubkey ->
-                                                                                       * deposit_id
+                                                                                       * uuid
                                                                                        * ->
                                                                                        * encrypted_deposit_data */
     encrypted_tranfer_data: HashMap<U256, HashMap<Uuid, Vec<u8>>>, /* receiver's
                                                                     * pubkey ->
-                                                                    * transfer_id
+                                                                    * uuid
                                                                     * ->
                                                                     * encrypted_trasfer_data */
     encrypted_tx_data: HashMap<U256, HashMap<Uuid, Vec<u8>>>, /* sender's pubkey -> tx_id ->
