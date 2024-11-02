@@ -6,5 +6,5 @@ pub mod data_store_server;
 pub mod sync_validity_prover;
 pub mod tx_request;
 // pub mod wallet;
-pub mod balance_prover;
+pub mod balance_logic;
 pub mod client;
