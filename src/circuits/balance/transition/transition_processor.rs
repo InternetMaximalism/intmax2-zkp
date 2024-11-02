@@ -253,7 +253,7 @@ where
         receive_deposit_witness: &ReceiveDepositWitness,
     ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
         let deposit_witness = receive_deposit_witness.deposit_witness.clone();
-        let private_transition_witness = receive_deposit_witness.private_witness.clone();
+        let private_transition_witness = receive_deposit_witness.private_transition_witness.clone();
 
         // assertion
         let deposit = deposit_witness.deposit.clone();

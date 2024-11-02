@@ -10,8 +10,14 @@ use plonky2::{
 
 use crate::{
     circuits::balance::balance_processor::{get_prev_balance_pis, BalanceProcessor},
-    common::witness::receive_deposit_witness::ReceiveDepositWitness,
-    ethereum_types::u256::U256,
+    common::{
+        salt::Salt,
+        witness::{
+            deposit_witness::DepositWitness, private_transition_witness::PrivateTransitionWitness,
+            receive_deposit_witness::ReceiveDepositWitness,
+        },
+    },
+    ethereum_types::{bytes32::Bytes32, u256::U256},
 };
 
 use super::{
@@ -27,10 +33,11 @@ impl BalanceProver {
         validity_prover: &SyncValidityProver<F, C, D>,
         balance_processor: &BalanceProcessor<F, C, D>,
         user_data: &mut UserData,
+        new_salt: Salt,
         prev_balance_proof: &Option<ProofWithPublicInputs<F, C, D>>,
         block_number: u32,
         deposit_data: &DepositData,
-    ) -> anyhow::Result<()>
+    ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>>
     where
         F: RichField + Extendable<D>,
         C: GenericConfig<D, F = F> + 'static,
@@ -44,27 +51,47 @@ impl BalanceProver {
             block_number,
         )?;
 
-        // witness
-        let (deposit_index, _) = validity_prover
+        // Generate witness
+        let (deposit_index, deposit_block_number) = validity_prover
             .get_deposit_index_and_block(deposit_data.deposit_id)
             .ok_or(anyhow::anyhow!("deposit not found"))?;
-        // let deposit_witness = DepositWitness {
-        //     deposit_salt: deposit_data.deposit_salt,
-        //     deposit_index: deposit_index as usize,
-        //     deposit: deposit_data.deposit.clone(),
-        //     // deposit_merkle_proof: deposit_data.deposit_merkle_proof.clone(),
-        // };
-
+        ensure!(
+            deposit_block_number == block_number,
+            "deposit is not in the current block"
+        );
+        let deposit_merkle_proof = validity_prover
+            .get_deposit_merkle_proof(deposit_index, deposit_block_number)
+            .map_err(|_| anyhow::anyhow!("deposit merkle proof not found"))?;
+        let deposit_witness = DepositWitness {
+            deposit_salt: deposit_data.deposit_salt,
+            deposit_index: deposit_index as usize,
+            deposit: deposit_data.deposit.clone(),
+            deposit_merkle_proof,
+        };
+        let deposit = deposit_data.deposit.clone();
+        let nullifier: Bytes32 = deposit.poseidon_hash().into();
+        let private_transition_witness = PrivateTransitionWitness::new(
+            &mut user_data.full_private_state,
+            deposit.token_index,
+            deposit.amount,
+            nullifier,
+            new_salt,
+        )
+        .map_err(|e| anyhow::anyhow!("PrivateTransitionWitness::new failed: {:?}", e))?;
         let receive_deposit_witness = ReceiveDepositWitness {
-            deposit_witness: todo!(),
-            private_witness: todo!(),
+            deposit_witness,
+            private_transition_witness,
         };
 
-        // balance_proof = balance_processor
-        //     .prove_receive_deposit(pubkey, &Some(before_balance_proof))
-        //     .map_err(|e| anyhow::anyhow!("prove_deposit failed: {:?}", e))?;
+        let balance_proof = balance_processor
+            .prove_receive_deposit(
+                user_data.pubkey,
+                &receive_deposit_witness,
+                &Some(before_balance_proof),
+            )
+            .map_err(|e| anyhow::anyhow!("prove_deposit failed: {:?}", e))?;
 
-        Ok(())
+        Ok(balance_proof)
     }
 
     // Inner function to update balance proof

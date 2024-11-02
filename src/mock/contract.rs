@@ -24,30 +24,37 @@ use crate::{
 pub struct MockContract {
     pub full_blocks: Vec<FullBlock>,
     pub deposit_tree: DepositTree,
+    pub deposit_trees: HashMap<u32, DepositTree>, // snap shot of deposit tree at each block
     pub deposit_correspondence: HashMap<u32, (u32, u32)>, /* deposit_id -> (deposit_index,
-                                                           * block_number) */
+                                                   * block_number) */
 }
 
 impl MockContract {
     pub fn new() -> Self {
         let full_blocks = vec![FullBlock::genesis()];
         let deposit_tree = DepositTree::new(DEPOSIT_TREE_HEIGHT);
+        let mut deposit_trees = HashMap::new();
+        deposit_trees.insert(0, deposit_tree.clone());
         let deposit_correspondence = HashMap::new();
         Self {
             full_blocks,
             deposit_tree,
+            deposit_trees,
             deposit_correspondence,
         }
     }
 
-    // returns the next block number
-    pub fn get_block_number(&self) -> u32 {
+    pub fn get_next_block_number(&self) -> u32 {
         self.full_blocks.len() as u32
+    }
+
+    pub fn get_last_block_number(&self) -> u32 {
+        self.get_next_block_number() - 1
     }
 
     pub fn get_full_block(&self, block_number: u32) -> anyhow::Result<FullBlock> {
         ensure!(
-            block_number < self.get_block_number(),
+            block_number < self.get_next_block_number(),
             "block number {} is out of range",
             block_number
         );
@@ -70,7 +77,7 @@ impl MockContract {
         });
         let deposit_index = (self.deposit_tree.len() - 1) as u32;
         let deposit_id = deposit_index; // mock impl
-        let block_number = self.get_block_number();
+        let block_number = self.get_next_block_number();
         self.deposit_correspondence
             .insert(deposit_id, (deposit_index, block_number));
         deposit_id
@@ -111,14 +118,16 @@ impl MockContract {
             prev_block_hash: self.get_prev_block_hash(),
             deposit_tree_root: self.deposit_tree.get_root(),
             signature_hash: signature.hash(),
-            block_number: self.get_block_number(),
+            block_number: self.get_next_block_number(),
         };
         let full_block = FullBlock {
-            block,
+            block: block.clone(),
             signature,
             pubkeys: Some(sender_public_keys), // trimmed public keys
             account_ids: None,
         };
+        self.deposit_trees
+            .insert(block.block_number, self.deposit_tree.clone());
         self.full_blocks.push(full_block);
         Ok(())
     }
@@ -158,14 +167,16 @@ impl MockContract {
             prev_block_hash: self.get_prev_block_hash(),
             deposit_tree_root: self.deposit_tree.get_root(),
             signature_hash: signature.hash(),
-            block_number: self.get_block_number(),
+            block_number: self.get_next_block_number(),
         };
         let full_block = FullBlock {
-            block,
+            block: block.clone(),
             signature,
             pubkeys: None,
             account_ids: Some(account_ids),
         };
+        self.deposit_trees
+            .insert(block.block_number, self.deposit_tree.clone());
         self.full_blocks.push(full_block);
         Ok(())
     }

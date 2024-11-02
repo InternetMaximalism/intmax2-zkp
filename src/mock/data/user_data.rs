@@ -3,13 +3,8 @@ use uuid::Uuid;
 
 use crate::{
     common::{
-        private_state::PrivateState,
-        salt::Salt,
+        private_state::{FullPrivateState, FullPrivateStatePacked, PrivateState},
         signature::key_set::KeySet,
-        trees::{
-            asset_tree::{AssetTree, AssetTreePacked},
-            nullifier_tree::{NullifierTree, NullifierTreePacked},
-        },
     },
     ethereum_types::u256::U256,
 };
@@ -19,10 +14,7 @@ pub struct UserData {
     pub pubkey: U256,
 
     pub block_number: u32,
-    pub asset_tree: AssetTree,
-    pub nullifiers: NullifierTree,
-    pub nonce: u32,
-    pub salt: Salt,
+    pub full_private_state: FullPrivateState,
 
     // processed data
     pub processed_deposit_uuids: Vec<Uuid>,
@@ -35,10 +27,7 @@ struct UserDataPacked {
     pubkey: U256,
 
     block_number: u32,
-    asset_tree: AssetTreePacked,
-    nullifier_tree: NullifierTreePacked,
-    nonce: u32,
-    salt: Salt,
+    full_private_state: FullPrivateStatePacked,
 
     // processed data
     processed_deposit_uuids: Vec<String>,
@@ -51,10 +40,7 @@ impl UserData {
         let packed = UserDataPacked {
             pubkey: self.pubkey,
             block_number: self.block_number,
-            asset_tree: self.asset_tree.pack(),
-            nullifier_tree: self.nullifiers.pack(),
-            nonce: self.nonce,
-            salt: self.salt,
+            full_private_state: self.full_private_state.pack(),
             processed_deposit_uuids: self
                 .processed_deposit_uuids
                 .iter()
@@ -76,8 +62,7 @@ impl UserData {
 
     fn from_bytes(bytes: &[u8]) -> anyhow::Result<Self> {
         let packed: UserDataPacked = bincode::deserialize(bytes)?;
-        let asset_tree = AssetTree::unpack(packed.asset_tree);
-        let nullifiers = NullifierTree::unpack(packed.nullifier_tree);
+        let full_private_state = FullPrivateState::unpack(packed.full_private_state);
         let processed_deposit_uuids = packed
             .processed_deposit_uuids
             .iter()
@@ -96,10 +81,7 @@ impl UserData {
         Ok(Self {
             pubkey: packed.pubkey,
             block_number: packed.block_number,
-            asset_tree,
-            nullifiers,
-            nonce: packed.nonce,
-            salt: packed.salt,
+            full_private_state,
             processed_deposit_uuids,
             processed_transfer_uuids,
             processed_tx_uuids,
@@ -119,11 +101,6 @@ impl UserData {
     }
 
     pub fn private_state(&self) -> PrivateState {
-        PrivateState {
-            asset_tree_root: self.asset_tree.get_root(),
-            nullifier_tree_root: self.nullifiers.get_root(),
-            nonce: self.nonce,
-            salt: self.salt,
-        }
+        self.full_private_state.to_private_state()
     }
 }

@@ -6,7 +6,9 @@ use plonky2::{
 
 use crate::common::trees::block_hash_tree::BlockHashMerkleProof;
 
-use super::{private_witness::PrivateWitness, transfer_witness::TransferWitness};
+use super::{
+    private_transition_witness::PrivateTransitionWitness, transfer_witness::TransferWitness,
+};
 
 #[derive(Debug, Clone)]
 pub struct ReceiveTransferWitness<F, C, const D: usize>
@@ -15,7 +17,7 @@ where
     C: GenericConfig<D, F = F>,
 {
     pub transfer_witness: TransferWitness,
-    pub private_witness: PrivateWitness,
+    pub private_witness: PrivateTransitionWitness,
     pub balance_proof: ProofWithPublicInputs<F, C, D>,
     pub block_merkle_proof: BlockHashMerkleProof,
 }

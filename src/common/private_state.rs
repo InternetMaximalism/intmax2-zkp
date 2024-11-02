@@ -13,7 +13,10 @@ use crate::{
 
 use super::{
     salt::{Salt, SaltTarget},
-    trees::{asset_tree::AssetTree, nullifier_tree::NullifierTree},
+    trees::{
+        asset_tree::{AssetTree, AssetTreePacked},
+        nullifier_tree::{NullifierTree, NullifierTreePacked},
+    },
 };
 
 /// The part of the balance proof public input that is not disclosed to others
@@ -31,6 +34,26 @@ pub struct PrivateState {
 
     /// The salt which is used to blind this private state
     pub salt: Salt,
+}
+
+/// The witness of the private state
+#[derive(Clone, Debug)]
+pub struct FullPrivateState {
+    pub asset_tree: AssetTree,
+    pub nullifier_tree: NullifierTree,
+    pub nonce: u32,
+    pub salt: Salt,
+}
+
+impl FullPrivateState {
+    pub fn to_private_state(&self) -> PrivateState {
+        PrivateState {
+            asset_tree_root: self.asset_tree.get_root(),
+            nullifier_tree_root: self.nullifier_tree.get_root(),
+            nonce: self.nonce,
+            salt: self.salt,
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -106,5 +129,35 @@ impl PrivateStateTarget {
             .set_witness(witness, value.nullifier_tree_root);
         witness.set_target(self.nonce, F::from_canonical_u32(value.nonce));
         self.salt.set_witness(witness, value.salt);
+    }
+}
+
+// serialization
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FullPrivateStatePacked {
+    pub asset_tree: AssetTreePacked,
+    pub nullifier_tree: NullifierTreePacked,
+    pub nonce: u32,
+    pub salt: Salt,
+}
+
+impl FullPrivateState {
+    pub fn pack(&self) -> FullPrivateStatePacked {
+        FullPrivateStatePacked {
+            asset_tree: self.asset_tree.pack(),
+            nullifier_tree: self.nullifier_tree.pack(),
+            nonce: self.nonce,
+            salt: self.salt,
+        }
+    }
+
+    pub fn unpack(packed: FullPrivateStatePacked) -> Self {
+        Self {
+            asset_tree: AssetTree::unpack(packed.asset_tree),
+            nullifier_tree: NullifierTree::unpack(packed.nullifier_tree),
+            nonce: packed.nonce,
+            salt: packed.salt,
+        }
     }
 }
