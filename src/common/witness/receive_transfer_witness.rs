@@ -17,7 +17,8 @@ where
     C: GenericConfig<D, F = F>,
 {
     pub transfer_witness: TransferWitness,
-    pub private_witness: PrivateTransitionWitness,
-    pub balance_proof: ProofWithPublicInputs<F, C, D>,
-    pub block_merkle_proof: BlockHashMerkleProof,
+    pub private_transition_witness: PrivateTransitionWitness,
+    pub sender_balance_proof: ProofWithPublicInputs<F, C, D>,
+    pub block_merkle_proof: BlockHashMerkleProof, /* root: receiver's block number, leaf:
+                                                   * sender's block number */
 }

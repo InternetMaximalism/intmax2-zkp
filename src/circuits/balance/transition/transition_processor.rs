@@ -179,7 +179,7 @@ where
         // assertion
         let transfer = receive_transfer_witness.transfer_witness.transfer;
         let nullifier: Bytes32 = transfer.commitment().into();
-        let private_witness = receive_transfer_witness.private_witness.clone();
+        let private_witness = receive_transfer_witness.private_transition_witness.clone();
         ensure!(nullifier == private_witness.nullifier, "nullifier mismatch");
         ensure!(
             transfer.token_index == private_witness.token_index,
@@ -205,7 +205,7 @@ where
             transfer_witness.transfer_index,
             &transfer_witness.transfer_merkle_proof,
             &transfer_witness.tx,
-            &receive_transfer_witness.balance_proof,
+            &receive_transfer_witness.sender_balance_proof,
         )
         .map_err(|e| anyhow::anyhow!("transfer inclusion value failed: {:?}", e))?;
         let receive_transfer_value = ReceiveTransferValue::new(

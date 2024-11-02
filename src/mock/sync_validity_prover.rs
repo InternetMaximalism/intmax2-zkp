@@ -46,8 +46,8 @@ where
     pub account_trees: HashMap<u32, AccountTree>,
     pub block_trees: HashMap<u32, BlockHashTree>,
     pub validity_proofs: HashMap<u32, ProofWithPublicInputs<F, C, D>>,
-    pub deposit_correspondence: HashMap<u32, (u32, u32)>, /* deposit_id -> (deposit_index,
-                                                           * block_number) */
+    pub deposit_correspondence: HashMap<u32, (usize, u32)>, /* deposit_id -> (deposit_index,
+                                                             * block_number) */
     pub deposit_trees: HashMap<u32, DepositTree>, // snap shot of deposit tree at each block
 }
 
@@ -164,7 +164,7 @@ where
     }
 
     // returns deposit index and block number
-    pub fn get_deposit_index_and_block(&self, deposit_id: u32) -> Option<(u32, u32)> {
+    pub fn get_deposit_index_and_block(&self, deposit_id: u32) -> Option<(usize, u32)> {
         self.deposit_correspondence.get(&deposit_id).cloned()
     }
 
@@ -211,7 +211,7 @@ where
     pub fn get_deposit_merkle_proof(
         &self,
         block_number: u32,
-        deposit_index: u32,
+        deposit_index: usize,
     ) -> anyhow::Result<DepositMerkleProof> {
         let deposit_tree = &self
             .deposit_trees
@@ -220,7 +220,7 @@ where
                 "deposit tree not found for block number {}",
                 block_number
             ))?;
-        Ok(deposit_tree.prove(deposit_index as usize))
+        Ok(deposit_tree.prove(deposit_index))
     }
 
     pub fn validity_processor(&self) -> &ValidityProcessor<F, C, D> {

@@ -9,21 +9,27 @@ use plonky2::{
 };
 
 use crate::{
-    circuits::balance::balance_processor::{get_prev_balance_pis, BalanceProcessor},
+    circuits::balance::{
+        balance_pis::BalancePublicInputs,
+        balance_processor::{get_prev_balance_pis, BalanceProcessor},
+    },
     common::{
         salt::Salt,
         witness::{
-            deposit_witness::DepositWitness,
-            private_transition_witness::PrivateTransitionWitness,
+            deposit_witness::DepositWitness, private_transition_witness::PrivateTransitionWitness,
             receive_deposit_witness::ReceiveDepositWitness,
-            tx_witness::{self, TxWitness},
+            receive_transfer_witness::ReceiveTransferWitness, transfer_witness::TransferWitness,
+            tx_witness::TxWitness,
         },
     },
     ethereum_types::{bytes32::Bytes32, u256::U256},
 };
 
 use super::{
-    data::{deposit_data::DepositData, tx_data::TxData, user_data::UserData},
+    data::{
+        deposit_data::DepositData, transfer_data::TransferData, tx_data::TxData,
+        user_data::UserData,
+    },
     sync_validity_prover::SyncValidityProver,
 };
 
@@ -37,7 +43,7 @@ impl BalanceProver {
         user_data: &mut UserData,
         new_salt: Salt,
         prev_balance_proof: &Option<ProofWithPublicInputs<F, C, D>>,
-        deposit_block_number: u32,
+        receive_block_number: u32,
         deposit_data: &DepositData,
     ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>>
     where
@@ -51,7 +57,7 @@ impl BalanceProver {
             balance_processor,
             user_data.pubkey,
             prev_balance_proof,
-            deposit_block_number,
+            receive_block_number,
         )?;
 
         // Generate witness
@@ -59,11 +65,11 @@ impl BalanceProver {
             .get_deposit_index_and_block(deposit_data.deposit_id)
             .ok_or(anyhow::anyhow!("deposit not found"))?;
         ensure!(
-            deposit_block_number == deposit_block_number,
-            "deposit is not in the current block"
+            deposit_block_number <= receive_block_number,
+            "deposit block number is not less than or equal to receive block number"
         );
         let deposit_merkle_proof = validity_prover
-            .get_deposit_merkle_proof(deposit_index, deposit_block_number)
+            .get_deposit_merkle_proof(receive_block_number, deposit_index)
             .map_err(|_| anyhow::anyhow!("deposit merkle proof not found"))?;
         let deposit_witness = DepositWitness {
             deposit_salt: deposit_data.deposit_salt,
@@ -98,11 +104,84 @@ impl BalanceProver {
         Ok(balance_proof)
     }
 
-    fn process_tx<F, C, const D: usize>(
+    pub fn process_transfer<F, C, const D: usize>(
         &self,
         validity_prover: &SyncValidityProver<F, C, D>,
         balance_processor: &BalanceProcessor<F, C, D>,
-        // user_data: &mut UserData,
+        user_data: &mut UserData,
+        new_salt: Salt,
+        sender_balance_proof: &ProofWithPublicInputs<F, C, D>, /* sender's balance proof after
+                                                                * applying tx */
+        prev_balance_proof: &Option<ProofWithPublicInputs<F, C, D>>, /* receiver's prev balance
+                                                                      * proof */
+        receive_block_number: u32,
+        transfer_data: &TransferData<F, C, D>,
+    ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>>
+    where
+        F: RichField + Extendable<D>,
+        C: GenericConfig<D, F = F> + 'static,
+        <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
+    {
+        let sender_balance_pis = BalancePublicInputs::from_pis(&sender_balance_proof.public_inputs);
+        ensure!(
+            sender_balance_pis.public_state.block_number <= receive_block_number,
+            "receive block number is not greater than sender's block number"
+        );
+
+        // update balance proof up to the deposit block
+        let before_balance_proof = self.update_balance_proof(
+            validity_prover,
+            balance_processor,
+            user_data.pubkey,
+            prev_balance_proof,
+            receive_block_number,
+        )?;
+
+        // Generate witness
+        let transfer_witness = TransferWitness {
+            tx: transfer_data.tx_data.tx.clone(),
+            transfer: transfer_data.transfer.clone(),
+            transfer_index: transfer_data.transfer_index,
+            transfer_merkle_proof: transfer_data.transfer_merkle_proof.clone(),
+        };
+        let nullifier: Bytes32 = transfer_witness.transfer.commitment().into();
+        let private_transition_witness = PrivateTransitionWitness::new(
+            &mut user_data.full_private_state,
+            transfer_data.transfer.token_index,
+            transfer_data.transfer.amount,
+            nullifier,
+            new_salt,
+        )
+        .map_err(|e| anyhow::anyhow!("PrivateTransitionWitness::new failed: {:?}", e))?;
+        let block_merkle_proof = validity_prover
+            .get_block_merkle_proof(
+                receive_block_number,
+                sender_balance_pis.public_state.block_number,
+            )
+            .map_err(|e| anyhow::anyhow!("get_block_merkle_proof failed: {:?}", e))?;
+        let receive_trasfer_witness = ReceiveTransferWitness {
+            transfer_witness,
+            private_transition_witness,
+            sender_balance_proof: sender_balance_proof.clone(),
+            block_merkle_proof,
+        };
+
+        // prove transfer
+        let balance_proof = balance_processor
+            .prove_receive_transfer(
+                user_data.pubkey,
+                &receive_trasfer_witness,
+                &Some(before_balance_proof),
+            )
+            .map_err(|e| anyhow::anyhow!("prove_deposit failed: {:?}", e))?;
+
+        Ok(balance_proof)
+    }
+
+    pub fn process_tx<F, C, const D: usize>(
+        &self,
+        validity_prover: &SyncValidityProver<F, C, D>,
+        balance_processor: &BalanceProcessor<F, C, D>,
         sender: U256,
         prev_balance_proof: &Option<ProofWithPublicInputs<F, C, D>>,
         tx_block_number: u32,
