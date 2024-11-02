@@ -13,15 +13,17 @@ use crate::{
     common::{
         salt::Salt,
         witness::{
-            deposit_witness::DepositWitness, private_transition_witness::PrivateTransitionWitness,
+            deposit_witness::DepositWitness,
+            private_transition_witness::PrivateTransitionWitness,
             receive_deposit_witness::ReceiveDepositWitness,
+            tx_witness::{self, TxWitness},
         },
     },
     ethereum_types::{bytes32::Bytes32, u256::U256},
 };
 
 use super::{
-    data::{deposit_data::DepositData, user_data::UserData},
+    data::{deposit_data::DepositData, tx_data::TxData, user_data::UserData},
     sync_validity_prover::SyncValidityProver,
 };
 
@@ -35,7 +37,7 @@ impl BalanceProver {
         user_data: &mut UserData,
         new_salt: Salt,
         prev_balance_proof: &Option<ProofWithPublicInputs<F, C, D>>,
-        block_number: u32,
+        deposit_block_number: u32,
         deposit_data: &DepositData,
     ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>>
     where
@@ -43,12 +45,13 @@ impl BalanceProver {
         C: GenericConfig<D, F = F> + 'static,
         <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
     {
+        // update balance proof up to the deposit block
         let before_balance_proof = self.update_balance_proof(
             validity_prover,
             balance_processor,
             user_data.pubkey,
             prev_balance_proof,
-            block_number,
+            deposit_block_number,
         )?;
 
         // Generate witness
@@ -56,7 +59,7 @@ impl BalanceProver {
             .get_deposit_index_and_block(deposit_data.deposit_id)
             .ok_or(anyhow::anyhow!("deposit not found"))?;
         ensure!(
-            deposit_block_number == block_number,
+            deposit_block_number == deposit_block_number,
             "deposit is not in the current block"
         );
         let deposit_merkle_proof = validity_prover
@@ -83,6 +86,7 @@ impl BalanceProver {
             private_transition_witness,
         };
 
+        // prove deposit
         let balance_proof = balance_processor
             .prove_receive_deposit(
                 user_data.pubkey,
@@ -90,6 +94,71 @@ impl BalanceProver {
                 &Some(before_balance_proof),
             )
             .map_err(|e| anyhow::anyhow!("prove_deposit failed: {:?}", e))?;
+
+        Ok(balance_proof)
+    }
+
+    fn process_tx<F, C, const D: usize>(
+        &self,
+        validity_prover: &SyncValidityProver<F, C, D>,
+        balance_processor: &BalanceProcessor<F, C, D>,
+        // user_data: &mut UserData,
+        sender: U256,
+        prev_balance_proof: &Option<ProofWithPublicInputs<F, C, D>>,
+        tx_block_number: u32,
+        tx_data: &TxData<F, C, D>,
+    ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>>
+    where
+        F: RichField + Extendable<D>,
+        C: GenericConfig<D, F = F> + 'static,
+        <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
+    {
+        // sync check
+        ensure!(
+            tx_block_number <= validity_prover.last_block_number,
+            "validity prover is not up to date"
+        );
+        let prev_balance_pis = get_prev_balance_pis(sender, prev_balance_proof);
+        ensure!(
+            prev_balance_pis.public_state.block_number < tx_block_number,
+            "tx block number is not greater than prev balance proof"
+        );
+
+        // get witness
+        let validity_pis =
+            validity_prover
+                .get_validity_pis(tx_block_number)
+                .ok_or(anyhow::anyhow!(
+                    "validity public inputs not found for block number {}",
+                    tx_block_number
+                ))?;
+        let tx_witness = TxWitness {
+            validity_pis,
+            sender_leaves: tx_data.sender_leaves.clone(),
+            tx: tx_data.tx.clone(),
+            tx_index: tx_data.tx_index,
+            tx_merkle_proof: tx_data.tx_merkle_proof.clone(),
+        };
+        let update_witness = validity_prover
+            .get_update_witness(
+                sender,
+                tx_block_number,
+                prev_balance_pis.public_state.block_number,
+                true,
+            )
+            .map_err(|e| anyhow::anyhow!("get_update_witness failed: {:?}", e))?;
+
+        // prove tx send
+        let balance_proof = balance_processor
+            .prove_send(
+                validity_prover.validity_circuit(),
+                sender,
+                &tx_witness,
+                &update_witness,
+                &tx_data.spent_proof,
+                prev_balance_proof,
+            )
+            .map_err(|e| anyhow::anyhow!("prove_send failed: {:?}", e))?;
 
         Ok(balance_proof)
     }

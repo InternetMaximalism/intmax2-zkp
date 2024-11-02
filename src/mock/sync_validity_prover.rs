@@ -13,7 +13,8 @@ use plonky2::{
 
 use crate::{
     circuits::validity::{
-        validity_circuit::ValidityCircuit, validity_processor::ValidityProcessor,
+        validity_circuit::ValidityCircuit, validity_pis::ValidityPublicInputs,
+        validity_processor::ValidityProcessor,
     },
     common::{
         block::Block,
@@ -165,6 +166,12 @@ where
     // returns deposit index and block number
     pub fn get_deposit_index_and_block(&self, deposit_id: u32) -> Option<(u32, u32)> {
         self.deposit_correspondence.get(&deposit_id).cloned()
+    }
+
+    pub fn get_validity_pis(&self, block_number: u32) -> Option<ValidityPublicInputs> {
+        self.validity_proofs
+            .get(&block_number)
+            .map(|proof| ValidityPublicInputs::from_pis(&proof.public_inputs))
     }
 
     pub fn get_block_merkle_proof(
