@@ -19,6 +19,7 @@ use crate::{
 
 use super::{
     balance_logic::{process_common_tx, process_deposit},
+    block_builder::BlockBuilder,
     contract::MockContract,
     data::{
         common_tx_data::CommonTxData, deposit_data::DepositData, meta_data::MetaData,
@@ -79,6 +80,8 @@ impl Client {
     pub fn send_tx<F, C, const D: usize>(
         &self,
         key: KeySet,
+        contract: &mut MockContract,
+        block_builder: &mut BlockBuilder,
         data_store_sever: &mut DataStoreServer<F, C, D>,
         validity_prover: &SyncValidityProver<F, C, D>,
         balance_processor: &BalanceProcessor<F, C, D>,
@@ -126,7 +129,11 @@ impl Client {
         }
 
         // generate spent proof
-        let tx = generate_tx(user_data.full_private_state.nonce, &transfers);
+        let transfer_tree = generate_transfer_tree(&transfers);
+        let tx = Tx {
+            nonce: user_data.full_private_state.nonce,
+            transfer_tree_root: transfer_tree.get_root(),
+        };
         let new_salt = generate_salt(key, user_data.full_private_state.nonce);
         let spent_witness = SpentWitness::new(
             &user_data.full_private_state.asset_tree,
@@ -136,12 +143,24 @@ impl Client {
             new_salt,
         )
         .map_err(|e| anyhow::anyhow!("SpentWitness::new failed: {:?}", e))?;
-
         let spent_proof = balance_processor
             .balance_transition_processor
             .sender_processor
             .prove_spent(&spent_witness)
             .map_err(|e| anyhow::anyhow!("prove_spent failed: {:?}", e))?;
+
+        // request to block builer
+
+        // save tx data
+        let common_tx_data = CommonTxData {
+            spent_proof,
+            sender_prev_block_number: user_data.block_number,
+            tx,
+            tx_index: todo!(),
+            tx_merkle_proof: todo!(),
+            tx_tree_root: todo!(),
+            sender_leaves: todo!(),
+        };
 
         todo!()
     }
@@ -510,17 +529,13 @@ pub fn generate_salt(_key: KeySet, _nonce: u32) -> Salt {
     Salt::rand(&mut rng)
 }
 
-pub fn generate_tx(nonce: u32, transfers: &[Transfer]) -> Tx {
+pub fn generate_transfer_tree(transfers: &[Transfer]) -> TransferTree {
     let mut transfers = transfers.to_vec();
+    // no need to resize?
     transfers.resize(NUM_TRANSFERS_IN_TX, Transfer::default());
-
     let mut transfer_tree = TransferTree::new(TRANSFER_TREE_HEIGHT);
     for transfer in &transfers {
         transfer_tree.push(transfer.clone());
     }
-
-    Tx {
-        transfer_tree_root: transfer_tree.get_root(),
-        nonce,
-    }
+    transfer_tree
 }
