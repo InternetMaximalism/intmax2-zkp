@@ -1,8 +1,9 @@
 use std::env;
 
+use hashbrown::HashMap;
 use intmax2_zkp::{
     circuits::balance::balance_processor::BalanceProcessor,
-    common::signature::key_set::KeySet,
+    common::{signature::key_set::KeySet, trees::asset_tree::AssetLeaf},
     mock::{
         block_builder::BlockBuilder, client::Client, contract::MockContract,
         data_store_server::DataStoreServer, sync_validity_prover::SyncValidityProver,
@@ -64,16 +65,7 @@ fn e2e_test() {
         "Synced alice balance proof to block {}",
         alice_data.block_number
     );
-
-    // // sync alice wallet to the latest block, which includes the deposit
-    // alice_prover.sync_all(
-    //     &mut sync_validity_prover,
-    //     &mut alice_wallet,
-    //     &balance_processor,
-    //     &block_builder,
-    // );
-    // let balance_pis = alice_prover.get_balance_pis();
-    // assert_eq!(balance_pis.public_state.block_number, 1); // balance proof synced to block 1
+    print_balances(&alice_data.balances());
 
     // // receive deposit and update alice balance proof
     // alice_prover.receive_deposit(
@@ -167,4 +159,16 @@ fn e2e_test() {
     // let _withdrawal_proof = withdrawal_processor
     //     .prove(&withdrawal_witness, &None)
     //     .unwrap();
+}
+
+fn print_balances(balances: &HashMap<usize, AssetLeaf>) {
+    for (token_index, asset_leaf) in balances {
+        if asset_leaf.is_insufficient {
+            continue;
+        }
+        println!(
+            "token index; {}, balance: {}",
+            token_index, asset_leaf.amount
+        );
+    }
 }
