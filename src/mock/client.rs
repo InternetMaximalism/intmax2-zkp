@@ -77,12 +77,19 @@ impl Client {
         &self,
         key: KeySet,
         data_store_sever: &mut DataStoreServer<F, C, D>,
+        validity_prover: &SyncValidityProver<F, C, D>,
+        balance_processor: &BalanceProcessor<F, C, D>,
     ) -> anyhow::Result<()>
     where
         F: RichField + Extendable<D>,
         C: GenericConfig<D, F = F> + 'static,
         <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
     {
+        self.sync_balance_proof(key, data_store_sever, validity_prover, balance_processor)
+            .map_err(|e| anyhow::anyhow!("failed to sync balance proof: {}", e))?;
+
+        // balance check
+
         todo!()
     }
 
@@ -345,7 +352,7 @@ impl Client {
     // generate strategy of the balance proof update process
     fn generate_strategy<F, C, const D: usize>(
         &self,
-        data_store_sever: &DataStoreServer<F, C, D>,
+        data_store_sever: &mut DataStoreServer<F, C, D>,
         sync_validity_prover: &SyncValidityProver<F, C, D>,
         key: KeySet,
     ) -> anyhow::Result<Strategy<F, C, D>>
@@ -355,7 +362,7 @@ impl Client {
         <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
     {
         // get user data from the data store server
-        let user_data = data_store_sever
+        let mut user_data = data_store_sever
             .get_user_data(key)
             .map_err(|e| anyhow::anyhow!("failed to get user data: {}", e))?
             .unwrap_or(UserData::new(key.pubkey));
@@ -367,6 +374,18 @@ impl Client {
         let transition_data = data_store_sever
             .get_transition_data(key, except_deposits, except_transfers, except_txs)
             .map_err(|e| anyhow::anyhow!("failed to get transition data: {}", e))?;
+        // add rejected data to user data
+        user_data
+            .rejected_deposit_uuids
+            .extend(transition_data.rejected_deposits);
+        user_data
+            .rejected_transfer_uuids
+            .extend(transition_data.rejected_transfers);
+        user_data
+            .rejected_processed_tx_uuids
+            .extend(transition_data.rejected_txs);
+        // save user data
+        data_store_sever.save_user_data(key.pubkey, user_data);
 
         // fetch block numbers for each data
         let mut deposit_data = Vec::new();
