@@ -27,15 +27,15 @@ impl Client {
             .get_user_data(key)
             .map_err(|e| anyhow::anyhow!("failed to get user data: {}", e))?
             .unwrap_or(UserData::new(key.pubkey));
+
         let except_transfers = user_data.transfer_exception_uudis();
         let except_txs = user_data.tx_exception_uudis();
         let except_deposits = user_data.deposit_exception_uudis();
-
-        let (deposit_data, transfer_data, tx_data) = data_store_sever
+        let transition_data = data_store_sever
             .get_transition_data(key, except_deposits, except_transfers, except_txs)
             .map_err(|e| anyhow::anyhow!("failed to get transition data: {}", e))?;
-        
 
+        
         todo!()
     }
 }
