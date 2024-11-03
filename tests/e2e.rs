@@ -44,7 +44,7 @@ fn e2e_test() {
 
     // post empty block to reflect the deposit
     block_builder
-        .post_block(&mut contract, &validity_prover, true, vec![])
+        .post_block(&mut contract, &validity_prover, false, vec![])
         .unwrap();
 
     // sync validity prover to the latest block

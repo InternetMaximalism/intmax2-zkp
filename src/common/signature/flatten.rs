@@ -1,4 +1,5 @@
 use ark_bn254::{Fq, Fq2, G1Affine, G2Affine};
+use ark_ec::AffineRepr;
 use plonky2::{
     field::{extension::Extendable, types::Field},
     hash::hash_types::RichField,
@@ -33,7 +34,12 @@ impl From<FlatG1> for G1Affine {
     fn from(flat: FlatG1) -> Self {
         let x = flat.0[0].into();
         let y = flat.0[1].into();
-        G1Affine::new(x, y)
+        let p = G1Affine::new_unchecked(x, y);
+        if p.is_zero() {
+            G1Affine::zero()
+        } else {
+            p
+        }
     }
 }
 
@@ -62,7 +68,14 @@ impl From<FlatG2> for G2Affine {
         let x_c1: Fq = flat.0[0].into();
         let y_c0: Fq = flat.0[3].into();
         let y_c1: Fq = flat.0[2].into();
-        G2Affine::new(Fq2::new(x_c0, x_c1), Fq2::new(y_c0, y_c1))
+        let x = Fq2::new(x_c0, x_c1);
+        let y = Fq2::new(y_c0, y_c1);
+        let p = G2Affine::new_unchecked(x, y);
+        if p.is_zero() {
+            G2Affine::zero()
+        } else {
+            p
+        }
     }
 }
 

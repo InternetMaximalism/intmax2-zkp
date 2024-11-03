@@ -101,6 +101,7 @@ impl MockContract {
             ),
             "invalid signature"
         );
+        log::info!("post registration block");
         let mut padded_pubkeys = sender_public_keys.clone();
         padded_pubkeys.resize(NUM_SENDERS_IN_BLOCK, U256::dummy_pubkey());
         let pubkey_hash = get_pubkey_hash(&padded_pubkeys);
@@ -143,14 +144,17 @@ impl MockContract {
         public_keys_hash: Bytes32,
         account_ids: Vec<u8>, // dummy accounts are trimmed
     ) -> anyhow::Result<()> {
-        ensure!(
-            pairing_check(
-                agg_pubkey.clone(),
-                agg_signature.clone(),
-                message_point.clone()
-            ),
-            "invalid signature"
-        );
+        if sender_flag != Bytes16::default() {
+            ensure!(
+                pairing_check(
+                    agg_pubkey.clone(),
+                    agg_signature.clone(),
+                    message_point.clone()
+                ),
+                "invalid signature"
+            );
+        }
+
         let account_ids_packed = AccountIdPacked::from_trimmed_bytes(&account_ids)
             .map_err(|e| anyhow::anyhow!("error while recovering packed account ids {}", e))?;
         let signature = SignatureContent {
@@ -183,9 +187,10 @@ impl MockContract {
 }
 
 fn pairing_check(agg_pubkey: FlatG1, agg_signature: FlatG2, message_point: FlatG2) -> bool {
+    log::info!("pairing check");
     let agg_pubkey: G1Affine = agg_pubkey.into();
     let agg_signature: G2Affine = agg_signature.into();
     let message_point: G2Affine = message_point.into();
     Bn254::pairing(agg_pubkey, message_point)
-        == Bn254::pairing(G1Affine::generator(), agg_signature)
+        == Bn254::pairing(-G1Affine::generator(), agg_signature)
 }
