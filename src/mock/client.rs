@@ -514,8 +514,15 @@ impl Client {
         let except_transfers = user_data.transfer_exception_uudis();
         let except_txs = user_data.tx_exception_uudis();
         let except_deposits = user_data.deposit_exception_uudis();
+        let except_withdrawals = user_data.withdrawal_exception_uudis();
         let transition_data = data_store_sever
-            .get_transition_data(key, except_deposits, except_transfers, except_txs)
+            .get_transition_data(
+                key,
+                except_deposits,
+                except_transfers,
+                except_txs,
+                except_withdrawals,
+            )
             .map_err(|e| anyhow::anyhow!("failed to get transition data: {}", e))?;
         // add rejected data to user data
         user_data
@@ -527,6 +534,9 @@ impl Client {
         user_data
             .rejected_processed_tx_uuids
             .extend(transition_data.rejected_txs);
+        user_data
+            .rejected_withdrawal_uuids
+            .extend(transition_data.rejected_withdrawals);
         // save user data
         data_store_sever.save_user_data(key.pubkey, user_data);
 

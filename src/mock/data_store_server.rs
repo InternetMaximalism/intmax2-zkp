@@ -37,6 +37,8 @@ where
     encrypted_tx_data: HashMap<U256, HashMap<Uuid, Vec<u8>>>, /* sender's pubkey -> tx_id ->
                                                                * encrypted_tx_data */
 
+    encrypted_withdrawal_data: HashMap<U256, HashMap<Uuid, Vec<u8>>>, /* receiver's pubkey -> uuid -> encrypted_withdrawal_data */
+
     encrypted_user_data: HashMap<U256, Vec<u8>>, /* pubkey -> encrypted_user_data */
 }
 
@@ -52,6 +54,7 @@ where
             encrypted_deposit_data: HashMap::new(),
             encrypted_tranfer_data: HashMap::new(),
             encrypted_tx_data: HashMap::new(),
+            encrypted_withdrawal_data: HashMap::new(),
             encrypted_user_data: HashMap::new(),
         }
     }
@@ -213,6 +216,43 @@ where
         Ok((decrypted, rejected))
     }
 
+    pub fn save_withdrawal_data(&mut self, pubkey: U256, withdrawal_data: TransferData<F, C, D>) {
+        let encrypted = withdrawal_data.encrypt(pubkey);
+        let uuid = Uuid::new_v4();
+        self.encrypted_withdrawal_data
+            .entry(pubkey)
+            .or_insert_with(HashMap::new)
+            .insert(uuid, encrypted);
+    }
+
+    pub fn get_withdrawal_data(
+        &self,
+        key: KeySet,
+        except: Vec<Uuid>,
+    ) -> anyhow::Result<(Vec<(Uuid, TransferData<F, C, D>)>, Vec<Uuid>)> {
+        let empty = HashMap::new();
+        let list = self
+            .encrypted_withdrawal_data
+            .get(&key.pubkey)
+            .unwrap_or(&empty);
+
+        let mut decrypted = Vec::new();
+        let mut rejected = Vec::new();
+        for (uuid, encrypted) in list.iter() {
+            if except.contains(uuid) {
+                continue;
+            }
+            match TransferData::decrypt(encrypted, key) {
+                std::result::Result::Ok(data) => decrypted.push((*uuid, data)),
+                Err(e) => {
+                    log::error!("failed to decrypt withdrawal data: {}", e);
+                    rejected.push(*uuid);
+                }
+            }
+        }
+        Ok((decrypted, rejected))
+    }
+
     pub fn save_user_data(&mut self, pubkey: U256, user_data: UserData) {
         let encrypted = user_data.encrypt(pubkey);
         self.encrypted_user_data.insert(pubkey, encrypted);
@@ -234,17 +274,22 @@ where
         except_deposits: Vec<Uuid>,
         except_transfers: Vec<Uuid>,
         except_txs: Vec<Uuid>,
+        except_withdrawals: Vec<Uuid>,
     ) -> anyhow::Result<TransitionData<F, C, D>> {
         let (deposit_data, rejected_deposits) = self.get_deposit_data(key, except_deposits)?;
         let (transfer_data, rejected_transfers) = self.get_transfer_data(key, except_transfers)?;
         let (tx_data, rejected_txs) = self.get_tx_data(key, except_txs)?;
+        let (withdrawal_data, rejected_withdrawals) =
+            self.get_withdrawal_data(key, except_withdrawals)?;
         Ok(TransitionData {
             deposit_data,
             transfer_data,
             tx_data,
+            withdrawal_data,
             rejected_deposits,
             rejected_transfers,
             rejected_txs,
+            rejected_withdrawals,
         })
     }
 }
@@ -257,7 +302,9 @@ where
     pub deposit_data: Vec<(Uuid, DepositData)>,
     pub transfer_data: Vec<(Uuid, TransferData<F, C, D>)>,
     pub tx_data: Vec<(Uuid, TxData<F, C, D>)>,
+    pub withdrawal_data: Vec<(Uuid, TransferData<F, C, D>)>,
     pub rejected_deposits: Vec<Uuid>,
     pub rejected_transfers: Vec<Uuid>,
     pub rejected_txs: Vec<Uuid>,
+    pub rejected_withdrawals: Vec<Uuid>,
 }

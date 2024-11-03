@@ -23,11 +23,13 @@ pub struct UserData {
     pub processed_deposit_uuids: Vec<Uuid>,
     pub processed_transfer_uuids: Vec<Uuid>,
     pub processed_tx_uuids: Vec<Uuid>,
+    pub processed_withdrawal_uuids: Vec<Uuid>,
 
     // rejected data
     pub rejected_deposit_uuids: Vec<Uuid>,
     pub rejected_transfer_uuids: Vec<Uuid>,
     pub rejected_processed_tx_uuids: Vec<Uuid>,
+    pub rejected_withdrawal_uuids: Vec<Uuid>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -40,11 +42,13 @@ struct UserDataPacked {
     pub processed_deposit_uuids: Vec<Uuid>,
     pub processed_transfer_uuids: Vec<Uuid>,
     pub processed_tx_uuids: Vec<Uuid>,
+    pub processed_withdrawal_uuids: Vec<Uuid>,
 
     // rejected data
     pub rejected_deposit_uuids: Vec<Uuid>,
     pub rejected_transfer_uuids: Vec<Uuid>,
     pub rejected_processed_tx_uuids: Vec<Uuid>,
+    pub rejected_withdrawal_uuids: Vec<Uuid>,
 }
 
 impl UserData {
@@ -56,9 +60,11 @@ impl UserData {
             processed_deposit_uuids: vec![],
             processed_transfer_uuids: vec![],
             processed_tx_uuids: vec![],
+            processed_withdrawal_uuids: vec![],
             rejected_deposit_uuids: vec![],
             rejected_transfer_uuids: vec![],
             rejected_processed_tx_uuids: vec![],
+            rejected_withdrawal_uuids: vec![],
         }
     }
 
@@ -70,9 +76,11 @@ impl UserData {
             processed_deposit_uuids: self.processed_deposit_uuids.clone(),
             processed_transfer_uuids: self.processed_transfer_uuids.clone(),
             processed_tx_uuids: self.processed_tx_uuids.clone(),
+            processed_withdrawal_uuids: self.processed_withdrawal_uuids.clone(),
             rejected_deposit_uuids: self.rejected_deposit_uuids.clone(),
             rejected_transfer_uuids: self.rejected_transfer_uuids.clone(),
             rejected_processed_tx_uuids: self.rejected_processed_tx_uuids.clone(),
+            rejected_withdrawal_uuids: self.rejected_withdrawal_uuids.clone(),
         };
         bincode::serialize(&packed).unwrap()
     }
@@ -84,12 +92,14 @@ impl UserData {
             pubkey: packed.pubkey,
             block_number: packed.block_number,
             full_private_state,
-            processed_deposit_uuids: packed.processed_deposit_uuids,
-            processed_transfer_uuids: packed.processed_transfer_uuids,
-            processed_tx_uuids: packed.processed_tx_uuids,
-            rejected_deposit_uuids: packed.rejected_deposit_uuids,
-            rejected_transfer_uuids: packed.rejected_transfer_uuids,
-            rejected_processed_tx_uuids: packed.rejected_processed_tx_uuids,
+            processed_deposit_uuids: packed.processed_deposit_uuids.clone(),
+            processed_transfer_uuids: packed.processed_transfer_uuids.clone(),
+            processed_tx_uuids: packed.processed_tx_uuids.clone(),
+            processed_withdrawal_uuids: packed.processed_withdrawal_uuids.clone(),
+            rejected_deposit_uuids: packed.rejected_deposit_uuids.clone(),
+            rejected_transfer_uuids: packed.rejected_transfer_uuids.clone(),
+            rejected_processed_tx_uuids: packed.rejected_processed_tx_uuids.clone(),
+            rejected_withdrawal_uuids: packed.rejected_withdrawal_uuids.clone(),
         })
     }
 
@@ -129,6 +139,14 @@ impl UserData {
         self.processed_tx_uuids
             .iter()
             .chain(self.rejected_processed_tx_uuids.iter())
+            .cloned()
+            .collect()
+    }
+
+    pub fn withdrawal_exception_uudis(&self) -> Vec<Uuid> {
+        self.processed_withdrawal_uuids
+            .iter()
+            .chain(self.rejected_withdrawal_uuids.iter())
             .cloned()
             .collect()
     }

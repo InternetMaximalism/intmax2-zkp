@@ -91,11 +91,6 @@ fn e2e_test() {
             vec![transfer_to_bob],
         )
         .unwrap();
-    // let alice_data = client.get_user_data(alice_key, &data_store_server).unwrap();
-    // log::info!(
-    //     "Sent transfer to bob, synced alice balance proof to block {}",
-    //     alice_data.block_number
-    // );
 
     // sync validity prover to the latest block
     validity_prover.sync(&contract).unwrap();
