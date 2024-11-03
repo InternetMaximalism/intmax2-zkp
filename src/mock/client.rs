@@ -8,8 +8,11 @@ use crate::{
         salt::Salt,
         signature::key_set::KeySet,
         transfer::Transfer,
+        trees::transfer_tree::TransferTree,
+        tx::Tx,
+        witness::spent_witness::SpentWitness,
     },
-    constants::NUM_TRANSFERS_IN_TX,
+    constants::{NUM_TRANSFERS_IN_TX, TRANSFER_TREE_HEIGHT},
     ethereum_types::u256::U256,
     mock::{balance_logic::process_transfer, data::user_data::UserData, strategy},
 };
@@ -123,7 +126,22 @@ impl Client {
         }
 
         // generate spent proof
-        // let spent_proof = balance_processor.spent
+        let tx = generate_tx(user_data.full_private_state.nonce, &transfers);
+        let new_salt = generate_salt(key, user_data.full_private_state.nonce);
+        let spent_witness = SpentWitness::new(
+            &user_data.full_private_state.asset_tree,
+            &user_data.full_private_state.to_private_state(),
+            &transfers,
+            tx,
+            new_salt,
+        )
+        .map_err(|e| anyhow::anyhow!("SpentWitness::new failed: {:?}", e))?;
+
+        let spent_proof = balance_processor
+            .balance_transition_processor
+            .sender_processor
+            .prove_spent(&spent_witness)
+            .map_err(|e| anyhow::anyhow!("prove_spent failed: {:?}", e))?;
 
         todo!()
     }
@@ -490,4 +508,19 @@ pub fn generate_salt(_key: KeySet, _nonce: u32) -> Salt {
     // todo: deterministic salt generation
     let mut rng = rand::thread_rng();
     Salt::rand(&mut rng)
+}
+
+pub fn generate_tx(nonce: u32, transfers: &[Transfer]) -> Tx {
+    let mut transfers = transfers.to_vec();
+    transfers.resize(NUM_TRANSFERS_IN_TX, Transfer::default());
+
+    let mut transfer_tree = TransferTree::new(TRANSFER_TREE_HEIGHT);
+    for transfer in &transfers {
+        transfer_tree.push(transfer.clone());
+    }
+
+    Tx {
+        transfer_tree_root: transfer_tree.get_root(),
+        nonce,
+    }
 }

@@ -7,11 +7,10 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     common::{
-        signature::key_set::KeySet,
         trees::{sender_tree::SenderLeaf, tx_tree::TxMerkleProof},
         tx::Tx,
     },
-    ethereum_types::{bytes32::Bytes32, u256::U256},
+    ethereum_types::bytes32::Bytes32,
 };
 
 // tx data for both sender and receiver
