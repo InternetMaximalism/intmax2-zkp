@@ -192,5 +192,5 @@ fn pairing_check(agg_pubkey: FlatG1, agg_signature: FlatG2, message_point: FlatG
     let agg_signature: G2Affine = agg_signature.into();
     let message_point: G2Affine = message_point.into();
     Bn254::pairing(agg_pubkey, message_point)
-        == Bn254::pairing(-G1Affine::generator(), agg_signature)
+        == Bn254::pairing(G1Affine::generator(), agg_signature)
 }

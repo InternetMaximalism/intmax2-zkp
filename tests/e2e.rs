@@ -97,6 +97,10 @@ fn e2e_test() {
     //     alice_data.block_number
     // );
 
+    // sync validity prover to the latest block
+    validity_prover.sync(&contract).unwrap();
+    log::info!("synced to block {}", validity_prover.last_block_number);
+
     // sync bob wallet to the latest block
     client
         .sync_balance_proof(
@@ -113,7 +117,7 @@ fn e2e_test() {
     );
     print_balances(&bob_data.balances());
 
-    // // bob withdraw 10wei ETH
+    // bob withdraw 10wei ETH
     // let bob_eth_address = Address::rand(&mut rng);
     // let withdrawal = Transfer {
     //     recipient: GenericAddress::from_address(bob_eth_address),
