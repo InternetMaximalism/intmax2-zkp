@@ -53,19 +53,24 @@ impl Client {
     {
         // todo: improve the way to choose deposit salt
         let deposit_salt = generate_salt(key, 0);
-        let pubkey_salt_hash = get_pubkey_salt_hash(key.pubkey, deposit_salt);
 
         // backup before contract call
+        let pubkey_salt_hash = get_pubkey_salt_hash(key.pubkey, deposit_salt);
         let deposit = Deposit {
             pubkey_salt_hash,
             token_index,
             amount,
         };
-        let deposit_data = DepositData::new(deposit);
+        let deposit_data = DepositData {
+            deposit_salt,
+            deposit,
+        };
         data_store_sever.save_deposit_data(key.pubkey, deposit_data);
 
+        // call contract
         contract.deposit(pubkey_salt_hash, token_index, amount);
-        todo!()
+
+        Ok(())
     }
 
     pub fn send_tx<F, C, const D: usize>(
@@ -367,7 +372,7 @@ impl Client {
         let mut deposit_data = Vec::new();
         for (uuid, data) in transition_data.deposit_data {
             if let Some((_deposit_index, block_number)) =
-                sync_validity_prover.get_deposit_index_and_block_number(data.deposit_id)
+                sync_validity_prover.get_deposit_index_and_block_number(data.deposit_hash())
             {
                 deposit_data.push((MetaData { uuid, block_number }, data));
             } else {

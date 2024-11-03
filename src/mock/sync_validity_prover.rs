@@ -46,8 +46,8 @@ where
     pub account_trees: HashMap<u32, AccountTree>,
     pub block_trees: HashMap<u32, BlockHashTree>,
     pub validity_proofs: HashMap<u32, ProofWithPublicInputs<F, C, D>>,
-    pub deposit_correspondence: HashMap<u32, (usize, u32)>, /* deposit_id -> (deposit_index,
-                                                             * block_number) */
+    pub deposit_correspondence: HashMap<Bytes32, (usize, u32)>, /* deposit_hash ->
+                                                                 * (deposit_index, block_number) */
     pub deposit_trees: HashMap<u32, DepositTree>, // snap shot of deposit tree at each block
     pub tx_tree_roots: HashMap<Bytes32, Vec<u32>>, // tx tree root at each block
 }
@@ -175,8 +175,11 @@ where
     }
 
     // returns deposit index and block number
-    pub fn get_deposit_index_and_block_number(&self, deposit_id: u32) -> Option<(usize, u32)> {
-        self.deposit_correspondence.get(&deposit_id).cloned()
+    pub fn get_deposit_index_and_block_number(
+        &self,
+        deposit_hash: Bytes32,
+    ) -> Option<(usize, u32)> {
+        self.deposit_correspondence.get(&deposit_hash).cloned()
     }
 
     pub fn get_block_numbers_by_tx_tree_root(&self, tx_tree_root: Bytes32) -> Vec<u32> {

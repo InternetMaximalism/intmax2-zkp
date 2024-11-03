@@ -7,7 +7,8 @@ use crate::{
         salt::Salt,
         signature::key_set::KeySet,
     },
-    ethereum_types::u256::U256,
+    ethereum_types::{bytes32::Bytes32, u256::U256},
+    utils::leafable::Leafable,
 };
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -43,6 +44,10 @@ impl DepositData {
             self.deposit.pubkey_salt_hash == get_pubkey_salt_hash(key.pubkey, self.deposit_salt),
             "invalid pubkey_salt_hash"
         );
-        todo!()
+        Ok(())
+    }
+
+    pub fn deposit_hash(&self) -> Bytes32 {
+        self.deposit.hash()
     }
 }

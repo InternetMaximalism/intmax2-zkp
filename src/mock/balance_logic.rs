@@ -60,7 +60,7 @@ where
 
     // Generate witness
     let (deposit_index, deposit_block_number) = validity_prover
-        .get_deposit_index_and_block_number(deposit_data.deposit_id)
+        .get_deposit_index_and_block_number(deposit_data.deposit_hash())
         .ok_or(anyhow::anyhow!("deposit not found"))?;
     ensure!(
         deposit_block_number <= receive_block_number,

@@ -19,13 +19,14 @@ use crate::{
     ethereum_types::{
         account_id_packed::AccountIdPacked, bytes16::Bytes16, bytes32::Bytes32, u256::U256,
     },
+    utils::leafable::Leafable,
 };
 
 pub struct MockContract {
     pub full_blocks: Vec<FullBlock>,
     pub deposit_tree: DepositTree,
     pub deposit_trees: HashMap<u32, DepositTree>, // snap shot of deposit tree at each block
-    pub deposit_correspondence: HashMap<u32, (usize, u32)>, /* deposit_id -> (deposit_index,
+    pub deposit_correspondence: HashMap<Bytes32, (usize, u32)>, /* deposit_hash -> (deposit_index,
                                                    * block_number) */
 }
 
@@ -69,18 +70,17 @@ impl MockContract {
     }
 
     /// Simpler interface for depositing tokens. Returns the id of deposit
-    pub fn deposit(&mut self, pubkey_salt_hash: Bytes32, token_index: u32, amount: U256) -> u32 {
+    pub fn deposit(&mut self, pubkey_salt_hash: Bytes32, token_index: u32, amount: U256) {
         let deposit_index = self.deposit_tree.len();
-        self.deposit_tree.push(Deposit {
+        let deposit = Deposit {
             pubkey_salt_hash,
             token_index,
             amount,
-        });
-        let deposit_id = (deposit_index * 2) as u32; // this is a dummy deposit id
+        };
+        self.deposit_tree.push(deposit.clone());
         let block_number = self.get_next_block_number();
         self.deposit_correspondence
-            .insert(deposit_id, (deposit_index, block_number));
-        deposit_id
+            .insert(deposit.hash(), (deposit_index, block_number));
     }
 
     /// Posts registration block. Same interface as the contract.
