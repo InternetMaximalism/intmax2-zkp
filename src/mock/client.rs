@@ -141,7 +141,7 @@ impl Client {
         let spent_witness = SpentWitness::new(
             &user_data.full_private_state.asset_tree,
             &user_data.full_private_state.to_private_state(),
-            &transfers,
+            &transfer_tree.leaves(), // this is padded
             tx,
             new_salt,
         )
@@ -594,7 +594,6 @@ pub fn generate_salt(_key: KeySet, _nonce: u32) -> Salt {
 
 pub fn generate_transfer_tree(transfers: &[Transfer]) -> TransferTree {
     let mut transfers = transfers.to_vec();
-    // no need to resize?
     transfers.resize(NUM_TRANSFERS_IN_TX, Transfer::default());
     let mut transfer_tree = TransferTree::new(TRANSFER_TREE_HEIGHT);
     for transfer in &transfers {
