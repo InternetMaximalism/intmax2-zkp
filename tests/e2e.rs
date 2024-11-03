@@ -49,6 +49,7 @@ fn e2e_test() {
 
     // sync validity prover to the latest block
     validity_prover.sync(&contract).unwrap();
+    log::info!("synced to block {}", validity_prover.last_block_number);
 
     // // sync alice wallet to the latest block, which includes the deposit
     // alice_prover.sync_all(
