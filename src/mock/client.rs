@@ -49,7 +49,7 @@ impl Client {
         &self,
         key: KeySet,
         contract: &mut MockContract,
-        data_store_sever: &mut DataStoreServer<F, C, D>,
+        data_store_server: &mut DataStoreServer<F, C, D>,
         token_index: u32,
         amount: U256,
     ) -> anyhow::Result<()>
@@ -72,7 +72,7 @@ impl Client {
             deposit_salt,
             deposit,
         };
-        data_store_sever.save_deposit_data(key.pubkey, deposit_data);
+        data_store_server.save_deposit_data(key.pubkey, deposit_data);
 
         // call contract
         contract.deposit(pubkey_salt_hash, token_index, amount);

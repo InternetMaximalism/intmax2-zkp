@@ -6,7 +6,7 @@ use crate::{
     mock::tx_request::MockTxRequest,
 };
 
-pub(crate) fn generate_random_tx_requests<R: Rng>(rng: &mut R) -> Vec<MockTxRequest> {
+pub fn generate_random_tx_requests<R: Rng>(rng: &mut R) -> Vec<MockTxRequest> {
     (0..NUM_SENDERS_IN_BLOCK)
         .map(|_| {
             let sender = KeySet::rand(rng);
