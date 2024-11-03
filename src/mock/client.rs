@@ -581,9 +581,24 @@ impl Client {
             let block_number = block_numbers[0];
             tx_data.push((MetaData { uuid, block_number }, data));
         }
+        let mut withdrawal_data = Vec::new();
+        for (uuid, data) in transition_data.withdrawal_data {
+            let tx_tree_root = data.tx_data.tx_tree_root;
+            let block_numbers =
+                sync_validity_prover.get_block_numbers_by_tx_tree_root(tx_tree_root);
+            if block_numbers.len() == 0 {
+                log::warn!("Withdrawal transfer {} is not included in any block", uuid);
+                continue;
+            }
+            if block_numbers.len() > 1 {
+                todo!("The tx is included in multiple blocks");
+            }
+            let block_number = block_numbers[0];
+            withdrawal_data.push((MetaData { uuid, block_number }, data));
+        }
 
         // generate strategy
-        let strategy = Strategy::generate(deposit_data, transfer_data, tx_data);
+        let strategy = Strategy::generate(deposit_data, transfer_data, tx_data, withdrawal_data);
         Ok(strategy)
     }
 
