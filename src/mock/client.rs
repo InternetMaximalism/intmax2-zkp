@@ -2,7 +2,11 @@ use crate::{
     circuits::balance::{
         balance_processor::BalanceProcessor, send::spent_circuit::SpentPublicInputs,
     },
-    common::{salt::Salt, signature::key_set::KeySet},
+    common::{
+        deposit::{get_pubkey_salt_hash, Deposit},
+        salt::Salt,
+        signature::key_set::KeySet,
+    },
     ethereum_types::u256::U256,
     mock::{
         balance_logic::{process_transfer, process_tx},
@@ -13,6 +17,7 @@ use crate::{
 
 use super::{
     balance_logic::process_deposit,
+    contract::MockContract,
     data::{
         deposit_data::DepositData, meta_data::MetaData, transfer_data::TransferData,
         tx_data::TxData,
@@ -33,12 +38,55 @@ use plonky2::{
 pub struct Client;
 
 impl Client {
+    pub fn deposit<F, C, const D: usize>(
+        &self,
+        key: KeySet,
+        contract: &mut MockContract,
+        data_store_sever: &mut DataStoreServer<F, C, D>,
+        token_index: u32,
+        amount: U256,
+    ) -> anyhow::Result<()>
+    where
+        F: RichField + Extendable<D>,
+        C: GenericConfig<D, F = F> + 'static,
+        <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
+    {
+        // todo: improve the way to choose deposit salt
+        let deposit_salt = generate_salt(key, 0);
+        let pubkey_salt_hash = get_pubkey_salt_hash(key.pubkey, deposit_salt);
+
+        // backup before contract call
+        let deposit = Deposit {
+            pubkey_salt_hash,
+            token_index,
+            amount,
+        };
+        let deposit_data = DepositData::new(deposit);
+        data_store_sever.save_deposit_data(key.pubkey, deposit_data);
+
+        contract.deposit(pubkey_salt_hash, token_index, amount);
+        todo!()
+    }
+
+    pub fn send_tx<F, C, const D: usize>(
+        &self,
+        key: KeySet,
+        data_store_sever: &mut DataStoreServer<F, C, D>,
+    ) -> anyhow::Result<()>
+    where
+        F: RichField + Extendable<D>,
+        C: GenericConfig<D, F = F> + 'static,
+        <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
+    {
+        todo!()
+    }
+
     pub fn sync_balance_proof<F, C, const D: usize>(
         &self,
+        key: KeySet,
         data_store_sever: &mut DataStoreServer<F, C, D>,
         validity_prover: &SyncValidityProver<F, C, D>,
         balance_processor: &BalanceProcessor<F, C, D>,
-        key: KeySet,
     ) -> anyhow::Result<()>
     where
         F: RichField + Extendable<D>,
