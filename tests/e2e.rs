@@ -91,35 +91,27 @@ fn e2e_test() {
             vec![transfer_to_bob],
         )
         .unwrap();
-
-    // update alice balance proof
-    // alice_prover.sync_all(
-    //     &mut sync_validity_prover,
-    //     &mut alice_wallet,
-    //     &balance_processor,
-    //     &block_builder,
-    // );
-    // assert_eq!(get_asset_balance(&alice_wallet, 0), 50.into()); // check ETH balance
-    // let alice_balance_proof = alice_prover.get_balance_proof();
-
-    // // sync bob wallet to the latest block
-    // bob_prover.sync_all(
-    //     &mut sync_validity_prover,
-    //     &mut bob_wallet,
-    //     &balance_processor,
-    //     &block_builder,
+    // let alice_data = client.get_user_data(alice_key, &data_store_server).unwrap();
+    // log::info!(
+    //     "Sent transfer to bob, synced alice balance proof to block {}",
+    //     alice_data.block_number
     // );
 
-    // // receive transfer and update bob balance proof
-    // bob_prover.receive_transfer(
-    //     &mut rng,
-    //     &mut bob_wallet,
-    //     &balance_processor,
-    //     &block_builder,
-    //     &transfer_witness,
-    //     &alice_balance_proof,
-    // );
-    // assert_eq!(get_asset_balance(&bob_wallet, 0), 50.into()); // check ETH balance
+    // sync bob wallet to the latest block
+    client
+        .sync_balance_proof(
+            bob_key,
+            &mut data_store_server,
+            &validity_prover,
+            &balance_processor,
+        )
+        .unwrap();
+    let bob_data = client.get_user_data(bob_key, &data_store_server).unwrap();
+    log::info!(
+        "Synced bob balance proof to block {}",
+        bob_data.block_number
+    );
+    print_balances(&bob_data.balances());
 
     // // bob withdraw 10wei ETH
     // let bob_eth_address = Address::rand(&mut rng);
