@@ -5,7 +5,7 @@ use crate::{
             utils::get_pubkey_hash,
             SignatureContent,
         },
-        trees::tx_tree::TxTree,
+        trees::{sender_tree::SenderLeaf, tx_tree::TxTree},
     },
     constants::{NUM_SENDERS_IN_BLOCK, TX_TREE_HEIGHT},
     ethereum_types::{
@@ -37,7 +37,7 @@ impl BlockBuilder {
         sync_validity_prover: &SyncValidityProver<F, C, D>, // used to get the account id
         is_registration_block: bool,
         txs: Vec<MockTxRequest>,
-    ) -> anyhow::Result<TxTree>
+    ) -> anyhow::Result<(TxTree, Vec<SenderLeaf>)>
     where
         F: RichField + Extendable<D>,
         C: GenericConfig<D, F = F> + 'static,
@@ -56,6 +56,13 @@ impl BlockBuilder {
         let pubkeys = sorted_txs
             .iter()
             .map(|tx| tx.sender.pubkey)
+            .collect::<Vec<_>>();
+        let sender_leaves = sorted_txs
+            .iter()
+            .map(|tx| SenderLeaf {
+                sender: tx.sender.pubkey,
+                did_return_sig: tx.will_return_signature,
+            })
             .collect::<Vec<_>>();
         let pubkey_hash = get_pubkey_hash(&pubkeys);
 
@@ -121,7 +128,7 @@ impl BlockBuilder {
             )?;
         }
 
-        Ok(tx_tree)
+        Ok((tx_tree, sender_leaves))
     }
 }
 

@@ -13,8 +13,11 @@ use crate::{
         witness::spent_witness::SpentWitness,
     },
     constants::{NUM_TRANSFERS_IN_TX, TRANSFER_TREE_HEIGHT},
-    ethereum_types::u256::U256,
-    mock::{balance_logic::process_transfer, data::user_data::UserData, strategy},
+    ethereum_types::{bytes32::Bytes32, u256::U256},
+    mock::{
+        balance_logic::process_transfer, data::user_data::UserData, strategy,
+        tx_request::MockTxRequest,
+    },
 };
 
 use super::{
@@ -81,7 +84,7 @@ impl Client {
         &self,
         key: KeySet,
         contract: &mut MockContract,
-        block_builder: &mut BlockBuilder,
+        block_builder: &BlockBuilder,
         data_store_sever: &mut DataStoreServer<F, C, D>,
         validity_prover: &SyncValidityProver<F, C, D>,
         balance_processor: &BalanceProcessor<F, C, D>,
@@ -149,20 +152,56 @@ impl Client {
             .prove_spent(&spent_witness)
             .map_err(|e| anyhow::anyhow!("prove_spent failed: {:?}", e))?;
 
-        // request to block builer
-
-        // save tx data
+        // post block
+        let is_first_time = validity_prover.get_account_id(key.pubkey).is_none();
+        let tx_request = MockTxRequest {
+            tx,
+            sender: key,
+            will_return_signature: true,
+        };
+        let (tx_tree, sender_leaves) = block_builder
+            .post_block(contract, validity_prover, is_first_time, vec![tx_request])
+            .map_err(|e| anyhow::anyhow!("failed to post block: {}", e))?;
+        let tx_index = tx_tree.get_tx_index(&tx).unwrap();
+        let tx_merkle_proof = tx_tree.prove(tx_index);
+        let tx_tree_root: Bytes32 = tx_tree.get_root().into();
         let common_tx_data = CommonTxData {
             spent_proof,
             sender_prev_block_number: user_data.block_number,
             tx,
-            tx_index: todo!(),
-            tx_merkle_proof: todo!(),
-            tx_tree_root: todo!(),
-            sender_leaves: todo!(),
+            tx_index,
+            tx_merkle_proof,
+            tx_tree_root,
+            sender_leaves,
         };
 
-        todo!()
+        // save tx data
+        let tx_data = TxData {
+            common: common_tx_data.clone(),
+            spent_witness,
+        };
+        data_store_sever.save_tx_data(key.pubkey, tx_data);
+
+        // save transfer data
+        for (i, transfer) in transfers.iter().enumerate() {
+            let transfer_merkle_proof = transfer_tree.prove(i);
+            let transfer_data = TransferData {
+                sender: key.pubkey,
+                prev_block_number: user_data.block_number,
+                prev_private_commitment: user_data.private_commitment(),
+                tx_data: common_tx_data.clone(),
+                transfer: transfer.clone(),
+                transfer_index: i,
+                transfer_merkle_proof,
+            };
+            if transfer.recipient.is_pubkey {
+                data_store_sever
+                    .save_transfer_data(transfer.recipient.to_pubkey().unwrap(), transfer_data);
+            } else {
+                // todo: save withdrawal data to data store server
+            }
+        }
+        Ok(())
     }
 
     pub fn sync_balance_proof<F, C, const D: usize>(
