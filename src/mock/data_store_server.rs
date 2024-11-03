@@ -62,6 +62,13 @@ where
         block_number: u32,
         proof: ProofWithPublicInputs<F, C, D>,
     ) {
+        let balance_pis = BalancePublicInputs::from_pis(&proof.public_inputs);
+        log::info!(
+            "saving balance proof for pubkey: {}, block_number: {}, private commitment: {}",
+            pubkey,
+            block_number,
+            balance_pis.private_commitment
+        );
         // todo: add proof verification & duplicate check
         self.balance_proofs
             .entry(pubkey)
@@ -77,6 +84,12 @@ where
         block_number: u32,
         private_commitment: PoseidonHashOut,
     ) -> anyhow::Result<Option<ProofWithPublicInputs<F, C, D>>> {
+        log::info!(
+            "getting balance proof for pubkey: {}, block_number: {}, private commitment: {}",
+            pubkey,
+            block_number,
+            private_commitment
+        );
         let empty = HashMap::new();
         let proofs = self.balance_proofs.get(&pubkey).unwrap_or(&empty);
 

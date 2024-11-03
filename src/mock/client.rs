@@ -102,15 +102,24 @@ impl Client {
             "transfers is too long"
         );
 
-        // sync balance proof to create spent proof
+        // sync balance proof
         self.sync_balance_proof(key, data_store_sever, validity_prover, balance_processor)
             .map_err(|e| anyhow::anyhow!("failed to sync balance proof: {}", e))?;
 
-        // balance check
         let user_data = data_store_sever
             .get_user_data(key)
             .map_err(|e| anyhow::anyhow!("failed to get user data: {}", e))?
             .unwrap_or(UserData::new(key.pubkey));
+        let _balance_proof = data_store_sever
+            .get_balance_proof(
+                key.pubkey,
+                user_data.block_number,
+                user_data.private_commitment(),
+            )
+            .map_err(|e| anyhow::anyhow!("failed to get balance proof: {}", e))?
+            .ok_or_else(|| anyhow::anyhow!("balance proof not found"))?;
+
+        // balance check
         let balances = user_data.balances();
         for transfer in &transfers {
             let balance = balances
