@@ -219,7 +219,7 @@ impl Client {
                 data_store_sever
                     .save_transfer_data(transfer.recipient.to_pubkey().unwrap(), transfer_data);
             } else {
-                // todo: save withdrawal data to data store server
+                data_store_sever.save_withdrawal_data(key.pubkey, transfer_data);
             }
         }
         Ok(())
