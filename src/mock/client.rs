@@ -359,7 +359,7 @@ impl Client {
             data_store_sever,
             validity_prover,
             balance_processor,
-            key.pubkey,
+            transfer_data.sender,
             meta.block_number,
             &transfer_data.tx_data,
         )?;
