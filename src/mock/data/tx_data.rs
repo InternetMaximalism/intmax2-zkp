@@ -54,6 +54,13 @@ where
 
     pub fn decrypt(bytes: &[u8], _key: KeySet) -> anyhow::Result<Self> {
         let data = Self::from_bytes(bytes)?;
+        data.validate(_key)?;
         Ok(data)
+    }
+
+    pub fn validate(&self, _key: KeySet) -> anyhow::Result<()> {
+        self.tx_merkle_proof
+            .verify(&self.tx, self.tx_index, self.tx_tree_root.try_into()?)?;
+        Ok(())
     }
 }

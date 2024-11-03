@@ -192,17 +192,17 @@ where
     pub fn get_transition_data(
         &self,
         key: KeySet,
-        processed_deposits: Vec<Uuid>,
-        processed_transfers: Vec<Uuid>,
-        processed_txs: Vec<Uuid>,
+        except_deposits: Vec<Uuid>,
+        except_transfers: Vec<Uuid>,
+        except_txs: Vec<Uuid>,
     ) -> anyhow::Result<(
         Vec<(Uuid, DepositData)>,
         Vec<(Uuid, TransferData<F, C, D>)>,
         Vec<(Uuid, TxData<F, C, D>)>,
     )> {
-        let deposits = self.get_deposit_data(key, processed_deposits)?;
-        let transfers = self.get_transfer_data(key, processed_transfers)?;
-        let txs = self.get_tx_data(key, processed_txs)?;
+        let deposits = self.get_deposit_data(key, except_deposits)?;
+        let transfers = self.get_transfer_data(key, except_transfers)?;
+        let txs = self.get_tx_data(key, except_txs)?;
         Ok((deposits, transfers, txs))
     }
 }

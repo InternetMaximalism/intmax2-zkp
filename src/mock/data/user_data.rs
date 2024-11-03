@@ -20,42 +20,56 @@ pub struct UserData {
     pub processed_deposit_uuids: Vec<Uuid>,
     pub processed_transfer_uuids: Vec<Uuid>,
     pub processed_tx_uuids: Vec<Uuid>,
+
+    // rejected data
+    pub rejected_deposit_uuids: Vec<Uuid>,
+    pub rejected_transfer_uuids: Vec<Uuid>,
+    pub rejected_processed_tx_uuids: Vec<Uuid>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct UserDataPacked {
     pubkey: U256,
-
     block_number: u32,
     full_private_state: FullPrivateStatePacked,
 
     // processed data
-    processed_deposit_uuids: Vec<String>,
-    processed_transfer_uuids: Vec<String>,
-    processed_tx_uuids: Vec<String>,
+    pub processed_deposit_uuids: Vec<Uuid>,
+    pub processed_transfer_uuids: Vec<Uuid>,
+    pub processed_tx_uuids: Vec<Uuid>,
+
+    // rejected data
+    pub rejected_deposit_uuids: Vec<Uuid>,
+    pub rejected_transfer_uuids: Vec<Uuid>,
+    pub rejected_processed_tx_uuids: Vec<Uuid>,
 }
 
 impl UserData {
+    pub fn new(pubkey: U256) -> Self {
+        Self {
+            pubkey,
+            block_number: 0,
+            full_private_state: FullPrivateState::new(),
+            processed_deposit_uuids: vec![],
+            processed_transfer_uuids: vec![],
+            processed_tx_uuids: vec![],
+            rejected_deposit_uuids: vec![],
+            rejected_transfer_uuids: vec![],
+            rejected_processed_tx_uuids: vec![],
+        }
+    }
+
     fn to_bytes(&self) -> Vec<u8> {
         let packed = UserDataPacked {
             pubkey: self.pubkey,
             block_number: self.block_number,
             full_private_state: self.full_private_state.pack(),
-            processed_deposit_uuids: self
-                .processed_deposit_uuids
-                .iter()
-                .map(|uuid| uuid.to_string())
-                .collect(),
-            processed_transfer_uuids: self
-                .processed_transfer_uuids
-                .iter()
-                .map(|uuid| uuid.to_string())
-                .collect(),
-            processed_tx_uuids: self
-                .processed_tx_uuids
-                .iter()
-                .map(|uuid| uuid.to_string())
-                .collect(),
+            processed_deposit_uuids: self.processed_deposit_uuids.clone(),
+            processed_transfer_uuids: self.processed_transfer_uuids.clone(),
+            processed_tx_uuids: self.processed_tx_uuids.clone(),
+            rejected_deposit_uuids: self.rejected_deposit_uuids.clone(),
+            rejected_transfer_uuids: self.rejected_transfer_uuids.clone(),
+            rejected_processed_tx_uuids: self.rejected_processed_tx_uuids.clone(),
         };
         bincode::serialize(&packed).unwrap()
     }
@@ -63,28 +77,16 @@ impl UserData {
     fn from_bytes(bytes: &[u8]) -> anyhow::Result<Self> {
         let packed: UserDataPacked = bincode::deserialize(bytes)?;
         let full_private_state = FullPrivateState::unpack(packed.full_private_state);
-        let processed_deposit_uuids = packed
-            .processed_deposit_uuids
-            .iter()
-            .map(|uuid| Uuid::parse_str(uuid).unwrap())
-            .collect();
-        let processed_transfer_uuids = packed
-            .processed_transfer_uuids
-            .iter()
-            .map(|uuid| Uuid::parse_str(uuid).unwrap())
-            .collect();
-        let processed_tx_uuids = packed
-            .processed_tx_uuids
-            .iter()
-            .map(|uuid| Uuid::parse_str(uuid).unwrap())
-            .collect();
         Ok(Self {
             pubkey: packed.pubkey,
             block_number: packed.block_number,
             full_private_state,
-            processed_deposit_uuids,
-            processed_transfer_uuids,
-            processed_tx_uuids,
+            processed_deposit_uuids: packed.processed_deposit_uuids,
+            processed_transfer_uuids: packed.processed_transfer_uuids,
+            processed_tx_uuids: packed.processed_tx_uuids,
+            rejected_deposit_uuids: packed.rejected_deposit_uuids,
+            rejected_transfer_uuids: packed.rejected_transfer_uuids,
+            rejected_processed_tx_uuids: packed.rejected_processed_tx_uuids,
         })
     }
 
@@ -102,5 +104,29 @@ impl UserData {
 
     pub fn private_state(&self) -> PrivateState {
         self.full_private_state.to_private_state()
+    }
+
+    pub fn deposit_exception_uudis(&self) -> Vec<Uuid> {
+        self.processed_deposit_uuids
+            .iter()
+            .chain(self.rejected_deposit_uuids.iter())
+            .cloned()
+            .collect()
+    }
+
+    pub fn transfer_exception_uudis(&self) -> Vec<Uuid> {
+        self.processed_transfer_uuids
+            .iter()
+            .chain(self.rejected_transfer_uuids.iter())
+            .cloned()
+            .collect()
+    }
+
+    pub fn tx_exception_uudis(&self) -> Vec<Uuid> {
+        self.processed_tx_uuids
+            .iter()
+            .chain(self.rejected_processed_tx_uuids.iter())
+            .cloned()
+            .collect()
     }
 }

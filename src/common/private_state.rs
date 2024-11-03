@@ -46,6 +46,15 @@ pub struct FullPrivateState {
 }
 
 impl FullPrivateState {
+    pub fn new() -> Self {
+        Self {
+            asset_tree: AssetTree::new(ASSET_TREE_HEIGHT),
+            nullifier_tree: NullifierTree::new(),
+            nonce: 0,
+            salt: Salt::default(),
+        }
+    }
+
     pub fn to_private_state(&self) -> PrivateState {
         PrivateState {
             asset_tree_root: self.asset_tree.get_root(),

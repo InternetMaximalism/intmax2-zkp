@@ -57,6 +57,21 @@ where
 
     pub fn decrypt(bytes: &[u8], _key: KeySet) -> anyhow::Result<Self> {
         let data = Self::from_bytes(bytes)?;
+        data.validate(_key)?;
         Ok(data)
+    }
+
+    pub fn validate(&self, _key: KeySet) -> anyhow::Result<()> {
+        self.tx_data
+            .validate(_key)
+            .map_err(|e| anyhow::anyhow!("tx data validation failed: {}", e))?;
+        self.transfer_merkle_proof
+            .verify(
+                &self.transfer,
+                self.transfer_index,
+                self.tx_data.tx.transfer_tree_root,
+            )
+            .map_err(|e| anyhow::anyhow!("transfer merkle proof validation failed: {}", e))?;
+        Ok(())
     }
 }

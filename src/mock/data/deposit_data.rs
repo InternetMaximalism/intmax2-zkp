@@ -1,7 +1,12 @@
+use anyhow::ensure;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    common::{deposit::Deposit, salt::Salt, signature::key_set::KeySet},
+    common::{
+        deposit::{get_pubkey_salt_hash, Deposit},
+        salt::Salt,
+        signature::key_set::KeySet,
+    },
     ethereum_types::u256::U256,
 };
 
@@ -28,8 +33,17 @@ impl DepositData {
         bytes
     }
 
-    pub fn decrypt(bytes: &[u8], _key: KeySet) -> anyhow::Result<Self> {
+    pub fn decrypt(bytes: &[u8], key: KeySet) -> anyhow::Result<Self> {
         let data = Self::from_bytes(bytes)?;
+        data.validate(key)?;
         Ok(data)
+    }
+
+    fn validate(&self, key: KeySet) -> anyhow::Result<()> {
+        ensure!(
+            self.deposit.pubkey_salt_hash == get_pubkey_salt_hash(key.pubkey, self.deposit_salt),
+            "invalid pubkey_salt_hash"
+        );
+        todo!()
     }
 }
