@@ -29,7 +29,7 @@ pub struct SpentWitness {
 impl SpentWitness {
     // instantiate a new spent witness, while checking the validity of the inputs
     pub fn new(
-        asset_tree: &AssetTree,
+        asset_tree: &mut AssetTree,
         prev_private_state: &PrivateState,
         transfers: &[Transfer],
         tx: Tx,
@@ -44,14 +44,13 @@ impl SpentWitness {
             transfer_tree_root == tx.transfer_tree_root,
             "transfer tree root mismatch"
         );
-        let mut temp_asset_tree = asset_tree.clone();
         let mut asset_merkle_proofs = vec![];
         let mut prev_balances = vec![];
         for transfer in transfers {
-            let prev_balance = temp_asset_tree.get_leaf(transfer.token_index as usize);
-            let proof = temp_asset_tree.prove(transfer.token_index as usize);
+            let prev_balance = asset_tree.get_leaf(transfer.token_index as usize);
+            let proof = asset_tree.prove(transfer.token_index as usize);
             let new_balance = prev_balance.sub(transfer.amount);
-            temp_asset_tree.update(transfer.token_index as usize, new_balance);
+            asset_tree.update(transfer.token_index as usize, new_balance);
             prev_balances.push(prev_balance);
             asset_merkle_proofs.push(proof);
         }

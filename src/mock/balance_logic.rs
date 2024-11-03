@@ -16,23 +16,57 @@ use crate::{
     },
     common::{
         salt::Salt,
+        transfer::Transfer,
         witness::{
             deposit_witness::DepositWitness, private_transition_witness::PrivateTransitionWitness,
             receive_deposit_witness::ReceiveDepositWitness,
-            receive_transfer_witness::ReceiveTransferWitness, transfer_witness::TransferWitness,
-            tx_witness::TxWitness,
+            receive_transfer_witness::ReceiveTransferWitness, spent_witness::SpentWitness,
+            transfer_witness::TransferWitness, tx_witness::TxWitness,
         },
     },
+    constants::NUM_TRANSFERS_IN_TX,
     ethereum_types::{bytes32::Bytes32, u256::U256},
 };
 
 use super::{
     data::{
-        deposit_data::DepositData, transfer_data::TransferData, tx_data::TxData,
+        common_tx_data::CommonTxData, deposit_data::DepositData, transfer_data::TransferData,
         user_data::UserData,
     },
     sync_validity_prover::SyncValidityProver,
 };
+
+pub fn generate_spent_proof<F, C, const D: usize>(
+    validity_prover: &SyncValidityProver<F, C, D>,
+    balance_processor: &BalanceProcessor<F, C, D>,
+    user_data: &mut UserData,
+    new_salt: Salt,
+    transfers: &[Transfer],
+) -> anyhow::Result<ProofWithPublicInputs<F, C, D>>
+where
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F> + 'static,
+    <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
+{
+    ensure!(!transfers.is_empty(), "transfers is empty");
+    ensure!(transfers.len() <= NUM_TRANSFERS_IN_TX, "too many transfers");
+
+    // let spent_witness = SpentWitness::new(
+    //     &mut user_data.full_private_state.asset_tree,
+    //     ,
+    //     transfers,
+    //     tx,
+    //     new_private_state_salt,
+    // );
+
+    // let spent_proof = balance_processor
+    //     .balance_transition_processor
+    //     .sender_processor
+    //     .prove_spent(spent_witness)
+    //     .map_err(|e| anyhow::anyhow!("prove_spent failed: {:?}", e))?;
+
+    todo!()
+}
 
 pub fn process_deposit<F, C, const D: usize>(
     validity_prover: &SyncValidityProver<F, C, D>,
@@ -183,13 +217,13 @@ where
     Ok(balance_proof)
 }
 
-pub fn process_tx<F, C, const D: usize>(
+pub fn process_common_tx<F, C, const D: usize>(
     validity_prover: &SyncValidityProver<F, C, D>,
     balance_processor: &BalanceProcessor<F, C, D>,
     sender: U256,
     prev_balance_proof: &Option<ProofWithPublicInputs<F, C, D>>,
     tx_block_number: u32,
-    tx_data: &TxData<F, C, D>,
+    common_tx_data: &CommonTxData<F, C, D>,
 ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>>
 where
     F: RichField + Extendable<D>,
@@ -216,10 +250,10 @@ where
         ))?;
     let tx_witness = TxWitness {
         validity_pis,
-        sender_leaves: tx_data.sender_leaves.clone(),
-        tx: tx_data.tx.clone(),
-        tx_index: tx_data.tx_index,
-        tx_merkle_proof: tx_data.tx_merkle_proof.clone(),
+        sender_leaves: common_tx_data.sender_leaves.clone(),
+        tx: common_tx_data.tx.clone(),
+        tx_index: common_tx_data.tx_index,
+        tx_merkle_proof: common_tx_data.tx_merkle_proof.clone(),
     };
     let update_witness = validity_prover
         .get_update_witness(
@@ -237,7 +271,7 @@ where
             sender,
             &tx_witness,
             &update_witness,
-            &tx_data.spent_proof,
+            &common_tx_data.spent_proof,
             prev_balance_proof,
         )
         .map_err(|e| anyhow::anyhow!("prove_send failed: {:?}", e))?;

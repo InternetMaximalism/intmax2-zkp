@@ -1,3 +1,4 @@
+use hashbrown::HashMap;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -5,6 +6,7 @@ use crate::{
     common::{
         private_state::{FullPrivateState, FullPrivateStatePacked, PrivateState},
         signature::key_set::KeySet,
+        trees::asset_tree::AssetLeaf,
     },
     ethereum_types::u256::U256,
     utils::poseidon_hash_out::PoseidonHashOut,
@@ -133,5 +135,9 @@ impl UserData {
 
     pub fn private_commitment(&self) -> PoseidonHashOut {
         self.full_private_state.to_private_state().commitment()
+    }
+
+    pub fn balances(&self) -> HashMap<usize, AssetLeaf> {
+        self.full_private_state.asset_tree.leaves()
     }
 }

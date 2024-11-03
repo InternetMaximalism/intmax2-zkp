@@ -3,7 +3,8 @@ use plonky2::{
 };
 
 use super::data::{
-    deposit_data::DepositData, meta_data::MetaData, transfer_data::TransferData, tx_data::TxData,
+    deposit_data::DepositData, meta_data::MetaData, transfer_data::TransferData,
+    common_tx_data::CommonTxData,
 };
 
 pub enum Action {
@@ -19,7 +20,7 @@ where
 {
     pub deposit_data: Vec<(MetaData, DepositData)>,
     pub transfer_data: Vec<(MetaData, TransferData<F, C, D>)>,
-    pub tx_data: Vec<(MetaData, TxData<F, C, D>)>,
+    pub tx_data: Vec<(MetaData, CommonTxData<F, C, D>)>,
 
     pub actions: Vec<Action>,
 }
@@ -31,7 +32,7 @@ where
 {
     pub fn generate(
         transfer_data: Vec<(MetaData, TransferData<F, C, D>)>,
-        tx_data: Vec<(MetaData, TxData<F, C, D>)>,
+        tx_data: Vec<(MetaData, CommonTxData<F, C, D>)>,
         deposit_data: Vec<(MetaData, DepositData)>,
     ) -> Self {
         // Collect all data into a single vector with block number and priority

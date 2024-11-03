@@ -6,26 +6,25 @@ use crate::{
         deposit::{get_pubkey_salt_hash, Deposit},
         salt::Salt,
         signature::key_set::KeySet,
+        transfer::Transfer,
     },
+    constants::NUM_TRANSFERS_IN_TX,
     ethereum_types::u256::U256,
-    mock::{
-        balance_logic::{process_transfer, process_tx},
-        data::user_data::UserData,
-        strategy,
-    },
+    mock::{balance_logic::process_transfer, data::user_data::UserData, strategy},
 };
 
 use super::{
-    balance_logic::process_deposit,
+    balance_logic::{process_common_tx, process_deposit},
     contract::MockContract,
     data::{
-        deposit_data::DepositData, meta_data::MetaData, transfer_data::TransferData,
-        tx_data::TxData,
+        common_tx_data::CommonTxData, deposit_data::DepositData, meta_data::MetaData,
+        transfer_data::TransferData,
     },
     data_store_server::DataStoreServer,
     strategy::Strategy,
     sync_validity_prover::SyncValidityProver,
 };
+use anyhow::ensure;
 use plonky2::{
     field::extension::Extendable,
     hash::hash_types::RichField,
@@ -79,16 +78,51 @@ impl Client {
         data_store_sever: &mut DataStoreServer<F, C, D>,
         validity_prover: &SyncValidityProver<F, C, D>,
         balance_processor: &BalanceProcessor<F, C, D>,
+        transfers: Vec<Transfer>,
     ) -> anyhow::Result<()>
     where
         F: RichField + Extendable<D>,
         C: GenericConfig<D, F = F> + 'static,
         <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
     {
+        // input validation
+        ensure!(transfers.len() > 0, "transfers is empty");
+        ensure!(
+            transfers.len() <= NUM_TRANSFERS_IN_TX,
+            "transfers is too long"
+        );
+
+        // sync balance proof to create spent proof
         self.sync_balance_proof(key, data_store_sever, validity_prover, balance_processor)
             .map_err(|e| anyhow::anyhow!("failed to sync balance proof: {}", e))?;
 
         // balance check
+        let user_data = data_store_sever
+            .get_user_data(key)
+            .map_err(|e| anyhow::anyhow!("failed to get user data: {}", e))?
+            .unwrap_or(UserData::new(key.pubkey));
+        let balances = user_data.balances();
+        for transfer in &transfers {
+            let balance = balances
+                .get(&(transfer.token_index as usize))
+                .cloned()
+                .unwrap_or_default();
+            ensure!(
+                !balance.is_insufficient,
+                "already insufficient: token index {}",
+                transfer.token_index
+            );
+            ensure!(
+                balance.amount >= transfer.amount,
+                "insufficient balance: {} < {} for token index {}",
+                balance.amount,
+                transfer.amount,
+                transfer.token_index
+            );
+        }
+
+        // generate spent proof
+        // let spent_proof = balance_processor.spent
 
         todo!()
     }
@@ -271,7 +305,7 @@ impl Client {
         balance_processor: &BalanceProcessor<F, C, D>,
         key: KeySet,
         meta: &MetaData,
-        tx_data: &TxData<F, C, D>,
+        tx_data: &CommonTxData<F, C, D>,
     ) -> anyhow::Result<()>
     where
         F: RichField + Extendable<D>,
@@ -308,7 +342,7 @@ impl Client {
         balance_processor: &BalanceProcessor<F, C, D>,
         sender: U256,
         block_number: u32,
-        tx_data: &TxData<F, C, D>,
+        tx_data: &CommonTxData<F, C, D>,
     ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>>
     where
         F: RichField + Extendable<D>,
@@ -334,7 +368,7 @@ impl Client {
             .map_err(|e| anyhow::anyhow!("failed to get balance proof: {}", e))?
             .ok_or_else(|| anyhow::anyhow!("prev balance proof not found"))?;
 
-        let new_sender_balance_proof = process_tx(
+        let new_sender_balance_proof = process_common_tx(
             validity_prover,
             balance_processor,
             sender,

@@ -11,7 +11,7 @@ use crate::{
     utils::poseidon_hash_out::PoseidonHashOut,
 };
 
-use super::tx_data::TxData;
+use super::common_tx_data::CommonTxData;
 
 // backup data for receiving transfers
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -28,7 +28,7 @@ where
     pub prev_private_commitment: PoseidonHashOut,
 
     // Info to update the sender's balance proof
-    pub tx_data: TxData<F, C, D>,
+    pub tx_data: CommonTxData<F, C, D>,
 
     // Used for updating receiver's balance proof
     pub transfer: Transfer,
