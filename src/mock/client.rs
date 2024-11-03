@@ -46,6 +46,8 @@ impl Client {
                 sync_validity_prover.get_deposit_index_and_block_number(data.deposit_id)
             {
                 deposit_data.push((MetaData { uuid, block_number }, data));
+            } else {
+                log::warn!("Deposit {} is not included in block tree", uuid);
             }
         }
         let mut transfer_data = Vec::new();
@@ -54,13 +56,11 @@ impl Client {
             let block_numbers =
                 sync_validity_prover.get_block_numbers_by_tx_tree_root(tx_tree_root);
             if block_numbers.len() == 0 {
-                // The tx is not included in any block
-                // ignore this transfer
+                log::warn!("Transfer {} is not included in any block", uuid);
                 continue;
             }
             if block_numbers.len() > 1 {
-                // The tx is included in multiple blocks
-                todo!("handle this case");
+                todo!("The tx is included in multiple blocks");
             }
             let block_number = block_numbers[0];
             transfer_data.push((MetaData { uuid, block_number }, data));
@@ -71,13 +71,11 @@ impl Client {
             let block_numbers =
                 sync_validity_prover.get_block_numbers_by_tx_tree_root(tx_tree_root);
             if block_numbers.len() == 0 {
-                // The tx is not included in any block
-                // ignore this tx
+                log::warn!("Tx {} is not included in any block", uuid);
                 continue;
             }
             if block_numbers.len() > 1 {
-                // The tx is included in multiple blocks
-                todo!("handle this case");
+                todo!("The tx is included in multiple blocks");
             }
             let block_number = block_numbers[0];
             tx_data.push((MetaData { uuid, block_number }, data));
