@@ -63,7 +63,7 @@ where
 
     pub fn validate(&self, _key: KeySet) -> anyhow::Result<()> {
         self.tx_data
-            .validate(_key)
+            .validate()
             .map_err(|e| anyhow::anyhow!("tx data validation failed: {}", e))?;
         self.transfer_merkle_proof
             .verify(

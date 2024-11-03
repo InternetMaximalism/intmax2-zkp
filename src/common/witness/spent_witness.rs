@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     circuits::balance::send::spent_circuit::SpentValue,
     common::{
-        private_state::PrivateState,
+        private_state::{FullPrivateState, PrivateState},
         salt::Salt,
         transfer::Transfer,
         trees::asset_tree::{AssetLeaf, AssetMerkleProof, AssetTree},
@@ -29,7 +29,7 @@ pub struct SpentWitness {
 impl SpentWitness {
     // instantiate a new spent witness, while checking the validity of the inputs
     pub fn new(
-        asset_tree: &mut AssetTree,
+        asset_tree: &AssetTree,
         prev_private_state: &PrivateState,
         transfers: &[Transfer],
         tx: Tx,
@@ -46,6 +46,7 @@ impl SpentWitness {
         );
         let mut asset_merkle_proofs = vec![];
         let mut prev_balances = vec![];
+        let mut asset_tree = asset_tree.clone();
         for transfer in transfers {
             let prev_balance = asset_tree.get_leaf(transfer.token_index as usize);
             let proof = asset_tree.prove(transfer.token_index as usize);
@@ -73,5 +74,44 @@ impl SpentWitness {
             &self.asset_merkle_proofs,
             self.tx.nonce,
         )
+    }
+
+    /// Update the private state of the full private state
+    pub fn update_private_state(
+        &self,
+        full_private_state: &mut FullPrivateState,
+    ) -> anyhow::Result<()> {
+        ensure!(
+            full_private_state.to_private_state() == self.prev_private_state,
+            "prev private state mismatch"
+        );
+
+        let value = self
+            .to_value()
+            .map_err(|e| anyhow::anyhow!("Invalid spent value: {}", e))?;
+        if !value.is_valid {
+            // if the nonce is invalid, do nothing
+            return Ok(());
+        }
+
+        // update the asset tree
+        for transfer in &self.transfers {
+            let prev_balance = full_private_state
+                .asset_tree
+                .get_leaf(transfer.token_index as usize);
+            let new_balance = prev_balance.sub(transfer.amount);
+            full_private_state
+                .asset_tree
+                .update(transfer.token_index as usize, new_balance);
+        }
+
+        full_private_state.nonce += 1;
+        full_private_state.salt = self.new_private_state_salt;
+
+        ensure!(
+            full_private_state.to_private_state().commitment() == value.new_private_commitment,
+            "new private state mismatch"
+        );
+        Ok(())
     }
 }

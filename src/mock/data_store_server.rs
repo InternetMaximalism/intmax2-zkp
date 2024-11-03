@@ -13,8 +13,7 @@ use crate::{
 };
 
 use super::data::{
-    deposit_data::DepositData, transfer_data::TransferData, common_tx_data::CommonTxData,
-    user_data::UserData,
+    deposit_data::DepositData, transfer_data::TransferData, tx_data::TxData, user_data::UserData,
 };
 
 // The proof of transfer is encrypted with the public key of the person who uses it. The
@@ -167,7 +166,7 @@ where
         Ok((decrypted, rejected))
     }
 
-    pub fn save_tx_data(&mut self, pubkey: U256, tx_data: CommonTxData<F, C, D>) {
+    pub fn save_tx_data(&mut self, pubkey: U256, tx_data: TxData<F, C, D>) {
         let encrypted = tx_data.encrypt(pubkey);
         let uuid = Uuid::new_v4();
         self.encrypted_tx_data
@@ -180,7 +179,7 @@ where
         &self,
         key: KeySet,
         exceptions: Vec<Uuid>,
-    ) -> anyhow::Result<(Vec<(Uuid, CommonTxData<F, C, D>)>, Vec<Uuid>)> {
+    ) -> anyhow::Result<(Vec<(Uuid, TxData<F, C, D>)>, Vec<Uuid>)> {
         let empty = HashMap::new();
         let list = self.encrypted_tx_data.get(&key.pubkey).unwrap_or(&empty);
 
@@ -190,7 +189,7 @@ where
             if exceptions.contains(uuid) {
                 continue;
             }
-            match CommonTxData::decrypt(encrypted, key) {
+            match TxData::decrypt(encrypted, key) {
                 std::result::Result::Ok(data) => decrypted.push((*uuid, data)),
                 Err(e) => {
                     log::error!("failed to decrypt tx data: {}", e);
@@ -244,7 +243,7 @@ where
 {
     pub deposit_data: Vec<(Uuid, DepositData)>,
     pub transfer_data: Vec<(Uuid, TransferData<F, C, D>)>,
-    pub tx_data: Vec<(Uuid, CommonTxData<F, C, D>)>,
+    pub tx_data: Vec<(Uuid, TxData<F, C, D>)>,
     pub rejected_deposits: Vec<Uuid>,
     pub rejected_transfers: Vec<Uuid>,
     pub rejected_txs: Vec<Uuid>,

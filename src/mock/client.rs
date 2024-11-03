@@ -1,6 +1,7 @@
 use crate::{
     circuits::balance::{
-        balance_processor::BalanceProcessor, send::spent_circuit::SpentPublicInputs,
+        balance_pis::BalancePublicInputs, balance_processor::BalanceProcessor,
+        send::spent_circuit::SpentPublicInputs,
     },
     common::{
         deposit::{get_pubkey_salt_hash, Deposit},
@@ -18,7 +19,7 @@ use super::{
     contract::MockContract,
     data::{
         common_tx_data::CommonTxData, deposit_data::DepositData, meta_data::MetaData,
-        transfer_data::TransferData,
+        transfer_data::TransferData, tx_data::TxData,
     },
     data_store_server::DataStoreServer,
     strategy::Strategy,
@@ -305,7 +306,7 @@ impl Client {
         balance_processor: &BalanceProcessor<F, C, D>,
         key: KeySet,
         meta: &MetaData,
-        tx_data: &CommonTxData<F, C, D>,
+        tx_data: &TxData<F, C, D>,
     ) -> anyhow::Result<()>
     where
         F: RichField + Extendable<D>,
@@ -316,18 +317,32 @@ impl Client {
             .get_user_data(key)
             .map_err(|e| anyhow::anyhow!("failed to get user data: {}", e))?
             .unwrap_or(UserData::new(key.pubkey));
-        self.generate_new_sender_balance_proof(
+        let balance_proof = self.generate_new_sender_balance_proof(
             data_store_sever,
             validity_prover,
             balance_processor,
             key.pubkey,
             meta.block_number,
-            tx_data,
+            &tx_data.common,
         )?;
+        let balance_pis = BalancePublicInputs::from_pis(&balance_proof.public_inputs);
+        ensure!(
+            balance_pis.public_state.block_number == meta.block_number,
+            "block number mismatch"
+        );
 
         // update user data
         user_data.block_number = meta.block_number;
+        tx_data
+            .spent_witness
+            .update_private_state(&mut user_data.full_private_state)?;
         user_data.processed_tx_uuids.push(meta.uuid);
+
+        // validation
+        ensure!(
+            balance_pis.private_commitment == user_data.private_commitment(),
+            "private commitment mismatch"
+        );
 
         // save user data
         data_store_sever.save_user_data(key.pubkey, user_data);
@@ -335,6 +350,7 @@ impl Client {
     }
 
     // generate sender's balance proof after applying the tx
+    // save the proof to the data store server
     fn generate_new_sender_balance_proof<F, C, const D: usize>(
         &self,
         data_store_sever: &mut DataStoreServer<F, C, D>,
@@ -342,14 +358,15 @@ impl Client {
         balance_processor: &BalanceProcessor<F, C, D>,
         sender: U256,
         block_number: u32,
-        tx_data: &CommonTxData<F, C, D>,
+        common_tx_data: &CommonTxData<F, C, D>,
     ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>>
     where
         F: RichField + Extendable<D>,
         C: GenericConfig<D, F = F> + 'static,
         <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
     {
-        let spent_proof_pis = SpentPublicInputs::from_pis(&tx_data.spent_proof.public_inputs);
+        let spent_proof_pis =
+            SpentPublicInputs::from_pis(&common_tx_data.spent_proof.public_inputs);
 
         let new_sender_balance_proof = data_store_sever
             .get_balance_proof(sender, block_number, spent_proof_pis.new_private_commitment)
@@ -362,7 +379,7 @@ impl Client {
         let prev_sender_balance_proof = data_store_sever
             .get_balance_proof(
                 sender,
-                tx_data.sender_prev_block_number,
+                common_tx_data.sender_prev_block_number,
                 spent_proof_pis.prev_private_commitment,
             )
             .map_err(|e| anyhow::anyhow!("failed to get balance proof: {}", e))?
@@ -374,7 +391,7 @@ impl Client {
             sender,
             &Some(prev_sender_balance_proof),
             block_number,
-            tx_data,
+            common_tx_data,
         )
         .map_err(|e| anyhow::anyhow!("failed to process tx: {}", e))?;
 
@@ -449,7 +466,7 @@ impl Client {
         }
         let mut tx_data = Vec::new();
         for (uuid, data) in transition_data.tx_data {
-            let tx_tree_root = data.tx_tree_root;
+            let tx_tree_root = data.common.tx_tree_root;
             let block_numbers =
                 sync_validity_prover.get_block_numbers_by_tx_tree_root(tx_tree_root);
             if block_numbers.len() == 0 {
@@ -464,7 +481,7 @@ impl Client {
         }
 
         // generate strategy
-        let strategy = Strategy::generate(transfer_data, tx_data, deposit_data);
+        let strategy = Strategy::generate(deposit_data, transfer_data, tx_data);
         Ok(strategy)
     }
 }

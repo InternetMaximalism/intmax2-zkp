@@ -17,6 +17,7 @@ use crate::{
     common::{
         salt::Salt,
         transfer::Transfer,
+        tx::Tx,
         witness::{
             deposit_witness::DepositWitness, private_transition_witness::PrivateTransitionWitness,
             receive_deposit_witness::ReceiveDepositWitness,
@@ -31,16 +32,16 @@ use crate::{
 use super::{
     data::{
         common_tx_data::CommonTxData, deposit_data::DepositData, transfer_data::TransferData,
-        user_data::UserData,
+        tx_data::TxData, user_data::UserData,
     },
     sync_validity_prover::SyncValidityProver,
 };
 
 pub fn generate_spent_proof<F, C, const D: usize>(
-    validity_prover: &SyncValidityProver<F, C, D>,
     balance_processor: &BalanceProcessor<F, C, D>,
     user_data: &mut UserData,
     new_salt: Salt,
+    tx: Tx,
     transfers: &[Transfer],
 ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>>
 where
@@ -51,21 +52,22 @@ where
     ensure!(!transfers.is_empty(), "transfers is empty");
     ensure!(transfers.len() <= NUM_TRANSFERS_IN_TX, "too many transfers");
 
-    // let spent_witness = SpentWitness::new(
-    //     &mut user_data.full_private_state.asset_tree,
-    //     ,
-    //     transfers,
-    //     tx,
-    //     new_private_state_salt,
-    // );
+    let spent_witness = SpentWitness::new(
+        &user_data.full_private_state.asset_tree,
+        &user_data.full_private_state.to_private_state(),
+        transfers,
+        tx,
+        new_salt,
+    )
+    .map_err(|e| anyhow::anyhow!("SpentWitness::new failed: {:?}", e))?;
 
-    // let spent_proof = balance_processor
-    //     .balance_transition_processor
-    //     .sender_processor
-    //     .prove_spent(spent_witness)
-    //     .map_err(|e| anyhow::anyhow!("prove_spent failed: {:?}", e))?;
+    let spent_proof = balance_processor
+        .balance_transition_processor
+        .sender_processor
+        .prove_spent(&spent_witness)
+        .map_err(|e| anyhow::anyhow!("prove_spent failed: {:?}", e))?;
 
-    todo!()
+    Ok(spent_proof)
 }
 
 pub fn process_deposit<F, C, const D: usize>(
