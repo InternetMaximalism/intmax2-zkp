@@ -42,11 +42,13 @@ fn e2e_test() {
         )
         .unwrap();
 
-    // // depost 100wei ETH to alice wallet
-    // let deposit_index = alice_wallet.deposit(&mut rng, &mut block_builder, 0, 100.into());
+    // post empty block to reflect the deposit
+    block_builder
+        .post_block(&mut contract, &validity_prover, true, vec![])
+        .unwrap();
 
-    // // post dummy block to reflect the deposit tree
-    // block_builder.post_block(true, vec![]);
+    // sync validity prover to the latest block
+    validity_prover.sync(&contract).unwrap();
 
     // // sync alice wallet to the latest block, which includes the deposit
     // alice_prover.sync_all(

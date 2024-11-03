@@ -95,6 +95,10 @@ where
 
         let next_block_number = contract.get_next_block_number();
         for block_number in (self.last_block_number + 1)..next_block_number {
+            log::info!(
+                "Sync validity prover: syncing block number {}",
+                block_number
+            );
             let prev_validity_proof = self.validity_proofs.get(&(block_number - 1)).cloned();
             assert!(
                 prev_validity_proof.is_some() || block_number == 1,
