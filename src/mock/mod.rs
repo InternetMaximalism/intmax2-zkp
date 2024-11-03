@@ -8,3 +8,4 @@ pub mod tx_request;
 // pub mod wallet;
 pub mod balance_logic;
 pub mod client;
+pub mod strategy;

@@ -26,7 +26,7 @@ use crate::{
         witness::update_witness::UpdateWitness,
     },
     constants::BLOCK_HASH_TREE_HEIGHT,
-    ethereum_types::u256::U256,
+    ethereum_types::{bytes32::Bytes32, u256::U256},
 };
 
 use super::contract::MockContract;
@@ -49,6 +49,7 @@ where
     pub deposit_correspondence: HashMap<u32, (usize, u32)>, /* deposit_id -> (deposit_index,
                                                              * block_number) */
     pub deposit_trees: HashMap<u32, DepositTree>, // snap shot of deposit tree at each block
+    pub tx_tree_roots: HashMap<Bytes32, Vec<u32>>, // tx tree root at each block
 }
 
 impl<F, C, const D: usize> SyncValidityProver<F, C, D>
@@ -76,6 +77,7 @@ where
             validity_proofs: HashMap::new(), // no validity proof for genesis block
             deposit_correspondence: HashMap::new(),
             deposit_trees: HashMap::new(),
+            tx_tree_roots: HashMap::new(),
         }
     }
 
@@ -118,6 +120,15 @@ where
                 .insert(block_number, account_tree.clone());
             self.block_trees.insert(block_number, block_tree.clone());
             self.validity_proofs.insert(block_number, validity_proof);
+            let block_numbers = self
+                .tx_tree_roots
+                .get_mut(&full_block.signature.tx_tree_root);
+            if block_numbers.is_none() {
+                self.tx_tree_roots
+                    .insert(full_block.signature.tx_tree_root, vec![block_number]);
+            } else {
+                block_numbers.unwrap().push(block_number);
+            }
         }
         self.deposit_correspondence = contract.deposit_correspondence.clone();
         self.deposit_trees = contract.deposit_trees.clone();
@@ -164,8 +175,15 @@ where
     }
 
     // returns deposit index and block number
-    pub fn get_deposit_index_and_block(&self, deposit_id: u32) -> Option<(usize, u32)> {
+    pub fn get_deposit_index_and_block_number(&self, deposit_id: u32) -> Option<(usize, u32)> {
         self.deposit_correspondence.get(&deposit_id).cloned()
+    }
+
+    pub fn get_block_numbers_by_tx_tree_root(&self, tx_tree_root: Bytes32) -> Vec<u32> {
+        self.tx_tree_roots
+            .get(&tx_tree_root)
+            .cloned()
+            .unwrap_or_default()
     }
 
     pub fn get_validity_pis(&self, block_number: u32) -> Option<ValidityPublicInputs> {
