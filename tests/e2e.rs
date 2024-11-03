@@ -3,7 +3,10 @@ use std::env;
 use hashbrown::HashMap;
 use intmax2_zkp::{
     circuits::balance::balance_processor::BalanceProcessor,
-    common::{signature::key_set::KeySet, trees::asset_tree::AssetLeaf},
+    common::{
+        generic_address::GenericAddress, salt::Salt, signature::key_set::KeySet,
+        transfer::Transfer, trees::asset_tree::AssetLeaf,
+    },
     mock::{
         block_builder::BlockBuilder, client::Client, contract::MockContract,
         data_store_server::DataStoreServer, sync_validity_prover::SyncValidityProver,
@@ -52,6 +55,7 @@ fn e2e_test() {
     validity_prover.sync(&contract).unwrap();
     log::info!("synced to block {}", validity_prover.last_block_number);
 
+    // sync alice's balance proof to receive the deposit
     client
         .sync_balance_proof(
             alice_key,
@@ -67,34 +71,28 @@ fn e2e_test() {
     );
     print_balances(&alice_data.balances());
 
-    // // receive deposit and update alice balance proof
-    // alice_prover.receive_deposit(
-    //     &mut rng,
-    //     &mut alice_wallet,
-    //     &balance_processor,
-    //     &block_builder,
-    //     deposit_index,
-    // );
-    // assert_eq!(get_asset_balance(&alice_wallet, 0), 100.into()); // check ETH balance
+    let bob_key = KeySet::rand(&mut rng);
 
-    // let mut bob_wallet = MockWallet::new_rand(&mut rng);
-    // let mut bob_prover = SyncBalanceProver::<F, C, D>::new();
+    // transfer 50wei ETH to bob
+    let transfer_to_bob = Transfer {
+        recipient: GenericAddress::from_pubkey(bob_key.pubkey),
+        token_index: 0,
+        amount: 50.into(),
+        salt: Salt::rand(&mut rng),
+    };
+    client
+        .send_tx(
+            alice_key,
+            &mut contract,
+            &block_builder,
+            &mut data_store_server,
+            &validity_prover,
+            &balance_processor,
+            vec![transfer_to_bob],
+        )
+        .unwrap();
 
-    // // transfer 50wei ETH to bob
-    // let transfer_to_bob = Transfer {
-    //     recipient: GenericAddress::from_pubkey(bob_wallet.get_pubkey()),
-    //     token_index: 0,
-    //     amount: 50.into(),
-    //     salt: Salt::rand(&mut rng),
-    // };
-    // let send_witness =
-    //     alice_wallet.send_tx_and_update(&mut rng, &mut block_builder, &[transfer_to_bob]);
-    // let transfer_witness = alice_wallet
-    //     .get_transfer_witnesses(send_witness.get_included_block_number())
-    //     .unwrap()[0] // first transfer in the tx
-    //     .clone();
-
-    // // update alice balance proof
+    // update alice balance proof
     // alice_prover.sync_all(
     //     &mut sync_validity_prover,
     //     &mut alice_wallet,

@@ -330,6 +330,7 @@ impl Client {
         C: GenericConfig<D, F = F> + 'static,
         <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
     {
+        log::info!("sync_transfer: {:?}", meta);
         let mut user_data = data_store_sever
             .get_user_data(key)
             .map_err(|e| anyhow::anyhow!("failed to get user data: {}", e))?
@@ -389,6 +390,7 @@ impl Client {
         C: GenericConfig<D, F = F> + 'static,
         <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
     {
+        log::info!("sync_tx: {:?}", meta);
         let mut user_data = data_store_sever
             .get_user_data(key)
             .map_err(|e| anyhow::anyhow!("failed to get user data: {}", e))?
@@ -441,6 +443,11 @@ impl Client {
         C: GenericConfig<D, F = F> + 'static,
         <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
     {
+        log::info!(
+            "generate_new_sender_balance_proof: sender {}, block_number {}",
+            sender,
+            block_number
+        );
         let spent_proof_pis =
             SpentPublicInputs::from_pis(&common_tx_data.spent_proof.public_inputs);
 
