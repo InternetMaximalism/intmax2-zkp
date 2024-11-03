@@ -51,6 +51,20 @@ fn e2e_test() {
     validity_prover.sync(&contract).unwrap();
     log::info!("synced to block {}", validity_prover.last_block_number);
 
+    client
+        .sync_balance_proof(
+            alice_key,
+            &mut data_store_server,
+            &validity_prover,
+            &balance_processor,
+        )
+        .unwrap();
+    let alice_data = client.get_user_data(alice_key, &data_store_server).unwrap();
+    log::info!(
+        "Synced alice balance proof to block {}",
+        alice_data.block_number
+    );
+
     // // sync alice wallet to the latest block, which includes the deposit
     // alice_prover.sync_all(
     //     &mut sync_validity_prover,

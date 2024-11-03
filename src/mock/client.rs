@@ -207,7 +207,7 @@ impl Client {
     pub fn sync_balance_proof<F, C, const D: usize>(
         &self,
         key: KeySet,
-        data_store_sever: &mut DataStoreServer<F, C, D>,
+        data_store_server: &mut DataStoreServer<F, C, D>,
         validity_prover: &SyncValidityProver<F, C, D>,
         balance_processor: &BalanceProcessor<F, C, D>,
     ) -> anyhow::Result<()>
@@ -217,7 +217,7 @@ impl Client {
         <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
     {
         let strategy = self
-            .generate_strategy(data_store_sever, validity_prover, key)
+            .generate_strategy(data_store_server, validity_prover, key)
             .map_err(|e| {
                 anyhow::anyhow!(
                     "failed to generate strategy for balance proof update: {}",
@@ -230,7 +230,7 @@ impl Client {
                 strategy::Action::Transfer(i) => {
                     let (meta, data) = &strategy.transfer_data[i];
                     self.sync_transfer(
-                        data_store_sever,
+                        data_store_server,
                         validity_prover,
                         balance_processor,
                         key,
@@ -242,7 +242,7 @@ impl Client {
                 strategy::Action::Tx(i) => {
                     let (meta, data) = &strategy.tx_data[i];
                     self.sync_tx(
-                        data_store_sever,
+                        data_store_server,
                         validity_prover,
                         balance_processor,
                         key,
@@ -254,7 +254,7 @@ impl Client {
                 strategy::Action::Deposit(i) => {
                     let (meta, data) = &strategy.deposit_data[i];
                     self.sync_deposit(
-                        data_store_sever,
+                        data_store_server,
                         validity_prover,
                         balance_processor,
                         key,
@@ -559,6 +559,23 @@ impl Client {
         // generate strategy
         let strategy = Strategy::generate(deposit_data, transfer_data, tx_data);
         Ok(strategy)
+    }
+
+    pub fn get_user_data<F, C, const D: usize>(
+        &self,
+        key: KeySet,
+        data_store_server: &DataStoreServer<F, C, D>,
+    ) -> anyhow::Result<UserData>
+    where
+        F: RichField + Extendable<D>,
+        C: GenericConfig<D, F = F> + 'static,
+        <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
+    {
+        let user_data = data_store_server
+            .get_user_data(key)
+            .map_err(|e| anyhow::anyhow!("failed to get user data: {}", e))?
+            .unwrap_or(UserData::new(key.pubkey));
+        Ok(user_data)
     }
 }
 
