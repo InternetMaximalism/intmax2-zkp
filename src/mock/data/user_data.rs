@@ -7,6 +7,7 @@ use crate::{
         signature::key_set::KeySet,
     },
     ethereum_types::u256::U256,
+    utils::poseidon_hash_out::PoseidonHashOut,
 };
 
 #[derive(Debug, Clone)]
@@ -128,5 +129,9 @@ impl UserData {
             .chain(self.rejected_processed_tx_uuids.iter())
             .cloned()
             .collect()
+    }
+
+    pub fn private_commitment(&self) -> PoseidonHashOut {
+        self.full_private_state.to_private_state().commitment()
     }
 }

@@ -1,20 +1,296 @@
-use crate::{common::signature::key_set::KeySet, mock::data::user_data::UserData};
+use crate::{
+    circuits::balance::{
+        balance_processor::BalanceProcessor, send::spent_circuit::SpentPublicInputs,
+    },
+    common::{salt::Salt, signature::key_set::KeySet},
+    ethereum_types::u256::U256,
+    mock::{
+        balance_logic::{process_transfer, process_tx},
+        data::user_data::UserData,
+        strategy,
+    },
+};
 
 use super::{
-    data::meta_data::MetaData, data_store_server::DataStoreServer, strategy::Strategy,
+    balance_logic::process_deposit,
+    data::{
+        deposit_data::DepositData, meta_data::MetaData, transfer_data::TransferData,
+        tx_data::TxData,
+    },
+    data_store_server::DataStoreServer,
+    strategy::Strategy,
     sync_validity_prover::SyncValidityProver,
 };
 use plonky2::{
     field::extension::Extendable,
     hash::hash_types::RichField,
-    plonk::config::{AlgebraicHasher, GenericConfig},
+    plonk::{
+        config::{AlgebraicHasher, GenericConfig},
+        proof::ProofWithPublicInputs,
+    },
 };
 
 pub struct Client;
 
 impl Client {
+    pub fn sync_balance_proof<F, C, const D: usize>(
+        &self,
+        data_store_sever: &mut DataStoreServer<F, C, D>,
+        validity_prover: &SyncValidityProver<F, C, D>,
+        balance_processor: &BalanceProcessor<F, C, D>,
+        key: KeySet,
+    ) -> anyhow::Result<()>
+    where
+        F: RichField + Extendable<D>,
+        C: GenericConfig<D, F = F> + 'static,
+        <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
+    {
+        let strategy = self
+            .generate_strategy(data_store_sever, validity_prover, key)
+            .map_err(|e| {
+                anyhow::anyhow!(
+                    "failed to generate strategy for balance proof update: {}",
+                    e
+                )
+            })?;
+
+        for action in strategy.actions {
+            match action {
+                strategy::Action::Transfer(i) => {
+                    let (meta, data) = &strategy.transfer_data[i];
+                    self.sync_transfer(
+                        data_store_sever,
+                        validity_prover,
+                        balance_processor,
+                        key,
+                        meta,
+                        data,
+                    )
+                    .map_err(|e| anyhow::anyhow!("failed to sync transfer: {}", e))?;
+                }
+                strategy::Action::Tx(i) => {
+                    let (meta, data) = &strategy.tx_data[i];
+                    self.sync_tx(
+                        data_store_sever,
+                        validity_prover,
+                        balance_processor,
+                        key,
+                        meta,
+                        data,
+                    )
+                    .map_err(|e| anyhow::anyhow!("failed to sync tx: {}", e))?;
+                }
+                strategy::Action::Deposit(i) => {
+                    let (meta, data) = &strategy.deposit_data[i];
+                    self.sync_deposit(
+                        data_store_sever,
+                        validity_prover,
+                        balance_processor,
+                        key,
+                        meta,
+                        data,
+                    )
+                    .map_err(|e| anyhow::anyhow!("failed to sync deposit: {}", e))?;
+                }
+            }
+        }
+        Ok(())
+    }
+
+    fn sync_deposit<F, C, const D: usize>(
+        &self,
+        data_store_sever: &mut DataStoreServer<F, C, D>,
+        validity_prover: &SyncValidityProver<F, C, D>,
+        balance_processor: &BalanceProcessor<F, C, D>,
+        key: KeySet,
+        meta: &MetaData,
+        deposit_data: &DepositData,
+    ) -> anyhow::Result<()>
+    where
+        F: RichField + Extendable<D>,
+        C: GenericConfig<D, F = F> + 'static,
+        <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
+    {
+        let mut user_data = data_store_sever
+            .get_user_data(key)
+            .map_err(|e| anyhow::anyhow!("failed to get user data: {}", e))?
+            .unwrap_or(UserData::new(key.pubkey));
+
+        // user's balance proof before applying the tx
+        let prev_balance_proof = data_store_sever
+            .get_balance_proof(
+                key.pubkey,
+                user_data.block_number,
+                user_data.private_commitment(),
+            )
+            .map_err(|e| anyhow::anyhow!("failed to get balance proof: {}", e))?;
+
+        let new_salt = generate_salt(key, user_data.full_private_state.nonce);
+        let new_balance_proof = process_deposit(
+            validity_prover,
+            balance_processor,
+            &mut user_data,
+            new_salt,
+            &prev_balance_proof,
+            meta.block_number,
+            meta.uuid,
+            deposit_data,
+        )
+        .map_err(|e| anyhow::anyhow!("failed to process transfer: {}", e))?;
+
+        // save proof and user data
+        data_store_sever.save_balance_proof(key.pubkey, meta.block_number, new_balance_proof);
+        data_store_sever.save_user_data(key.pubkey, user_data);
+
+        Ok(())
+    }
+
+    fn sync_transfer<F, C, const D: usize>(
+        &self,
+        data_store_sever: &mut DataStoreServer<F, C, D>,
+        validity_prover: &SyncValidityProver<F, C, D>,
+        balance_processor: &BalanceProcessor<F, C, D>,
+        key: KeySet,
+        meta: &MetaData,
+        transfer_data: &TransferData<F, C, D>,
+    ) -> anyhow::Result<()>
+    where
+        F: RichField + Extendable<D>,
+        C: GenericConfig<D, F = F> + 'static,
+        <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
+    {
+        let mut user_data = data_store_sever
+            .get_user_data(key)
+            .map_err(|e| anyhow::anyhow!("failed to get user data: {}", e))?
+            .unwrap_or(UserData::new(key.pubkey));
+
+        // user's balance proof before applying the tx
+        let prev_balance_proof = data_store_sever
+            .get_balance_proof(
+                key.pubkey,
+                user_data.block_number,
+                user_data.private_commitment(),
+            )
+            .map_err(|e| anyhow::anyhow!("failed to get balance proof: {}", e))?;
+
+        // sender balance proof after applying the tx
+        let new_sender_balance_proof = self.generate_new_sender_balance_proof(
+            data_store_sever,
+            validity_prover,
+            balance_processor,
+            key.pubkey,
+            meta.block_number,
+            &transfer_data.tx_data,
+        )?;
+
+        let new_salt = generate_salt(key, user_data.full_private_state.nonce);
+        let new_balance_proof = process_transfer(
+            validity_prover,
+            balance_processor,
+            &mut user_data,
+            new_salt,
+            &new_sender_balance_proof,
+            &prev_balance_proof,
+            meta.block_number,
+            meta.uuid,
+            &transfer_data,
+        )
+        .map_err(|e| anyhow::anyhow!("failed to process transfer: {}", e))?;
+
+        // save proof and user data
+        data_store_sever.save_balance_proof(key.pubkey, meta.block_number, new_balance_proof);
+        data_store_sever.save_user_data(key.pubkey, user_data);
+
+        Ok(())
+    }
+
+    fn sync_tx<F, C, const D: usize>(
+        &self,
+        data_store_sever: &mut DataStoreServer<F, C, D>,
+        validity_prover: &SyncValidityProver<F, C, D>,
+        balance_processor: &BalanceProcessor<F, C, D>,
+        key: KeySet,
+        meta: &MetaData,
+        tx_data: &TxData<F, C, D>,
+    ) -> anyhow::Result<()>
+    where
+        F: RichField + Extendable<D>,
+        C: GenericConfig<D, F = F> + 'static,
+        <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
+    {
+        let mut user_data = data_store_sever
+            .get_user_data(key)
+            .map_err(|e| anyhow::anyhow!("failed to get user data: {}", e))?
+            .unwrap_or(UserData::new(key.pubkey));
+        self.generate_new_sender_balance_proof(
+            data_store_sever,
+            validity_prover,
+            balance_processor,
+            key.pubkey,
+            meta.block_number,
+            tx_data,
+        )?;
+
+        // update user data
+        user_data.block_number = meta.block_number;
+        user_data.processed_tx_uuids.push(meta.uuid);
+
+        // save user data
+        data_store_sever.save_user_data(key.pubkey, user_data);
+        Ok(())
+    }
+
+    // generate sender's balance proof after applying the tx
+    fn generate_new_sender_balance_proof<F, C, const D: usize>(
+        &self,
+        data_store_sever: &mut DataStoreServer<F, C, D>,
+        validity_prover: &SyncValidityProver<F, C, D>,
+        balance_processor: &BalanceProcessor<F, C, D>,
+        sender: U256,
+        block_number: u32,
+        tx_data: &TxData<F, C, D>,
+    ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>>
+    where
+        F: RichField + Extendable<D>,
+        C: GenericConfig<D, F = F> + 'static,
+        <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
+    {
+        let spent_proof_pis = SpentPublicInputs::from_pis(&tx_data.spent_proof.public_inputs);
+
+        let new_sender_balance_proof = data_store_sever
+            .get_balance_proof(sender, block_number, spent_proof_pis.new_private_commitment)
+            .map_err(|e| anyhow::anyhow!("failed to get new balance proof: {}", e))?;
+        if new_sender_balance_proof.is_some() {
+            // already updated
+            return Ok(new_sender_balance_proof.unwrap());
+        }
+
+        let prev_sender_balance_proof = data_store_sever
+            .get_balance_proof(
+                sender,
+                tx_data.sender_prev_block_number,
+                spent_proof_pis.prev_private_commitment,
+            )
+            .map_err(|e| anyhow::anyhow!("failed to get balance proof: {}", e))?
+            .ok_or_else(|| anyhow::anyhow!("prev balance proof not found"))?;
+
+        let new_sender_balance_proof = process_tx(
+            validity_prover,
+            balance_processor,
+            sender,
+            &Some(prev_sender_balance_proof),
+            block_number,
+            tx_data,
+        )
+        .map_err(|e| anyhow::anyhow!("failed to process tx: {}", e))?;
+
+        data_store_sever.save_balance_proof(sender, block_number, new_sender_balance_proof.clone());
+
+        Ok(new_sender_balance_proof)
+    }
+
     // generate strategy of the balance proof update process
-    pub fn generate_strategy<F, C, const D: usize>(
+    fn generate_strategy<F, C, const D: usize>(
         &self,
         data_store_sever: &DataStoreServer<F, C, D>,
         sync_validity_prover: &SyncValidityProver<F, C, D>,
@@ -85,4 +361,10 @@ impl Client {
         let strategy = Strategy::generate(transfer_data, tx_data, deposit_data);
         Ok(strategy)
     }
+}
+
+pub fn generate_salt(_key: KeySet, _nonce: u32) -> Salt {
+    // todo: deterministic salt generation
+    let mut rng = rand::thread_rng();
+    Salt::rand(&mut rng)
 }

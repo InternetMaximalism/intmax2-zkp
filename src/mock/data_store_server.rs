@@ -7,7 +7,10 @@ use plonky2::{
 };
 use uuid::Uuid;
 
-use crate::{common::signature::key_set::KeySet, ethereum_types::u256::U256};
+use crate::{
+    circuits::balance::balance_pis::BalancePublicInputs, common::signature::key_set::KeySet,
+    ethereum_types::u256::U256, utils::poseidon_hash_out::PoseidonHashOut,
+};
 
 use super::data::{
     deposit_data::DepositData, transfer_data::TransferData, tx_data::TxData, user_data::UserData,
@@ -72,13 +75,21 @@ where
         &self,
         pubkey: U256,
         block_number: u32,
-    ) -> anyhow::Result<Vec<ProofWithPublicInputs<F, C, D>>> {
+        private_commitment: PoseidonHashOut,
+    ) -> anyhow::Result<Option<ProofWithPublicInputs<F, C, D>>> {
         let empty = HashMap::new();
         let proofs = self.balance_proofs.get(&pubkey).unwrap_or(&empty);
 
         let empty = Vec::new();
-        let proof = proofs.get(&block_number).unwrap_or(&empty);
-        Ok(proof.clone())
+        let proofs = proofs.get(&block_number).unwrap_or(&empty);
+
+        for proof in proofs.iter() {
+            let balance_pis = BalancePublicInputs::from_pis(&proof.public_inputs);
+            if balance_pis.private_commitment == private_commitment {
+                return Ok(Some(proof.clone()));
+            }
+        }
+        Ok(None)
     }
 
     pub fn save_deposit_data(&mut self, pubkey: U256, deposit_data: DepositData) {

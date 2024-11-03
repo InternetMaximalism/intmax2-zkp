@@ -24,6 +24,8 @@ where
 {
     // Sender's spent proof of the target tx.
     pub spent_proof: ProofWithPublicInputs<F, C, D>,
+    // Block number of the sender's balance proof before the target tx.
+    pub sender_prev_block_number: u32,
 
     // Used for updating sender's balance proof
     pub tx: Tx,

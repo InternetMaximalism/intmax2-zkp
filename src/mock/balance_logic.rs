@@ -7,6 +7,7 @@ use plonky2::{
         proof::ProofWithPublicInputs,
     },
 };
+use uuid::Uuid;
 
 use crate::{
     circuits::balance::{
@@ -40,6 +41,7 @@ pub fn process_deposit<F, C, const D: usize>(
     new_salt: Salt,
     prev_balance_proof: &Option<ProofWithPublicInputs<F, C, D>>,
     receive_block_number: u32,
+    uuid: Uuid,
     deposit_data: &DepositData,
 ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>>
 where
@@ -96,6 +98,9 @@ where
             &Some(before_balance_proof),
         )
         .map_err(|e| anyhow::anyhow!("prove_deposit failed: {:?}", e))?;
+    // update user data
+    user_data.block_number = receive_block_number;
+    user_data.processed_deposit_uuids.push(uuid);
 
     Ok(balance_proof)
 }
@@ -110,6 +115,7 @@ pub fn process_transfer<F, C, const D: usize>(
     prev_balance_proof: &Option<ProofWithPublicInputs<F, C, D>>, /* receiver's prev balance
                                                                   * proof */
     receive_block_number: u32,
+    uuid: Uuid,
     transfer_data: &TransferData<F, C, D>,
 ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>>
 where
@@ -169,6 +175,10 @@ where
             &Some(before_balance_proof),
         )
         .map_err(|e| anyhow::anyhow!("prove_deposit failed: {:?}", e))?;
+
+    // update user data
+    user_data.block_number = receive_block_number;
+    user_data.processed_transfer_uuids.push(uuid);
 
     Ok(balance_proof)
 }
