@@ -1,7 +1,10 @@
 use crate::{
-    circuits::balance::{
-        balance_pis::BalancePublicInputs, balance_processor::BalanceProcessor,
-        send::spent_circuit::SpentPublicInputs,
+    circuits::{
+        balance::{
+            balance_pis::BalancePublicInputs, balance_processor::BalanceProcessor,
+            send::spent_circuit::SpentPublicInputs,
+        },
+        withdrawal::withdrawal_processor::WithdrawalProcessor,
     },
     common::{
         deposit::{get_pubkey_salt_hash, Deposit},
@@ -15,7 +18,9 @@ use crate::{
     constants::{NUM_TRANSFERS_IN_TX, TRANSFER_TREE_HEIGHT},
     ethereum_types::{bytes32::Bytes32, u256::U256},
     mock::{
-        balance_logic::process_transfer, data::user_data::UserData, strategy,
+        balance_logic::{process_transfer, process_withdrawal},
+        data::user_data::UserData,
+        strategy,
         tx_request::MockTxRequest,
     },
 };
@@ -88,6 +93,7 @@ impl Client {
         data_store_sever: &mut DataStoreServer<F, C, D>,
         validity_prover: &SyncValidityProver<F, C, D>,
         balance_processor: &BalanceProcessor<F, C, D>,
+        withdrawal_processor: &WithdrawalProcessor<F, C, D>,
         transfers: Vec<Transfer>,
     ) -> anyhow::Result<()>
     where
@@ -103,8 +109,14 @@ impl Client {
         );
 
         // sync balance proof
-        self.sync_balance_proof(key, data_store_sever, validity_prover, balance_processor)
-            .map_err(|e| anyhow::anyhow!("failed to sync balance proof: {}", e))?;
+        self.sync_balance_proof(
+            key,
+            data_store_sever,
+            validity_prover,
+            balance_processor,
+            withdrawal_processor,
+        )
+        .map_err(|e| anyhow::anyhow!("failed to sync balance proof: {}", e))?;
 
         let user_data = data_store_sever
             .get_user_data(key)
@@ -219,6 +231,7 @@ impl Client {
         data_store_server: &mut DataStoreServer<F, C, D>,
         validity_prover: &SyncValidityProver<F, C, D>,
         balance_processor: &BalanceProcessor<F, C, D>,
+        withdrawal_processor: &WithdrawalProcessor<F, C, D>,
     ) -> anyhow::Result<()>
     where
         F: RichField + Extendable<D>,
@@ -274,6 +287,20 @@ impl Client {
                 }
             }
         }
+
+        for (meta, data) in &strategy.withdrawal_data {
+            self.sync_withdrawal(
+                data_store_server,
+                validity_prover,
+                balance_processor,
+                withdrawal_processor,
+                key,
+                meta,
+                data,
+            )
+            .map_err(|e| anyhow::anyhow!("failed to sync withdrawal: {}", e))?;
+        }
+
         Ok(())
     }
 
@@ -433,6 +460,51 @@ impl Client {
 
         // save user data
         data_store_sever.save_user_data(key.pubkey, user_data);
+        Ok(())
+    }
+
+    fn sync_withdrawal<F, C, const D: usize>(
+        &self,
+        data_store_sever: &mut DataStoreServer<F, C, D>,
+        validity_prover: &SyncValidityProver<F, C, D>,
+        balance_processor: &BalanceProcessor<F, C, D>,
+        withdrawal_processor: &WithdrawalProcessor<F, C, D>,
+        key: KeySet,
+        meta: &MetaData,
+        withdrawal_data: &TransferData<F, C, D>,
+    ) -> anyhow::Result<()>
+    where
+        F: RichField + Extendable<D>,
+        C: GenericConfig<D, F = F> + 'static,
+        <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
+    {
+        log::info!("sync_withdrawal: {:?}", meta);
+        let mut user_data = data_store_sever
+            .get_user_data(key)
+            .map_err(|e| anyhow::anyhow!("failed to get user data: {}", e))?
+            .unwrap_or(UserData::new(key.pubkey));
+
+        let new_user_balance_proof = self.generate_new_sender_balance_proof(
+            data_store_sever,
+            validity_prover,
+            balance_processor,
+            key.pubkey,
+            meta.block_number,
+            &withdrawal_data.tx_data,
+        )?;
+
+        process_withdrawal(
+            withdrawal_processor,
+            &mut user_data,
+            &new_user_balance_proof,
+            meta.uuid,
+            withdrawal_data,
+        )
+        .map_err(|e| anyhow::anyhow!("failed to process withdrawal: {}", e))?;
+
+        // save user data
+        data_store_sever.save_user_data(key.pubkey, user_data);
+
         Ok(())
     }
 
