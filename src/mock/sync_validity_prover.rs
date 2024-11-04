@@ -40,16 +40,16 @@ where
     C: GenericConfig<D, F = F>,
     <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
 {
-    pub validity_processor: OnceLock<ValidityProcessor<F, C, D>>, // delayed initialization
-    pub last_block_number: u32,                                   /* last block number that has
-                                                                   * been synced */
-    pub account_trees: HashMap<u32, AccountTree>,
-    pub block_trees: HashMap<u32, BlockHashTree>,
-    pub validity_proofs: HashMap<u32, ProofWithPublicInputs<F, C, D>>,
-    pub deposit_correspondence: HashMap<Bytes32, (usize, u32)>, /* deposit_hash ->
-                                                                 * (deposit_index, block_number) */
-    pub deposit_trees: HashMap<u32, DepositTree>, // snap shot of deposit tree at each block
-    pub tx_tree_roots: HashMap<Bytes32, Vec<u32>>, // tx tree root at each block
+    validity_processor: OnceLock<ValidityProcessor<F, C, D>>, // delayed initialization
+    last_block_number: u32,                                   /* last block number that has
+                                                               * been synced */
+    account_trees: HashMap<u32, AccountTree>,
+    block_trees: HashMap<u32, BlockHashTree>,
+    validity_proofs: HashMap<u32, ProofWithPublicInputs<F, C, D>>,
+    deposit_correspondence: HashMap<Bytes32, (usize, u32)>, /* deposit_hash ->
+                                                             * (deposit_index, block_number) */
+    deposit_trees: HashMap<u32, DepositTree>, // snap shot of deposit tree at each block
+    tx_tree_roots: HashMap<Bytes32, Vec<u32>>, // tx tree root at each block
 }
 
 impl<F, C, const D: usize> SyncValidityProver<F, C, D>
@@ -218,7 +218,7 @@ where
         Ok(block_tree.prove(leaf_block_number as usize))
     }
 
-    pub fn get_account_membership_proof(
+    fn get_account_membership_proof(
         &self,
         block_number: u32,
         pubkey: U256,
@@ -231,6 +231,10 @@ where
                 block_number
             ))?;
         Ok(account_tree.prove_membership(pubkey))
+    }
+
+    pub fn block_number(&self) -> u32 {
+        self.last_block_number
     }
 
     pub fn get_deposit_merkle_proof(

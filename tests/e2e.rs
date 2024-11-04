@@ -58,7 +58,7 @@ fn e2e_test() {
 
     // sync validity prover to the latest block
     validity_prover.sync(&contract).unwrap();
-    log::info!("synced to block {}", validity_prover.last_block_number);
+    log::info!("synced to block {}", validity_prover.block_number());
 
     // sync alice's balance proof to receive the deposit
     client
@@ -101,7 +101,7 @@ fn e2e_test() {
 
     // sync validity prover to the latest block
     validity_prover.sync(&contract).unwrap();
-    log::info!("synced to block {}", validity_prover.last_block_number);
+    log::info!("synced to block {}", validity_prover.block_number());
 
     // sync bob wallet to the latest block
     client

@@ -233,7 +233,7 @@ where
 {
     // sync check
     ensure!(
-        tx_block_number <= validity_prover.last_block_number,
+        tx_block_number <= validity_prover.block_number(),
         "validity prover is not up to date"
     );
     let prev_balance_pis = get_prev_balance_pis(sender, prev_balance_proof);
@@ -295,7 +295,7 @@ where
 {
     // sync check
     ensure!(
-        block_number <= validity_prover.last_block_number,
+        block_number <= validity_prover.block_number(),
         "validity prover is not up to date"
     );
 

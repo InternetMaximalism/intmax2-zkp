@@ -44,7 +44,7 @@ impl BlockBuilder {
         <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
     {
         ensure!(
-            contract.get_next_block_number() == sync_validity_prover.last_block_number + 1,
+            contract.get_next_block_number() == sync_validity_prover.block_number() + 1,
             "sync validity prover is not up to date"
         );
         ensure!(txs.len() <= NUM_SENDERS_IN_BLOCK, "too many txs");
