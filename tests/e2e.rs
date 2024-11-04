@@ -9,8 +9,8 @@ use intmax2_zkp::{
     },
     ethereum_types::{address::Address, u32limb_trait::U32LimbTrait as _},
     mock::{
-        block_builder::BlockBuilder, client::Client, contract::MockContract,
-        data_store_server::DataStoreServer, sync_validity_prover::SyncValidityProver,
+        block_builder::BlockBuilder, block_validity_prover::BlockValidityProver, client::Client,
+        contract::MockContract, store_vault_server::StoreVaultServer,
         withdrawal_aggregator::WithdrawalAggregator,
     },
 };
@@ -26,9 +26,9 @@ fn e2e_test() {
     env_logger::init();
 
     let mut contract = MockContract::new();
-    let mut validity_prover = SyncValidityProver::<F, C, D>::new();
+    let mut validity_prover = BlockValidityProver::<F, C, D>::new();
     let balance_processor = BalanceProcessor::new(validity_prover.validity_circuit());
-    let mut data_store_server = DataStoreServer::<F, C, D>::new();
+    let mut store_vault_server = StoreVaultServer::<F, C, D>::new();
     let block_builder = BlockBuilder;
     let client = Client;
 
@@ -42,7 +42,7 @@ fn e2e_test() {
         .deposit(
             alice_key,
             &mut contract,
-            &mut data_store_server,
+            &mut store_vault_server,
             0,
             100.into(),
         )
@@ -61,12 +61,14 @@ fn e2e_test() {
     client
         .sync_balance_proof(
             alice_key,
-            &mut data_store_server,
+            &mut store_vault_server,
             &validity_prover,
             &balance_processor,
         )
         .unwrap();
-    let alice_data = client.get_user_data(alice_key, &data_store_server).unwrap();
+    let alice_data = client
+        .get_user_data(alice_key, &store_vault_server)
+        .unwrap();
     log::info!(
         "Synced alice balance proof to block {}",
         alice_data.block_number
@@ -87,7 +89,7 @@ fn e2e_test() {
             alice_key,
             &mut contract,
             &block_builder,
-            &mut data_store_server,
+            &mut store_vault_server,
             &validity_prover,
             &balance_processor,
             vec![transfer_to_bob],
@@ -102,12 +104,12 @@ fn e2e_test() {
     client
         .sync_balance_proof(
             bob_key,
-            &mut data_store_server,
+            &mut store_vault_server,
             &validity_prover,
             &balance_processor,
         )
         .unwrap();
-    let bob_data = client.get_user_data(bob_key, &data_store_server).unwrap();
+    let bob_data = client.get_user_data(bob_key, &store_vault_server).unwrap();
     log::info!(
         "Synced bob balance proof to block {}",
         bob_data.block_number
@@ -127,7 +129,7 @@ fn e2e_test() {
             bob_key,
             &mut contract,
             &block_builder,
-            &mut data_store_server,
+            &mut store_vault_server,
             &validity_prover,
             &balance_processor,
             vec![withdrawal],
@@ -143,7 +145,7 @@ fn e2e_test() {
     client
         .sync_withdrawals(
             bob_key,
-            &mut data_store_server,
+            &mut store_vault_server,
             &mut withdrawal_aggregator,
             &validity_prover,
             &balance_processor,

@@ -27,15 +27,15 @@ use crate::{
 };
 
 use super::{
+    block_validity_prover::BlockValidityProver,
     data::{
         common_tx_data::CommonTxData, deposit_data::DepositData, transfer_data::TransferData,
         user_data::UserData,
     },
-    sync_validity_prover::SyncValidityProver,
 };
 
 pub fn process_deposit<F, C, const D: usize>(
-    validity_prover: &SyncValidityProver<F, C, D>,
+    validity_prover: &BlockValidityProver<F, C, D>,
     balance_processor: &BalanceProcessor<F, C, D>,
     user_data: &mut UserData,
     new_salt: Salt,
@@ -106,7 +106,7 @@ where
 }
 
 pub fn process_transfer<F, C, const D: usize>(
-    validity_prover: &SyncValidityProver<F, C, D>,
+    validity_prover: &BlockValidityProver<F, C, D>,
     balance_processor: &BalanceProcessor<F, C, D>,
     user_data: &mut UserData,
     new_salt: Salt,
@@ -184,7 +184,7 @@ where
 }
 
 pub fn process_common_tx<F, C, const D: usize>(
-    validity_prover: &SyncValidityProver<F, C, D>,
+    validity_prover: &BlockValidityProver<F, C, D>,
     balance_processor: &BalanceProcessor<F, C, D>,
     sender: U256,
     prev_balance_proof: &Option<ProofWithPublicInputs<F, C, D>>,
@@ -247,7 +247,7 @@ where
 
 // Inner function to update balance proof
 fn update_balance_proof<F, C, const D: usize>(
-    validity_prover: &SyncValidityProver<F, C, D>,
+    validity_prover: &BlockValidityProver<F, C, D>,
     balance_processor: &BalanceProcessor<F, C, D>,
     pubkey: U256,
     prev_balance_proof: &Option<ProofWithPublicInputs<F, C, D>>,

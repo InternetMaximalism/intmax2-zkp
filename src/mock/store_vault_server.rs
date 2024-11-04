@@ -18,7 +18,7 @@ use super::data::{
 
 // The proof of transfer is encrypted with the public key of the person who uses it. The
 // balance proof is stored without encryption because the private state is hidden.
-pub struct DataStoreServer<F, C, const D: usize>
+pub struct StoreVaultServer<F, C, const D: usize>
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
@@ -43,7 +43,7 @@ where
 }
 
 // todo: dont repeat the same code for different data types
-impl<F, C, const D: usize> DataStoreServer<F, C, D>
+impl<F, C, const D: usize> StoreVaultServer<F, C, D>
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,

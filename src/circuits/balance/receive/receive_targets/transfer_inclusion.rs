@@ -194,7 +194,7 @@ mod tests {
         ethereum_types::u256::U256,
         mock::{
             block_builder::MockBlockBuilder, sync_balance_prover::SyncBalanceProver,
-            sync_validity_prover::SyncValidityProver, wallet::MockWallet,
+            block_validity_prover::BlockValidityProver, wallet::MockWallet,
         },
     };
 

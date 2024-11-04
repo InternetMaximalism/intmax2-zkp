@@ -16,7 +16,7 @@ use crate::{
         },
     },
     constants::{NUM_TRANSFERS_IN_TX, TRANSFER_TREE_HEIGHT},
-    ethereum_types::{address::Address, bytes32::Bytes32, u256::U256},
+    ethereum_types::{bytes32::Bytes32, u256::U256},
     mock::{
         balance_logic::process_transfer, data::user_data::UserData, strategy,
         tx_request::MockTxRequest,
@@ -26,14 +26,14 @@ use crate::{
 use super::{
     balance_logic::{process_common_tx, process_deposit},
     block_builder::BlockBuilder,
+    block_validity_prover::BlockValidityProver,
     contract::MockContract,
     data::{
         common_tx_data::CommonTxData, deposit_data::DepositData, meta_data::MetaData,
         transfer_data::TransferData, tx_data::TxData,
     },
-    data_store_server::DataStoreServer,
+    store_vault_server::StoreVaultServer,
     strategy::Strategy,
-    sync_validity_prover::SyncValidityProver,
     withdrawal_aggregator::WithdrawalAggregator,
 };
 use anyhow::ensure;
@@ -53,7 +53,7 @@ impl Client {
         &self,
         key: KeySet,
         contract: &mut MockContract,
-        data_store_server: &mut DataStoreServer<F, C, D>,
+        store_vault_server: &mut StoreVaultServer<F, C, D>,
         token_index: u32,
         amount: U256,
     ) -> anyhow::Result<()>
@@ -76,7 +76,7 @@ impl Client {
             deposit_salt,
             deposit,
         };
-        data_store_server.save_deposit_data(key.pubkey, deposit_data);
+        store_vault_server.save_deposit_data(key.pubkey, deposit_data);
 
         // call contract
         contract.deposit(pubkey_salt_hash, token_index, amount);
@@ -89,8 +89,8 @@ impl Client {
         key: KeySet,
         contract: &mut MockContract,
         block_builder: &BlockBuilder,
-        data_store_sever: &mut DataStoreServer<F, C, D>,
-        validity_prover: &SyncValidityProver<F, C, D>,
+        store_vault_server: &mut StoreVaultServer<F, C, D>,
+        validity_prover: &BlockValidityProver<F, C, D>,
         balance_processor: &BalanceProcessor<F, C, D>,
         transfers: Vec<Transfer>,
     ) -> anyhow::Result<()>
@@ -107,14 +107,14 @@ impl Client {
         );
 
         // sync balance proof
-        self.sync_balance_proof(key, data_store_sever, validity_prover, balance_processor)
+        self.sync_balance_proof(key, store_vault_server, validity_prover, balance_processor)
             .map_err(|e| anyhow::anyhow!("failed to sync balance proof: {}", e))?;
 
-        let user_data = data_store_sever
+        let user_data = store_vault_server
             .get_user_data(key)
             .map_err(|e| anyhow::anyhow!("failed to get user data: {}", e))?
             .unwrap_or(UserData::new(key.pubkey));
-        let _balance_proof = data_store_sever
+        let _balance_proof = store_vault_server
             .get_balance_proof(
                 key.pubkey,
                 user_data.block_number,
@@ -193,7 +193,7 @@ impl Client {
             common: common_tx_data.clone(),
             spent_witness,
         };
-        data_store_sever.save_tx_data(key.pubkey, tx_data);
+        store_vault_server.save_tx_data(key.pubkey, tx_data);
 
         // save transfer data
         for (i, transfer) in transfers.iter().enumerate() {
@@ -208,10 +208,10 @@ impl Client {
                 transfer_merkle_proof,
             };
             if transfer.recipient.is_pubkey {
-                data_store_sever
+                store_vault_server
                     .save_transfer_data(transfer.recipient.to_pubkey().unwrap(), transfer_data);
             } else {
-                data_store_sever.save_withdrawal_data(key.pubkey, transfer_data);
+                store_vault_server.save_withdrawal_data(key.pubkey, transfer_data);
             }
         }
         Ok(())
@@ -220,8 +220,8 @@ impl Client {
     pub fn sync_balance_proof<F, C, const D: usize>(
         &self,
         key: KeySet,
-        data_store_server: &mut DataStoreServer<F, C, D>,
-        validity_prover: &SyncValidityProver<F, C, D>,
+        store_vault_server: &mut StoreVaultServer<F, C, D>,
+        validity_prover: &BlockValidityProver<F, C, D>,
         balance_processor: &BalanceProcessor<F, C, D>,
     ) -> anyhow::Result<()>
     where
@@ -230,7 +230,7 @@ impl Client {
         <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
     {
         let strategy = self
-            .generate_strategy(data_store_server, validity_prover, key)
+            .generate_strategy(store_vault_server, validity_prover, key)
             .map_err(|e| {
                 anyhow::anyhow!(
                     "failed to generate strategy for balance proof update: {}",
@@ -243,7 +243,7 @@ impl Client {
                 strategy::Action::Transfer(i) => {
                     let (meta, data) = &strategy.transfer_data[i];
                     self.sync_transfer(
-                        data_store_server,
+                        store_vault_server,
                         validity_prover,
                         balance_processor,
                         key,
@@ -255,7 +255,7 @@ impl Client {
                 strategy::Action::Tx(i) => {
                     let (meta, data) = &strategy.tx_data[i];
                     self.sync_tx(
-                        data_store_server,
+                        store_vault_server,
                         validity_prover,
                         balance_processor,
                         key,
@@ -267,7 +267,7 @@ impl Client {
                 strategy::Action::Deposit(i) => {
                     let (meta, data) = &strategy.deposit_data[i];
                     self.sync_deposit(
-                        data_store_server,
+                        store_vault_server,
                         validity_prover,
                         balance_processor,
                         key,
@@ -285,9 +285,9 @@ impl Client {
     pub fn sync_withdrawals<F, C, const D: usize>(
         &self,
         key: KeySet,
-        data_store_server: &mut DataStoreServer<F, C, D>,
+        store_vault_server: &mut StoreVaultServer<F, C, D>,
         withdrawal_aggregator: &mut WithdrawalAggregator<F, C, D>,
-        validity_prover: &SyncValidityProver<F, C, D>,
+        validity_prover: &BlockValidityProver<F, C, D>,
         balance_processor: &BalanceProcessor<F, C, D>,
     ) -> anyhow::Result<()>
     where
@@ -295,10 +295,10 @@ impl Client {
         C: GenericConfig<D, F = F> + 'static,
         <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
     {
-        let withdrawal_data = self.get_withdrawal_data(data_store_server, validity_prover, key)?;
+        let withdrawal_data = self.get_withdrawal_data(store_vault_server, validity_prover, key)?;
         for (meta, data) in &withdrawal_data {
             self.sync_withdrawal(
-                data_store_server,
+                store_vault_server,
                 withdrawal_aggregator,
                 validity_prover,
                 balance_processor,
@@ -313,8 +313,8 @@ impl Client {
 
     fn sync_deposit<F, C, const D: usize>(
         &self,
-        data_store_sever: &mut DataStoreServer<F, C, D>,
-        validity_prover: &SyncValidityProver<F, C, D>,
+        store_vault_server: &mut StoreVaultServer<F, C, D>,
+        validity_prover: &BlockValidityProver<F, C, D>,
         balance_processor: &BalanceProcessor<F, C, D>,
         key: KeySet,
         meta: &MetaData,
@@ -325,13 +325,13 @@ impl Client {
         C: GenericConfig<D, F = F> + 'static,
         <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
     {
-        let mut user_data = data_store_sever
+        let mut user_data = store_vault_server
             .get_user_data(key)
             .map_err(|e| anyhow::anyhow!("failed to get user data: {}", e))?
             .unwrap_or(UserData::new(key.pubkey));
 
         // user's balance proof before applying the tx
-        let prev_balance_proof = data_store_sever
+        let prev_balance_proof = store_vault_server
             .get_balance_proof(
                 key.pubkey,
                 user_data.block_number,
@@ -353,16 +353,16 @@ impl Client {
         .map_err(|e| anyhow::anyhow!("failed to process transfer: {}", e))?;
 
         // save proof and user data
-        data_store_sever.save_balance_proof(key.pubkey, meta.block_number, new_balance_proof);
-        data_store_sever.save_user_data(key.pubkey, user_data);
+        store_vault_server.save_balance_proof(key.pubkey, meta.block_number, new_balance_proof);
+        store_vault_server.save_user_data(key.pubkey, user_data);
 
         Ok(())
     }
 
     fn sync_transfer<F, C, const D: usize>(
         &self,
-        data_store_sever: &mut DataStoreServer<F, C, D>,
-        validity_prover: &SyncValidityProver<F, C, D>,
+        store_vault_server: &mut StoreVaultServer<F, C, D>,
+        validity_prover: &BlockValidityProver<F, C, D>,
         balance_processor: &BalanceProcessor<F, C, D>,
         key: KeySet,
         meta: &MetaData,
@@ -374,13 +374,13 @@ impl Client {
         <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
     {
         log::info!("sync_transfer: {:?}", meta);
-        let mut user_data = data_store_sever
+        let mut user_data = store_vault_server
             .get_user_data(key)
             .map_err(|e| anyhow::anyhow!("failed to get user data: {}", e))?
             .unwrap_or(UserData::new(key.pubkey));
 
         // user's balance proof before applying the tx
-        let prev_balance_proof = data_store_sever
+        let prev_balance_proof = store_vault_server
             .get_balance_proof(
                 key.pubkey,
                 user_data.block_number,
@@ -390,7 +390,7 @@ impl Client {
 
         // sender balance proof after applying the tx
         let new_sender_balance_proof = self.generate_new_sender_balance_proof(
-            data_store_sever,
+            store_vault_server,
             validity_prover,
             balance_processor,
             transfer_data.sender,
@@ -413,16 +413,16 @@ impl Client {
         .map_err(|e| anyhow::anyhow!("failed to process transfer: {}", e))?;
 
         // save proof and user data
-        data_store_sever.save_balance_proof(key.pubkey, meta.block_number, new_balance_proof);
-        data_store_sever.save_user_data(key.pubkey, user_data);
+        store_vault_server.save_balance_proof(key.pubkey, meta.block_number, new_balance_proof);
+        store_vault_server.save_user_data(key.pubkey, user_data);
 
         Ok(())
     }
 
     fn sync_tx<F, C, const D: usize>(
         &self,
-        data_store_sever: &mut DataStoreServer<F, C, D>,
-        validity_prover: &SyncValidityProver<F, C, D>,
+        store_vault_server: &mut StoreVaultServer<F, C, D>,
+        validity_prover: &BlockValidityProver<F, C, D>,
         balance_processor: &BalanceProcessor<F, C, D>,
         key: KeySet,
         meta: &MetaData,
@@ -434,12 +434,12 @@ impl Client {
         <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
     {
         log::info!("sync_tx: {:?}", meta);
-        let mut user_data = data_store_sever
+        let mut user_data = store_vault_server
             .get_user_data(key)
             .map_err(|e| anyhow::anyhow!("failed to get user data: {}", e))?
             .unwrap_or(UserData::new(key.pubkey));
         let balance_proof = self.generate_new_sender_balance_proof(
-            data_store_sever,
+            store_vault_server,
             validity_prover,
             balance_processor,
             key.pubkey,
@@ -466,15 +466,15 @@ impl Client {
         );
 
         // save user data
-        data_store_sever.save_user_data(key.pubkey, user_data);
+        store_vault_server.save_user_data(key.pubkey, user_data);
         Ok(())
     }
 
     fn sync_withdrawal<F, C, const D: usize>(
         &self,
-        data_store_sever: &mut DataStoreServer<F, C, D>,
+        store_vault_server: &mut StoreVaultServer<F, C, D>,
         withdrawal_aggregator: &mut WithdrawalAggregator<F, C, D>,
-        validity_prover: &SyncValidityProver<F, C, D>,
+        validity_prover: &BlockValidityProver<F, C, D>,
         balance_processor: &BalanceProcessor<F, C, D>,
         key: KeySet,
         meta: &MetaData,
@@ -486,13 +486,13 @@ impl Client {
         <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
     {
         log::info!("sync_withdrawal: {:?}", meta);
-        let mut user_data = data_store_sever
+        let mut user_data = store_vault_server
             .get_user_data(key)
             .map_err(|e| anyhow::anyhow!("failed to get user data: {}", e))?
             .unwrap_or(UserData::new(key.pubkey));
 
         let new_user_balance_proof = self.generate_new_sender_balance_proof(
-            data_store_sever,
+            store_vault_server,
             validity_prover,
             balance_processor,
             key.pubkey,
@@ -524,7 +524,7 @@ impl Client {
         user_data.processed_withdrawal_uuids.push(meta.uuid);
 
         // save user data
-        data_store_sever.save_user_data(key.pubkey, user_data);
+        store_vault_server.save_user_data(key.pubkey, user_data);
 
         Ok(())
     }
@@ -533,8 +533,8 @@ impl Client {
     // save the proof to the data store server
     fn generate_new_sender_balance_proof<F, C, const D: usize>(
         &self,
-        data_store_sever: &mut DataStoreServer<F, C, D>,
-        validity_prover: &SyncValidityProver<F, C, D>,
+        store_vault_server: &mut StoreVaultServer<F, C, D>,
+        validity_prover: &BlockValidityProver<F, C, D>,
         balance_processor: &BalanceProcessor<F, C, D>,
         sender: U256,
         block_number: u32,
@@ -553,7 +553,7 @@ impl Client {
         let spent_proof_pis =
             SpentPublicInputs::from_pis(&common_tx_data.spent_proof.public_inputs);
 
-        let new_sender_balance_proof = data_store_sever
+        let new_sender_balance_proof = store_vault_server
             .get_balance_proof(sender, block_number, spent_proof_pis.new_private_commitment)
             .map_err(|e| anyhow::anyhow!("failed to get new balance proof: {}", e))?;
         if new_sender_balance_proof.is_some() {
@@ -561,7 +561,7 @@ impl Client {
             return Ok(new_sender_balance_proof.unwrap());
         }
 
-        let prev_sender_balance_proof = data_store_sever
+        let prev_sender_balance_proof = store_vault_server
             .get_balance_proof(
                 sender,
                 common_tx_data.sender_prev_block_number,
@@ -580,7 +580,11 @@ impl Client {
         )
         .map_err(|e| anyhow::anyhow!("failed to process tx: {}", e))?;
 
-        data_store_sever.save_balance_proof(sender, block_number, new_sender_balance_proof.clone());
+        store_vault_server.save_balance_proof(
+            sender,
+            block_number,
+            new_sender_balance_proof.clone(),
+        );
 
         Ok(new_sender_balance_proof)
     }
@@ -588,8 +592,8 @@ impl Client {
     // generate strategy of the balance proof update process
     fn generate_strategy<F, C, const D: usize>(
         &self,
-        data_store_sever: &mut DataStoreServer<F, C, D>,
-        sync_validity_prover: &SyncValidityProver<F, C, D>,
+        store_vault_server: &mut StoreVaultServer<F, C, D>,
+        sync_validity_prover: &BlockValidityProver<F, C, D>,
         key: KeySet,
     ) -> anyhow::Result<Strategy<F, C, D>>
     where
@@ -598,7 +602,7 @@ impl Client {
         <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
     {
         // get user data from the data store server
-        let mut user_data = data_store_sever
+        let mut user_data = store_vault_server
             .get_user_data(key)
             .map_err(|e| anyhow::anyhow!("failed to get user data: {}", e))?
             .unwrap_or(UserData::new(key.pubkey));
@@ -607,7 +611,7 @@ impl Client {
         let except_transfers = user_data.transfer_exception_uudis();
         let except_txs = user_data.tx_exception_uudis();
         let except_deposits = user_data.deposit_exception_uudis();
-        let transition_data = data_store_sever
+        let transition_data = store_vault_server
             .get_transition_data(key, except_deposits, except_transfers, except_txs)
             .map_err(|e| anyhow::anyhow!("failed to get transition data: {}", e))?;
         // add rejected data to user data
@@ -621,7 +625,7 @@ impl Client {
             .rejected_processed_tx_uuids
             .extend(transition_data.rejected_txs);
         // save user data
-        data_store_sever.save_user_data(key.pubkey, user_data);
+        store_vault_server.save_user_data(key.pubkey, user_data);
 
         // fetch block numbers for each data
         let mut deposit_data = Vec::new();
@@ -672,8 +676,8 @@ impl Client {
 
     fn get_withdrawal_data<F, C, const D: usize>(
         &self,
-        data_store_sever: &mut DataStoreServer<F, C, D>,
-        sync_validity_prover: &SyncValidityProver<F, C, D>,
+        store_vault_server: &mut StoreVaultServer<F, C, D>,
+        sync_validity_prover: &BlockValidityProver<F, C, D>,
         key: KeySet,
     ) -> anyhow::Result<Vec<(MetaData, TransferData<F, C, D>)>>
     where
@@ -682,14 +686,14 @@ impl Client {
         <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
     {
         // get user data from the data store server
-        let mut user_data = data_store_sever
+        let mut user_data = store_vault_server
             .get_user_data(key)
             .map_err(|e| anyhow::anyhow!("failed to get user data: {}", e))?
             .unwrap_or(UserData::new(key.pubkey));
 
         // get transition data from the data store server
         let except_withdrawals = user_data.withdrawal_exception_uudis();
-        let (withdrawal_data_, rejected_withdrawals) = data_store_sever
+        let (withdrawal_data_, rejected_withdrawals) = store_vault_server
             .get_withdrawal_data(key, except_withdrawals)
             .map_err(|e| anyhow::anyhow!("failed to get transition data: {}", e))?;
         // add rejected data to user data
@@ -698,7 +702,7 @@ impl Client {
             .rejected_withdrawal_uuids
             .extend(&rejected_withdrawals);
         // save user data
-        data_store_sever.save_user_data(key.pubkey, user_data);
+        store_vault_server.save_user_data(key.pubkey, user_data);
 
         // fetch block numbers for each data
         let mut withdrawal_data = Vec::new();
@@ -722,14 +726,14 @@ impl Client {
     pub fn get_user_data<F, C, const D: usize>(
         &self,
         key: KeySet,
-        data_store_server: &DataStoreServer<F, C, D>,
+        store_vault_server: &StoreVaultServer<F, C, D>,
     ) -> anyhow::Result<UserData>
     where
         F: RichField + Extendable<D>,
         C: GenericConfig<D, F = F> + 'static,
         <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
     {
-        let user_data = data_store_server
+        let user_data = store_vault_server
             .get_user_data(key)
             .map_err(|e| anyhow::anyhow!("failed to get user data: {}", e))?
             .unwrap_or(UserData::new(key.pubkey));

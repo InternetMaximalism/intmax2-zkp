@@ -31,10 +31,10 @@ use crate::{
 
 use super::contract::MockContract;
 
-// SyncValidityProver is a helper struct that helps to generate validity proofs from the
+// BlockValidityProver is a helper struct that helps to generate validity proofs from the
 // contract state. It consumes a bit of memory to store account trees and block trees at all block
 // numbers.
-pub struct SyncValidityProver<F, C, const D: usize>
+pub struct BlockValidityProver<F, C, const D: usize>
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
@@ -52,7 +52,7 @@ where
     tx_tree_roots: HashMap<Bytes32, Vec<u32>>, // tx tree root at each block
 }
 
-impl<F, C, const D: usize> SyncValidityProver<F, C, D>
+impl<F, C, const D: usize> BlockValidityProver<F, C, D>
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F> + 'static,

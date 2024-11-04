@@ -25,7 +25,7 @@ use plonky2::{
 use plonky2_bn254::{curves::g2::G2Target, utils::hash_to_g2::HashToG2 as _};
 
 use super::{
-    contract::MockContract, sync_validity_prover::SyncValidityProver, tx_request::MockTxRequest,
+    block_validity_prover::BlockValidityProver, contract::MockContract, tx_request::MockTxRequest,
 };
 
 pub struct BlockBuilder;
@@ -34,7 +34,7 @@ impl BlockBuilder {
     pub fn post_block<F, C, const D: usize>(
         &self,
         contract: &mut MockContract,
-        sync_validity_prover: &SyncValidityProver<F, C, D>, // used to get the account id
+        sync_validity_prover: &BlockValidityProver<F, C, D>, // used to get the account id
         is_registration_block: bool,
         txs: Vec<MockTxRequest>,
     ) -> anyhow::Result<(TxTree, Vec<SenderLeaf>)>
@@ -199,7 +199,7 @@ mod tests {
     use crate::{
         common::{signature::key_set::KeySet, tx::Tx},
         mock::{
-            contract::MockContract, sync_validity_prover::SyncValidityProver,
+            block_validity_prover::BlockValidityProver, contract::MockContract,
             tx_request::MockTxRequest,
         },
     };
@@ -215,7 +215,7 @@ mod tests {
     fn block_builder() {
         let mut rng = rand::thread_rng();
         let block_builder = BlockBuilder;
-        let mut sync_validity_prover = SyncValidityProver::<F, C, D>::new();
+        let mut sync_validity_prover = BlockValidityProver::<F, C, D>::new();
         let mut contract = MockContract::new();
 
         let user = KeySet::rand(&mut rng);
