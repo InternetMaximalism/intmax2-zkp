@@ -172,7 +172,7 @@ impl Client {
             sender: key,
             will_return_signature: true,
         };
-        let (tx_tree, sender_leaves) = block_builder
+        let tx_tree = block_builder
             .post_block(contract, validity_prover, is_first_time, vec![tx_request])
             .map_err(|e| anyhow::anyhow!("failed to post block: {}", e))?;
         let tx_index = tx_tree.get_tx_index(&tx).unwrap();
@@ -185,7 +185,6 @@ impl Client {
             tx_index,
             tx_merkle_proof,
             tx_tree_root,
-            sender_leaves,
         };
 
         // save tx data

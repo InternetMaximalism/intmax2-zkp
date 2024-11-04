@@ -6,10 +6,7 @@ use plonky2::{
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    common::{
-        trees::{sender_tree::SenderLeaf, tx_tree::TxMerkleProof},
-        tx::Tx,
-    },
+    common::{trees::tx_tree::TxMerkleProof, tx::Tx},
     ethereum_types::bytes32::Bytes32,
 };
 
@@ -32,7 +29,6 @@ where
     pub tx_index: usize,
     pub tx_merkle_proof: TxMerkleProof,
     pub tx_tree_root: Bytes32,
-    pub sender_leaves: Vec<SenderLeaf>, // Sender leaves of the block where the tx is included
 }
 
 impl<F, C, const D: usize> CommonTxData<F, C, D>

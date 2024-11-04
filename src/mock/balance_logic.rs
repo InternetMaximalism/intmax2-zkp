@@ -214,9 +214,17 @@ where
             "validity public inputs not found for block number {}",
             tx_block_number
         ))?;
+    let sender_leaves =
+        validity_prover
+            .get_sender_leaves(tx_block_number)
+            .ok_or(anyhow::anyhow!(
+                "sender leaves not found for block number {}",
+                tx_block_number
+            ))?;
+
     let tx_witness = TxWitness {
         validity_pis,
-        sender_leaves: common_tx_data.sender_leaves.clone(),
+        sender_leaves,
         tx: common_tx_data.tx.clone(),
         tx_index: common_tx_data.tx_index,
         tx_merkle_proof: common_tx_data.tx_merkle_proof.clone(),

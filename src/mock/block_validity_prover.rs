@@ -22,6 +22,7 @@ use crate::{
             account_tree::{AccountMembershipProof, AccountTree},
             block_hash_tree::{BlockHashMerkleProof, BlockHashTree},
             deposit_tree::{DepositMerkleProof, DepositTree},
+            sender_tree::SenderLeaf,
         },
         witness::update_witness::UpdateWitness,
     },
@@ -46,8 +47,9 @@ where
     account_trees: HashMap<u32, AccountTree>,
     block_trees: HashMap<u32, BlockHashTree>,
     validity_proofs: HashMap<u32, ProofWithPublicInputs<F, C, D>>,
+    sender_leaves: HashMap<u32, Vec<SenderLeaf>>, // block number -> sender leaves
     deposit_correspondence: HashMap<Bytes32, (usize, u32)>, /* deposit_hash ->
-                                                             * (deposit_index, block_number) */
+                                                   * (deposit_index, block_number) */
     deposit_trees: HashMap<u32, DepositTree>, // snap shot of deposit tree at each block
     tx_tree_roots: HashMap<Bytes32, Vec<u32>>, // tx tree root at each block
 }
@@ -75,6 +77,7 @@ where
             account_trees,
             block_trees,
             validity_proofs: HashMap::new(), // no validity proof for genesis block
+            sender_leaves: HashMap::new(),
             deposit_correspondence: HashMap::new(),
             deposit_trees: HashMap::new(),
             tx_tree_roots: HashMap::new(),
@@ -124,6 +127,8 @@ where
                 .insert(block_number, account_tree.clone());
             self.block_trees.insert(block_number, block_tree.clone());
             self.validity_proofs.insert(block_number, validity_proof);
+            self.sender_leaves
+                .insert(block_number, block_witness.get_sender_tree().leaves());
             let block_numbers = self
                 .tx_tree_roots
                 .get_mut(&full_block.signature.tx_tree_root);
@@ -197,6 +202,10 @@ where
         self.validity_proofs
             .get(&block_number)
             .map(|proof| ValidityPublicInputs::from_pis(&proof.public_inputs))
+    }
+
+    pub fn get_sender_leaves(&self, block_number: u32) -> Option<Vec<SenderLeaf>> {
+        self.sender_leaves.get(&block_number).cloned()
     }
 
     pub fn get_block_merkle_proof(
