@@ -1,29 +1,25 @@
 use plonky2::{
     field::extension::Extendable,
     hash::hash_types::RichField,
-    iop::witness::PartialWitness,
+    iop::witness::{PartialWitness, WitnessWrite},
     plonk::{
         circuit_builder::CircuitBuilder,
         circuit_data::{CircuitConfig, CircuitData},
         config::{AlgebraicHasher, GenericConfig},
-        proof::ProofWithPublicInputs,
+        proof::{ProofWithPublicInputs, ProofWithPublicInputsTarget},
     },
 };
 
 use crate::{
-    circuits::balance::{
-        balance_circuit::BalanceCircuit,
-        receive::receive_targets::transfer_inclusion::{
-            TransferInclusionTarget, TransferInclusionValue,
-        },
-    },
-    common::withdrawal::{get_withdrawal_nullifier_circuit, WithdrawalTarget},
+    common::withdrawal::WithdrawalTarget,
     ethereum_types::{
         bytes32::{Bytes32, Bytes32Target},
         u32limb_trait::U32LimbTargetTrait,
     },
     utils::recursively_verifiable::RecursivelyVerifiable,
 };
+
+use super::single_withdrawal_circuit::SingleWithdrawalCircuit;
 
 #[derive(Debug)]
 pub struct WithdrawalInnerCircuit<F, C, const D: usize>
@@ -33,7 +29,7 @@ where
 {
     data: CircuitData<F, C, D>,
     prev_withdral_hash: Bytes32Target,
-    transfer_inclusion_target: TransferInclusionTarget<D>,
+    single_withdrawal_proof: ProofWithPublicInputsTarget<D>,
 }
 
 impl<F, C, const D: usize> WithdrawalInnerCircuit<F, C, D>
@@ -42,25 +38,12 @@ where
     C: GenericConfig<D, F = F> + 'static,
     C::Hasher: AlgebraicHasher<F>,
 {
-    pub fn new(balance_circuit: &BalanceCircuit<F, C, D>) -> Self {
+    pub fn new(single_withdrawal_circuit: &SingleWithdrawalCircuit<F, C, D>) -> Self {
         let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::default());
-        let transfer_inclusion_target = TransferInclusionTarget::new::<F, C>(
-            &balance_circuit.get_verifier_data().common,
-            &mut builder,
-            true,
-        );
-        let transfer = transfer_inclusion_target.transfer.clone();
-        let nullifier = get_withdrawal_nullifier_circuit(&mut builder, &transfer);
-        let recipient = transfer.recipient.to_address(&mut builder);
+        let single_withdrawal_proof =
+            single_withdrawal_circuit.add_proof_target_and_verify(&mut builder);
+        let withdrawal = WithdrawalTarget::from_slice(&single_withdrawal_proof.public_inputs);
         let prev_withdral_hash = Bytes32Target::new(&mut builder, false); // connect later
-        let withdrawal = WithdrawalTarget {
-            recipient,
-            token_index: transfer.token_index,
-            amount: transfer.amount,
-            nullifier,
-            block_hash: transfer_inclusion_target.public_state.block_hash,
-            block_number: transfer_inclusion_target.public_state.block_number,
-        };
         let withdrawal_hash =
             withdrawal.hash_with_prev_hash::<F, C, D>(&mut builder, prev_withdral_hash);
         let pis = [prev_withdral_hash.to_vec(), withdrawal_hash.to_vec()].concat();
@@ -69,20 +52,19 @@ where
         Self {
             data,
             prev_withdral_hash,
-            transfer_inclusion_target,
+            single_withdrawal_proof,
         }
     }
 
     pub fn prove(
         &self,
         prev_withdrawal_hash: Bytes32,
-        transition_inclusion_value: &TransferInclusionValue<F, C, D>,
+        single_withdrawal_proof: &ProofWithPublicInputs<F, C, D>,
     ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
         let mut pw = PartialWitness::<F>::new();
         self.prev_withdral_hash
             .set_witness(&mut pw, prev_withdrawal_hash);
-        self.transfer_inclusion_target
-            .set_witness(&mut pw, transition_inclusion_value);
+        pw.set_proof_with_pis_target(&self.single_withdrawal_proof, single_withdrawal_proof);
         self.data.prove(pw)
     }
 }

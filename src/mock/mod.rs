@@ -7,3 +7,4 @@ pub mod data_store_server;
 pub mod strategy;
 pub mod sync_validity_prover;
 pub mod tx_request;
+pub mod withdrawal_aggregator;

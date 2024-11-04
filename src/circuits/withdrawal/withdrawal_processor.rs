@@ -3,19 +3,14 @@ use plonky2::{
     field::extension::Extendable,
     hash::hash_types::RichField,
     plonk::{
-        circuit_data::VerifierCircuitData,
         config::{AlgebraicHasher, GenericConfig},
         proof::ProofWithPublicInputs,
     },
 };
 
 use crate::{
-    circuits::balance::{
-        balance_circuit::BalanceCircuit,
-        receive::receive_targets::transfer_inclusion::TransferInclusionValue,
-    },
-    common::witness::withdrawal_witness::WithdrawalWitness,
     ethereum_types::{
+        address::Address,
         bytes32::{Bytes32, BYTES32_LEN},
         u32limb_trait::U32LimbTrait as _,
     },
@@ -23,7 +18,9 @@ use crate::{
 };
 
 use super::{
-    withdrawal_circuit::WithdrawalCircuit, withdrawal_inner_circuit::WithdrawalInnerCircuit,
+    single_withdrawal_circuit::SingleWithdrawalCircuit, withdrawal_circuit::WithdrawalCircuit,
+    withdrawal_inner_circuit::WithdrawalInnerCircuit,
+    withdrawal_wrapper_circuit::WithdrawalWrapperCircuit,
 };
 
 pub struct WithdrawalProcessor<F, C, const D: usize>
@@ -31,30 +28,32 @@ where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
 {
-    pub balance_verifier_data: VerifierCircuitData<F, C, D>,
     pub withdrawal_inner_circuit: WithdrawalInnerCircuit<F, C, D>,
     pub withdrawal_circuit: WithdrawalCircuit<F, C, D>,
+    pub withdrawal_wrapper_circuit: WithdrawalWrapperCircuit<F, C, D>,
 }
 
 impl<F, C, const D: usize> WithdrawalProcessor<F, C, D>
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F> + 'static,
-    <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
+    C::Hasher: AlgebraicHasher<F>,
 {
-    pub fn new(balance_circuit: &BalanceCircuit<F, C, D>) -> Self {
-        let withdrawal_inner_circuit = WithdrawalInnerCircuit::new(balance_circuit);
+    pub fn new(single_withdrawal_circuit: &SingleWithdrawalCircuit<F, C, D>) -> Self {
+        let withdrawal_inner_circuit = WithdrawalInnerCircuit::new(single_withdrawal_circuit);
         let withdrawal_circuit = WithdrawalCircuit::new(&withdrawal_inner_circuit);
+        let withdrawal_wrapper_circuit = WithdrawalWrapperCircuit::new(&withdrawal_circuit);
         Self {
-            balance_verifier_data: balance_circuit.get_verifier_data(),
             withdrawal_inner_circuit,
             withdrawal_circuit,
+            withdrawal_wrapper_circuit,
         }
     }
 
-    pub fn prove(
+    // chainify withdrawal proofs
+    pub fn prove_chain(
         &self,
-        withdrawal_witness: &WithdrawalWitness<F, C, D>,
+        single_withdrawal_proof: &ProofWithPublicInputs<F, C, D>,
         prev_withdrawal_proof: &Option<ProofWithPublicInputs<F, C, D>>,
     ) -> Result<ProofWithPublicInputs<F, C, D>> {
         let prev_withdrawal_hash = if prev_withdrawal_proof.is_some() {
@@ -64,25 +63,26 @@ where
         } else {
             Bytes32::default()
         };
-        let transfer_witness = &withdrawal_witness.transfer_witness;
-        let transition_inclusion_value = TransferInclusionValue::new(
-            &self.balance_verifier_data,
-            &transfer_witness.transfer,
-            transfer_witness.transfer_index,
-            &transfer_witness.transfer_merkle_proof,
-            &transfer_witness.tx,
-            &withdrawal_witness.balance_proof,
-        )
-        .map_err(|e| anyhow::anyhow!("Failed to create transfer inclusion value: {}", e))?;
         let withdrawal_inner_proof = self
             .withdrawal_inner_circuit
-            .prove(prev_withdrawal_hash, &transition_inclusion_value)
+            .prove(prev_withdrawal_hash, single_withdrawal_proof)
             .map_err(|e| anyhow::anyhow!("Failed to prove withdrawal inner: {}", e))?;
         let withdrawal_proof = self
             .withdrawal_circuit
             .prove(&withdrawal_inner_proof, prev_withdrawal_proof)
             .map_err(|e| anyhow::anyhow!("Failed to prove withdrawal: {}", e))?;
         Ok(withdrawal_proof)
+    }
+
+    pub fn prove_wrap(
+        &self,
+        withdrawal_proof: &ProofWithPublicInputs<F, C, D>,
+        withdrawal_aggregator: Address,
+    ) -> Result<ProofWithPublicInputs<F, C, D>> {
+        let withdrawal_wrapper_proof = self
+            .withdrawal_wrapper_circuit
+            .prove(withdrawal_proof, withdrawal_aggregator)?;
+        Ok(withdrawal_wrapper_proof)
     }
 }
 

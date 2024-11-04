@@ -18,9 +18,7 @@ use crate::{
     constants::{NUM_TRANSFERS_IN_TX, TRANSFER_TREE_HEIGHT},
     ethereum_types::{bytes32::Bytes32, u256::U256},
     mock::{
-        balance_logic::{process_transfer, process_withdrawal},
-        data::user_data::UserData,
-        strategy,
+        balance_logic::process_transfer, data::user_data::UserData, strategy,
         tx_request::MockTxRequest,
     },
 };
@@ -486,32 +484,44 @@ impl Client {
         C: GenericConfig<D, F = F> + 'static,
         <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
     {
-        log::info!("sync_withdrawal: {:?}", meta);
-        let mut user_data = data_store_sever
-            .get_user_data(key)
-            .map_err(|e| anyhow::anyhow!("failed to get user data: {}", e))?
-            .unwrap_or(UserData::new(key.pubkey));
+        // log::info!("sync_withdrawal: {:?}", meta);
+        // let mut user_data = data_store_sever
+        //     .get_user_data(key)
+        //     .map_err(|e| anyhow::anyhow!("failed to get user data: {}", e))?
+        //     .unwrap_or(UserData::new(key.pubkey));
 
-        let new_user_balance_proof = self.generate_new_sender_balance_proof(
-            data_store_sever,
-            validity_prover,
-            balance_processor,
-            key.pubkey,
-            meta.block_number,
-            &withdrawal_data.tx_data,
-        )?;
+        // let new_user_balance_proof = self.generate_new_sender_balance_proof(
+        //     data_store_sever,
+        //     validity_prover,
+        //     balance_processor,
+        //     key.pubkey,
+        //     meta.block_number,
+        //     &withdrawal_data.tx_data,
+        // )?;
 
-        process_withdrawal(
-            withdrawal_processor,
-            &mut user_data,
-            &new_user_balance_proof,
-            meta.uuid,
-            withdrawal_data,
-        )
-        .map_err(|e| anyhow::anyhow!("failed to process withdrawal: {}", e))?;
+        // let withdrawal_witness = WithdrawalWitness {
+        //     transfer_witness: withdrawal_data.clone(),
+        //     balance_proof: new_user_balance_proof,
+        // };
 
-        // save user data
-        data_store_sever.save_user_data(key.pubkey, user_data);
+        // let withdrawal_proof = withdrawal_processor
+        //     .prove_inner(
+        //         user_data.full_private_state.withdrawal_hash(),
+        //         &withdrawal_witness,
+        //     )
+        //     .map_err(|e| anyhow::anyhow!("failed to prove withdrawal: {}", e))?;
+
+        // process_withdrawal(
+        //     withdrawal_processor,
+        //     &mut user_data,
+        //     &new_user_balance_proof,
+        //     meta.uuid,
+        //     withdrawal_data,
+        // )
+        // .map_err(|e| anyhow::anyhow!("failed to process withdrawal: {}", e))?;
+
+        // // save user data
+        // data_store_sever.save_user_data(key.pubkey, user_data);
 
         Ok(())
     }

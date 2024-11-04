@@ -10,12 +10,9 @@ use plonky2::{
 use uuid::Uuid;
 
 use crate::{
-    circuits::{
-        balance::{
-            balance_pis::BalancePublicInputs,
-            balance_processor::{get_prev_balance_pis, BalanceProcessor},
-        },
-        withdrawal::withdrawal_processor::WithdrawalProcessor,
+    circuits::balance::{
+        balance_pis::BalancePublicInputs,
+        balance_processor::{get_prev_balance_pis, BalanceProcessor},
     },
     common::{
         salt::Salt,
@@ -23,7 +20,7 @@ use crate::{
             deposit_witness::DepositWitness, private_transition_witness::PrivateTransitionWitness,
             receive_deposit_witness::ReceiveDepositWitness,
             receive_transfer_witness::ReceiveTransferWitness, transfer_witness::TransferWitness,
-            tx_witness::TxWitness, withdrawal_witness::WithdrawalWitness,
+            tx_witness::TxWitness,
         },
     },
     ethereum_types::{bytes32::Bytes32, u256::U256},
@@ -184,38 +181,6 @@ where
     user_data.processed_transfer_uuids.push(uuid);
 
     Ok(balance_proof)
-}
-
-pub fn process_withdrawal<F, C, const D: usize>(
-    withdrawal_processor: &WithdrawalProcessor<F, C, D>,
-    user_data: &mut UserData,
-    balance_proof: &ProofWithPublicInputs<F, C, D>, /* sender's balance proof after
-                                                     * applying tx */
-    uuid: Uuid,
-    withdrawal_data: &TransferData<F, C, D>,
-) -> anyhow::Result<ProofWithPublicInputs<F, C, D>>
-where
-    F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F> + 'static,
-    <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
-{
-    let transfer_witness = TransferWitness {
-        tx: withdrawal_data.tx_data.tx.clone(),
-        transfer: withdrawal_data.transfer.clone(),
-        transfer_index: withdrawal_data.transfer_index,
-        transfer_merkle_proof: withdrawal_data.transfer_merkle_proof.clone(),
-    };
-    let withdrawal_witness = WithdrawalWitness {
-        transfer_witness,
-        balance_proof: balance_proof.clone(),
-    };
-    let withdrawal_proof = withdrawal_processor
-        .prove(&withdrawal_witness, &None)
-        .map_err(|e| anyhow::anyhow!("withdrawal_processor.prove failed: {:?}", e))?;
-
-    // update user data
-    user_data.processed_withdrawal_uuids.push(uuid);
-    Ok(withdrawal_proof)
 }
 
 pub fn process_common_tx<F, C, const D: usize>(

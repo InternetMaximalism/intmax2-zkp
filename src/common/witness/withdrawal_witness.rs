@@ -1,12 +1,19 @@
 use plonky2::{
     field::extension::Extendable,
     hash::hash_types::RichField,
-    plonk::{config::GenericConfig, proof::ProofWithPublicInputs},
+    plonk::{
+        circuit_data::VerifierCircuitData,
+        config::{AlgebraicHasher, GenericConfig},
+        proof::ProofWithPublicInputs,
+    },
 };
 
 use super::transfer_witness::TransferWitness;
 use crate::{
-    circuits::balance::balance_pis::BalancePublicInputs,
+    circuits::balance::{
+        balance_pis::BalancePublicInputs,
+        receive::receive_targets::transfer_inclusion::TransferInclusionValue,
+    },
     common::withdrawal::{get_withdrawal_nullifier, Withdrawal},
     utils::leafable::Leafable,
 };
@@ -54,5 +61,25 @@ where
             block_hash: balance_pis.public_state.block_hash,
             block_number: balance_pis.public_state.block_number,
         }
+    }
+
+    pub fn to_transition_inclusion_value(
+        &self,
+        balance_verifier_data: &VerifierCircuitData<F, C, D>,
+    ) -> anyhow::Result<TransferInclusionValue<F, C, D>>
+    where
+        <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
+    {
+        let transfer_witness = &self.transfer_witness;
+        let transition_inclusion_value = TransferInclusionValue::new(
+            balance_verifier_data,
+            &transfer_witness.transfer,
+            transfer_witness.transfer_index,
+            &transfer_witness.transfer_merkle_proof,
+            &transfer_witness.tx,
+            &self.balance_proof,
+        )
+        .map_err(|e| anyhow::anyhow!("Failed to create transfer inclusion value: {}", e))?;
+        Ok(transition_inclusion_value)
     }
 }
