@@ -93,7 +93,6 @@ impl Client {
         data_store_sever: &mut DataStoreServer<F, C, D>,
         validity_prover: &SyncValidityProver<F, C, D>,
         balance_processor: &BalanceProcessor<F, C, D>,
-        withdrawal_processor: &WithdrawalProcessor<F, C, D>,
         transfers: Vec<Transfer>,
     ) -> anyhow::Result<()>
     where
@@ -109,14 +108,8 @@ impl Client {
         );
 
         // sync balance proof
-        self.sync_balance_proof(
-            key,
-            data_store_sever,
-            validity_prover,
-            balance_processor,
-            withdrawal_processor,
-        )
-        .map_err(|e| anyhow::anyhow!("failed to sync balance proof: {}", e))?;
+        self.sync_balance_proof(key, data_store_sever, validity_prover, balance_processor)
+            .map_err(|e| anyhow::anyhow!("failed to sync balance proof: {}", e))?;
 
         let user_data = data_store_sever
             .get_user_data(key)
@@ -231,7 +224,6 @@ impl Client {
         data_store_server: &mut DataStoreServer<F, C, D>,
         validity_prover: &SyncValidityProver<F, C, D>,
         balance_processor: &BalanceProcessor<F, C, D>,
-        withdrawal_processor: &WithdrawalProcessor<F, C, D>,
     ) -> anyhow::Result<()>
     where
         F: RichField + Extendable<D>,
@@ -288,7 +280,24 @@ impl Client {
             }
         }
 
-        for (meta, data) in &strategy.withdrawal_data {
+        Ok(())
+    }
+
+    pub fn sync_withdrawals<F, C, const D: usize>(
+        &self,
+        key: KeySet,
+        data_store_server: &mut DataStoreServer<F, C, D>,
+        validity_prover: &SyncValidityProver<F, C, D>,
+        balance_processor: &BalanceProcessor<F, C, D>,
+        withdrawal_processor: &WithdrawalProcessor<F, C, D>,
+    ) -> anyhow::Result<()>
+    where
+        F: RichField + Extendable<D>,
+        C: GenericConfig<D, F = F> + 'static,
+        <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
+    {
+        let withdrawal_data = self.get_withdrawal_data(data_store_server, validity_prover, key)?;
+        for (meta, data) in &withdrawal_data {
             self.sync_withdrawal(
                 data_store_server,
                 validity_prover,
@@ -300,7 +309,6 @@ impl Client {
             )
             .map_err(|e| anyhow::anyhow!("failed to sync withdrawal: {}", e))?;
         }
-
         Ok(())
     }
 
@@ -586,15 +594,8 @@ impl Client {
         let except_transfers = user_data.transfer_exception_uudis();
         let except_txs = user_data.tx_exception_uudis();
         let except_deposits = user_data.deposit_exception_uudis();
-        let except_withdrawals = user_data.withdrawal_exception_uudis();
         let transition_data = data_store_sever
-            .get_transition_data(
-                key,
-                except_deposits,
-                except_transfers,
-                except_txs,
-                except_withdrawals,
-            )
+            .get_transition_data(key, except_deposits, except_transfers, except_txs)
             .map_err(|e| anyhow::anyhow!("failed to get transition data: {}", e))?;
         // add rejected data to user data
         user_data
@@ -606,9 +607,6 @@ impl Client {
         user_data
             .rejected_processed_tx_uuids
             .extend(transition_data.rejected_txs);
-        user_data
-            .rejected_withdrawal_uuids
-            .extend(transition_data.rejected_withdrawals);
         // save user data
         data_store_sever.save_user_data(key.pubkey, user_data);
 
@@ -653,8 +651,45 @@ impl Client {
             let block_number = block_numbers[0];
             tx_data.push((MetaData { uuid, block_number }, data));
         }
+
+        // generate strategy
+        let strategy = Strategy::generate(deposit_data, transfer_data, tx_data);
+        Ok(strategy)
+    }
+
+    fn get_withdrawal_data<F, C, const D: usize>(
+        &self,
+        data_store_sever: &mut DataStoreServer<F, C, D>,
+        sync_validity_prover: &SyncValidityProver<F, C, D>,
+        key: KeySet,
+    ) -> anyhow::Result<Vec<(MetaData, TransferData<F, C, D>)>>
+    where
+        F: RichField + Extendable<D>,
+        C: GenericConfig<D, F = F> + 'static,
+        <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
+    {
+        // get user data from the data store server
+        let mut user_data = data_store_sever
+            .get_user_data(key)
+            .map_err(|e| anyhow::anyhow!("failed to get user data: {}", e))?
+            .unwrap_or(UserData::new(key.pubkey));
+
+        // get transition data from the data store server
+        let except_withdrawals = user_data.withdrawal_exception_uudis();
+        let (withdrawal_data_, rejected_withdrawals) = data_store_sever
+            .get_withdrawal_data(key, except_withdrawals)
+            .map_err(|e| anyhow::anyhow!("failed to get transition data: {}", e))?;
+        // add rejected data to user data
+
+        user_data
+            .rejected_withdrawal_uuids
+            .extend(&rejected_withdrawals);
+        // save user data
+        data_store_sever.save_user_data(key.pubkey, user_data);
+
+        // fetch block numbers for each data
         let mut withdrawal_data = Vec::new();
-        for (uuid, data) in transition_data.withdrawal_data {
+        for (uuid, data) in withdrawal_data_ {
             let tx_tree_root = data.tx_data.tx_tree_root;
             let block_numbers =
                 sync_validity_prover.get_block_numbers_by_tx_tree_root(tx_tree_root);
@@ -668,10 +703,7 @@ impl Client {
             let block_number = block_numbers[0];
             withdrawal_data.push((MetaData { uuid, block_number }, data));
         }
-
-        // generate strategy
-        let strategy = Strategy::generate(deposit_data, transfer_data, tx_data, withdrawal_data);
-        Ok(strategy)
+        Ok(withdrawal_data)
     }
 
     pub fn get_user_data<F, C, const D: usize>(

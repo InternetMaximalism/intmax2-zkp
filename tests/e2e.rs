@@ -67,7 +67,6 @@ fn e2e_test() {
             &mut data_store_server,
             &validity_prover,
             &balance_processor,
-            &withdrawal_processor,
         )
         .unwrap();
     let alice_data = client.get_user_data(alice_key, &data_store_server).unwrap();
@@ -94,7 +93,6 @@ fn e2e_test() {
             &mut data_store_server,
             &validity_prover,
             &balance_processor,
-            &withdrawal_processor,
             vec![transfer_to_bob],
         )
         .unwrap();
@@ -110,7 +108,6 @@ fn e2e_test() {
             &mut data_store_server,
             &validity_prover,
             &balance_processor,
-            &withdrawal_processor,
         )
         .unwrap();
     let bob_data = client.get_user_data(bob_key, &data_store_server).unwrap();
@@ -136,7 +133,6 @@ fn e2e_test() {
             &mut data_store_server,
             &validity_prover,
             &balance_processor,
-            &withdrawal_processor,
             vec![withdrawal],
         )
         .unwrap();
@@ -144,9 +140,9 @@ fn e2e_test() {
     // sync validity prover to the latest block
     validity_prover.sync(&contract).unwrap();
 
-    // sync bob balance proof to the latest block
+    // sync bob withdrawals
     client
-        .sync_balance_proof(
+        .sync_withdrawals(
             bob_key,
             &mut data_store_server,
             &validity_prover,
@@ -154,14 +150,11 @@ fn e2e_test() {
             &withdrawal_processor,
         )
         .unwrap();
-    let bob_data = client.get_user_data(bob_key, &data_store_server).unwrap();
-    log::info!(
-        "Synced bob balance proof to block {}",
-        bob_data.block_number
-    );
-
-    log::info!("Bob's balance after withdrawal");
-    print_balances(&bob_data.balances());
+    // let bob_data = client.get_user_data(bob_key, &data_store_server).unwrap();
+    // log::info!(
+    //     "Synced bob balance proof to block {}",
+    //     bob_data.block_number
+    // );
 }
 
 fn print_balances(balances: &HashMap<usize, AssetLeaf>) {

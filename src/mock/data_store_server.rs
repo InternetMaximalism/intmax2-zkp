@@ -274,22 +274,17 @@ where
         except_deposits: Vec<Uuid>,
         except_transfers: Vec<Uuid>,
         except_txs: Vec<Uuid>,
-        except_withdrawals: Vec<Uuid>,
     ) -> anyhow::Result<TransitionData<F, C, D>> {
         let (deposit_data, rejected_deposits) = self.get_deposit_data(key, except_deposits)?;
         let (transfer_data, rejected_transfers) = self.get_transfer_data(key, except_transfers)?;
         let (tx_data, rejected_txs) = self.get_tx_data(key, except_txs)?;
-        let (withdrawal_data, rejected_withdrawals) =
-            self.get_withdrawal_data(key, except_withdrawals)?;
         Ok(TransitionData {
             deposit_data,
             transfer_data,
             tx_data,
-            withdrawal_data,
             rejected_deposits,
             rejected_transfers,
             rejected_txs,
-            rejected_withdrawals,
         })
     }
 }
@@ -302,9 +297,7 @@ where
     pub deposit_data: Vec<(Uuid, DepositData)>,
     pub transfer_data: Vec<(Uuid, TransferData<F, C, D>)>,
     pub tx_data: Vec<(Uuid, TxData<F, C, D>)>,
-    pub withdrawal_data: Vec<(Uuid, TransferData<F, C, D>)>,
     pub rejected_deposits: Vec<Uuid>,
     pub rejected_transfers: Vec<Uuid>,
     pub rejected_txs: Vec<Uuid>,
-    pub rejected_withdrawals: Vec<Uuid>,
 }

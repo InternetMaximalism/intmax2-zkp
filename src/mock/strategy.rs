@@ -20,7 +20,6 @@ where
     pub deposit_data: Vec<(MetaData, DepositData)>,
     pub transfer_data: Vec<(MetaData, TransferData<F, C, D>)>,
     pub tx_data: Vec<(MetaData, TxData<F, C, D>)>,
-    pub withdrawal_data: Vec<(MetaData, TransferData<F, C, D>)>,
 
     pub actions: Vec<Action>,
 }
@@ -34,7 +33,6 @@ where
         deposit_data: Vec<(MetaData, DepositData)>,
         transfer_data: Vec<(MetaData, TransferData<F, C, D>)>,
         tx_data: Vec<(MetaData, TxData<F, C, D>)>,
-        withdrawal_data: Vec<(MetaData, TransferData<F, C, D>)>,
     ) -> Self {
         // Collect all data into a single vector with block number and priority
         // priority: tx(1) -> deposit(2) -> transfer(3)
@@ -63,7 +61,6 @@ where
             deposit_data,
             transfer_data,
             tx_data,
-            withdrawal_data,
             actions,
         }
     }
