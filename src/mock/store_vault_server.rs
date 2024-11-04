@@ -24,17 +24,11 @@ where
     C: GenericConfig<D, F = F>,
 {
     balance_proofs: HashMap<U256, HashMap<u32, Vec<ProofWithPublicInputs<F, C, D>>>>, /* pubkey -> block_number -> proof */
-    encrypted_deposit_data: HashMap<U256, HashMap<Uuid, Vec<u8>>>,                    /* receiver's
-                                                                                       * pubkey ->
-                                                                                       * uuid
-                                                                                       * ->
-                                                                                       * encrypted_deposit_data */
-    encrypted_tranfer_data: HashMap<U256, HashMap<Uuid, Vec<u8>>>, /* receiver's
-                                                                    * pubkey ->
-                                                                    * uuid
-                                                                    * ->
-                                                                    * encrypted_trasfer_data */
-    encrypted_tx_data: HashMap<U256, HashMap<Uuid, Vec<u8>>>, /* sender's pubkey -> tx_id ->
+    encrypted_deposit_data: HashMap<U256, HashMap<Uuid, Vec<u8>>>, /* receiver's pubkey -> uuid
+                                                                    * -> encrypted_deposit_data */
+    encrypted_tranfer_data: HashMap<U256, HashMap<Uuid, Vec<u8>>>, /* receiver's pubkey -> uuid
+                                                                    * -> encrypted_trasfer_data */
+    encrypted_tx_data: HashMap<U256, HashMap<Uuid, Vec<u8>>>, /* sender's pubkey -> uuid ->
                                                                * encrypted_tx_data */
 
     encrypted_withdrawal_data: HashMap<U256, HashMap<Uuid, Vec<u8>>>, /* receiver's pubkey -> uuid -> encrypted_withdrawal_data */
