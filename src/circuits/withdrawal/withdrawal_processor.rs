@@ -3,6 +3,7 @@ use plonky2::{
     field::extension::Extendable,
     hash::hash_types::RichField,
     plonk::{
+        circuit_data::CommonCircuitData,
         config::{AlgebraicHasher, GenericConfig},
         proof::ProofWithPublicInputs,
     },
@@ -28,6 +29,7 @@ where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
 {
+    pub single_withdrawal_circuit: SingleWithdrawalCircuit<F, C, D>,
     pub withdrawal_inner_circuit: WithdrawalInnerCircuit<F, C, D>,
     pub withdrawal_circuit: WithdrawalCircuit<F, C, D>,
     pub withdrawal_wrapper_circuit: WithdrawalWrapperCircuit<F, C, D>,
@@ -39,11 +41,13 @@ where
     C: GenericConfig<D, F = F> + 'static,
     C::Hasher: AlgebraicHasher<F>,
 {
-    pub fn new(single_withdrawal_circuit: &SingleWithdrawalCircuit<F, C, D>) -> Self {
-        let withdrawal_inner_circuit = WithdrawalInnerCircuit::new(single_withdrawal_circuit);
+    pub fn new(balance_common_data: &CommonCircuitData<F, D>) -> Self {
+        let single_withdrawal_circuit = SingleWithdrawalCircuit::new(balance_common_data);
+        let withdrawal_inner_circuit = WithdrawalInnerCircuit::new(&single_withdrawal_circuit);
         let withdrawal_circuit = WithdrawalCircuit::new(&withdrawal_inner_circuit);
         let withdrawal_wrapper_circuit = WithdrawalWrapperCircuit::new(&withdrawal_circuit);
         Self {
+            single_withdrawal_circuit,
             withdrawal_inner_circuit,
             withdrawal_circuit,
             withdrawal_wrapper_circuit,

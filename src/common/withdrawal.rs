@@ -63,6 +63,40 @@ impl Withdrawal {
         result
     }
 
+    pub fn from_u32_slice(slice: &[u32]) -> Self {
+        assert_eq!(slice.len(), WITHDRAWAL_LEN);
+        let recipient = Address::from_u32_slice(&slice[0..ADDRESS_LEN]);
+        let token_index = slice[ADDRESS_LEN];
+        let amount = U256::from_u32_slice(&slice[ADDRESS_LEN + 1..ADDRESS_LEN + 1 + U256_LEN]);
+        let nullifier = Bytes32::from_u32_slice(
+            &slice[ADDRESS_LEN + 1 + U256_LEN..ADDRESS_LEN + 1 + U256_LEN + BYTES32_LEN],
+        );
+        let block_hash = Bytes32::from_u32_slice(
+            &slice[ADDRESS_LEN + 1 + U256_LEN + BYTES32_LEN
+                ..ADDRESS_LEN + 1 + U256_LEN + BYTES32_LEN + BYTES32_LEN],
+        );
+        let block_number = slice[ADDRESS_LEN + 1 + U256_LEN + BYTES32_LEN + BYTES32_LEN];
+        Self {
+            recipient,
+            token_index,
+            amount,
+            nullifier,
+            block_hash,
+            block_number,
+        }
+    }
+
+    pub fn from_u64_slice(slice: &[u64]) -> Self {
+        let u32_slice: Vec<u32> = slice
+            .iter()
+            .map(|&x| {
+                assert!(x <= u32::MAX as u64);
+                x as u32
+            })
+            .collect();
+        Self::from_u32_slice(&u32_slice)
+    }
+
     pub fn hash_with_prev_hash(&self, prev_withdrawal_hash: Bytes32) -> Bytes32 {
         let input = vec![prev_withdrawal_hash.to_u32_vec(), self.to_u32_vec()].concat();
         Bytes32::from_u32_slice(&solidity_keccak256(&input))

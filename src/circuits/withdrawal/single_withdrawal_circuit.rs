@@ -4,18 +4,15 @@ use plonky2::{
     iop::witness::PartialWitness,
     plonk::{
         circuit_builder::CircuitBuilder,
-        circuit_data::{CircuitConfig, CircuitData},
+        circuit_data::{CircuitConfig, CircuitData, CommonCircuitData},
         config::{AlgebraicHasher, GenericConfig},
         proof::ProofWithPublicInputs,
     },
 };
 
 use crate::{
-    circuits::balance::{
-        balance_circuit::BalanceCircuit,
-        receive::receive_targets::transfer_inclusion::{
-            TransferInclusionTarget, TransferInclusionValue,
-        },
+    circuits::balance::receive::receive_targets::transfer_inclusion::{
+        TransferInclusionTarget, TransferInclusionValue,
     },
     common::withdrawal::{get_withdrawal_nullifier_circuit, WithdrawalTarget},
     utils::recursively_verifiable::RecursivelyVerifiable,
@@ -37,13 +34,11 @@ where
     C: GenericConfig<D, F = F> + 'static,
     C::Hasher: AlgebraicHasher<F>,
 {
-    pub fn new(balance_circuit: &BalanceCircuit<F, C, D>) -> Self {
-        let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::default());
-        let transfer_inclusion_target = TransferInclusionTarget::new::<F, C>(
-            &balance_circuit.get_verifier_data().common,
-            &mut builder,
-            true,
-        );
+    pub fn new(balance_common_data: &CommonCircuitData<F, D>) -> Self {
+        let mut builder =
+            CircuitBuilder::<F, D>::new(CircuitConfig::standard_recursion_zk_config());
+        let transfer_inclusion_target =
+            TransferInclusionTarget::new::<F, C>(balance_common_data, &mut builder, true);
         let transfer = transfer_inclusion_target.transfer.clone();
         let nullifier = get_withdrawal_nullifier_circuit(&mut builder, &transfer);
         let recipient = transfer.recipient.to_address(&mut builder);
@@ -71,6 +66,10 @@ where
         self.transfer_inclusion_target
             .set_witness(&mut pw, transition_inclusion_value);
         self.data.prove(pw)
+    }
+
+    pub fn verify(&self, proof: &ProofWithPublicInputs<F, C, D>) -> anyhow::Result<()> {
+        self.data.verify(proof.clone())
     }
 }
 

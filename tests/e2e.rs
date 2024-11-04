@@ -2,10 +2,7 @@ use std::env;
 
 use hashbrown::HashMap;
 use intmax2_zkp::{
-    circuits::{
-        balance::balance_processor::BalanceProcessor,
-        withdrawal::withdrawal_processor::WithdrawalProcessor,
-    },
+    circuits::balance::balance_processor::BalanceProcessor,
     common::{
         generic_address::GenericAddress, salt::Salt, signature::key_set::KeySet,
         transfer::Transfer, trees::asset_tree::AssetLeaf,
@@ -14,6 +11,7 @@ use intmax2_zkp::{
     mock::{
         block_builder::BlockBuilder, client::Client, contract::MockContract,
         data_store_server::DataStoreServer, sync_validity_prover::SyncValidityProver,
+        withdrawal_aggregator::WithdrawalAggregator,
     },
 };
 use plonky2::{field::goldilocks_field::GoldilocksField, plonk::config::PoseidonGoldilocksConfig};
@@ -31,7 +29,6 @@ fn e2e_test() {
     let mut validity_prover = SyncValidityProver::<F, C, D>::new();
     let balance_processor = BalanceProcessor::new(validity_prover.validity_circuit());
     let mut data_store_server = DataStoreServer::<F, C, D>::new();
-    let withdrawal_processor = WithdrawalProcessor::new(&balance_processor.balance_circuit);
     let block_builder = BlockBuilder;
     let client = Client;
 
@@ -140,14 +137,16 @@ fn e2e_test() {
     // sync validity prover to the latest block
     validity_prover.sync(&contract).unwrap();
 
+    let mut withdrawal_aggregator =
+        WithdrawalAggregator::<F, C, D>::new(&balance_processor.get_verifier_data().common);
     // sync bob withdrawals
     client
         .sync_withdrawals(
             bob_key,
             &mut data_store_server,
+            &mut withdrawal_aggregator,
             &validity_prover,
             &balance_processor,
-            &withdrawal_processor,
         )
         .unwrap();
     // let bob_data = client.get_user_data(bob_key, &data_store_server).unwrap();
