@@ -518,10 +518,7 @@ impl Client {
             .map_err(|e| anyhow::anyhow!("failed to prove single withdrawal: {}", e))?;
         withdrawal_aggregator
             .add(&single_withdrawal_proof)
-            .map_err(|e| anyhow::anyhow!("failed to prove withdrawal: {}", e))?;
-        withdrawal_aggregator
-            .wrap(Address::default())
-            .map_err(|e| anyhow::anyhow!("failed to wrap withdrawals into a proof: {}", e))?;
+            .map_err(|e| anyhow::anyhow!("failed to add withdrawal: {}", e))?;
 
         // update user data
         user_data.processed_withdrawal_uuids.push(meta.uuid);

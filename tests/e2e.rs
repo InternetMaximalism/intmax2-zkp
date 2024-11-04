@@ -149,11 +149,10 @@ fn e2e_test() {
             &balance_processor,
         )
         .unwrap();
-    // let bob_data = client.get_user_data(bob_key, &data_store_server).unwrap();
-    // log::info!(
-    //     "Synced bob balance proof to block {}",
-    //     bob_data.block_number
-    // );
+
+    let (withdrawals, _withdrawal_wrap_proof) =
+        withdrawal_aggregator.wrap(Address::rand(&mut rng)).unwrap();
+    log::info!("withdrawals: {:?}", withdrawals);
 }
 
 fn print_balances(balances: &HashMap<usize, AssetLeaf>) {
