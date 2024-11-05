@@ -227,7 +227,9 @@ impl BlockBuilder {
         self.is_accepting_tx = true;
         self.is_registration_block = false;
         self.tx_tree_root = Bytes32::default();
+        self.pubkey_hash = Bytes32::default();
         self.sorted_txs = Vec::new();
+
         Ok(())
     }
 
