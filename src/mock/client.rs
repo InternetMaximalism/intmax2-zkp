@@ -162,9 +162,9 @@ impl Client {
             .prove_spent(&spent_witness)
             .map_err(|e| anyhow::anyhow!("prove_spent failed: {:?}", e))?;
 
-        // post block
         let is_first_time = validity_prover.get_account_id(key.pubkey).is_none();
 
+        // get block proposal & verify it
         let proposals = block_builder
             .propose(
                 contract,
@@ -177,11 +177,8 @@ impl Client {
         proposal
             .verify(tx)
             .map_err(|e| anyhow::anyhow!("failed to verify proposal: {}", e))?;
-        let signature = proposal.sign(key);
-        block_builder
-            .post_block(contract, validity_prover, vec![signature])
-            .map_err(|e| anyhow::anyhow!("failed to post block: {}", e))?;
 
+        // backup before posting block
         let common_tx_data = CommonTxData {
             spent_proof,
             sender_prev_block_number: user_data.block_number,
@@ -190,14 +187,12 @@ impl Client {
             tx_merkle_proof: proposal.tx_merkle_proof.clone(),
             tx_tree_root: proposal.tx_tree_root,
         };
-
         // save tx data
         let tx_data = TxData {
             common: common_tx_data.clone(),
             spent_witness,
         };
         store_vault_server.save_tx_data(key.pubkey, tx_data);
-
         // save transfer data
         for (i, transfer) in transfers.iter().enumerate() {
             let transfer_merkle_proof = transfer_tree.prove(i);
@@ -217,6 +212,12 @@ impl Client {
                 store_vault_server.save_withdrawal_data(key.pubkey, transfer_data);
             }
         }
+
+        // sign and post block
+        let signature = proposal.sign(key);
+        block_builder
+            .post_block(contract, validity_prover, vec![signature])
+            .map_err(|e| anyhow::anyhow!("failed to post block: {}", e))?;
         Ok(())
     }
 
