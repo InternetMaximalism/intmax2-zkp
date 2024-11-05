@@ -1,10 +1,9 @@
 pub mod balance_logic;
 pub mod block_builder;
+pub mod block_validity_prover;
 pub mod client;
 pub mod contract;
 pub mod data;
 pub mod store_vault_server;
 pub mod strategy;
-pub mod block_validity_prover;
-pub mod tx_request;
 pub mod withdrawal_aggregator;

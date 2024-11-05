@@ -16,11 +16,8 @@ use crate::{
         },
     },
     constants::{NUM_TRANSFERS_IN_TX, TRANSFER_TREE_HEIGHT},
-    ethereum_types::{bytes32::Bytes32, u256::U256},
-    mock::{
-        balance_logic::process_transfer, data::user_data::UserData, strategy,
-        tx_request::MockTxRequest,
-    },
+    ethereum_types::u256::U256,
+    mock::{balance_logic::process_transfer, data::user_data::UserData, strategy},
 };
 
 use super::{
@@ -88,7 +85,7 @@ impl Client {
         &self,
         key: KeySet,
         contract: &mut MockContract,
-        block_builder: &BlockBuilder,
+        block_builder: &mut BlockBuilder,
         store_vault_server: &mut StoreVaultServer<F, C, D>,
         validity_prover: &BlockValidityProver<F, C, D>,
         balance_processor: &BalanceProcessor<F, C, D>,
@@ -167,24 +164,31 @@ impl Client {
 
         // post block
         let is_first_time = validity_prover.get_account_id(key.pubkey).is_none();
-        let tx_request = MockTxRequest {
-            tx,
-            sender: key,
-            will_return_signature: true,
-        };
-        let tx_tree = block_builder
-            .post_block(contract, validity_prover, is_first_time, vec![tx_request])
+
+        let proposals = block_builder
+            .propose(
+                contract,
+                validity_prover,
+                is_first_time, // Use registration block for the first tx
+                vec![(key.pubkey, tx)],
+            )
+            .map_err(|e| anyhow::anyhow!("failed to propose block: {}", e))?;
+        let proposal = &proposals[0]; // first tx
+        proposal
+            .verify(tx)
+            .map_err(|e| anyhow::anyhow!("failed to verify proposal: {}", e))?;
+        let signature = proposal.sign(key);
+        block_builder
+            .post(contract, validity_prover, vec![signature])
             .map_err(|e| anyhow::anyhow!("failed to post block: {}", e))?;
-        let tx_index = tx_tree.get_tx_index(&tx).unwrap();
-        let tx_merkle_proof = tx_tree.prove(tx_index);
-        let tx_tree_root: Bytes32 = tx_tree.get_root().into();
+
         let common_tx_data = CommonTxData {
             spent_proof,
             sender_prev_block_number: user_data.block_number,
             tx,
-            tx_index,
-            tx_merkle_proof,
-            tx_tree_root,
+            tx_index: proposal.tx_index,
+            tx_merkle_proof: proposal.tx_merkle_proof.clone(),
+            tx_tree_root: proposal.tx_tree_root,
         };
 
         // save tx data

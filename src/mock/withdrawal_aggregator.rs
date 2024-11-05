@@ -46,18 +46,18 @@ where
 
     pub fn add(
         &mut self,
-        single_withdrawl_proof: &ProofWithPublicInputs<F, C, D>,
+        single_withdrawal_proof: &ProofWithPublicInputs<F, C, D>,
     ) -> anyhow::Result<()> {
         self.withdrawal_processor
             .single_withdrawal_circuit
-            .verify(single_withdrawl_proof)
+            .verify(single_withdrawal_proof)
             .map_err(|e| anyhow::anyhow!("Invalid single withdrawal proof: {:?}", e))?;
         let withdrawal =
-            Withdrawal::from_u64_slice(&single_withdrawl_proof.public_inputs.to_u64_vec());
+            Withdrawal::from_u64_slice(&single_withdrawal_proof.public_inputs.to_u64_vec());
 
         let withdrawal_proof = self
             .withdrawal_processor
-            .prove_chain(single_withdrawl_proof, &self.prev_withdrawal_proof)
+            .prove_chain(single_withdrawal_proof, &self.prev_withdrawal_proof)
             .map_err(|e| anyhow::anyhow!("Failed to prove withdrawal chain: {}", e))?;
 
         self.prev_withdrawal_proof = Some(withdrawal_proof);

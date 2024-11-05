@@ -29,7 +29,7 @@ fn e2e_test() {
     let mut validity_prover = BlockValidityProver::<F, C, D>::new();
     let balance_processor = BalanceProcessor::new(validity_prover.validity_circuit());
     let mut store_vault_server = StoreVaultServer::<F, C, D>::new();
-    let block_builder = BlockBuilder;
+    let mut block_builder = BlockBuilder::new();
     let client = Client;
 
     log::info!("set up done");
@@ -50,7 +50,7 @@ fn e2e_test() {
 
     // post empty block to reflect the deposit
     block_builder
-        .post_block(&mut contract, &validity_prover, false, vec![])
+        .post_empty_block(&mut contract, &validity_prover)
         .unwrap();
 
     // sync validity prover to the latest block
@@ -88,7 +88,7 @@ fn e2e_test() {
         .send_tx(
             alice_key,
             &mut contract,
-            &block_builder,
+            &mut block_builder,
             &mut store_vault_server,
             &validity_prover,
             &balance_processor,
@@ -128,7 +128,7 @@ fn e2e_test() {
         .send_tx(
             bob_key,
             &mut contract,
-            &block_builder,
+            &mut block_builder,
             &mut store_vault_server,
             &validity_prover,
             &balance_processor,

@@ -1,4 +1,5 @@
 pub mod block;
+pub mod block_builder;
 pub mod deposit;
 pub mod generic_address;
 pub mod insufficient_flags;
