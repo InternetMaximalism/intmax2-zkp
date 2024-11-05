@@ -24,14 +24,8 @@ pub fn sign_to_tx_root(privkey: Fr, tx_tree_root: Bytes32, pubkey_hash: Bytes32)
     let pubkey: G1Affine = (G1Affine::generator() * privkey).into();
     let pubkey_x: U256 = pubkey.x.into();
     let weight = hash_to_weight(pubkey_x, pubkey_hash);
+    let message_point = tx_tree_root_to_message_point(tx_tree_root);
 
-    // message point
-    let tx_tree_root = tx_tree_root
-        .to_u32_vec()
-        .iter()
-        .map(|x| GoldilocksField::from_canonical_u32(*x))
-        .collect::<Vec<_>>();
-    let message_point = G2Target::<GoldilocksField, 2>::hash_to_g2(&tx_tree_root);
     (message_point * privkey * Fr::from(BigUint::from(weight))).into()
 }
 
@@ -73,6 +67,16 @@ pub(crate) fn hash_to_weight_circuit<F: RichField + Extendable<D>, const D: usiz
             .rev()
             .collect::<Vec<_>>(),
     )
+}
+
+pub fn tx_tree_root_to_message_point(tx_tree_root: Bytes32) -> G2Affine {
+    let tx_tree_root = tx_tree_root
+        .to_u32_vec()
+        .iter()
+        .map(|x| GoldilocksField::from_canonical_u32(*x))
+        .collect::<Vec<_>>();
+    let message_point = G2Target::<GoldilocksField, 2>::hash_to_g2(&tx_tree_root);
+    message_point
 }
 
 fn f_slice_to_biguint<F: RichField>(input: &[F]) -> BigUint {

@@ -1,8 +1,11 @@
 use crate::{
     common::{
-        block_builder::{tx_tree_root_to_message_point, BlockProposal, UserSignature},
+        block_builder::{BlockProposal, UserSignature},
         signature::{
-            flatten::FlatG2, sign::hash_to_weight, utils::get_pubkey_hash, SignatureContent,
+            flatten::FlatG2,
+            sign::{hash_to_weight, tx_tree_root_to_message_point},
+            utils::get_pubkey_hash,
+            SignatureContent,
         },
         trees::tx_tree::TxTree,
         tx::Tx,
@@ -32,6 +35,7 @@ pub struct BlockBuilder {
     // intermidiate data
     is_registration_block: bool,
     tx_tree_root: Bytes32,
+    pubkey_hash: Bytes32,
     sorted_txs: Vec<(U256, Tx)>,
 }
 
@@ -41,6 +45,7 @@ impl BlockBuilder {
             is_accepting_tx: true,
             is_registration_block: false,
             tx_tree_root: Bytes32::default(),
+            pubkey_hash: Bytes32::default(),
             sorted_txs: Vec::new(),
         }
     }
@@ -115,6 +120,8 @@ impl BlockBuilder {
         self.is_accepting_tx = false;
         self.is_registration_block = is_registration_block;
         self.sorted_txs = sorted_txs;
+        self.tx_tree_root = tx_tree_root;
+        self.pubkey_hash = pubkey_hash;
 
         Ok(proposals)
     }
@@ -147,9 +154,11 @@ impl BlockBuilder {
                 .iter()
                 .position(|(pubkey, _)| pubkey == &signature.pubkey)
                 .ok_or(anyhow::anyhow!("pubkey not found"))?;
-            signature.verify(self.tx_tree_root).map_err(|e| {
-                anyhow::anyhow!("Invalid signature for pubkey {}: {}", signature.pubkey, e)
-            })?;
+            signature
+                .verify(self.tx_tree_root, self.pubkey_hash)
+                .map_err(|e| {
+                    anyhow::anyhow!("Invalid signature for pubkey {}: {}", signature.pubkey, e)
+                })?;
             sender_with_signatures[tx_index].signature = Some(signature.signature.clone());
         }
 

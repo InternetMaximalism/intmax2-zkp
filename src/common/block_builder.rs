@@ -1,14 +1,15 @@
 use anyhow::ensure;
-use ark_bn254::{Bn254, G1Affine, G2Affine};
+use ark_bn254::{Bn254, Fr, G1Affine, G2Affine};
 use ark_ec::{pairing::Pairing as _, AffineRepr as _};
-use plonky2::field::{goldilocks_field::GoldilocksField, types::Field as _};
-use plonky2_bn254::{
-    curves::g2::G2Target, fields::recover::RecoverFromX, utils::hash_to_g2::HashToG2 as _,
-};
+use num::BigUint;
+use plonky2_bn254::fields::recover::RecoverFromX;
 
 use crate::{
-    common::signature::utils::get_pubkey_hash,
-    ethereum_types::{bytes32::Bytes32, u256::U256, u32limb_trait::U32LimbTrait},
+    common::signature::{
+        sign::{hash_to_weight, tx_tree_root_to_message_point},
+        utils::get_pubkey_hash,
+    },
+    ethereum_types::{bytes32::Bytes32, u256::U256},
 };
 
 use super::{
@@ -58,25 +59,17 @@ pub struct UserSignature {
 
 impl UserSignature {
     // verify single user signature
-    pub fn verify(&self, tx_tree_root: Bytes32) -> anyhow::Result<()> {
+    pub fn verify(&self, tx_tree_root: Bytes32, pubkey_hash: Bytes32) -> anyhow::Result<()> {
+        let weight = hash_to_weight(self.pubkey, pubkey_hash);
         let pubkey_g1: G1Affine = G1Affine::recover_from_x(self.pubkey.into());
+        let weighted_pubkey_g1: G1Affine = (pubkey_g1 * Fr::from(BigUint::from(weight))).into();
         let signature_g2: G2Affine = self.signature.clone().into();
         let message_point = tx_tree_root_to_message_point(tx_tree_root);
         ensure!(
-            Bn254::pairing(pubkey_g1, message_point)
+            Bn254::pairing(weighted_pubkey_g1, message_point)
                 == Bn254::pairing(G1Affine::generator(), signature_g2),
             "Invalid signature"
         );
         Ok(())
     }
-}
-
-pub fn tx_tree_root_to_message_point(tx_tree_root: Bytes32) -> G2Affine {
-    let tx_tree_root_f = tx_tree_root
-        .to_u32_vec()
-        .iter()
-        .map(|x| GoldilocksField::from_canonical_u32(*x))
-        .collect::<Vec<_>>();
-    let message_point = G2Target::<GoldilocksField, 2>::hash_to_g2(&tx_tree_root_f);
-    message_point
 }
