@@ -45,6 +45,7 @@ impl BlockBuilder {
         }
     }
 
+    // Propose a block with the given transactions.
     pub fn propose<F, C, const D: usize>(
         &mut self,
         contract: &mut MockContract,
@@ -118,8 +119,9 @@ impl BlockBuilder {
         Ok(proposals)
     }
 
-    pub fn post<F, C, const D: usize>(
-        &self,
+    // Post the block with the given signatures.
+    pub fn post_block<F, C, const D: usize>(
+        &mut self,
         contract: &mut MockContract,
         sync_validity_prover: &BlockValidityProver<F, C, D>, // used to get the account id
         signatures: Vec<UserSignature>,
@@ -129,6 +131,7 @@ impl BlockBuilder {
         C: GenericConfig<D, F = F> + 'static,
         <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
     {
+        ensure!(!self.is_accepting_tx, "not accepting txs");
         let mut sender_with_signatures = self
             .sorted_txs
             .iter()
@@ -210,6 +213,12 @@ impl BlockBuilder {
                 account_ids.unwrap().to_trimmed_bytes(),
             )?;
         }
+
+        // reset
+        self.is_accepting_tx = true;
+        self.is_registration_block = false;
+        self.tx_tree_root = Bytes32::default();
+        self.sorted_txs = Vec::new();
         Ok(())
     }
 
@@ -225,103 +234,10 @@ impl BlockBuilder {
     {
         self.propose(contract, sync_validity_prover, false, vec![])
             .map_err(|e| anyhow::anyhow!("Failed to propose empty block: {}", e))?;
-        self.post(contract, sync_validity_prover, vec![])
+        self.post_block(contract, sync_validity_prover, vec![])
             .map_err(|e| anyhow::anyhow!("Failed to post empty block: {}", e))?;
         Ok(())
     }
-
-    // pub fn post_block<F, C, const D: usize>(
-    //     &self,
-    //     contract: &mut MockContract,
-    //     sync_validity_prover: &BlockValidityProver<F, C, D>, // used to get the account id
-    //     is_registration_block: bool,
-    //     txs: Vec<MockTxRequest>,
-    // ) -> anyhow::Result<TxTree>
-    // where
-    //     F: RichField + Extendable<D>,
-    //     C: GenericConfig<D, F = F> + 'static,
-    //     <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
-    // {
-    //     ensure!(
-    //         contract.get_next_block_number() == sync_validity_prover.block_number() + 1,
-    //         "sync validity prover is not up to date"
-    //     );
-    //     ensure!(txs.len() <= NUM_SENDERS_IN_BLOCK, "too many txs");
-    //     // sort and pad txs
-    //     let mut sorted_txs = txs.clone();
-    //     sorted_txs.sort_by(|a, b| b.sender.pubkey.cmp(&a.sender.pubkey));
-    //     sorted_txs.resize(NUM_SENDERS_IN_BLOCK, MockTxRequest::dummy());
-
-    //     let pubkeys = sorted_txs
-    //         .iter()
-    //         .map(|tx| tx.sender.pubkey)
-    //         .collect::<Vec<_>>();
-    //     let pubkey_hash = get_pubkey_hash(&pubkeys);
-
-    //     let account_ids = if is_registration_block {
-    //         // assertion
-    //         for pubkey in pubkeys.iter() {
-    //             let not_exists = sync_validity_prover.get_account_id(*pubkey).is_none();
-    //             ensure!(
-    //                 not_exists || pubkey.is_dummy_pubkey(),
-    //                 "account already exists"
-    //             );
-    //         }
-    //         None
-    //     } else {
-    //         let mut account_ids = Vec::new();
-    //         for pubkey in pubkeys.iter() {
-    //             let account_id = sync_validity_prover
-    //                 .get_account_id(*pubkey)
-    //                 .ok_or(anyhow::anyhow!("account not found"))?;
-    //             account_ids.push(account_id);
-    //         }
-    //         Some(AccountIdPacked::pack(&account_ids))
-    //     };
-    //     let account_id_hash = account_ids.map_or(Bytes32::default(), |ids| ids.hash());
-
-    //     // construct tx tree root
-    //     let mut tx_tree = TxTree::new(TX_TREE_HEIGHT);
-    //     for tx in txs.iter() {
-    //         tx_tree.push(tx.tx.clone());
-    //     }
-    //     let tx_tree_root: Bytes32 = tx_tree.get_root().into();
-
-    //     let signature = construct_signature(
-    //         tx_tree_root,
-    //         pubkey_hash,
-    //         account_id_hash,
-    //         is_registration_block,
-    //         &sorted_txs,
-    //     );
-
-    //     if is_registration_block {
-    //         let trimmed_pubkeys = pubkeys
-    //             .into_iter()
-    //             .filter(|pubkey| !pubkey.is_dummy_pubkey())
-    //             .collect::<Vec<_>>();
-    //         contract.post_registration_block(
-    //             tx_tree_root,
-    //             signature.sender_flag,
-    //             signature.agg_pubkey,
-    //             signature.agg_signature,
-    //             signature.message_point,
-    //             trimmed_pubkeys,
-    //         )?;
-    //     } else {
-    //         contract.post_non_registration_block(
-    //             tx_tree_root,
-    //             signature.sender_flag,
-    //             signature.agg_pubkey,
-    //             signature.agg_signature,
-    //             signature.message_point,
-    //             pubkey_hash,
-    //             account_ids.unwrap().to_trimmed_bytes(),
-    //         )?;
-    //     }
-
-    //     Ok(tx_tree)
-    // }
 }
 
 struct SenderWithSignature {
@@ -425,7 +341,7 @@ mod tests {
             proposal.verify(tx).unwrap(); // verify the proposal
             let signature = proposal.sign(user);
             block_builder
-                .post(&mut contract, &sync_validity_prover, vec![signature])
+                .post_block(&mut contract, &sync_validity_prover, vec![signature])
                 .unwrap();
             sync_validity_prover.sync(&contract).unwrap();
         }

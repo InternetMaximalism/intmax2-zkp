@@ -179,7 +179,7 @@ impl Client {
             .map_err(|e| anyhow::anyhow!("failed to verify proposal: {}", e))?;
         let signature = proposal.sign(key);
         block_builder
-            .post(contract, validity_prover, vec![signature])
+            .post_block(contract, validity_prover, vec![signature])
             .map_err(|e| anyhow::anyhow!("failed to post block: {}", e))?;
 
         let common_tx_data = CommonTxData {
