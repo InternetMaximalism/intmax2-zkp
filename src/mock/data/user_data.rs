@@ -1,6 +1,5 @@
 use hashbrown::HashMap;
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
 
 use crate::{
     common::{
@@ -26,16 +25,16 @@ pub struct UserData {
     pub withdrawal_lpt: u64,
 
     // processed data
-    pub processed_deposit_uuids: Vec<Uuid>,
-    pub processed_transfer_uuids: Vec<Uuid>,
-    pub processed_tx_uuids: Vec<Uuid>,
-    pub processed_withdrawal_uuids: Vec<Uuid>,
+    pub processed_deposit_uuids: Vec<String>,
+    pub processed_transfer_uuids: Vec<String>,
+    pub processed_tx_uuids: Vec<String>,
+    pub processed_withdrawal_uuids: Vec<String>,
 
     // rejected data
-    pub rejected_deposit_uuids: Vec<Uuid>,
-    pub rejected_transfer_uuids: Vec<Uuid>,
-    pub rejected_processed_tx_uuids: Vec<Uuid>,
-    pub rejected_withdrawal_uuids: Vec<Uuid>,
+    pub rejected_deposit_uuids: Vec<String>,
+    pub rejected_transfer_uuids: Vec<String>,
+    pub rejected_processed_tx_uuids: Vec<String>,
+    pub rejected_withdrawal_uuids: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -51,16 +50,16 @@ struct UserDataPacked {
     pub withdrawal_lpt: u64,
 
     // processed data
-    pub processed_deposit_uuids: Vec<Uuid>,
-    pub processed_transfer_uuids: Vec<Uuid>,
-    pub processed_tx_uuids: Vec<Uuid>,
-    pub processed_withdrawal_uuids: Vec<Uuid>,
+    pub processed_deposit_uuids: Vec<String>,
+    pub processed_transfer_uuids: Vec<String>,
+    pub processed_tx_uuids: Vec<String>,
+    pub processed_withdrawal_uuids: Vec<String>,
 
     // rejected data
-    pub rejected_deposit_uuids: Vec<Uuid>,
-    pub rejected_transfer_uuids: Vec<Uuid>,
-    pub rejected_processed_tx_uuids: Vec<Uuid>,
-    pub rejected_withdrawal_uuids: Vec<Uuid>,
+    pub rejected_deposit_uuids: Vec<String>,
+    pub rejected_transfer_uuids: Vec<String>,
+    pub rejected_processed_tx_uuids: Vec<String>,
+    pub rejected_withdrawal_uuids: Vec<String>,
 }
 
 impl UserData {
@@ -142,38 +141,6 @@ impl UserData {
 
     pub fn private_state(&self) -> PrivateState {
         self.full_private_state.to_private_state()
-    }
-
-    pub fn deposit_exception_uudis(&self) -> Vec<Uuid> {
-        self.processed_deposit_uuids
-            .iter()
-            .chain(self.rejected_deposit_uuids.iter())
-            .cloned()
-            .collect()
-    }
-
-    pub fn transfer_exception_uudis(&self) -> Vec<Uuid> {
-        self.processed_transfer_uuids
-            .iter()
-            .chain(self.rejected_transfer_uuids.iter())
-            .cloned()
-            .collect()
-    }
-
-    pub fn tx_exception_uudis(&self) -> Vec<Uuid> {
-        self.processed_tx_uuids
-            .iter()
-            .chain(self.rejected_processed_tx_uuids.iter())
-            .cloned()
-            .collect()
-    }
-
-    pub fn withdrawal_exception_uudis(&self) -> Vec<Uuid> {
-        self.processed_withdrawal_uuids
-            .iter()
-            .chain(self.rejected_withdrawal_uuids.iter())
-            .cloned()
-            .collect()
     }
 
     pub fn private_commitment(&self) -> PoseidonHashOut {

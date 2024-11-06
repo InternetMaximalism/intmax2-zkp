@@ -50,24 +50,19 @@ where
         }
     }
 
-    pub fn save_balance_proof(
-        &mut self,
-        pubkey: U256,
-        block_number: u32,
-        proof: ProofWithPublicInputs<F, C, D>,
-    ) {
+    pub fn save_balance_proof(&mut self, pubkey: U256, proof: ProofWithPublicInputs<F, C, D>) {
         let balance_pis = BalancePublicInputs::from_pis(&proof.public_inputs);
         log::info!(
             "saving balance proof for pubkey: {}, block_number: {}, private commitment: {}",
             pubkey,
-            block_number,
+            balance_pis.public_state.block_number,
             balance_pis.private_commitment
         );
         // todo: add proof verification & duplicate check
         self.balance_proofs
             .entry(pubkey)
             .or_insert_with(HashMap::new)
-            .entry(block_number)
+            .entry(balance_pis.public_state.block_number)
             .or_insert_with(Vec::new)
             .push(proof);
     }
@@ -103,24 +98,45 @@ where
         self.encrypted_deposit_data.insert(pubkey, encypted_data);
     }
 
-    pub fn get_deposit_data(&self, pubkey: U256, timestamp: u64) -> Vec<(MetaData, Vec<u8>)> {
-        self.encrypted_deposit_data.get_all_after(pubkey, timestamp)
+    pub fn get_next_deposit_data(
+        &self,
+        pubkey: U256,
+        timestamp: u64,
+    ) -> Option<(MetaData, Vec<u8>)> {
+        self.encrypted_deposit_data.get_next(pubkey, timestamp)
     }
 
     pub fn save_transfer_data(&mut self, pubkey: U256, encypted_data: Vec<u8>) {
         self.encrypted_tranfer_data.insert(pubkey, encypted_data);
     }
 
-    pub fn get_transfer_data(&self, pubkey: U256, timestamp: u64) -> Vec<(MetaData, Vec<u8>)> {
-        self.encrypted_tranfer_data.get_all_after(pubkey, timestamp)
+    pub fn get_next_transfer_data(
+        &self,
+        pubkey: U256,
+        timestamp: u64,
+    ) -> Option<(MetaData, Vec<u8>)> {
+        self.encrypted_tranfer_data.get_next(pubkey, timestamp)
     }
 
     pub fn save_tx_data(&mut self, pubkey: U256, encypted_data: Vec<u8>) {
         self.encrypted_tx_data.insert(pubkey, encypted_data);
     }
 
-    pub fn get_tx_data(&self, pubkey: U256, timestamp: u64) -> Vec<(MetaData, Vec<u8>)> {
-        self.encrypted_tx_data.get_all_after(pubkey, timestamp)
+    pub fn get_next_tx_data(&self, pubkey: U256, timestamp: u64) -> Option<(MetaData, Vec<u8>)> {
+        self.encrypted_tx_data.get_next(pubkey, timestamp)
+    }
+
+    pub fn save_withdrawal_data(&mut self, pubkey: U256, encypted_data: Vec<u8>) {
+        self.encrypted_withdrawal_data.insert(pubkey, encypted_data);
+    }
+
+    pub fn get_all_withdrawal_data(
+        &self,
+        pubkey: U256,
+        timestamp: u64,
+    ) -> Vec<(MetaData, Vec<u8>)> {
+        self.encrypted_withdrawal_data
+            .get_all_after(pubkey, timestamp)
     }
 
     pub fn save_user_data(&mut self, pubkey: U256, encrypted_data: Vec<u8>) {
@@ -149,6 +165,17 @@ impl EncryptedDataMap {
             .entry(pubkey)
             .or_insert_with(Vec::new)
             .push((meta_data, encrypted_data));
+    }
+
+    pub fn get_next(&self, pubkey: U256, timestamp: u64) -> Option<(MetaData, Vec<u8>)> {
+        let empty = Vec::new();
+        let list = self.0.get(&pubkey).unwrap_or(&empty);
+        for (meta_data, data) in list.iter() {
+            if meta_data.timestamp > timestamp {
+                return Some((meta_data.clone(), data.clone()));
+            }
+        }
+        None
     }
 
     pub fn get_all_after(&self, pubkey: U256, timestamp: u64) -> Vec<(MetaData, Vec<u8>)> {

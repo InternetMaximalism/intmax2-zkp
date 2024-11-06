@@ -51,7 +51,7 @@ where
     deposit_correspondence: HashMap<Bytes32, (usize, u32)>, /* deposit_hash ->
                                                    * (deposit_index, block_number) */
     deposit_trees: HashMap<u32, DepositTree>, // snap shot of deposit tree at each block
-    tx_tree_roots: HashMap<Bytes32, Vec<u32>>, // tx tree root at each block
+    tx_tree_roots: HashMap<Bytes32, u32>,     // tx tree root at each block
 }
 
 impl<F, C, const D: usize> BlockValidityProver<F, C, D>
@@ -129,14 +129,15 @@ where
             self.validity_proofs.insert(block_number, validity_proof);
             self.sender_leaves
                 .insert(block_number, block_witness.get_sender_tree().leaves());
-            let block_numbers = self
-                .tx_tree_roots
-                .get_mut(&full_block.signature.tx_tree_root);
-            if block_numbers.is_none() {
-                self.tx_tree_roots
-                    .insert(full_block.signature.tx_tree_root, vec![block_number]);
-            } else {
-                block_numbers.unwrap().push(block_number);
+
+            let tx_tree_root = full_block.signature.tx_tree_root;
+            // ignore empty tx tree root because we allow duplicated empty tx tree root
+            if tx_tree_root != Bytes32::default() {
+                if self.tx_tree_roots.contains_key(&tx_tree_root) {
+                    anyhow::bail!("tx tree root {} already exists", tx_tree_root);
+                } else {
+                    self.tx_tree_roots.insert(tx_tree_root, block_number);
+                }
             }
         }
         self.deposit_correspondence = contract.deposit_correspondence.clone();
@@ -191,11 +192,8 @@ where
         self.deposit_correspondence.get(&deposit_hash).cloned()
     }
 
-    pub fn get_block_numbers_by_tx_tree_root(&self, tx_tree_root: Bytes32) -> Vec<u32> {
-        self.tx_tree_roots
-            .get(&tx_tree_root)
-            .cloned()
-            .unwrap_or_default()
+    pub fn get_block_number_by_tx_tree_root(&self, tx_tree_root: Bytes32) -> Option<u32> {
+        self.tx_tree_roots.get(&tx_tree_root).cloned()
     }
 
     pub fn get_validity_pis(&self, block_number: u32) -> Option<ValidityPublicInputs> {
