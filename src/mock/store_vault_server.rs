@@ -98,12 +98,8 @@ where
         self.encrypted_deposit_data.insert(pubkey, encypted_data);
     }
 
-    pub fn get_next_deposit_data(
-        &self,
-        pubkey: U256,
-        timestamp: u64,
-    ) -> Option<(MetaData, Vec<u8>)> {
-        self.encrypted_deposit_data.get_next(pubkey, timestamp)
+    pub fn get_deposit_data(&self, pubkey: U256, timestamp: u64) -> Vec<(MetaData, Vec<u8>)> {
+        self.encrypted_deposit_data.get_all_after(pubkey, timestamp)
     }
 
     pub fn save_transfer_data(&mut self, pubkey: U256, encypted_data: Vec<u8>) {
@@ -187,6 +183,9 @@ impl EncryptedDataMap {
                 result.push((meta_data.clone(), data.clone()));
             }
         }
+        // sort by timestamp
+        result.sort_by(|a, b| a.0.timestamp.cmp(&b.0.timestamp));
+
         result
     }
 }

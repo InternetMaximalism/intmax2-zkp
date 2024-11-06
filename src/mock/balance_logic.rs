@@ -14,6 +14,7 @@ use crate::{
         balance_processor::{get_prev_balance_pis, BalanceProcessor},
     },
     common::{
+        private_state::FullPrivateState,
         salt::Salt,
         witness::{
             deposit_witness::DepositWitness, private_transition_witness::PrivateTransitionWitness,
@@ -27,16 +28,14 @@ use crate::{
 
 use super::{
     block_validity_prover::BlockValidityProver,
-    data::{
-        common_tx_data::CommonTxData, deposit_data::DepositData, transfer_data::TransferData,
-        user_data::UserData,
-    },
+    data::{common_tx_data::CommonTxData, deposit_data::DepositData, transfer_data::TransferData},
 };
 
 pub fn process_deposit<F, C, const D: usize>(
     validity_prover: &BlockValidityProver<F, C, D>,
     balance_processor: &BalanceProcessor<F, C, D>,
-    user_data: &mut UserData,
+    pubkey: U256,
+    full_private_state: &mut FullPrivateState,
     new_salt: Salt,
     prev_balance_proof: &Option<ProofWithPublicInputs<F, C, D>>,
     receive_block_number: u32,
@@ -51,7 +50,7 @@ where
     let before_balance_proof = update_balance_proof(
         validity_prover,
         balance_processor,
-        user_data.pubkey,
+        pubkey,
         prev_balance_proof,
         receive_block_number,
     )?;
@@ -76,7 +75,7 @@ where
     let deposit = deposit_data.deposit.clone();
     let nullifier: Bytes32 = deposit.poseidon_hash().into();
     let private_transition_witness = PrivateTransitionWitness::new(
-        &mut user_data.full_private_state,
+        full_private_state,
         deposit.token_index,
         deposit.amount,
         nullifier,
@@ -91,13 +90,11 @@ where
     // prove deposit
     let balance_proof = balance_processor
         .prove_receive_deposit(
-            user_data.pubkey,
+            pubkey,
             &receive_deposit_witness,
             &Some(before_balance_proof),
         )
         .map_err(|e| anyhow::anyhow!("prove_deposit failed: {:?}", e))?;
-    // update user data
-    user_data.block_number = receive_block_number;
 
     Ok(balance_proof)
 }
@@ -105,7 +102,8 @@ where
 pub fn process_transfer<F, C, const D: usize>(
     validity_prover: &BlockValidityProver<F, C, D>,
     balance_processor: &BalanceProcessor<F, C, D>,
-    user_data: &mut UserData,
+    pubkey: U256,
+    full_private_state: &mut FullPrivateState,
     new_salt: Salt,
     sender_balance_proof: &ProofWithPublicInputs<F, C, D>, /* sender's balance proof after
                                                             * applying tx */
@@ -129,7 +127,7 @@ where
     let before_balance_proof = update_balance_proof(
         validity_prover,
         balance_processor,
-        user_data.pubkey,
+        pubkey,
         prev_balance_proof,
         receive_block_number,
     )?;
@@ -143,7 +141,7 @@ where
     };
     let nullifier: Bytes32 = transfer_witness.transfer.commitment().into();
     let private_transition_witness = PrivateTransitionWitness::new(
-        &mut user_data.full_private_state,
+        full_private_state,
         transfer_data.transfer.token_index,
         transfer_data.transfer.amount,
         nullifier,
@@ -166,14 +164,11 @@ where
     // prove transfer
     let balance_proof = balance_processor
         .prove_receive_transfer(
-            user_data.pubkey,
+            pubkey,
             &receive_trasfer_witness,
             &Some(before_balance_proof),
         )
         .map_err(|e| anyhow::anyhow!("prove_deposit failed: {:?}", e))?;
-
-    // update user data
-    user_data.block_number = receive_block_number;
 
     Ok(balance_proof)
 }

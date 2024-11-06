@@ -1,5 +1,3 @@
-use std::f128::consts::E;
-
 use crate::{
     circuits::balance::{
         balance_pis::BalancePublicInputs, balance_processor::BalanceProcessor,
@@ -19,7 +17,7 @@ use crate::{
     },
     constants::{NUM_TRANSFERS_IN_TX, TRANSFER_TREE_HEIGHT},
     ethereum_types::u256::U256,
-    mock::{balance_logic::process_transfer, data::user_data::UserData, sync_strategy},
+    mock::{balance_logic::process_transfer, data::user_data::UserData},
 };
 
 use super::{
@@ -32,7 +30,7 @@ use super::{
         transfer_data::TransferData, tx_data::TxData,
     },
     store_vault_server::StoreVaultServer,
-    sync_strategy::{fetch_sync_info, Action},
+    sync_strategy::{fetch_sync_info, fetch_withdrawals, Action},
     withdrawal_aggregator::WithdrawalAggregator,
 };
 use anyhow::ensure;
@@ -99,6 +97,8 @@ impl Client {
         validity_prover: &BlockValidityProver<F, C, D>,
         balance_processor: &BalanceProcessor<F, C, D>,
         transfers: Vec<Transfer>,
+        deposit_timeout: u64,
+        tx_timeout: u64,
     ) -> anyhow::Result<()>
     where
         F: RichField + Extendable<D>,
@@ -113,8 +113,15 @@ impl Client {
         );
 
         // sync balance proof
-        self.sync(key, store_vault_server, validity_prover, balance_processor)
-            .map_err(|e| anyhow::anyhow!("failed to sync balance proof: {}", e))?;
+        self.sync(
+            key,
+            store_vault_server,
+            validity_prover,
+            balance_processor,
+            deposit_timeout,
+            tx_timeout,
+        )
+        .map_err(|e| anyhow::anyhow!("failed to sync balance proof: {}", e))?;
 
         let user_data = self
             .get_user_data(key, store_vault_server)
@@ -340,14 +347,16 @@ impl Client {
         withdrawal_aggregator: &mut WithdrawalAggregator<F, C, D>,
         validity_prover: &BlockValidityProver<F, C, D>,
         balance_processor: &BalanceProcessor<F, C, D>,
+        tx_timeout: u64,
     ) -> anyhow::Result<()>
     where
         F: RichField + Extendable<D>,
         C: GenericConfig<D, F = F> + 'static,
         <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
     {
-        let withdrawal_data = self.get_withdrawal_data(store_vault_server, validity_prover, key)?;
-        for (meta, data) in &withdrawal_data {
+        let withdrawal_data =
+            fetch_withdrawals(store_vault_server, validity_prover, key, tx_timeout)?;
+        for (meta, data) in &withdrawal_data.withdrawals {
             self.sync_withdrawal(
                 store_vault_server,
                 withdrawal_aggregator,
@@ -391,14 +400,17 @@ impl Client {
         let new_balance_proof = process_deposit(
             validity_prover,
             balance_processor,
-            &mut user_data,
+            user_data.pubkey,
+            &mut user_data.full_private_state,
             new_salt,
             &prev_balance_proof,
             meta.block_number.unwrap(),
-            meta.uuid.clone(),
             deposit_data,
         )
         .map_err(|e| anyhow::anyhow!("failed to process transfer: {}", e))?;
+
+        // update user data
+        user_data.block_number = meta.block_number.unwrap();
 
         // save proof and user data
         store_vault_server.save_balance_proof(key.pubkey, new_balance_proof);
@@ -446,15 +458,18 @@ impl Client {
         let new_balance_proof = process_transfer(
             validity_prover,
             balance_processor,
-            &mut user_data,
+            user_data.pubkey,
+            &mut user_data.full_private_state,
             new_salt,
             &new_sender_balance_proof,
             &prev_balance_proof,
             meta.block_number.unwrap(),
-            meta.uuid.clone(),
             &transfer_data,
         )
         .map_err(|e| anyhow::anyhow!("failed to process transfer: {}", e))?;
+
+        // update user data
+        user_data.block_number = meta.block_number.unwrap();
 
         // save proof and user data
         store_vault_server.save_balance_proof(key.pubkey, new_balance_proof);
@@ -498,7 +513,6 @@ impl Client {
         tx_data
             .spent_witness
             .update_private_state(&mut user_data.full_private_state)?;
-        user_data.processed_tx_uuids.push(meta.uuid.clone());
 
         // validation
         ensure!(
@@ -563,7 +577,7 @@ impl Client {
             .map_err(|e| anyhow::anyhow!("failed to add withdrawal: {}", e))?;
 
         // update user data
-        user_data.processed_withdrawal_uuids.push(meta.uuid.clone());
+        user_data.block_number = meta.block_number.unwrap();
 
         // save user data
         store_vault_server.save_user_data(key.pubkey, user_data.encrypt(key.pubkey));

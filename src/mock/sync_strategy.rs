@@ -48,7 +48,7 @@ pub enum RejectedAction {
 // generate strategy of the balance proof update process
 pub fn fetch_sync_info<F, C, const D: usize>(
     store_vault_server: &StoreVaultServer<F, C, D>,
-    sync_validity_prover: &BlockValidityProver<F, C, D>,
+    validity_prover: &BlockValidityProver<F, C, D>,
     key: KeySet,
     deposit_timeout: u64,
     tx_timeout: u64,
@@ -74,8 +74,8 @@ where
     if let Some((meta, encrypted_data)) = deposit_data_with_meta {
         match DepositData::decrypt(&encrypted_data, key) {
             Ok(deposit_data) => {
-                if let Some((_deposit_index, block_number)) = sync_validity_prover
-                    .get_deposit_index_and_block_number(deposit_data.deposit_hash())
+                if let Some((_deposit_index, block_number)) =
+                    validity_prover.get_deposit_index_and_block_number(deposit_data.deposit_hash())
                 {
                     // set block number
                     let mut meta = meta;
@@ -111,8 +111,7 @@ where
         match TransferData::decrypt(&encrypted_data, key) {
             Ok(transfer_data) => {
                 let tx_tree_root = transfer_data.tx_data.tx_tree_root;
-                let block_number =
-                    sync_validity_prover.get_block_number_by_tx_tree_root(tx_tree_root);
+                let block_number = validity_prover.get_block_number_by_tx_tree_root(tx_tree_root);
                 if let Some(block_number) = block_number {
                     // set block number
                     let mut meta = meta;
@@ -158,8 +157,7 @@ where
         match TxData::decrypt(&encrypted_data, key) {
             Ok(tx_data) => {
                 let tx_tree_root = tx_data.common.tx_tree_root;
-                let block_number =
-                    sync_validity_prover.get_block_number_by_tx_tree_root(tx_tree_root);
+                let block_number = validity_prover.get_block_number_by_tx_tree_root(tx_tree_root);
                 if let Some(block_number) = block_number {
                     // set block number
                     let mut meta = meta;
@@ -203,7 +201,7 @@ where
 
 pub fn fetch_withdrawals<F, C, const D: usize>(
     store_vault_server: &mut StoreVaultServer<F, C, D>,
-    sync_validity_prover: &BlockValidityProver<F, C, D>,
+    validity_prover: &BlockValidityProver<F, C, D>,
     key: KeySet,
     tx_timeout: u64,
 ) -> anyhow::Result<WithdrawalInfo<F, C, D>>
@@ -230,8 +228,7 @@ where
         match TransferData::decrypt(&encrypted_data, key) {
             Ok(transfer_data) => {
                 let tx_tree_root = transfer_data.tx_data.tx_tree_root;
-                let block_number =
-                    sync_validity_prover.get_block_number_by_tx_tree_root(tx_tree_root);
+                let block_number = validity_prover.get_block_number_by_tx_tree_root(tx_tree_root);
                 if let Some(block_number) = block_number {
                     // set block number
                     let mut meta = meta;
