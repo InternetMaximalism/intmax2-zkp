@@ -30,6 +30,7 @@ lazy_static = "1.5.0"
 uuid = { version = "1.4", features = ["v4", "serde"] }
 bincode = "1.3.3"
 env_logger = "0.11.5"
+chrono = "0.4.38"
 
 [features]
 default = ["dummy_validity_proof"]

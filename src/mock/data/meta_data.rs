@@ -1,7 +1,7 @@
-use uuid::Uuid;
-
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct MetaData {
-    pub uuid: Uuid,
-    pub block_number: u32,
+    pub uuid: String,
+    pub timestamp: u64,
+
+    pub block_number: Option<u32>,
 }

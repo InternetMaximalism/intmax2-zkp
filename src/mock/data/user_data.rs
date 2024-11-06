@@ -19,6 +19,12 @@ pub struct UserData {
     pub block_number: u32,
     pub full_private_state: FullPrivateState,
 
+    // last processed timestamps
+    pub deposit_lpt: u64,
+    pub transfer_lpt: u64,
+    pub tx_lpt: u64,
+    pub withdrawal_lpt: u64,
+
     // processed data
     pub processed_deposit_uuids: Vec<Uuid>,
     pub processed_transfer_uuids: Vec<Uuid>,
@@ -37,6 +43,12 @@ struct UserDataPacked {
     pubkey: U256,
     block_number: u32,
     full_private_state: FullPrivateStatePacked,
+
+    // last processed timestamps
+    pub deposit_lpt: u64,
+    pub transfer_lpt: u64,
+    pub tx_lpt: u64,
+    pub withdrawal_lpt: u64,
 
     // processed data
     pub processed_deposit_uuids: Vec<Uuid>,
@@ -57,6 +69,11 @@ impl UserData {
             pubkey,
             block_number: 0,
             full_private_state: FullPrivateState::new(),
+
+            deposit_lpt: 0,
+            transfer_lpt: 0,
+            tx_lpt: 0,
+            withdrawal_lpt: 0,
             processed_deposit_uuids: vec![],
             processed_transfer_uuids: vec![],
             processed_tx_uuids: vec![],
@@ -73,6 +90,10 @@ impl UserData {
             pubkey: self.pubkey,
             block_number: self.block_number,
             full_private_state: self.full_private_state.pack(),
+            deposit_lpt: self.deposit_lpt,
+            transfer_lpt: self.transfer_lpt,
+            tx_lpt: self.tx_lpt,
+            withdrawal_lpt: self.withdrawal_lpt,
             processed_deposit_uuids: self.processed_deposit_uuids.clone(),
             processed_transfer_uuids: self.processed_transfer_uuids.clone(),
             processed_tx_uuids: self.processed_tx_uuids.clone(),
@@ -92,6 +113,10 @@ impl UserData {
             pubkey: packed.pubkey,
             block_number: packed.block_number,
             full_private_state,
+            deposit_lpt: packed.deposit_lpt,
+            transfer_lpt: packed.transfer_lpt,
+            tx_lpt: packed.tx_lpt,
+            withdrawal_lpt: packed.withdrawal_lpt,
             processed_deposit_uuids: packed.processed_deposit_uuids.clone(),
             processed_transfer_uuids: packed.processed_transfer_uuids.clone(),
             processed_tx_uuids: packed.processed_tx_uuids.clone(),

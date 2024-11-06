@@ -8,13 +8,11 @@ use plonky2::{
 use uuid::Uuid;
 
 use crate::{
-    circuits::balance::balance_pis::BalancePublicInputs, common::signature::key_set::KeySet,
-    ethereum_types::u256::U256, utils::poseidon_hash_out::PoseidonHashOut,
+    circuits::balance::balance_pis::BalancePublicInputs, ethereum_types::u256::U256,
+    utils::poseidon_hash_out::PoseidonHashOut,
 };
 
-use super::data::{
-    deposit_data::DepositData, transfer_data::TransferData, tx_data::TxData, user_data::UserData,
-};
+use super::data::meta_data::MetaData;
 
 // The proof of transfer is encrypted with the public key of the person who uses it. The
 // balance proof is stored without encryption because the private state is hidden.
@@ -23,20 +21,19 @@ where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
 {
-    balance_proofs: HashMap<U256, HashMap<u32, Vec<ProofWithPublicInputs<F, C, D>>>>, /* pubkey -> block_number -> proof */
-    encrypted_deposit_data: HashMap<U256, HashMap<Uuid, Vec<u8>>>, /* receiver's pubkey -> uuid
-                                                                    * -> encrypted_deposit_data */
-    encrypted_tranfer_data: HashMap<U256, HashMap<Uuid, Vec<u8>>>, /* receiver's pubkey -> uuid
-                                                                    * -> encrypted_trasfer_data */
-    encrypted_tx_data: HashMap<U256, HashMap<Uuid, Vec<u8>>>, /* sender's pubkey -> uuid ->
-                                                               * encrypted_tx_data */
-
-    encrypted_withdrawal_data: HashMap<U256, HashMap<Uuid, Vec<u8>>>, /* receiver's pubkey -> uuid -> encrypted_withdrawal_data */
-
     encrypted_user_data: HashMap<U256, Vec<u8>>, /* pubkey -> encrypted_user_data */
+    balance_proofs: HashMap<U256, HashMap<u32, Vec<ProofWithPublicInputs<F, C, D>>>>, /* pubkey -> block_number -> proof */
+
+    encrypted_deposit_data: EncryptedDataMap, /* receiver's pubkey ->
+                                               * encrypted_deposit_data */
+    encrypted_tranfer_data: EncryptedDataMap, /* receiver's pubkey ->
+                                               * encrypted_transfer_data */
+    encrypted_tx_data: EncryptedDataMap, /* sender's pubkey ->
+                                          * encrypted_tx_data */
+    encrypted_withdrawal_data: EncryptedDataMap, /* receiver's pubkey ->
+                                                  * encrypted_withdrawal_data */
 }
 
-// todo: dont repeat the same code for different data types
 impl<F, C, const D: usize> StoreVaultServer<F, C, D>
 where
     F: RichField + Extendable<D>,
@@ -44,12 +41,12 @@ where
 {
     pub fn new() -> Self {
         Self {
-            balance_proofs: HashMap::new(),
-            encrypted_deposit_data: HashMap::new(),
-            encrypted_tranfer_data: HashMap::new(),
-            encrypted_tx_data: HashMap::new(),
-            encrypted_withdrawal_data: HashMap::new(),
             encrypted_user_data: HashMap::new(),
+            balance_proofs: HashMap::new(),
+            encrypted_deposit_data: EncryptedDataMap::new(),
+            encrypted_tranfer_data: EncryptedDataMap::new(),
+            encrypted_tx_data: EncryptedDataMap::new(),
+            encrypted_withdrawal_data: EncryptedDataMap::new(),
         }
     }
 
@@ -102,196 +99,82 @@ where
         Ok(None)
     }
 
-    pub fn save_deposit_data(&mut self, pubkey: U256, deposit_data: DepositData) {
-        let encrypted = deposit_data.encrypt(pubkey);
-        let uuid = Uuid::new_v4();
-        self.encrypted_deposit_data
-            .entry(pubkey)
-            .or_insert_with(HashMap::new)
-            .insert(uuid, encrypted);
+    pub fn save_deposit_data(&mut self, pubkey: U256, encypted_data: Vec<u8>) {
+        self.encrypted_deposit_data.insert(pubkey, encypted_data);
     }
 
-    fn get_deposit_data(
-        &self,
-        key: KeySet,
-        exceptions: Vec<Uuid>,
-    ) -> anyhow::Result<(Vec<(Uuid, DepositData)>, Vec<Uuid>)> {
-        let empty = HashMap::new();
-        let list = self
-            .encrypted_deposit_data
-            .get(&key.pubkey)
-            .unwrap_or(&empty);
-
-        let mut decrypted = Vec::new();
-        let mut rejected = Vec::new();
-        for (uuid, encrypted) in list.iter() {
-            if exceptions.contains(uuid) {
-                continue;
-            }
-            match DepositData::decrypt(encrypted, key) {
-                std::result::Result::Ok(data) => decrypted.push((*uuid, data)),
-                Err(e) => {
-                    log::error!("failed to decrypt deposit data: {}", e);
-                    rejected.push(*uuid);
-                }
-            }
-        }
-        Ok((decrypted, rejected))
+    pub fn get_deposit_data(&self, pubkey: U256, timestamp: u64) -> Vec<(MetaData, Vec<u8>)> {
+        self.encrypted_deposit_data.get_all_after(pubkey, timestamp)
     }
 
-    pub fn save_transfer_data(&mut self, pubkey: U256, transfer_data: TransferData<F, C, D>) {
-        let encrypted = transfer_data.encrypt(pubkey);
-        let uuid = Uuid::new_v4();
-        self.encrypted_tranfer_data
-            .entry(pubkey)
-            .or_insert_with(HashMap::new)
-            .insert(uuid, encrypted);
+    pub fn save_transfer_data(&mut self, pubkey: U256, encypted_data: Vec<u8>) {
+        self.encrypted_tranfer_data.insert(pubkey, encypted_data);
     }
 
-    fn get_transfer_data(
-        &self,
-        key: KeySet,
-        exceptions: Vec<Uuid>,
-    ) -> anyhow::Result<(Vec<(Uuid, TransferData<F, C, D>)>, Vec<Uuid>)> {
-        let empty = HashMap::new();
-        let list = self
-            .encrypted_tranfer_data
-            .get(&key.pubkey)
-            .unwrap_or(&empty);
-
-        let mut decrypted = Vec::new();
-        let mut rejected = Vec::new();
-        for (uuid, encrypted) in list.iter() {
-            if exceptions.contains(uuid) {
-                continue;
-            }
-            match TransferData::decrypt(encrypted, key) {
-                std::result::Result::Ok(data) => decrypted.push((*uuid, data)),
-                Err(e) => {
-                    log::error!("failed to decrypt transfer data: {}", e);
-                    rejected.push(*uuid);
-                }
-            }
-        }
-        Ok((decrypted, rejected))
+    pub fn get_transfer_data(&self, pubkey: U256, timestamp: u64) -> Vec<(MetaData, Vec<u8>)> {
+        self.encrypted_tranfer_data.get_all_after(pubkey, timestamp)
     }
 
-    pub fn save_tx_data(&mut self, pubkey: U256, tx_data: TxData<F, C, D>) {
-        let encrypted = tx_data.encrypt(pubkey);
-        let uuid = Uuid::new_v4();
-        self.encrypted_tx_data
-            .entry(pubkey)
-            .or_insert_with(HashMap::new)
-            .insert(uuid, encrypted);
+    pub fn save_tx_data(&mut self, pubkey: U256, encypted_data: Vec<u8>) {
+        self.encrypted_tx_data.insert(pubkey, encypted_data);
     }
 
-    fn get_tx_data(
-        &self,
-        key: KeySet,
-        exceptions: Vec<Uuid>,
-    ) -> anyhow::Result<(Vec<(Uuid, TxData<F, C, D>)>, Vec<Uuid>)> {
-        let empty = HashMap::new();
-        let list = self.encrypted_tx_data.get(&key.pubkey).unwrap_or(&empty);
-
-        let mut decrypted = Vec::new();
-        let mut rejected = Vec::new();
-        for (uuid, encrypted) in list.iter() {
-            if exceptions.contains(uuid) {
-                continue;
-            }
-            match TxData::decrypt(encrypted, key) {
-                std::result::Result::Ok(data) => decrypted.push((*uuid, data)),
-                Err(e) => {
-                    log::error!("failed to decrypt tx data: {}", e);
-                    rejected.push(*uuid);
-                }
-            }
-        }
-        Ok((decrypted, rejected))
+    pub fn get_tx_data(&self, pubkey: U256, timestamp: u64) -> Vec<(MetaData, Vec<u8>)> {
+        self.encrypted_tx_data.get_all_after(pubkey, timestamp)
     }
 
-    pub fn save_withdrawal_data(&mut self, pubkey: U256, withdrawal_data: TransferData<F, C, D>) {
-        let encrypted = withdrawal_data.encrypt(pubkey);
-        let uuid = Uuid::new_v4();
-        self.encrypted_withdrawal_data
-            .entry(pubkey)
-            .or_insert_with(HashMap::new)
-            .insert(uuid, encrypted);
+    pub fn save_user_data(&mut self, pubkey: U256, encrypted_data: Vec<u8>) {
+        self.encrypted_user_data.insert(pubkey, encrypted_data);
     }
 
-    pub fn get_withdrawal_data(
-        &self,
-        key: KeySet,
-        except: Vec<Uuid>,
-    ) -> anyhow::Result<(Vec<(Uuid, TransferData<F, C, D>)>, Vec<Uuid>)> {
-        let empty = HashMap::new();
-        let list = self
-            .encrypted_withdrawal_data
-            .get(&key.pubkey)
-            .unwrap_or(&empty);
-
-        let mut decrypted = Vec::new();
-        let mut rejected = Vec::new();
-        for (uuid, encrypted) in list.iter() {
-            if except.contains(uuid) {
-                continue;
-            }
-            match TransferData::decrypt(encrypted, key) {
-                std::result::Result::Ok(data) => decrypted.push((*uuid, data)),
-                Err(e) => {
-                    log::error!("failed to decrypt withdrawal data: {}", e);
-                    rejected.push(*uuid);
-                }
-            }
-        }
-        Ok((decrypted, rejected))
-    }
-
-    pub fn save_user_data(&mut self, pubkey: U256, user_data: UserData) {
-        let encrypted = user_data.encrypt(pubkey);
-        self.encrypted_user_data.insert(pubkey, encrypted);
-    }
-
-    pub fn get_user_data(&self, key: KeySet) -> anyhow::Result<Option<UserData>> {
-        let encrypted = self.encrypted_user_data.get(&key.pubkey);
-        if encrypted.is_none() {
-            return Ok(None);
-        }
-        let user_data = UserData::decrypt(&encrypted.unwrap(), key)
-            .map_err(|e| anyhow::anyhow!("failed to decrypt user data{}", e))?;
-        Ok(Some(user_data))
-    }
-
-    pub fn get_transition_data(
-        &self,
-        key: KeySet,
-        except_deposits: Vec<Uuid>,
-        except_transfers: Vec<Uuid>,
-        except_txs: Vec<Uuid>,
-    ) -> anyhow::Result<TransitionData<F, C, D>> {
-        let (deposit_data, rejected_deposits) = self.get_deposit_data(key, except_deposits)?;
-        let (transfer_data, rejected_transfers) = self.get_transfer_data(key, except_transfers)?;
-        let (tx_data, rejected_txs) = self.get_tx_data(key, except_txs)?;
-        Ok(TransitionData {
-            deposit_data,
-            transfer_data,
-            tx_data,
-            rejected_deposits,
-            rejected_transfers,
-            rejected_txs,
-        })
+    pub fn get_user_data(&self, pubkey: U256) -> Option<Vec<u8>> {
+        self.encrypted_user_data.get(&pubkey).cloned()
     }
 }
 
-pub struct TransitionData<F, C, const D: usize>
-where
-    F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F>,
-{
-    pub deposit_data: Vec<(Uuid, DepositData)>,
-    pub transfer_data: Vec<(Uuid, TransferData<F, C, D>)>,
-    pub tx_data: Vec<(Uuid, TxData<F, C, D>)>,
-    pub rejected_deposits: Vec<Uuid>,
-    pub rejected_transfers: Vec<Uuid>,
-    pub rejected_txs: Vec<Uuid>,
+struct EncryptedDataMap(HashMap<U256, Vec<(MetaData, Vec<u8>)>>);
+
+impl EncryptedDataMap {
+    pub fn new() -> Self {
+        Self(HashMap::new())
+    }
+
+    pub fn insert(&mut self, pubkey: U256, encrypted_data: Vec<u8>) {
+        let meta_data = MetaData {
+            uuid: Uuid::new_v4().to_string(),
+            timestamp: chrono::Utc::now().timestamp() as u64,
+            block_number: None,
+        };
+        self.0
+            .entry(pubkey)
+            .or_insert_with(Vec::new)
+            .push((meta_data, encrypted_data));
+    }
+
+    pub fn get_all_after(&self, pubkey: U256, timestamp: u64) -> Vec<(MetaData, Vec<u8>)> {
+        let empty = Vec::new();
+        let list = self.0.get(&pubkey).unwrap_or(&empty);
+        let mut result = Vec::new();
+        for (meta_data, data) in list.iter() {
+            if meta_data.timestamp > timestamp {
+                result.push((meta_data.clone(), data.clone()));
+            }
+        }
+        result
+    }
 }
+
+//  let mut decrypted = Vec::new();
+//         let mut rejected = Vec::new();
+//         for (uuid, encrypted) in list.iter() {
+//             if exceptions.contains(uuid) {
+//                 continue;
+//             }
+//             match DepositData::decrypt(encrypted, key) {
+//                 std::result::Result::Ok(data) => decrypted.push((*uuid, data)),
+//                 Err(e) => {
+//                     log::error!("failed to decrypt deposit data: {}", e);
+//                     rejected.push(*uuid);
+//                 }
+//             }
+//         }
