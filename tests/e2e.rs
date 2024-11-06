@@ -30,7 +30,7 @@ fn e2e_test() {
     let balance_processor = BalanceProcessor::new(validity_prover.validity_circuit());
     let mut store_vault_server = StoreVaultServer::<F, C, D>::new();
     let mut block_builder = BlockBuilder::new();
-    let client = Client;
+    let client = Client::new(0, 0);
 
     log::info!("set up done");
 

@@ -46,7 +46,10 @@ use plonky2::{
     },
 };
 
-pub struct Client;
+pub struct Client {
+    pub deposit_timeout: u64,
+    pub tx_timeout: u64,
+}
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum SyncStatus {
@@ -56,6 +59,13 @@ pub enum SyncStatus {
 }
 
 impl Client {
+    pub fn new(deposit_timeout: u64, tx_timeout: u64) -> Self {
+        Self {
+            deposit_timeout,
+            tx_timeout,
+        }
+    }
+
     pub fn deposit<F, C, const D: usize>(
         &self,
         key: KeySet,
@@ -100,8 +110,6 @@ impl Client {
         validity_prover: &BlockValidityProver<F, C, D>,
         balance_processor: &BalanceProcessor<F, C, D>,
         transfers: Vec<Transfer>,
-        deposit_timeout: u64,
-        tx_timeout: u64,
     ) -> anyhow::Result<()>
     where
         F: RichField + Extendable<D>,
@@ -116,15 +124,8 @@ impl Client {
         );
 
         // sync balance proof
-        self.sync(
-            key,
-            store_vault_server,
-            validity_prover,
-            balance_processor,
-            deposit_timeout,
-            tx_timeout,
-        )
-        .map_err(|e| anyhow::anyhow!("failed to sync balance proof: {}", e))?;
+        self.sync(key, store_vault_server, validity_prover, balance_processor)
+            .map_err(|e| anyhow::anyhow!("failed to sync balance proof: {}", e))?;
 
         let user_data = self
             .get_user_data(key, store_vault_server)
@@ -249,8 +250,6 @@ impl Client {
         store_vault_server: &mut StoreVaultServer<F, C, D>,
         validity_prover: &BlockValidityProver<F, C, D>,
         balance_processor: &BalanceProcessor<F, C, D>,
-        deposit_timeout: u64,
-        tx_timeout: u64,
     ) -> anyhow::Result<()>
     where
         F: RichField + Extendable<D>,
@@ -259,14 +258,8 @@ impl Client {
     {
         let mut sync_status = SyncStatus::Continue;
         while sync_status == SyncStatus::Continue {
-            sync_status = self.sync_single(
-                key,
-                store_vault_server,
-                validity_prover,
-                balance_processor,
-                deposit_timeout,
-                tx_timeout,
-            )?;
+            sync_status =
+                self.sync_single(key, store_vault_server, validity_prover, balance_processor)?;
         }
         if sync_status == SyncStatus::Pending {
             todo!("handle pending actions")
@@ -280,8 +273,6 @@ impl Client {
         store_vault_server: &mut StoreVaultServer<F, C, D>,
         validity_prover: &BlockValidityProver<F, C, D>,
         balance_processor: &BalanceProcessor<F, C, D>,
-        deposit_timeout: u64,
-        tx_timeout: u64,
     ) -> anyhow::Result<SyncStatus>
     where
         F: RichField + Extendable<D>,
@@ -292,8 +283,8 @@ impl Client {
             store_vault_server,
             validity_prover,
             key,
-            deposit_timeout,
-            tx_timeout,
+            self.deposit_timeout,
+            self.tx_timeout,
         )?;
 
         // if there are pending actions, return pending
@@ -355,7 +346,6 @@ impl Client {
         withdrawal_aggregator: &mut WithdrawalAggregator<F, C, D>,
         validity_prover: &BlockValidityProver<F, C, D>,
         balance_processor: &BalanceProcessor<F, C, D>,
-        tx_timeout: u64,
     ) -> anyhow::Result<()>
     where
         F: RichField + Extendable<D>,
@@ -369,7 +359,7 @@ impl Client {
             validity_prover,
             key,
             user_data.withdrawal_lpt,
-            tx_timeout,
+            self.tx_timeout,
         )?;
         if withdrawal_info.pending.len() > 0 {
             todo!("handle pending withdrawals")
@@ -429,6 +419,7 @@ impl Client {
 
         // update user data
         user_data.block_number = meta.block_number.unwrap();
+        user_data.deposit_lpt = meta.timestamp;
 
         // save proof and user data
         store_vault_server.save_balance_proof(key.pubkey, new_balance_proof);
@@ -488,6 +479,7 @@ impl Client {
 
         // update user data
         user_data.block_number = meta.block_number.unwrap();
+        user_data.transfer_lpt = meta.timestamp;
 
         // save proof and user data
         store_vault_server.save_balance_proof(key.pubkey, new_balance_proof);
@@ -528,6 +520,7 @@ impl Client {
 
         // update user data
         user_data.block_number = meta.block_number.unwrap();
+        user_data.tx_lpt = meta.timestamp;
         tx_data
             .spent_witness
             .update_private_state(&mut user_data.full_private_state)?;
@@ -596,6 +589,7 @@ impl Client {
 
         // update user data
         user_data.block_number = meta.block_number.unwrap();
+        user_data.withdrawal_lpt = meta.timestamp;
 
         // save user data
         store_vault_server.save_user_data(key.pubkey, user_data.encrypt(key.pubkey));
