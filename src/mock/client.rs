@@ -664,54 +664,7 @@ impl Client {
         Ok(strategy)
     }
 
-    fn get_withdrawal_data<F, C, const D: usize>(
-        &self,
-        store_vault_server: &mut StoreVaultServer<F, C, D>,
-        sync_validity_prover: &BlockValidityProver<F, C, D>,
-        key: KeySet,
-    ) -> anyhow::Result<Vec<(MetaData, TransferData<F, C, D>)>>
-    where
-        F: RichField + Extendable<D>,
-        C: GenericConfig<D, F = F> + 'static,
-        <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
-    {
-        // get user data from the data store server
-        let mut user_data = store_vault_server
-            .get_user_data(key)
-            .map_err(|e| anyhow::anyhow!("failed to get user data: {}", e))?
-            .unwrap_or(UserData::new(key.pubkey));
-
-        // get transition data from the data store server
-        let except_withdrawals = user_data.withdrawal_exception_uudis();
-        let (withdrawal_data_, rejected_withdrawals) = store_vault_server
-            .get_withdrawal_data(key, except_withdrawals)
-            .map_err(|e| anyhow::anyhow!("failed to get transition data: {}", e))?;
-        // add rejected data to user data
-
-        user_data
-            .rejected_withdrawal_uuids
-            .extend(&rejected_withdrawals);
-        // save user data
-        store_vault_server.save_user_data(key.pubkey, user_data);
-
-        // fetch block numbers for each data
-        let mut withdrawal_data = Vec::new();
-        for (uuid, data) in withdrawal_data_ {
-            let tx_tree_root = data.tx_data.tx_tree_root;
-            let block_numbers =
-                sync_validity_prover.get_block_numbers_by_tx_tree_root(tx_tree_root);
-            if block_numbers.len() == 0 {
-                log::warn!("Withdrawal transfer {} is not included in any block", uuid);
-                continue;
-            }
-            if block_numbers.len() > 1 {
-                todo!("The tx is included in multiple blocks");
-            }
-            let block_number = block_numbers[0];
-            withdrawal_data.push((MetaData { uuid, block_number }, data));
-        }
-        Ok(withdrawal_data)
-    }
+    
 
     pub fn get_user_data<F, C, const D: usize>(
         &self,

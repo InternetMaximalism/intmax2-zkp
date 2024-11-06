@@ -15,24 +15,7 @@ use super::{
     store_vault_server::StoreVaultServer,
 };
 
-#[derive(Debug, Clone)]
-pub enum Action<F, C, const D: usize>
-where
-    F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F>,
-{
-    Transfer(MetaData, TransferData<F, C, D>),
-    Tx(MetaData, TxData<F, C, D>),
-    Deposit(MetaData, DepositData),
-}
-
-#[derive(Debug, Clone)]
-pub enum RejectedAction {
-    Transfer(MetaData),
-    Tx(MetaData),
-    Deposit(MetaData),
-}
-
+// Return type of fetch_sync_info
 pub struct SyncInfo<F, C, const D: usize>
 where
     F: RichField + Extendable<D>,
@@ -41,6 +24,25 @@ where
     pub next_action: Option<Action<F, C, D>>,
     pub pending_actions: Vec<Action<F, C, D>>,
     pub rejected_actions: Vec<RejectedAction>,
+}
+
+// Next sync action
+#[derive(Debug, Clone)]
+pub enum Action<F, C, const D: usize>
+where
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+{
+    Deposit(MetaData, DepositData),            // Receive deposit
+    Transfer(MetaData, TransferData<F, C, D>), // Receive transfer
+    Tx(MetaData, TxData<F, C, D>),             // Send tx
+}
+
+#[derive(Debug, Clone)]
+pub enum RejectedAction {
+    Transfer(MetaData),
+    Tx(MetaData),
+    Deposit(MetaData),
 }
 
 // generate strategy of the balance proof update process
@@ -174,5 +176,78 @@ where
         next_action: None,
         pending_actions,
         rejected_actions,
+    })
+}
+
+#[derive(Debug, Clone)]
+pub struct WithdrawalInfo<F, C, const D: usize>
+where
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+{
+    pub withdrawals: Vec<(MetaData, TransferData<F, C, D>)>,
+    pub pending_withdrawals: Vec<(MetaData, TransferData<F, C, D>)>,
+    pub rejected_withdrawals: Vec<MetaData>,
+}
+
+pub fn fetch_withdrawals<F, C, const D: usize>(
+    store_vault_server: &mut StoreVaultServer<F, C, D>,
+    sync_validity_prover: &BlockValidityProver<F, C, D>,
+    key: KeySet,
+    tx_timeout: u64,
+) -> anyhow::Result<WithdrawalInfo<F, C, D>>
+where
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F> + 'static,
+    <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
+{
+    // get user data from the data store server
+    let user_data = store_vault_server
+        .get_user_data(key.pubkey)
+        .map(|encrypted| UserData::decrypt(&encrypted, key))
+        .transpose()
+        .map_err(|e| anyhow::anyhow!("failed to decrypt user data: {}", e))?
+        .unwrap_or(UserData::new(key.pubkey));
+
+    let mut withdrawals = Vec::new();
+    let mut pending_withdrawals = Vec::new();
+    let mut rejected_withdrawals = Vec::new();
+
+    let withdrawal_data_with_meta =
+        store_vault_server.get_all_withdrawal_data(key.pubkey, user_data.withdrawal_lpt);
+    for (meta, encrypted_data) in withdrawal_data_with_meta {
+        match TransferData::decrypt(&encrypted_data, key) {
+            Ok(transfer_data) => {
+                let tx_tree_root = transfer_data.tx_data.tx_tree_root;
+                let block_number =
+                    sync_validity_prover.get_block_number_by_tx_tree_root(tx_tree_root);
+                if let Some(block_number) = block_number {
+                    // set block number
+                    let mut meta = meta;
+                    meta.block_number = Some(block_number);
+                    withdrawals.push((meta, transfer_data));
+                } else {
+                    if meta.timestamp + tx_timeout < chrono::Utc::now().timestamp() as u64 {
+                        // timeout
+                        log::error!("Withdrawal {} is timeouted", meta.uuid);
+                        rejected_withdrawals.push(meta);
+                    } else {
+                        // pending
+                        log::info!("Withdrawal {} is pending", meta.uuid);
+                        pending_withdrawals.push((meta, transfer_data));
+                    }
+                }
+            }
+            Err(e) => {
+                log::error!("failed to decrypt withdrawal data: {}", e);
+                rejected_withdrawals.push(meta);
+            }
+        }
+    }
+
+    Ok(WithdrawalInfo {
+        withdrawals,
+        pending_withdrawals,
+        rejected_withdrawals,
     })
 }
