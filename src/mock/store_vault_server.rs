@@ -98,35 +98,55 @@ where
         self.encrypted_deposit_data.insert(pubkey, encypted_data);
     }
 
-    pub fn get_deposit_data(&self, pubkey: U256, timestamp: u64) -> Vec<(MetaData, Vec<u8>)> {
+    pub fn get_deposit_data_all_after(
+        &self,
+        pubkey: U256,
+        timestamp: u64,
+    ) -> Vec<(MetaData, Vec<u8>)> {
         self.encrypted_deposit_data.get_all_after(pubkey, timestamp)
+    }
+
+    pub fn get_deposit_data(&self, uuid: &str) -> Option<(MetaData, Vec<u8>)> {
+        self.encrypted_deposit_data.get(uuid)
     }
 
     pub fn save_transfer_data(&mut self, pubkey: U256, encypted_data: Vec<u8>) {
         self.encrypted_tranfer_data.insert(pubkey, encypted_data);
     }
 
-    pub fn get_next_transfer_data(
+    pub fn get_transfer_data(&self, uuid: &str) -> Option<(MetaData, Vec<u8>)> {
+        self.encrypted_tranfer_data.get(uuid)
+    }
+
+    pub fn get_transfer_data_all_after(
         &self,
         pubkey: U256,
         timestamp: u64,
-    ) -> Option<(MetaData, Vec<u8>)> {
-        self.encrypted_tranfer_data.get_next(pubkey, timestamp)
+    ) -> Vec<(MetaData, Vec<u8>)> {
+        self.encrypted_tranfer_data.get_all_after(pubkey, timestamp)
     }
 
     pub fn save_tx_data(&mut self, pubkey: U256, encypted_data: Vec<u8>) {
         self.encrypted_tx_data.insert(pubkey, encypted_data);
     }
 
-    pub fn get_next_tx_data(&self, pubkey: U256, timestamp: u64) -> Option<(MetaData, Vec<u8>)> {
-        self.encrypted_tx_data.get_next(pubkey, timestamp)
+    pub fn get_tx_data(&self, uuid: &str) -> Option<(MetaData, Vec<u8>)> {
+        self.encrypted_tx_data.get(uuid)
+    }
+
+    pub fn get_tx_data_all_after(&self, pubkey: U256, timestamp: u64) -> Vec<(MetaData, Vec<u8>)> {
+        self.encrypted_tx_data.get_all_after(pubkey, timestamp)
     }
 
     pub fn save_withdrawal_data(&mut self, pubkey: U256, encypted_data: Vec<u8>) {
         self.encrypted_withdrawal_data.insert(pubkey, encypted_data);
     }
 
-    pub fn get_all_withdrawal_data(
+    pub fn get_withdrawal_data(&self, uuid: &str) -> Option<(MetaData, Vec<u8>)> {
+        self.encrypted_withdrawal_data.get(uuid)
+    }
+
+    pub fn get_withdrawal_data_all_after(
         &self,
         pubkey: U256,
         timestamp: u64,
@@ -163,17 +183,6 @@ impl EncryptedDataMap {
             .push((meta_data, encrypted_data));
     }
 
-    pub fn get_next(&self, pubkey: U256, timestamp: u64) -> Option<(MetaData, Vec<u8>)> {
-        let empty = Vec::new();
-        let list = self.0.get(&pubkey).unwrap_or(&empty);
-        for (meta_data, data) in list.iter() {
-            if meta_data.timestamp > timestamp {
-                return Some((meta_data.clone(), data.clone()));
-            }
-        }
-        None
-    }
-
     pub fn get_all_after(&self, pubkey: U256, timestamp: u64) -> Vec<(MetaData, Vec<u8>)> {
         let empty = Vec::new();
         let list = self.0.get(&pubkey).unwrap_or(&empty);
@@ -188,19 +197,15 @@ impl EncryptedDataMap {
 
         result
     }
-}
 
-//  let mut decrypted = Vec::new();
-//         let mut rejected = Vec::new();
-//         for (uuid, encrypted) in list.iter() {
-//             if exceptions.contains(uuid) {
-//                 continue;
-//             }
-//             match DepositData::decrypt(encrypted, key) {
-//                 std::result::Result::Ok(data) => decrypted.push((*uuid, data)),
-//                 Err(e) => {
-//                     log::error!("failed to decrypt deposit data: {}", e);
-//                     rejected.push(*uuid);
-//                 }
-//             }
-//         }
+    pub fn get(&self, uuid: &str) -> Option<(MetaData, Vec<u8>)> {
+        for (_, list) in self.0.iter() {
+            for (meta_data, data) in list.iter() {
+                if meta_data.uuid == uuid {
+                    return Some((meta_data.clone(), data.clone()));
+                }
+            }
+        }
+        None
+    }
+}

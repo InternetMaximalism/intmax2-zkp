@@ -18,7 +18,8 @@ pub struct UserData {
     pub block_number: u32,
     pub full_private_state: FullPrivateState,
 
-    // last processed timestamps
+    // The latest unix timestamp of processed (incorporated into the balance proof or rejected)
+    // actions
     pub deposit_lpt: u64,
     pub transfer_lpt: u64,
     pub tx_lpt: u64,
@@ -31,7 +32,6 @@ struct UserDataPacked {
     block_number: u32,
     full_private_state: FullPrivateStatePacked,
 
-    // last processed timestamps
     pub deposit_lpt: u64,
     pub transfer_lpt: u64,
     pub tx_lpt: u64,

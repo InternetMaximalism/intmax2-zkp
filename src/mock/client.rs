@@ -30,7 +30,10 @@ use super::{
         transfer_data::TransferData, tx_data::TxData,
     },
     store_vault_server::StoreVaultServer,
-    sync_strategy::{fetch_sync_info, fetch_withdrawals, Action},
+    strategy::{
+        strategy::{determin_next_action, Action},
+        withdrawal::fetch_withdrawal_info,
+    },
     withdrawal_aggregator::WithdrawalAggregator,
 };
 use anyhow::ensure;
@@ -285,7 +288,7 @@ impl Client {
         C: GenericConfig<D, F = F> + 'static,
         <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
     {
-        let sync_info = fetch_sync_info(
+        let next_action = determin_next_action(
             store_vault_server,
             validity_prover,
             key,
@@ -293,15 +296,20 @@ impl Client {
             tx_timeout,
         )?;
 
-        if sync_info.next_action.is_none() {
-            if sync_info.pending_actions.is_empty() {
-                return Ok(SyncStatus::Complete);
-            } else {
-                return Ok(SyncStatus::Pending);
-            }
+        // if there are pending actions, return pending
+        // todo: process non-pending actions if possible
+        if next_action.pending_deposits.len() > 0
+            || next_action.pending_transfers.len() > 0
+            || next_action.pending_txs.len() > 0
+        {
+            return Ok(SyncStatus::Pending);
         }
 
-        match sync_info.next_action.unwrap() {
+        if next_action.action.is_none() {
+            return Ok(SyncStatus::Complete);
+        }
+
+        match next_action.action.unwrap() {
             Action::Deposit(meta, deposit_data) => {
                 self.sync_deposit(
                     store_vault_server,
@@ -354,9 +362,19 @@ impl Client {
         C: GenericConfig<D, F = F> + 'static,
         <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
     {
-        let withdrawal_data =
-            fetch_withdrawals(store_vault_server, validity_prover, key, tx_timeout)?;
-        for (meta, data) in &withdrawal_data.withdrawals {
+        let user_data = self.get_user_data(key, store_vault_server)?;
+
+        let withdrawal_info = fetch_withdrawal_info(
+            store_vault_server,
+            validity_prover,
+            key,
+            user_data.withdrawal_lpt,
+            tx_timeout,
+        )?;
+        if withdrawal_info.pending.len() > 0 {
+            todo!("handle pending withdrawals")
+        }
+        for (meta, data) in &withdrawal_info.settled {
             self.sync_withdrawal(
                 store_vault_server,
                 withdrawal_aggregator,

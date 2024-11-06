@@ -5,5 +5,5 @@ pub mod client;
 pub mod contract;
 pub mod data;
 pub mod store_vault_server;
-pub mod sync_strategy;
+pub mod strategy;
 pub mod withdrawal_aggregator;
