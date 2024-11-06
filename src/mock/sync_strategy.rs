@@ -46,7 +46,7 @@ pub enum RejectedAction {
 }
 
 // generate strategy of the balance proof update process
-fn fetch_sync_info<F, C, const D: usize>(
+pub fn fetch_sync_info<F, C, const D: usize>(
     store_vault_server: &StoreVaultServer<F, C, D>,
     sync_validity_prover: &BlockValidityProver<F, C, D>,
     key: KeySet,
@@ -140,6 +140,17 @@ where
                 rejected_actions.push(RejectedAction::Transfer(meta));
             }
         };
+    }
+
+    // If there is any pending incoming fund, it is not safe to proceed tx because
+    // the tx may be cause insufficient fund
+    // todo: proceed tx if the tx is not related to the pending fund
+    if !pending_actions.is_empty() {
+        return Ok(SyncInfo {
+            next_action: None,
+            pending_actions,
+            rejected_actions,
+        });
     }
 
     let tx_data_with_meta = store_vault_server.get_next_tx_data(key.pubkey, user_data.tx_lpt);

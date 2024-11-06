@@ -59,7 +59,7 @@ fn e2e_test() {
 
     // sync alice's balance proof to receive the deposit
     client
-        .sync_balance_proof(
+        .sync(
             alice_key,
             &mut store_vault_server,
             &validity_prover,
@@ -102,7 +102,7 @@ fn e2e_test() {
 
     // sync bob wallet to the latest block
     client
-        .sync_balance_proof(
+        .sync(
             bob_key,
             &mut store_vault_server,
             &validity_prover,

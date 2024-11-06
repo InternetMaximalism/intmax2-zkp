@@ -1,3 +1,5 @@
+use std::f128::consts::E;
+
 use crate::{
     circuits::balance::{
         balance_pis::BalancePublicInputs, balance_processor::BalanceProcessor,
@@ -30,6 +32,7 @@ use super::{
         transfer_data::TransferData, tx_data::TxData,
     },
     store_vault_server::StoreVaultServer,
+    sync_strategy::{fetch_sync_info, Action},
     withdrawal_aggregator::WithdrawalAggregator,
 };
 use anyhow::ensure;
@@ -43,6 +46,13 @@ use plonky2::{
 };
 
 pub struct Client;
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum SyncStatus {
+    Continue, // continue syncing
+    Complete, // sync completed
+    Pending,  // there are pending actions
+}
 
 impl Client {
     pub fn deposit<F, C, const D: usize>(
@@ -103,7 +113,7 @@ impl Client {
         );
 
         // sync balance proof
-        self.sync_balance_proof(key, store_vault_server, validity_prover, balance_processor)
+        self.sync(key, store_vault_server, validity_prover, balance_processor)
             .map_err(|e| anyhow::anyhow!("failed to sync balance proof: {}", e))?;
 
         let user_data = self
@@ -223,69 +233,104 @@ impl Client {
         Ok(())
     }
 
-    pub fn sync_balance_proof<F, C, const D: usize>(
+    pub fn sync<F, C, const D: usize>(
         &self,
         key: KeySet,
         store_vault_server: &mut StoreVaultServer<F, C, D>,
         validity_prover: &BlockValidityProver<F, C, D>,
         balance_processor: &BalanceProcessor<F, C, D>,
+        deposit_timeout: u64,
+        tx_timeout: u64,
     ) -> anyhow::Result<()>
     where
         F: RichField + Extendable<D>,
         C: GenericConfig<D, F = F> + 'static,
         <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
     {
-        let strategy = self
-            .generate_strategy(store_vault_server, validity_prover, key)
-            .map_err(|e| {
-                anyhow::anyhow!(
-                    "failed to generate strategy for balance proof update: {}",
-                    e
-                )
-            })?;
+        let mut sync_status = SyncStatus::Continue;
+        while sync_status == SyncStatus::Continue {
+            sync_status = self.sync_single(
+                key,
+                store_vault_server,
+                validity_prover,
+                balance_processor,
+                deposit_timeout,
+                tx_timeout,
+            )?;
+        }
+        if sync_status == SyncStatus::Pending {
+            todo!("handle pending actions")
+        }
+        Ok(())
+    }
 
-        for action in strategy.actions {
-            match action {
-                sync_strategy::Action::Transfer(i) => {
-                    let (meta, data) = &strategy.transfer_data[i];
-                    self.sync_transfer(
-                        store_vault_server,
-                        validity_prover,
-                        balance_processor,
-                        key,
-                        meta,
-                        data,
-                    )
-                    .map_err(|e| anyhow::anyhow!("failed to sync transfer: {}", e))?;
-                }
-                sync_strategy::Action::Tx(i) => {
-                    let (meta, data) = &strategy.tx_data[i];
-                    self.sync_tx(
-                        store_vault_server,
-                        validity_prover,
-                        balance_processor,
-                        key,
-                        meta,
-                        data,
-                    )
-                    .map_err(|e| anyhow::anyhow!("failed to sync tx: {}", e))?;
-                }
-                sync_strategy::Action::Deposit(i) => {
-                    let (meta, data) = &strategy.deposit_data[i];
-                    self.sync_deposit(
-                        store_vault_server,
-                        validity_prover,
-                        balance_processor,
-                        key,
-                        meta,
-                        data,
-                    )
-                    .map_err(|e| anyhow::anyhow!("failed to sync deposit: {}", e))?;
-                }
+    pub fn sync_single<F, C, const D: usize>(
+        &self,
+        key: KeySet,
+        store_vault_server: &mut StoreVaultServer<F, C, D>,
+        validity_prover: &BlockValidityProver<F, C, D>,
+        balance_processor: &BalanceProcessor<F, C, D>,
+        deposit_timeout: u64,
+        tx_timeout: u64,
+    ) -> anyhow::Result<SyncStatus>
+    where
+        F: RichField + Extendable<D>,
+        C: GenericConfig<D, F = F> + 'static,
+        <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
+    {
+        let sync_info = fetch_sync_info(
+            store_vault_server,
+            validity_prover,
+            key,
+            deposit_timeout,
+            tx_timeout,
+        )?;
+
+        if sync_info.next_action.is_none() {
+            if sync_info.pending_actions.is_empty() {
+                return Ok(SyncStatus::Complete);
+            } else {
+                return Ok(SyncStatus::Pending);
             }
         }
 
-        Ok(())
+        match sync_info.next_action.unwrap() {
+            Action::Deposit(meta, deposit_data) => {
+                self.sync_deposit(
+                    store_vault_server,
+                    validity_prover,
+                    balance_processor,
+                    key,
+                    &meta,
+                    &deposit_data,
+                )
+                .map_err(|e| anyhow::anyhow!("failed to sync deposit: {}", e))?;
+            }
+            Action::Transfer(meta, transfer_data) => {
+                self.sync_transfer(
+                    store_vault_server,
+                    validity_prover,
+                    balance_processor,
+                    key,
+                    &meta,
+                    &transfer_data,
+                )
+                .map_err(|e| anyhow::anyhow!("failed to sync transfer: {}", e))?;
+            }
+            Action::Tx(meta, tx_data) => {
+                self.sync_tx(
+                    store_vault_server,
+                    validity_prover,
+                    balance_processor,
+                    key,
+                    &meta,
+                    &tx_data,
+                )
+                .map_err(|e| anyhow::anyhow!("failed to sync tx: {}", e))?;
+            }
+        }
+
+        Ok(SyncStatus::Continue)
     }
 
     pub fn sync_withdrawals<F, C, const D: usize>(
@@ -581,90 +626,6 @@ impl Client {
 
         Ok(new_sender_balance_proof)
     }
-
-    // generate strategy of the balance proof update process
-    fn generate_strategy<F, C, const D: usize>(
-        &self,
-        store_vault_server: &mut StoreVaultServer<F, C, D>,
-        sync_validity_prover: &BlockValidityProver<F, C, D>,
-        key: KeySet,
-    ) -> anyhow::Result<Strategy<F, C, D>>
-    where
-        F: RichField + Extendable<D>,
-        C: GenericConfig<D, F = F> + 'static,
-        <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
-    {
-        // get user data from the data store server
-        let mut user_data = self.get_user_data(key, store_vault_server)?;
-
-        // get transition data from the data store server
-        let except_transfers = user_data.transfer_exception_uudis();
-        let except_txs = user_data.tx_exception_uudis();
-        let except_deposits = user_data.deposit_exception_uudis();
-        let transition_data = store_vault_server
-            .get_transition_data(key, except_deposits, except_transfers, except_txs)
-            .map_err(|e| anyhow::anyhow!("failed to get transition data: {}", e))?;
-        // add rejected data to user data
-        user_data
-            .rejected_deposit_uuids
-            .extend(transition_data.rejected_deposits);
-        user_data
-            .rejected_transfer_uuids
-            .extend(transition_data.rejected_transfers);
-        user_data
-            .rejected_processed_tx_uuids
-            .extend(transition_data.rejected_txs);
-        // save user data
-        store_vault_server.save_user_data(key.pubkey, user_data);
-
-        // fetch block numbers for each data
-        let mut deposit_data = Vec::new();
-        for (uuid, data) in transition_data.deposit_data {
-            if let Some((_deposit_index, block_number)) =
-                sync_validity_prover.get_deposit_index_and_block_number(data.deposit_hash())
-            {
-                deposit_data.push((MetaData { uuid, block_number }, data));
-            } else {
-                log::warn!("Deposit {} is not included in block tree", uuid);
-            }
-        }
-        let mut transfer_data = Vec::new();
-        for (uuid, data) in transition_data.transfer_data {
-            let tx_tree_root = data.tx_data.tx_tree_root;
-            let block_numbers =
-                sync_validity_prover.get_block_numbers_by_tx_tree_root(tx_tree_root);
-            if block_numbers.len() == 0 {
-                log::warn!("Transfer {} is not included in any block", uuid);
-                continue;
-            }
-            if block_numbers.len() > 1 {
-                todo!("The tx is included in multiple blocks");
-            }
-            let block_number = block_numbers[0];
-            transfer_data.push((MetaData { uuid, block_number }, data));
-        }
-        let mut tx_data = Vec::new();
-        for (uuid, data) in transition_data.tx_data {
-            let tx_tree_root = data.common.tx_tree_root;
-            let block_numbers =
-                sync_validity_prover.get_block_numbers_by_tx_tree_root(tx_tree_root);
-            if block_numbers.len() == 0 {
-                log::warn!("Tx {} is not included in any block", uuid);
-                continue;
-            }
-            if block_numbers.len() > 1 {
-                todo!("The tx is included in multiple blocks");
-            }
-            let block_number = block_numbers[0];
-            tx_data.push((MetaData { uuid, block_number }, data));
-        }
-
-        // generate strategy
-        let strategy = Strategy::generate(deposit_data, transfer_data, tx_data);
-        Ok(strategy)
-    }
-
-    
 
     pub fn get_user_data<F, C, const D: usize>(
         &self,
