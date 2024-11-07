@@ -26,10 +26,10 @@ use crate::{ethereum_types::u256::U256, utils::leafable::Leafable};
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct IndexedMerkleLeaf {
-    pub(crate) next_index: usize,
-    pub(crate) key: U256,
-    pub(crate) next_key: U256,
-    pub(crate) value: u64, // last block number for accout tree or just zero for nullifier
+    pub next_index: usize,
+    pub key: U256,
+    pub next_key: U256,
+    pub value: u64, // last block number for accout tree or just zero for nullifier
 }
 
 impl IndexedMerkleLeaf {
