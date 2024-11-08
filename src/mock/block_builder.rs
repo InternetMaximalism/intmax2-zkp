@@ -120,6 +120,10 @@ impl BlockBuilder {
             self.status == BlockBuilderStatus::AcceptingTxs,
             "not accepting txs"
         );
+        if self.is_registration_block.is_none() {
+            // if there is no tx request, it is a non-registration block
+            self.is_registration_block = Some(false);
+        }
 
         let mut sorted_txs = self.tx_requests.clone();
         sorted_txs.sort_by(|a, b| b.0.cmp(&a.0));
