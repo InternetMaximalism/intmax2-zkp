@@ -99,6 +99,10 @@ impl<V: Leafable> SparseMerkleProof<V> {
         let index_bits = usize_le_bits(index, height);
         self.0.verify(leaf_data, index_bits, merkle_root)
     }
+
+    pub fn from_siblings(siblings: Vec<<V::LeafableHasher as LeafableHasher>::HashOut>) -> Self {
+        Self(MerkleProof { siblings })
+    }
 }
 
 impl<V: Leafable> Serialize for SparseMerkleProof<V>
