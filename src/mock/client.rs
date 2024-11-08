@@ -226,7 +226,8 @@ impl Client {
         // get proposal
         let proposal = block_builder
             .query_proposal(key.pubkey)
-            .map_err(|e| anyhow::anyhow!("failed to query proposal: {}", e))?;
+            .map_err(|e| anyhow::anyhow!("failed to query proposal: {}", e))?
+            .ok_or_else(|| anyhow::anyhow!("proposal not found"))?;
 
         // verify proposal
         proposal
@@ -281,7 +282,7 @@ impl Client {
         // sign and post signature
         let signature = proposal.sign(key);
         block_builder.post_signature(signature)?;
-        
+
         Ok(())
     }
 

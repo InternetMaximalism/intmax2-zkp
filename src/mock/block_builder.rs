@@ -165,17 +165,17 @@ impl BlockBuilder {
     }
 
     // Query the constructed proposal by the user.
-    pub fn query_proposal(&self, pubkey: U256) -> anyhow::Result<BlockProposal> {
-        ensure!(
-            self.status == BlockBuilderStatus::Proposing,
-            "not proposing"
-        );
+    pub fn query_proposal(&self, pubkey: U256) -> anyhow::Result<Option<BlockProposal>> {
+        if self.status == BlockBuilderStatus::AcceptingTxs {
+            // not constructed yet
+            return Ok(None);
+        }
         let position = self
             .senders
             .get(&pubkey)
             .ok_or(anyhow::anyhow!("pubkey not found"))?;
         let proposal = &self.memo.as_ref().unwrap().proposals[*position];
-        Ok(proposal.clone())
+        Ok(Some(proposal.clone()))
     }
 
     // Post the signature by the user.
@@ -411,7 +411,7 @@ mod tests {
             block_builder.construct_block().unwrap();
 
             // query proposal and verify
-            let proposal = block_builder.query_proposal(user.pubkey).unwrap();
+            let proposal = block_builder.query_proposal(user.pubkey).unwrap().unwrap();
             proposal.verify(tx).unwrap(); // verify the proposal
             let signature = proposal.sign(user);
 
