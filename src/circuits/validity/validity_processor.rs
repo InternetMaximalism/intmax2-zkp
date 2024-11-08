@@ -3,6 +3,7 @@ use plonky2::{
     field::extension::Extendable,
     hash::hash_types::RichField,
     plonk::{
+        circuit_data::VerifierCircuitData,
         config::{AlgebraicHasher, GenericConfig},
         proof::ProofWithPublicInputs,
     },
@@ -86,5 +87,9 @@ where
             .dummy_transition_circuit
             .prove(&prev_pis, &validity_witness)?;
         self.validity_circuit.prove(&transition_proof, &prev_proof)
+    }
+
+    pub fn get_verifier_data(&self) -> VerifierCircuitData<F, C, D> {
+        self.validity_circuit.data.verifier_data()
     }
 }

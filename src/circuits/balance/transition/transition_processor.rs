@@ -80,7 +80,7 @@ where
 
     pub fn prove_send(
         &self,
-        validity_circuit: &ValidityCircuit<F, C, D>,
+        validity_vd: &VerifierCircuitData<F, C, D>,
         balance_circuit_vd: &VerifierOnlyCircuitData<C, D>,
         prev_balance_pis: &BalancePublicInputs,
         tx_witnes: &TxWitness,
@@ -90,7 +90,7 @@ where
         let sender_proof = self
             .sender_processor
             .prove_send(
-                validity_circuit,
+                validity_vd,
                 prev_balance_pis,
                 tx_witnes,
                 update_witness,

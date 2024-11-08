@@ -3,6 +3,7 @@ use plonky2::{
     field::extension::Extendable,
     hash::hash_types::RichField,
     plonk::{
+        circuit_data::VerifierCircuitData,
         config::{AlgebraicHasher, GenericConfig},
         proof::ProofWithPublicInputs,
     },
@@ -65,7 +66,7 @@ where
 
     fn prove_tx_inclusion(
         &self,
-        validity_circuit: &ValidityCircuit<F, C, D>,
+        validity_vd: &VerifierCircuitData<F, C, D>,
         prev_balance_pis: &BalancePublicInputs,
         tx_witnes: &TxWitness,
         update_witness: &UpdateWitness<F, C, D>,
@@ -83,7 +84,7 @@ where
         );
         let sender_merkle_proof = sender_tree.prove(tx_witnes.tx_index);
         let tx_inclusion_value = TxInclusionValue::new(
-            validity_circuit,
+            validity_vd,
             prev_balance_pis.pubkey,
             &prev_balance_pis.public_state,
             &update_witness.validity_proof,
@@ -103,7 +104,7 @@ where
 
     pub fn prove_send(
         &self,
-        validity_circuit: &ValidityCircuit<F, C, D>,
+        validity_vd: &VerifierCircuitData<F, C, D>,
         prev_balance_pis: &BalancePublicInputs,
         tx_witnes: &TxWitness,
         update_witness: &UpdateWitness<F, C, D>,
@@ -115,12 +116,8 @@ where
             "prev private commitment mismatch"
         );
         ensure!(spent_pis.tx == tx_witnes.tx, "tx mismatch");
-        let tx_inclusion_proof = self.prove_tx_inclusion(
-            validity_circuit,
-            prev_balance_pis,
-            tx_witnes,
-            update_witness,
-        )?;
+        let tx_inclusion_proof =
+            self.prove_tx_inclusion(validity_vd, prev_balance_pis, tx_witnes, update_witness)?;
         let sender_value = SenderValue::new(
             &self.spent_circuit,
             &self.tx_inclusion_circuit,

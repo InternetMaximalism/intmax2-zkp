@@ -231,7 +231,7 @@ where
     // prove tx send
     let balance_proof = balance_processor
         .prove_send(
-            validity_prover.validity_circuit(),
+            &validity_prover.validity_processor().get_verifier_data(),
             sender,
             &tx_witness,
             &update_witness,

@@ -59,7 +59,7 @@ where
 
     pub fn prove_send(
         &self,
-        validity_circuit: &ValidityCircuit<F, C, D>,
+        validity_vd: &VerifierCircuitData<F, C, D>,
         pubkey: U256,
         tx_witnes: &TxWitness,
         update_witness: &UpdateWitness<F, C, D>,
@@ -70,7 +70,7 @@ where
         let transition_proof = self
             .balance_transition_processor
             .prove_send(
-                validity_circuit,
+                validity_vd,
                 &self.get_verifier_only_data(),
                 &prev_balance_pis,
                 tx_witnes,
