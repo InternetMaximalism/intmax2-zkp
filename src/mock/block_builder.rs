@@ -19,6 +19,7 @@ use crate::{
 use anyhow::ensure;
 use ark_bn254::{Bn254, Fr, G1Affine, G2Affine};
 use ark_ec::{pairing::Pairing as _, AffineRepr as _};
+use hashbrown::HashMap;
 use num::BigUint;
 use plonky2::{
     field::extension::Extendable,
@@ -30,68 +31,97 @@ use plonky2_bn254::fields::recover::RecoverFromX as _;
 use super::{block_validity_prover::BlockValidityProver, contract::MockContract};
 
 pub struct BlockBuilder {
-    is_accepting_tx: bool,
+    status: BlockBuilderStatus,
 
-    // intermidiate data
-    is_registration_block: bool,
+    is_registration_block: Option<bool>,
+    senders: HashMap<U256, usize>, // pubkey -> tx request order
+    tx_requests: Vec<(U256, Tx)>,
+
+    memo: Option<ProposalMemo>,
+
+    signatures: Vec<UserSignature>,
+}
+
+#[derive(Debug, Clone)]
+struct ProposalMemo {
     tx_tree_root: Bytes32,
+    pubkeys: Vec<U256>, // padded pubkeys
     pubkey_hash: Bytes32,
-    sorted_txs: Vec<(U256, Tx)>,
+    proposals: Vec<BlockProposal>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+enum BlockBuilderStatus {
+    AcceptingTxs, // accepting tx requests
+    Proposing,    // after constructed the block, accepting signatures
 }
 
 impl BlockBuilder {
     pub fn new() -> Self {
         Self {
-            is_accepting_tx: true,
-            is_registration_block: false,
-            tx_tree_root: Bytes32::default(),
-            pubkey_hash: Bytes32::default(),
-            sorted_txs: Vec::new(),
+            status: BlockBuilderStatus::AcceptingTxs,
+            is_registration_block: None,
+            senders: HashMap::new(),
+            tx_requests: Vec::new(),
+            memo: None,
+            signatures: Vec::new(),
         }
     }
 
-    // Propose a block with the given transactions.
-    pub fn propose<F, C, const D: usize>(
+    // Send a tx request by the user.
+    pub fn send_tx_request<F, C, const D: usize>(
         &mut self,
-        contract: &mut MockContract,
-        sync_validity_prover: &BlockValidityProver<F, C, D>, // used to get the account id
-        is_registration_block: bool,
-        txs: Vec<(U256, Tx)>,
-    ) -> anyhow::Result<Vec<BlockProposal>>
+        validity_prover: &BlockValidityProver<F, C, D>, // used to get the account id
+        pubkey: U256,
+        tx: Tx,
+    ) -> anyhow::Result<()>
     where
         F: RichField + Extendable<D>,
         C: GenericConfig<D, F = F> + 'static,
         <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
     {
-        ensure!(self.is_accepting_tx, "not accepting txs");
         ensure!(
-            contract.get_next_block_number() == sync_validity_prover.block_number() + 1,
-            "sync validity prover is not up to date"
+            self.status == BlockBuilderStatus::AcceptingTxs,
+            "not accepting txs"
         );
-        ensure!(txs.len() <= NUM_SENDERS_IN_BLOCK, "too many txs");
+        ensure!(
+            self.tx_requests.len() < NUM_SENDERS_IN_BLOCK,
+            "too many txs"
+        );
+
         // duplication check
-        let mut seen = std::collections::HashSet::new();
-        for (pubkey, _) in txs.iter() {
-            ensure!(seen.insert(*pubkey), "duplicated pubkey in the txs");
-        }
+        ensure!(
+            self.senders
+                .insert(pubkey, self.tx_requests.len())
+                .is_none(),
+            "duplicated pubkey in the txs"
+        );
+
         // registration check
-        if is_registration_block {
-            for (pubkey, _) in txs.iter() {
-                let not_exists = sync_validity_prover.get_account_id(*pubkey).is_none();
-                ensure!(
-                    not_exists || pubkey.is_dummy_pubkey(),
-                    "account already exists"
-                );
-            }
+        let account_id = validity_prover.get_account_id(pubkey);
+        let is_registration_block = account_id.is_none();
+        if self.is_registration_block.is_none() {
+            self.is_registration_block = Some(is_registration_block);
         } else {
-            for (pubkey, _) in txs.iter() {
-                sync_validity_prover
-                    .get_account_id(*pubkey)
-                    .ok_or(anyhow::anyhow!("account not found"))?;
-            }
+            ensure!(
+                self.is_registration_block.unwrap() == is_registration_block,
+                "block type mismatch"
+            );
         }
 
-        let mut sorted_txs = txs.clone();
+        self.tx_requests.push((pubkey, tx));
+
+        Ok(())
+    }
+
+    // Construct a block with the given tx requests by the block builder.
+    pub fn construct_block(&mut self) -> anyhow::Result<()> {
+        ensure!(
+            self.status == BlockBuilderStatus::AcceptingTxs,
+            "not accepting txs"
+        );
+
+        let mut sorted_txs = self.tx_requests.clone();
         sorted_txs.sort_by(|a, b| b.0.cmp(&a.0));
         sorted_txs.resize(NUM_SENDERS_IN_BLOCK, (U256::dummy_pubkey(), Tx::default()));
 
@@ -99,13 +129,13 @@ impl BlockBuilder {
         let pubkey_hash = get_pubkey_hash(&pubkeys);
 
         let mut tx_tree = TxTree::new(TX_TREE_HEIGHT);
-        for tx in txs.iter() {
-            tx_tree.push(tx.1.clone());
+        for (_, tx) in sorted_txs.iter() {
+            tx_tree.push(tx.clone());
         }
         let tx_tree_root: Bytes32 = tx_tree.get_root().into();
 
         let mut proposals = Vec::new();
-        for (pubkey, _tx) in txs.iter() {
+        for (pubkey, _tx) in self.tx_requests.iter() {
             let tx_index = sorted_txs.iter().position(|(p, _)| p == pubkey).unwrap();
             let tx_merkle_proof = tx_tree.prove(tx_index);
             proposals.push(BlockProposal {
@@ -117,61 +147,88 @@ impl BlockBuilder {
             });
         }
 
-        self.is_accepting_tx = false;
-        self.is_registration_block = is_registration_block;
-        self.sorted_txs = sorted_txs;
-        self.tx_tree_root = tx_tree_root;
-        self.pubkey_hash = pubkey_hash;
+        let memo = ProposalMemo {
+            tx_tree_root,
+            pubkeys,
+            pubkey_hash,
+            proposals,
+        };
 
-        Ok(proposals)
+        self.status = BlockBuilderStatus::Proposing;
+        self.memo = Some(memo);
+
+        Ok(())
+    }
+
+    // Query the constructed proposal by the user.
+    pub fn query_proposal(&self, pubkey: U256) -> anyhow::Result<BlockProposal> {
+        ensure!(
+            self.status == BlockBuilderStatus::Proposing,
+            "not proposing"
+        );
+        let position = self
+            .senders
+            .get(&pubkey)
+            .ok_or(anyhow::anyhow!("pubkey not found"))?;
+        let proposal = &self.memo.as_ref().unwrap().proposals[*position];
+        Ok(proposal.clone())
+    }
+
+    // Post the signature by the user.
+    pub fn post_signature(&mut self, signature: UserSignature) -> anyhow::Result<()> {
+        ensure!(
+            self.status == BlockBuilderStatus::Proposing,
+            "not proposing"
+        );
+        self.senders
+            .get(&signature.pubkey)
+            .ok_or(anyhow::anyhow!("pubkey not found"))?;
+
+        let memo = self.memo.as_ref().unwrap();
+        signature
+            .verify(memo.tx_tree_root, memo.pubkey_hash)
+            .map_err(|e| {
+                anyhow::anyhow!("Invalid signature for pubkey {}: {}", signature.pubkey, e)
+            })?;
+        self.signatures.push(signature);
+        Ok(())
     }
 
     // Post the block with the given signatures.
     pub fn post_block<F, C, const D: usize>(
         &mut self,
         contract: &mut MockContract,
-        sync_validity_prover: &BlockValidityProver<F, C, D>, // used to get the account id
-        signatures: Vec<UserSignature>,
+        validity_prover: &BlockValidityProver<F, C, D>, // used to get the account id
     ) -> anyhow::Result<()>
     where
         F: RichField + Extendable<D>,
         C: GenericConfig<D, F = F> + 'static,
         <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
     {
-        ensure!(!self.is_accepting_tx, "not accepting txs");
-        let mut sender_with_signatures = self
-            .sorted_txs
+        ensure!(self.status == BlockBuilderStatus::Proposing);
+        let memo = self.memo.clone().unwrap();
+        let mut sender_with_signatures = memo
+            .pubkeys
             .iter()
-            .map(|(pubkey, _)| SenderWithSignature {
+            .map(|pubkey| SenderWithSignature {
                 sender: *pubkey,
                 signature: None,
             })
             .collect::<Vec<_>>();
 
-        for signature in signatures.iter() {
-            let tx_index = self
-                .sorted_txs
+        for signature in self.signatures.iter() {
+            let tx_index = memo
+                .pubkeys
                 .iter()
-                .position(|(pubkey, _)| pubkey == &signature.pubkey)
+                .position(|pubkey| pubkey == &signature.pubkey)
                 .ok_or(anyhow::anyhow!("pubkey not found"))?;
-            signature
-                .verify(self.tx_tree_root, self.pubkey_hash)
-                .map_err(|e| {
-                    anyhow::anyhow!("Invalid signature for pubkey {}: {}", signature.pubkey, e)
-                })?;
             sender_with_signatures[tx_index].signature = Some(signature.signature.clone());
         }
 
-        let pubkeys = sender_with_signatures
-            .iter()
-            .map(|s| s.sender)
-            .collect::<Vec<_>>();
-        let pubkey_hash = get_pubkey_hash(&pubkeys);
-
-        let account_ids = if self.is_registration_block {
+        let account_ids = if self.is_registration_block.unwrap() {
             // assertion
-            for pubkey in pubkeys.iter() {
-                let not_exists = sync_validity_prover.get_account_id(*pubkey).is_none();
+            for pubkey in memo.pubkeys.iter() {
+                let not_exists = validity_prover.get_account_id(*pubkey).is_none();
                 ensure!(
                     not_exists || pubkey.is_dummy_pubkey(),
                     "account already exists"
@@ -180,8 +237,8 @@ impl BlockBuilder {
             None
         } else {
             let mut account_ids = Vec::new();
-            for pubkey in pubkeys.iter() {
-                let account_id = sync_validity_prover
+            for pubkey in memo.pubkeys.iter() {
+                let account_id = validity_prover
                     .get_account_id(*pubkey)
                     .ok_or(anyhow::anyhow!("account not found"))?;
                 account_ids.push(account_id);
@@ -191,20 +248,21 @@ impl BlockBuilder {
         let account_id_hash = account_ids.map_or(Bytes32::default(), |ids| ids.hash());
 
         let signature = construct_signature(
-            self.tx_tree_root,
-            pubkey_hash,
+            memo.tx_tree_root,
+            memo.pubkey_hash,
             account_id_hash,
-            self.is_registration_block,
+            self.is_registration_block.unwrap(),
             &sender_with_signatures,
         );
 
-        if self.is_registration_block {
-            let trimmed_pubkeys = pubkeys
+        if self.is_registration_block.unwrap() {
+            let trimmed_pubkeys = memo
+                .pubkeys
                 .into_iter()
                 .filter(|pubkey| !pubkey.is_dummy_pubkey())
                 .collect::<Vec<_>>();
             contract.post_registration_block(
-                self.tx_tree_root,
+                memo.tx_tree_root,
                 signature.sender_flag,
                 signature.agg_pubkey,
                 signature.agg_signature,
@@ -213,22 +271,18 @@ impl BlockBuilder {
             )?;
         } else {
             contract.post_non_registration_block(
-                self.tx_tree_root,
+                memo.tx_tree_root,
                 signature.sender_flag,
                 signature.agg_pubkey,
                 signature.agg_signature,
                 signature.message_point,
-                pubkey_hash,
+                memo.pubkey_hash,
                 account_ids.unwrap().to_trimmed_bytes(),
             )?;
         }
 
         // reset
-        self.is_accepting_tx = true;
-        self.is_registration_block = false;
-        self.tx_tree_root = Bytes32::default();
-        self.pubkey_hash = Bytes32::default();
-        self.sorted_txs = Vec::new();
+        *self = Self::new();
 
         Ok(())
     }
@@ -236,17 +290,21 @@ impl BlockBuilder {
     pub fn post_empty_block<F, C, const D: usize>(
         &mut self,
         contract: &mut MockContract,
-        sync_validity_prover: &BlockValidityProver<F, C, D>, // used to get the account id
+        validity_prover: &BlockValidityProver<F, C, D>, // used to get the account id
     ) -> anyhow::Result<()>
     where
         F: RichField + Extendable<D>,
         C: GenericConfig<D, F = F> + 'static,
         <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
     {
-        self.propose(contract, sync_validity_prover, false, vec![])
-            .map_err(|e| anyhow::anyhow!("Failed to propose empty block: {}", e))?;
-        self.post_block(contract, sync_validity_prover, vec![])
-            .map_err(|e| anyhow::anyhow!("Failed to post empty block: {}", e))?;
+        ensure!(
+            self.status == BlockBuilderStatus::AcceptingTxs,
+            "Block builder is not accepting tx"
+        );
+        ensure!(self.tx_requests.is_empty(), "Block builder has tx requests");
+        ensure!(self.signatures.is_empty(), "Block builder has signatures");
+        self.construct_block()?;
+        self.post_block(contract, validity_prover)?;
         Ok(())
     }
 }
@@ -332,29 +390,36 @@ mod tests {
     fn block_builder() {
         let mut rng = rand::thread_rng();
         let mut block_builder = BlockBuilder::new();
-        let mut sync_validity_prover = BlockValidityProver::<F, C, D>::new();
+        let mut validity_prover = BlockValidityProver::<F, C, D>::new();
         let mut contract = MockContract::new();
 
         let user = KeySet::rand(&mut rng);
 
-        for i in 0..3 {
+        for _ in 0..3 {
             let tx = Tx::rand(&mut rng);
 
-            let proposals = block_builder
-                .propose(
-                    &mut contract,
-                    &sync_validity_prover,
-                    i == 0, // Use registration block for the first tx
-                    vec![(user.pubkey, tx)],
-                )
+            // send tx request
+            block_builder
+                .send_tx_request(&validity_prover, user.pubkey, tx.clone())
                 .unwrap();
-            let proposal = &proposals[0]; // first tx
+
+            // Block builder constructs a block
+            block_builder.construct_block().unwrap();
+
+            // query proposal and verify
+            let proposal = block_builder.query_proposal(user.pubkey).unwrap();
             proposal.verify(tx).unwrap(); // verify the proposal
             let signature = proposal.sign(user);
+
+            // post signature
+            block_builder.post_signature(signature).unwrap();
+
+            // post block
             block_builder
-                .post_block(&mut contract, &sync_validity_prover, vec![signature])
+                .post_block(&mut contract, &validity_prover)
                 .unwrap();
-            sync_validity_prover.sync(&contract).unwrap();
+
+            validity_prover.sync(&contract).unwrap();
         }
     }
 }

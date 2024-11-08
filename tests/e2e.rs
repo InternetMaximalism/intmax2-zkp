@@ -84,17 +84,16 @@ fn e2e_test() {
         amount: 50.into(),
         salt: Salt::rand(&mut rng),
     };
-    client
-        .send_tx(
-            alice_key,
-            &mut contract,
-            &mut block_builder,
-            &mut store_vault_server,
-            &validity_prover,
-            &balance_processor,
-            vec![transfer_to_bob],
-        )
-        .unwrap();
+    send_transfers(
+        alice_key,
+        &client,
+        &mut contract,
+        &mut block_builder,
+        &mut store_vault_server,
+        &validity_prover,
+        &balance_processor,
+        vec![transfer_to_bob],
+    );
 
     // sync validity prover to the latest block
     validity_prover.sync(&contract).unwrap();
@@ -124,17 +123,16 @@ fn e2e_test() {
         amount: 10.into(),
         salt: Salt::rand(&mut rng),
     };
-    client
-        .send_tx(
-            bob_key,
-            &mut contract,
-            &mut block_builder,
-            &mut store_vault_server,
-            &validity_prover,
-            &balance_processor,
-            vec![withdrawal],
-        )
-        .unwrap();
+    send_transfers(
+        bob_key,
+        &client,
+        &mut contract,
+        &mut block_builder,
+        &mut store_vault_server,
+        &validity_prover,
+        &balance_processor,
+        vec![withdrawal],
+    );
 
     // sync validity prover to the latest block
     validity_prover.sync(&contract).unwrap();
@@ -155,6 +153,46 @@ fn e2e_test() {
     let (withdrawals, _withdrawal_wrap_proof) =
         withdrawal_aggregator.wrap(Address::rand(&mut rng)).unwrap();
     log::info!("withdrawals: {:?}", withdrawals);
+}
+
+fn send_transfers(
+    sender_key: KeySet,
+    client: &Client,
+    contract: &mut MockContract,
+    block_builder: &mut BlockBuilder,
+    store_vault_server: &mut StoreVaultServer<F, C, D>,
+    validity_prover: &BlockValidityProver<F, C, D>,
+    balance_processor: &BalanceProcessor<F, C, D>,
+    transfers: Vec<Transfer>,
+) {
+    let tx_request_memo = client
+        .send_tx_request(
+            sender_key,
+            block_builder,
+            store_vault_server,
+            validity_prover,
+            balance_processor,
+            transfers,
+        )
+        .unwrap();
+
+    // block builder construct block
+    block_builder.construct_block().unwrap();
+
+    // finalize tx
+    client
+        .finalize_tx(
+            sender_key,
+            block_builder,
+            store_vault_server,
+            &tx_request_memo,
+        )
+        .unwrap();
+
+    // block builder post block
+    block_builder
+        .post_block(contract, &validity_prover)
+        .unwrap();
 }
 
 fn print_balances(balances: &HashMap<usize, AssetLeaf>) {
