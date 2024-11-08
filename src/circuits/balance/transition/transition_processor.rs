@@ -126,13 +126,13 @@ where
 
     pub fn prove_update(
         &self,
-        validity_circuit: &ValidityCircuit<F, C, D>,
+        validity_vd: &VerifierCircuitData<F, C, D>,
         balance_circuit_vd: &VerifierOnlyCircuitData<C, D>,
         prev_balance_pis: &BalancePublicInputs,
         update_witness: &UpdateWitness<F, C, D>,
     ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
         let update_value = UpdateValue::new(
-            validity_circuit,
+            validity_vd,
             prev_balance_pis.pubkey,
             &update_witness.validity_proof,
             &prev_balance_pis.public_state,

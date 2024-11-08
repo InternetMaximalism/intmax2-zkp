@@ -8,7 +8,7 @@ use plonky2::{
     },
     plonk::{
         circuit_builder::CircuitBuilder,
-        circuit_data::{CircuitConfig, CircuitData},
+        circuit_data::{CircuitConfig, CircuitData, VerifierCircuitData},
         config::{AlgebraicHasher, GenericConfig},
         proof::{ProofWithPublicInputs, ProofWithPublicInputsTarget},
     },
@@ -126,15 +126,15 @@ where
     <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
 {
     pub fn new(
-        validity_circuit: &ValidityCircuit<F, C, D>,
+        validity_vd: &VerifierCircuitData<F, C, D>,
         pubkey: U256,
         validity_proof: &ProofWithPublicInputs<F, C, D>,
         prev_public_state: &PublicState,
         block_merkle_proof: &BlockHashMerkleProof,
         account_membership_proof: &AccountMembershipProof,
     ) -> anyhow::Result<Self> {
-        validity_circuit
-            .verify(validity_proof)
+        validity_vd
+            .verify(validity_proof.clone())
             .map_err(|e| anyhow::anyhow!("validity proof is invalid: {:?}", e))?;
         let validity_pis = ValidityPublicInputs::from_pis(&validity_proof.public_inputs);
         block_merkle_proof

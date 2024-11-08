@@ -87,7 +87,7 @@ where
 
     pub fn prove_update(
         &self,
-        validity_circuit: &ValidityCircuit<F, C, D>,
+        validity_vd: &VerifierCircuitData<F, C, D>,
         pubkey: U256,
         update_witness: &UpdateWitness<F, C, D>,
         prev_proof: &Option<ProofWithPublicInputs<F, C, D>>,
@@ -96,7 +96,7 @@ where
         let transition_proof = self
             .balance_transition_processor
             .prove_update(
-                validity_circuit,
+                validity_vd,
                 &self.get_verifier_only_data(),
                 &prev_balance_pis,
                 update_witness,

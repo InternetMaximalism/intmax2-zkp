@@ -286,7 +286,7 @@ where
     );
     let balance_proof = balance_processor
         .prove_update(
-            validity_prover.validity_circuit(),
+            &validity_prover.validity_processor().get_verifier_data(),
             pubkey,
             &update_witness,
             &prev_balance_proof,
