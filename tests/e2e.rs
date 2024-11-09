@@ -27,7 +27,7 @@ fn e2e_test() {
 
     let mut contract = MockContract::new();
     let mut validity_prover = BlockValidityProver::<F, C, D>::new();
-    let balance_processor = BalanceProcessor::new(validity_prover.validity_circuit());
+    let balance_processor = BalanceProcessor::new(&validity_prover.validity_vd());
     let mut store_vault_server = StoreVaultServer::<F, C, D>::new();
     let mut block_builder = BlockBuilder::new();
     let client = Client::new(0, 0);

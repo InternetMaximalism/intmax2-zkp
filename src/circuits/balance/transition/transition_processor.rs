@@ -10,22 +10,19 @@ use plonky2::{
 };
 
 use crate::{
-    circuits::{
-        balance::{
-            balance_circuit::common_data_for_balance_circuit,
-            balance_pis::BalancePublicInputs,
-            receive::{
-                receive_deposit_circuit::{ReceiveDepositCircuit, ReceiveDepositValue},
-                receive_targets::{
-                    private_state_transition::PrivateStateTransitionValue,
-                    transfer_inclusion::TransferInclusionValue,
-                },
-                receive_transfer_circuit::{ReceiveTransferCircuit, ReceiveTransferValue},
-                update_circuit::{UpdateCircuit, UpdateValue},
+    circuits::balance::{
+        balance_circuit::common_data_for_balance_circuit,
+        balance_pis::BalancePublicInputs,
+        receive::{
+            receive_deposit_circuit::{ReceiveDepositCircuit, ReceiveDepositValue},
+            receive_targets::{
+                private_state_transition::PrivateStateTransitionValue,
+                transfer_inclusion::TransferInclusionValue,
             },
-            send::sender_processor::SenderProcessor,
+            receive_transfer_circuit::{ReceiveTransferCircuit, ReceiveTransferValue},
+            update_circuit::{UpdateCircuit, UpdateValue},
         },
-        validity::validity_circuit::VerifierCircuitData,
+        send::sender_processor::SenderProcessor,
     },
     common::witness::{
         receive_deposit_witness::ReceiveDepositWitness,
@@ -57,17 +54,17 @@ where
     C: GenericConfig<D, F = F> + 'static,
     <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
 {
-    pub fn new(validity_circuit: &VerifierCircuitData<F, C, D>) -> Self {
+    pub fn new(validity_vd: &VerifierCircuitData<F, C, D>) -> Self {
         let balance_common_data = common_data_for_balance_circuit::<F, C, D>();
         let receive_transfer_circuit = ReceiveTransferCircuit::new(&balance_common_data);
         let receive_deposit_circuit = ReceiveDepositCircuit::new();
-        let update_circuit = UpdateCircuit::new(validity_circuit);
-        let sender_processor = SenderProcessor::new(validity_circuit);
+        let update_circuit = UpdateCircuit::new(validity_vd);
+        let sender_processor = SenderProcessor::new(validity_vd);
         let balance_transition_circuit = BalanceTransitionCircuit::new(
-            &receive_transfer_circuit,
-            &receive_deposit_circuit,
-            &update_circuit,
-            &sender_processor.sender_circuit,
+            &receive_transfer_circuit.data.verifier_data(),
+            &receive_deposit_circuit.data.verifier_data(),
+            &update_circuit.data.verifier_data(),
+            &sender_processor.sender_circuit.data.verifier_data(),
         );
         Self {
             receive_transfer_circuit,

@@ -6,6 +6,7 @@ use plonky2::{
     field::extension::Extendable,
     hash::hash_types::RichField,
     plonk::{
+        circuit_data::VerifierCircuitData,
         config::{AlgebraicHasher, GenericConfig},
         proof::ProofWithPublicInputs,
     },
@@ -13,8 +14,7 @@ use plonky2::{
 
 use crate::{
     circuits::validity::{
-        validity_circuit::VerifierCircuitData, validity_pis::ValidityPublicInputs,
-        validity_processor::ValidityProcessor,
+        validity_pis::ValidityPublicInputs, validity_processor::ValidityProcessor,
     },
     common::{
         block::Block,
@@ -264,7 +264,10 @@ where
             .get_or_init(|| ValidityProcessor::new())
     }
 
-    pub fn validity_circuit(&self) -> &VerifierCircuitData<F, C, D> {
-        &self.validity_processor().validity_circuit
+    pub fn validity_vd(&self) -> VerifierCircuitData<F, C, D> {
+        self.validity_processor()
+            .validity_circuit
+            .data
+            .verifier_data()
     }
 }

@@ -15,11 +15,8 @@ use plonky2::{
 };
 
 use crate::{
-    circuits::validity::{
-        validity_circuit::VerifierCircuitData,
-        validity_pis::{
-            ValidityPublicInputs, ValidityPublicInputsTarget, VALIDITY_PUBLIC_INPUTS_LEN,
-        },
+    circuits::validity::validity_pis::{
+        ValidityPublicInputs, ValidityPublicInputsTarget, VALIDITY_PUBLIC_INPUTS_LEN,
     },
     common::{
         public_state::{PublicState, PublicStateTarget, PUBLIC_STATE_LEN},
@@ -33,7 +30,7 @@ use crate::{
         u256::{U256Target, U256, U256_LEN},
         u32limb_trait::{U32LimbTargetTrait, U32LimbTrait},
     },
-    utils::dummy::DummyProof,
+    utils::{dummy::DummyProof, recursively_verifiable::add_proof_target_and_verify},
 };
 
 pub const UPDATE_PUBLIC_INPUTS_LEN: usize = U256_LEN + PUBLIC_STATE_LEN * 2;
@@ -175,7 +172,7 @@ pub struct UpdateTarget<const D: usize> {
 
 impl<const D: usize> UpdateTarget<D> {
     pub fn new<F: RichField + Extendable<D>, C: GenericConfig<D, F = F> + 'static>(
-        validity_circuit: &VerifierCircuitData<F, C, D>,
+        validity_vd: &VerifierCircuitData<F, C, D>,
         builder: &mut CircuitBuilder<F, D>,
         is_checked: bool,
     ) -> Self
@@ -185,7 +182,7 @@ impl<const D: usize> UpdateTarget<D> {
         let pubkey = U256Target::new(builder, is_checked);
         let block_merkle_proof = BlockHashMerkleProofTarget::new(builder, BLOCK_HASH_TREE_HEIGHT);
         let prev_public_state = PublicStateTarget::new(builder, is_checked);
-        let validity_proof = validity_circuit.add_proof_target_and_verify(builder);
+        let validity_proof = add_proof_target_and_verify(validity_vd, builder);
         let account_membership_proof =
             AccountMembershipProofTarget::new(builder, ACCOUNT_TREE_HEIGHT, is_checked);
         let validity_pis = ValidityPublicInputsTarget::from_slice(

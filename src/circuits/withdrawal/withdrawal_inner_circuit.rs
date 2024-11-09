@@ -19,8 +19,6 @@ use crate::{
     utils::recursively_verifiable::add_proof_target_and_verify,
 };
 
-use super::single_withdrawal_circuit::SingleWithdrawalCircuit;
-
 #[derive(Debug)]
 pub struct WithdrawalInnerCircuit<F, C, const D: usize>
 where

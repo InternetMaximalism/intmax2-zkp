@@ -11,7 +11,7 @@ use plonky2::{
 
 use crate::common::witness::validity_witness::ValidityWitness;
 
-use super::{validity_circuit::VerifierCircuitData, validity_pis::ValidityPublicInputs};
+use super::{validity_circuit::ValidityCircuit, validity_pis::ValidityPublicInputs};
 
 #[cfg(feature = "dummy_validity_proof")]
 use super::transition::dummy_wrapper::DummyTransitionWrapperCircuit;
@@ -29,7 +29,7 @@ where
     pub transition_processor: TransitionProcessor<F, C, D>,
     #[cfg(feature = "dummy_validity_proof")]
     pub dummy_transition_circuit: DummyTransitionWrapperCircuit<F, C, D>,
-    pub validity_circuit: VerifierCircuitData<F, C, D>,
+    pub validity_circuit: ValidityCircuit<F, C, D>,
 }
 
 impl<F, C, const D: usize> ValidityProcessor<F, C, D>
@@ -52,8 +52,7 @@ where
         #[cfg(feature = "dummy_validity_proof")]
         let dummy_transition_circuit = DummyTransitionWrapperCircuit::new();
         #[cfg(feature = "dummy_validity_proof")]
-        let validity_circuit =
-            VerifierCircuitData::new(&dummy_transition_circuit.data.verifier_data());
+        let validity_circuit = ValidityCircuit::new(&dummy_transition_circuit.data.verifier_data());
         Self {
             #[cfg(not(feature = "dummy_validity_proof"))]
             transition_processor,

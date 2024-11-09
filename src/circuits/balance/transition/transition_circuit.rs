@@ -9,7 +9,8 @@ use plonky2::{
     plonk::{
         circuit_builder::CircuitBuilder,
         circuit_data::{
-            CircuitConfig, CircuitData, VerifierCircuitTarget, VerifierOnlyCircuitData,
+            CircuitConfig, CircuitData, VerifierCircuitData, VerifierCircuitTarget,
+            VerifierOnlyCircuitData,
         },
         config::{AlgebraicHasher, GenericConfig},
         proof::{ProofWithPublicInputs, ProofWithPublicInputsTarget},
@@ -36,6 +37,7 @@ use crate::{
         conversion::ToU64,
         cyclic::conditionally_connect_vd,
         poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget},
+        recursively_verifiable::add_proof_target_and_conditionally_verify,
     },
 };
 
@@ -228,10 +230,10 @@ pub struct BalanceTransitionTarget<const D: usize> {
 
 impl<const D: usize> BalanceTransitionTarget<D> {
     pub fn new<F: RichField + Extendable<D>, C: GenericConfig<D, F = F> + 'static>(
-        receive_transfer_circuit: &ReceiveTransferCircuit<F, C, D>,
-        receive_deposit_circuit: &ReceiveDepositCircuit<F, C, D>,
-        update_circuit: &UpdateCircuit<F, C, D>,
-        sender_circuit: &SenderCircuit<F, C, D>,
+        receive_transfer_vd: &VerifierCircuitData<F, C, D>,
+        receive_deposit_vd: &VerifierCircuitData<F, C, D>,
+        update_vd: &VerifierCircuitData<F, C, D>,
+        sender_vd: &VerifierCircuitData<F, C, D>,
         config: &CircuitConfig,
         builder: &mut CircuitBuilder<F, D>,
     ) -> Self
@@ -253,8 +255,11 @@ impl<const D: usize> BalanceTransitionTarget<D> {
         let balance_circuit_vd = builder.add_virtual_verifier_data(config.fri_config.cap_height);
         let prev_balance_pis = BalancePublicInputsTarget::new(builder, false);
 
-        let receive_transfer_proof = receive_transfer_circuit
-            .add_proof_target_and_conditionally_verify(builder, circuit_flags[0]);
+        let receive_transfer_proof = add_proof_target_and_conditionally_verify(
+            receive_transfer_vd,
+            builder,
+            circuit_flags[0],
+        );
         let new_balance_pis0 = {
             let condition = circuit_flags[0];
             let pis = ReceiveTransferPublicInputsTarget::from_slice(
@@ -285,8 +290,11 @@ impl<const D: usize> BalanceTransitionTarget<D> {
                 ..prev_balance_pis.clone()
             }
         };
-        let receive_deposit_proof = receive_deposit_circuit
-            .add_proof_target_and_conditionally_verify(builder, circuit_flags[1]);
+        let receive_deposit_proof = add_proof_target_and_conditionally_verify(
+            receive_deposit_vd,
+            builder,
+            circuit_flags[1],
+        );
         let new_balance_pis1 = {
             let condition = circuit_flags[1];
             let pis =
@@ -310,7 +318,7 @@ impl<const D: usize> BalanceTransitionTarget<D> {
             }
         };
         let update_proof =
-            update_circuit.add_proof_target_and_conditionally_verify(builder, circuit_flags[2]);
+            add_proof_target_and_conditionally_verify(update_vd, builder, circuit_flags[2]);
         let new_balance_pis2 = {
             let condition = circuit_flags[2];
             let pis = UpdatePublicInputsTarget::from_slice(&update_proof.public_inputs);
@@ -325,7 +333,7 @@ impl<const D: usize> BalanceTransitionTarget<D> {
             }
         };
         let sender_proof =
-            sender_circuit.add_proof_target_and_conditionally_verify(builder, circuit_flags[3]);
+            add_proof_target_and_conditionally_verify(sender_vd, builder, circuit_flags[3]);
         let new_balance_pis3 = {
             let condition = circuit_flags[3];
             let pis = SenderPublicInputsTarget::from_slice(&sender_proof.public_inputs);
@@ -460,18 +468,18 @@ where
     C::Hasher: AlgebraicHasher<F>,
 {
     pub fn new(
-        receive_transfer_circuit: &ReceiveTransferCircuit<F, C, D>,
-        receive_deposit_circuit: &ReceiveDepositCircuit<F, C, D>,
-        update_circuit: &UpdateCircuit<F, C, D>,
-        sender_circuit: &SenderCircuit<F, C, D>,
+        receive_transfer_vd: &VerifierCircuitData<F, C, D>,
+        receive_deposit_vd: &VerifierCircuitData<F, C, D>,
+        update_vd: &VerifierCircuitData<F, C, D>,
+        sender_vd: &VerifierCircuitData<F, C, D>,
     ) -> Self {
         let config = CircuitConfig::standard_recursion_zk_config();
         let mut builder = CircuitBuilder::<F, D>::new(config.clone());
         let target = BalanceTransitionTarget::new::<F, C>(
-            receive_transfer_circuit,
-            receive_deposit_circuit,
-            update_circuit,
-            sender_circuit,
+            receive_transfer_vd,
+            receive_deposit_vd,
+            update_vd,
+            sender_vd,
             &config,
             &mut builder,
         );
