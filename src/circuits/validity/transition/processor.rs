@@ -48,9 +48,12 @@ where
         let account_registration_circuit = AccountRegistrationCircuit::new();
         let account_update_circuit = AccountUpdateCircuit::new();
         let transition_wrapper_circuit = TransitionWrapperCircuit::new(
-            &main_validation_processor.main_validation_circuit,
-            &account_registration_circuit,
-            &account_update_circuit,
+            &main_validation_processor
+                .main_validation_circuit
+                .data
+                .verifier_data(),
+            &account_registration_circuit.data.verifier_data(),
+            &account_update_circuit.data.verifier_data(),
         );
         Self {
             main_validation_processor,

@@ -10,7 +10,7 @@ use plonky2::{
 
 use crate::{
     circuits::{
-        balance::balance_pis::BalancePublicInputs, validity::validity_circuit::ValidityCircuit,
+        balance::balance_pis::BalancePublicInputs, validity::validity_circuit::VerifierCircuitData,
     },
     common::witness::{
         receive_deposit_witness::ReceiveDepositWitness,
@@ -39,7 +39,7 @@ where
     C: GenericConfig<D, F = F> + 'static,
     <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
 {
-    pub fn new(validity_circuit: &ValidityCircuit<F, C, D>) -> Self {
+    pub fn new(validity_circuit: &VerifierCircuitData<F, C, D>) -> Self {
         let balance_transition_processor = BalanceTransitionProcessor::new(validity_circuit);
         let balance_circuit =
             BalanceCircuit::new(&balance_transition_processor.balance_transition_circuit);

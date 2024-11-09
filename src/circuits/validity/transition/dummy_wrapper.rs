@@ -14,7 +14,6 @@ use plonky2::{
 use crate::{
     circuits::validity::validity_pis::{ValidityPublicInputs, ValidityPublicInputsTarget},
     common::witness::validity_witness::ValidityWitness,
-    utils::recursively_verifiable::RecursivelyVerifiable,
 };
 
 #[derive(Debug)]
@@ -86,16 +85,5 @@ where
         self.data
             .prove(pw)
             .map_err(|e| anyhow::anyhow!("Failed to prove: {}", e))
-    }
-}
-
-impl<F, C, const D: usize> RecursivelyVerifiable<F, C, D> for DummyTransitionWrapperCircuit<F, C, D>
-where
-    F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F> + 'static,
-    C::Hasher: AlgebraicHasher<F>,
-{
-    fn circuit_data(&self) -> &CircuitData<F, C, D> {
-        &self.data
     }
 }

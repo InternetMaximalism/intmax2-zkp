@@ -4,6 +4,7 @@ use plonky2::{
     iop::witness::Witness,
     plonk::{
         circuit_builder::CircuitBuilder,
+        circuit_data::VerifierCircuitData,
         config::{AlgebraicHasher, GenericConfig},
         proof::{ProofWithPublicInputs, ProofWithPublicInputsTarget},
     },
@@ -26,7 +27,7 @@ use crate::{
         conversion::ToU64,
         dummy::DummyProof,
         poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget},
-        recursively_verifiable::RecursivelyVerifiable,
+        recursively_verifiable::add_proof_target_and_conditionally_verify,
     },
 };
 
@@ -145,8 +146,8 @@ pub(crate) struct ValidityTransitionTarget<const D: usize> {
 
 impl<const D: usize> ValidityTransitionTarget<D> {
     pub(crate) fn new<F: RichField + Extendable<D>, C: GenericConfig<D, F = F> + 'static>(
-        account_registration_circuit: &AccountRegistrationCircuit<F, C, D>,
-        account_update_circuit: &AccountUpdateCircuit<F, C, D>,
+        account_registration_verifier_data: &VerifierCircuitData<F, C, D>,
+        account_update_verifier_data: &VerifierCircuitData<F, C, D>,
         builder: &mut CircuitBuilder<F, D>,
     ) -> Self
     where
@@ -163,8 +164,11 @@ impl<const D: usize> ValidityTransitionTarget<D> {
         // account registration
         let is_account_registration =
             builder.and(block_pis.is_registration_block, block_pis.is_valid);
-        let account_registration_proof = account_registration_circuit
-            .add_proof_target_and_conditionally_verify(builder, is_account_registration);
+        let account_registration_proof = add_proof_target_and_conditionally_verify(
+            account_registration_verifier_data,
+            builder,
+            is_account_registration,
+        );
         let account_registration_pis = AccountTransitionPublicInputsTarget::from_slice(
             &account_registration_proof.public_inputs,
         );
@@ -188,8 +192,11 @@ impl<const D: usize> ValidityTransitionTarget<D> {
         // account update
         let is_not_prev_registration_block = builder.not(block_pis.is_registration_block);
         let is_account_update = builder.and(is_not_prev_registration_block, block_pis.is_valid);
-        let account_update_proof = account_update_circuit
-            .add_proof_target_and_conditionally_verify(builder, is_account_update);
+        let account_update_proof = add_proof_target_and_conditionally_verify(
+            account_update_verifier_data,
+            builder,
+            is_account_update,
+        );
         let account_update_pis =
             AccountTransitionPublicInputsTarget::from_slice(&account_update_proof.public_inputs);
         account_update_pis

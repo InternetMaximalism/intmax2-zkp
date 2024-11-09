@@ -22,7 +22,6 @@ use crate::{
     utils::{
         dummy::DummyProof,
         poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget},
-        recursively_verifiable::RecursivelyVerifiable,
         trees::get_root::{get_merkle_root_from_leaves, get_merkle_root_from_leaves_circuit},
     },
 };
@@ -130,8 +129,11 @@ impl AccountUpdateTarget {
             sender_leaves.iter().zip(account_update_proofs.iter())
         {
             let prev_last_block_number = account_update_proof.prev_leaf.value;
-            let last_block_number =
-                builder.select(sender_leaf.did_return_sig, block_number, prev_last_block_number);
+            let last_block_number = builder.select(
+                sender_leaf.did_return_sig,
+                block_number,
+                prev_last_block_number,
+            );
             account_tree_root = account_update_proof.get_new_root::<F, C, D>(
                 builder,
                 sender_leaf.sender.clone(),
@@ -225,16 +227,6 @@ where
         let mut pw = PartialWitness::<F>::new();
         self.target.set_witness(&mut pw, value);
         self.data.prove(pw)
-    }
-}
-
-impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F> + 'static, const D: usize>
-    RecursivelyVerifiable<F, C, D> for AccountUpdateCircuit<F, C, D>
-where
-    <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
-{
-    fn circuit_data(&self) -> &CircuitData<F, C, D> {
-        &self.data
     }
 }
 

@@ -31,7 +31,6 @@ use crate::{
     utils::{
         conversion::ToU64,
         poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget, POSEIDON_HASH_OUT_LEN},
-        recursively_verifiable::RecursivelyVerifiable,
         trees::get_root::{get_merkle_root_from_leaves, get_merkle_root_from_leaves_circuit},
     },
 };
@@ -353,17 +352,6 @@ where
         let mut pw = PartialWitness::<F>::new();
         self.target.set_witness(&mut pw, value);
         self.data.prove(pw)
-    }
-}
-
-impl<F, C, const D: usize> RecursivelyVerifiable<F, C, D> for SpentCircuit<F, C, D>
-where
-    F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F> + 'static,
-    C::Hasher: AlgebraicHasher<F>,
-{
-    fn circuit_data(&self) -> &CircuitData<F, C, D> {
-        &self.data
     }
 }
 

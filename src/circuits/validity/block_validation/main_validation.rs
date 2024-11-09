@@ -13,7 +13,9 @@ use crate::{
         dummy::DummyProof,
         logic::BuilderLogic,
         poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget},
-        recursively_verifiable::RecursivelyVerifiable,
+        recursively_verifiable::{
+            add_proof_target_and_conditionally_verify, add_proof_target_and_verify,
+        },
     },
 };
 use plonky2::{
@@ -25,7 +27,7 @@ use plonky2::{
     },
     plonk::{
         circuit_builder::CircuitBuilder,
-        circuit_data::{CircuitConfig, CircuitData},
+        circuit_data::{CircuitConfig, CircuitData, VerifierCircuitData},
         config::{AlgebraicHasher, GenericConfig},
         proof::{ProofWithPublicInputs, ProofWithPublicInputsTarget},
     },
@@ -404,10 +406,10 @@ pub struct MainValidationTarget<const D: usize> {
 
 impl<const D: usize> MainValidationTarget<D> {
     pub fn new<F: RichField + Extendable<D>, C: GenericConfig<D, F = F> + 'static>(
-        account_inclusion_circuit: &AccountInclusionCircuit<F, C, D>,
-        account_exclusion_circuit: &AccountExclusionCircuit<F, C, D>,
-        format_validation_circuit: &FormatValidationCircuit<F, C, D>,
-        aggregation_circuit: &AggregationCircuit<F, C, D>,
+        account_inclusion_vd: &VerifierCircuitData<F, C, D>,
+        account_exclusion_vd: &VerifierCircuitData<F, C, D>,
+        format_validation_vd: &VerifierCircuitData<F, C, D>,
+        aggregation_vd: &VerifierCircuitData<F, C, D>,
         builder: &mut CircuitBuilder<F, D>,
     ) -> Self
     where
@@ -436,8 +438,11 @@ impl<const D: usize> MainValidationTarget<D> {
         block.signature_hash.connect(builder, signature_hash);
 
         // Account exclusion verification
-        let account_exclusion_proof = account_exclusion_circuit
-            .add_proof_target_and_conditionally_verify(builder, is_registration_block);
+        let account_exclusion_proof = add_proof_target_and_conditionally_verify(
+            account_exclusion_vd,
+            builder,
+            is_registration_block,
+        );
         let account_exclusion_pis =
             AccountExclusionPublicInputsTarget::from_slice(&account_exclusion_proof.public_inputs);
         account_exclusion_pis
@@ -453,8 +458,11 @@ impl<const D: usize> MainValidationTarget<D> {
         );
 
         // Account inclusion verification
-        let account_inclusion_proof = account_inclusion_circuit
-            .add_proof_target_and_conditionally_verify(builder, is_not_registration_block);
+        let account_inclusion_proof = add_proof_target_and_conditionally_verify(
+            account_inclusion_vd,
+            builder,
+            is_not_registration_block,
+        );
         let account_inclusion_pis =
             AccountInclusionPublicInputsTarget::from_slice(&account_inclusion_proof.public_inputs);
         account_inclusion_pis
@@ -475,8 +483,7 @@ impl<const D: usize> MainValidationTarget<D> {
         );
 
         // Format validation
-        let format_validation_proof =
-            format_validation_circuit.add_proof_target_and_verify(builder);
+        let format_validation_proof = add_proof_target_and_verify(format_validation_vd, builder);
         let format_validation_pis =
             FormatValidationPublicInputsTarget::from_slice(&format_validation_proof.public_inputs);
         format_validation_pis
@@ -489,7 +496,7 @@ impl<const D: usize> MainValidationTarget<D> {
 
         // Perform aggregation verification only if all the above processes are verified.
         let aggregation_proof =
-            aggregation_circuit.add_proof_target_and_conditionally_verify(builder, result);
+            add_proof_target_and_conditionally_verify(aggregation_vd, builder, result);
         let aggregation_pis =
             AggregationPublicInputsTarget::from_slice(&aggregation_proof.public_inputs);
         aggregation_pis
@@ -593,17 +600,17 @@ where
     C::Hasher: AlgebraicHasher<F>,
 {
     pub fn new(
-        account_inclusion_circuit: &AccountInclusionCircuit<F, C, D>,
-        account_exclusion_circuit: &AccountExclusionCircuit<F, C, D>,
-        format_validation_circuit: &FormatValidationCircuit<F, C, D>,
-        aggregation_circuit: &AggregationCircuit<F, C, D>,
+        account_inclusion_vd: &VerifierCircuitData<F, C, D>,
+        account_exclusion_vd: &VerifierCircuitData<F, C, D>,
+        format_validation_vd: &VerifierCircuitData<F, C, D>,
+        aggregation_vd: &VerifierCircuitData<F, C, D>,
     ) -> Self {
         let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::default());
         let target = MainValidationTarget::new::<F, C>(
-            account_inclusion_circuit,
-            account_exclusion_circuit,
-            format_validation_circuit,
-            aggregation_circuit,
+            account_inclusion_vd,
+            account_exclusion_vd,
+            format_validation_vd,
+            aggregation_vd,
             &mut builder,
         );
         let pis = MainValidationPublicInputsTarget {
@@ -639,15 +646,5 @@ where
             value,
         );
         self.data.prove(pw)
-    }
-}
-
-impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F> + 'static, const D: usize>
-    RecursivelyVerifiable<F, C, D> for MainValidationCircuit<F, C, D>
-where
-    <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
-{
-    fn circuit_data(&self) -> &CircuitData<F, C, D> {
-        &self.data
     }
 }

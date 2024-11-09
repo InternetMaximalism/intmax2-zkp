@@ -36,7 +36,6 @@ use crate::{
         conversion::ToU64,
         cyclic::conditionally_connect_vd,
         poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget},
-        recursively_verifiable::RecursivelyVerifiable,
     },
 };
 
@@ -512,16 +511,5 @@ where
         );
         pw.set_verifier_data_target(&self.balance_circuit_vd, &value.balance_circuit_vd);
         self.data.prove(pw)
-    }
-}
-
-impl<F, C, const D: usize> RecursivelyVerifiable<F, C, D> for BalanceTransitionCircuit<F, C, D>
-where
-    F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F> + 'static,
-    C::Hasher: AlgebraicHasher<F>,
-{
-    fn circuit_data(&self) -> &CircuitData<F, C, D> {
-        &self.data
     }
 }

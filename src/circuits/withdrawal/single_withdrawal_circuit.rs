@@ -15,7 +15,6 @@ use crate::{
         TransferInclusionTarget, TransferInclusionValue,
     },
     common::withdrawal::{get_withdrawal_nullifier_circuit, WithdrawalTarget},
-    utils::recursively_verifiable::RecursivelyVerifiable,
 };
 
 #[derive(Debug)]
@@ -24,7 +23,7 @@ where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
 {
-    data: CircuitData<F, C, D>,
+    pub data: CircuitData<F, C, D>,
     transfer_inclusion_target: TransferInclusionTarget<D>,
 }
 
@@ -70,15 +69,5 @@ where
 
     pub fn verify(&self, proof: &ProofWithPublicInputs<F, C, D>) -> anyhow::Result<()> {
         self.data.verify(proof.clone())
-    }
-}
-
-impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F> + 'static, const D: usize>
-    RecursivelyVerifiable<F, C, D> for SingleWithdrawalCircuit<F, C, D>
-where
-    <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
-{
-    fn circuit_data(&self) -> &CircuitData<F, C, D> {
-        &self.data
     }
 }

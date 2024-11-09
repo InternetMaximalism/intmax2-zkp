@@ -6,13 +6,13 @@ use plonky2::{
     iop::witness::{PartialWitness, WitnessWrite as _},
     plonk::{
         circuit_builder::CircuitBuilder,
-        circuit_data::{CircuitConfig, CircuitData},
+        circuit_data::{CircuitConfig, CircuitData, VerifierCircuitData},
         config::{AlgebraicHasher, GenericConfig},
         proof::{ProofWithPublicInputs, ProofWithPublicInputsTarget},
     },
 };
 
-use crate::utils::recursively_verifiable::RecursivelyVerifiable;
+use super::recursively_verifiable::add_proof_target_and_verify;
 
 pub struct WrapperCircuit<F, InnerC, OuterC, const D: usize>
 where
@@ -32,10 +32,13 @@ where
     InnerC: GenericConfig<D, F = F> + 'static,
     InnerC::Hasher: AlgebraicHasher<F>,
 {
-    pub fn new(inner_circuit: &impl RecursivelyVerifiable<F, InnerC, D>) -> Self {
+    pub fn new(
+        inner_circuit_verifier_data: &VerifierCircuitData<F, InnerC, D>,
+        pis_cut_off: Option<usize>,
+    ) -> Self {
         let mut builder = CircuitBuilder::new(CircuitConfig::default());
-        let wrap_proof = inner_circuit.add_proof_target_and_verify(&mut builder);
-        let pis = if let Some(cut_off) = inner_circuit.pis_cut_off() {
+        let wrap_proof = add_proof_target_and_verify(inner_circuit_verifier_data, &mut builder);
+        let pis = if let Some(cut_off) = pis_cut_off {
             wrap_proof.public_inputs[..cut_off].to_vec()
         } else {
             wrap_proof.public_inputs.to_vec()
@@ -56,19 +59,5 @@ where
         let mut pw = PartialWitness::new();
         pw.set_proof_with_pis_target(&self.wrap_proof, inner_proof);
         self.data.prove(pw)
-    }
-}
-
-impl<F, InnerC, OuterC, const D: usize> RecursivelyVerifiable<F, OuterC, D>
-    for WrapperCircuit<F, InnerC, OuterC, D>
-where
-    F: RichField + Extendable<D>,
-    OuterC: GenericConfig<D, F = F> + 'static,
-    OuterC::Hasher: AlgebraicHasher<F>,
-    InnerC: GenericConfig<D, F = F> + 'static,
-    InnerC::Hasher: AlgebraicHasher<F>,
-{
-    fn circuit_data(&self) -> &CircuitData<F, OuterC, D> {
-        &self.data
     }
 }

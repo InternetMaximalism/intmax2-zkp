@@ -6,7 +6,7 @@ use crate::{
     utils::{
         conversion::ToField,
         cyclic::{vd_from_pis_slice_target, vd_vec_len},
-        recursively_verifiable::RecursivelyVerifiable as _,
+        recursively_verifiable::add_proof_target_and_verify,
     },
 };
 use anyhow::Result;
@@ -20,7 +20,10 @@ use plonky2::{
     },
     plonk::{
         circuit_builder::CircuitBuilder,
-        circuit_data::{CircuitConfig, CircuitData, CommonCircuitData, VerifierCircuitTarget},
+        circuit_data::{
+            CircuitConfig, CircuitData, CommonCircuitData, VerifierCircuitData,
+            VerifierCircuitTarget,
+        },
         config::{AlgebraicHasher, GenericConfig},
         proof::{ProofWithPublicInputs, ProofWithPublicInputsTarget},
     },
@@ -31,9 +34,6 @@ use plonky2::{
 
 #[cfg(not(feature = "dummy_validity_proof"))]
 use super::transition::wrapper::TransitionWrapperCircuit;
-
-#[cfg(feature = "dummy_validity_proof")]
-use crate::circuits::validity::transition::dummy_wrapper::DummyTransitionWrapperCircuit;
 
 #[derive(Debug)]
 pub struct ValidityCircuit<F, C, const D: usize>
@@ -55,10 +55,16 @@ where
     C::Hasher: AlgebraicHasher<F>,
 {
     pub fn new(
-        #[cfg(not(feature = "dummy_validity_proof"))]
-        validity_wrap_circuit: &TransitionWrapperCircuit<F, C, D>,
-        #[cfg(feature = "dummy_validity_proof")]
-        dummy_validity_wrap_circuit: &DummyTransitionWrapperCircuit<F, C, D>,
+        #[cfg(not(feature = "dummy_validity_proof"))] validity_wrap_vd: &VerifierCircuitData<
+            F,
+            C,
+            D,
+        >,
+        #[cfg(feature = "dummy_validity_proof")] dummy_validity_wrap_vd: &VerifierCircuitData<
+            F,
+            C,
+            D,
+        >,
     ) -> Self {
         let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::default());
         let is_first_step = builder.add_virtual_bool_target_safe();
@@ -67,8 +73,7 @@ where
         #[cfg(not(feature = "dummy_validity_proof"))]
         let transition_proof = validity_wrap_circuit.add_proof_target_and_verify(&mut builder);
         #[cfg(feature = "dummy_validity_proof")]
-        let transition_proof =
-            dummy_validity_wrap_circuit.add_proof_target_and_verify(&mut builder);
+        let transition_proof = add_proof_target_and_verify(dummy_validity_wrap_vd, &mut builder);
 
         let prev_pis_ = ValidityPublicInputsTarget::from_slice(
             &transition_proof.public_inputs[0..VALIDITY_PUBLIC_INPUTS_LEN],
@@ -202,8 +207,8 @@ where
 //     type C = PoseidonGoldilocksConfig;
 //     const D: usize = 2;
 //     use crate::{
-//         mock::block_builder::MockBlockBuilder, utils::test_utils::tx::generate_random_tx_requests,
-//     };
+//         mock::block_builder::MockBlockBuilder,
+// utils::test_utils::tx::generate_random_tx_requests,     };
 //     use plonky2::{
 //         field::goldilocks_field::GoldilocksField, plonk::config::PoseidonGoldilocksConfig,
 //     };

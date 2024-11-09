@@ -16,7 +16,7 @@ use plonky2::{
 
 use crate::{
     circuits::validity::{
-        validity_circuit::ValidityCircuit,
+        validity_circuit::VerifierCircuitData,
         validity_pis::{
             ValidityPublicInputs, ValidityPublicInputsTarget, VALIDITY_PUBLIC_INPUTS_LEN,
         },
@@ -33,7 +33,7 @@ use crate::{
         u256::{U256Target, U256, U256_LEN},
         u32limb_trait::{U32LimbTargetTrait, U32LimbTrait},
     },
-    utils::{dummy::DummyProof, recursively_verifiable::RecursivelyVerifiable},
+    utils::dummy::DummyProof,
 };
 
 pub const UPDATE_PUBLIC_INPUTS_LEN: usize = U256_LEN + PUBLIC_STATE_LEN * 2;
@@ -175,7 +175,7 @@ pub struct UpdateTarget<const D: usize> {
 
 impl<const D: usize> UpdateTarget<D> {
     pub fn new<F: RichField + Extendable<D>, C: GenericConfig<D, F = F> + 'static>(
-        validity_circuit: &ValidityCircuit<F, C, D>,
+        validity_circuit: &VerifierCircuitData<F, C, D>,
         builder: &mut CircuitBuilder<F, D>,
         is_checked: bool,
     ) -> Self
@@ -256,7 +256,7 @@ where
     C: GenericConfig<D, F = F> + 'static,
     C::Hasher: AlgebraicHasher<F>,
 {
-    pub fn new(validity_circuit: &ValidityCircuit<F, C, D>) -> Self {
+    pub fn new(validity_circuit: &VerifierCircuitData<F, C, D>) -> Self {
         let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::default());
         let target = UpdateTarget::new::<F, C>(validity_circuit, &mut builder, true);
         let pis = UpdatePublicInputsTarget {
@@ -281,16 +281,5 @@ where
         let mut pw = PartialWitness::<F>::new();
         self.target.set_witness(&mut pw, value);
         self.data.prove(pw)
-    }
-}
-
-impl<F, C, const D: usize> RecursivelyVerifiable<F, C, D> for UpdateCircuit<F, C, D>
-where
-    F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F> + 'static,
-    C::Hasher: AlgebraicHasher<F>,
-{
-    fn circuit_data(&self) -> &CircuitData<F, C, D> {
-        &self.data
     }
 }

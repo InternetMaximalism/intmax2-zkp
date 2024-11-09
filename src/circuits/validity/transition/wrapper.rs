@@ -5,7 +5,7 @@ use plonky2::{
     iop::witness::{PartialWitness, WitnessWrite},
     plonk::{
         circuit_builder::CircuitBuilder,
-        circuit_data::{CircuitConfig, CircuitData},
+        circuit_data::{CircuitConfig, CircuitData, VerifierCircuitData},
         config::{AlgebraicHasher, GenericConfig},
         proof::{ProofWithPublicInputs, ProofWithPublicInputsTarget},
     },
@@ -13,21 +13,15 @@ use plonky2::{
 
 use crate::{
     circuits::validity::{
-        block_validation::main_validation::{
-            MainValidationCircuit, MainValidationPublicInputsTarget,
-        },
+        block_validation::main_validation::MainValidationPublicInputsTarget,
         validity_pis::{ValidityPublicInputs, ValidityPublicInputsTarget},
     },
     common::public_state::PublicStateTarget,
     ethereum_types::u32limb_trait::U32LimbTargetTrait,
-    utils::{dummy::DummyProof, recursively_verifiable::RecursivelyVerifiable},
+    utils::{dummy::DummyProof, recursively_verifiable::add_proof_target_and_verify},
 };
 
-use super::{
-    account_registration::AccountRegistrationCircuit,
-    account_update::AccountUpdateCircuit,
-    transition::{ValidityTransitionTarget, ValidityTransitionValue},
-};
+use super::transition::{ValidityTransitionTarget, ValidityTransitionValue};
 
 /// Circuit to prove the transition from old validity pis to new validity pis.
 #[derive(Debug)]
@@ -49,18 +43,18 @@ where
     C::Hasher: AlgebraicHasher<F>,
 {
     pub fn new(
-        main_validation_circut: &MainValidationCircuit<F, C, D>,
-        account_registration_circuit: &AccountRegistrationCircuit<F, C, D>,
-        account_update_circuit: &AccountUpdateCircuit<F, C, D>,
+        main_validation_vd: &VerifierCircuitData<F, C, D>,
+        account_registration_vd: &VerifierCircuitData<F, C, D>,
+        account_update_vd: &VerifierCircuitData<F, C, D>,
     ) -> Self {
         let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::default());
         let main_validation_proof =
-            main_validation_circut.add_proof_target_and_verify(&mut builder);
+            add_proof_target_and_verify(main_validation_vd, &mut builder);
         let block_pis =
             MainValidationPublicInputsTarget::from_slice(&main_validation_proof.public_inputs);
         let transition_target = ValidityTransitionTarget::new(
-            account_registration_circuit,
-            account_update_circuit,
+            account_registration_vd,
+            account_update_vd,
             &mut builder,
         );
         let prev_pis = ValidityPublicInputsTarget::new(&mut builder, false);
@@ -144,16 +138,5 @@ where
         self.prev_pis.set_witness(&mut pw, prev_pis);
         pw.set_proof_with_pis_target(&self.main_validation_proof, main_validation_proof);
         self.data.prove(pw)
-    }
-}
-
-impl<F, C, const D: usize> RecursivelyVerifiable<F, C, D> for TransitionWrapperCircuit<F, C, D>
-where
-    F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F> + 'static,
-    C::Hasher: AlgebraicHasher<F>,
-{
-    fn circuit_data(&self) -> &CircuitData<F, C, D> {
-        &self.data
     }
 }

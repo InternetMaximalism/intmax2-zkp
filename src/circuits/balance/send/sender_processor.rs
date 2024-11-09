@@ -10,10 +10,7 @@ use plonky2::{
 };
 
 use crate::{
-    circuits::{
-        balance::{balance_pis::BalancePublicInputs, send::spent_circuit::SpentPublicInputs},
-        validity::validity_circuit::ValidityCircuit,
-    },
+    circuits::balance::{balance_pis::BalancePublicInputs, send::spent_circuit::SpentPublicInputs},
     common::witness::{
         spent_witness::SpentWitness, tx_witness::TxWitness, update_witness::UpdateWitness,
     },
@@ -41,10 +38,13 @@ where
     C: GenericConfig<D, F = F> + 'static,
     <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
 {
-    pub fn new(validity_circuit: &ValidityCircuit<F, C, D>) -> Self {
+    pub fn new(validity_vd: &VerifierCircuitData<F, C, D>) -> Self {
         let spent_circuit = SpentCircuit::new();
-        let tx_inclusion_circuit = TxInclusionCircuit::new(validity_circuit);
-        let sender_circuit = SenderCircuit::new(&spent_circuit, &tx_inclusion_circuit);
+        let tx_inclusion_circuit = TxInclusionCircuit::new(validity_vd);
+        let sender_circuit = SenderCircuit::new(
+            &spent_circuit.data.verifier_data(),
+            &tx_inclusion_circuit.data.verifier_data(),
+        );
         Self {
             spent_circuit,
             tx_inclusion_circuit,

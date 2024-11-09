@@ -43,9 +43,12 @@ where
 {
     pub fn new(balance_common_data: &CommonCircuitData<F, D>) -> Self {
         let single_withdrawal_circuit = SingleWithdrawalCircuit::new(balance_common_data);
-        let withdrawal_inner_circuit = WithdrawalInnerCircuit::new(&single_withdrawal_circuit);
-        let withdrawal_circuit = WithdrawalCircuit::new(&withdrawal_inner_circuit);
-        let withdrawal_wrapper_circuit = WithdrawalWrapperCircuit::new(&withdrawal_circuit);
+        let withdrawal_inner_circuit =
+            WithdrawalInnerCircuit::new(&single_withdrawal_circuit.data.verifier_data());
+        let withdrawal_circuit =
+            WithdrawalCircuit::new(&withdrawal_inner_circuit.data.verifier_data());
+        let withdrawal_wrapper_circuit =
+            WithdrawalWrapperCircuit::new(&withdrawal_circuit.data.verifier_data());
         Self {
             single_withdrawal_circuit,
             withdrawal_inner_circuit,

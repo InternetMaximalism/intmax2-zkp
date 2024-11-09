@@ -25,7 +25,7 @@ use crate::{
             },
             send::sender_processor::SenderProcessor,
         },
-        validity::validity_circuit::ValidityCircuit,
+        validity::validity_circuit::VerifierCircuitData,
     },
     common::witness::{
         receive_deposit_witness::ReceiveDepositWitness,
@@ -57,7 +57,7 @@ where
     C: GenericConfig<D, F = F> + 'static,
     <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
 {
-    pub fn new(validity_circuit: &ValidityCircuit<F, C, D>) -> Self {
+    pub fn new(validity_circuit: &VerifierCircuitData<F, C, D>) -> Self {
         let balance_common_data = common_data_for_balance_circuit::<F, C, D>();
         let receive_transfer_circuit = ReceiveTransferCircuit::new(&balance_common_data);
         let receive_deposit_circuit = ReceiveDepositCircuit::new();

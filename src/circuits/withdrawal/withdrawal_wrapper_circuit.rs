@@ -7,7 +7,7 @@ use plonky2::{
     },
     plonk::{
         circuit_builder::CircuitBuilder,
-        circuit_data::{CircuitConfig, CircuitData},
+        circuit_data::{CircuitConfig, CircuitData, VerifierCircuitData},
         config::{AlgebraicHasher, GenericConfig},
         proof::{ProofWithPublicInputs, ProofWithPublicInputsTarget},
     },
@@ -21,10 +21,8 @@ use crate::{
         bytes32::{Bytes32, Bytes32Target, BYTES32_LEN},
         u32limb_trait::{U32LimbTargetTrait as _, U32LimbTrait},
     },
-    utils::recursively_verifiable::RecursivelyVerifiable,
+    utils::recursively_verifiable::add_proof_target_and_verify,
 };
-
-use super::withdrawal_circuit::WithdrawalCircuit;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -90,9 +88,9 @@ where
     C: GenericConfig<D, F = F> + 'static,
     C::Hasher: AlgebraicHasher<F>,
 {
-    pub fn new(withdrawal_circuit: &WithdrawalCircuit<F, C, D>) -> Self {
+    pub fn new(withdrawal_verifier_data: &VerifierCircuitData<F, C, D>) -> Self {
         let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::default());
-        let withdrawal_proof = withdrawal_circuit.add_proof_target_and_verify(&mut builder);
+        let withdrawal_proof = add_proof_target_and_verify(withdrawal_verifier_data, &mut builder);
         let last_withdrawal_hash =
             Bytes32Target::from_slice(&withdrawal_proof.public_inputs[0..BYTES32_LEN]);
         let withdrawal_aggregator = AddressTarget::new(&mut builder, true);
@@ -120,15 +118,5 @@ where
         self.withdrawal_aggregator
             .set_witness(&mut pw, withdrawal_aggregator);
         self.data.prove(pw)
-    }
-}
-
-impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F> + 'static, const D: usize>
-    RecursivelyVerifiable<F, C, D> for WithdrawalWrapperCircuit<F, C, D>
-where
-    <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
-{
-    fn circuit_data(&self) -> &CircuitData<F, C, D> {
-        &self.data
     }
 }

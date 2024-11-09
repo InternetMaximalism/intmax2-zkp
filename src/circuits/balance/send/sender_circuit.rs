@@ -9,7 +9,7 @@ use plonky2::{
     },
     plonk::{
         circuit_builder::CircuitBuilder,
-        circuit_data::{CircuitConfig, CircuitData},
+        circuit_data::{CircuitConfig, CircuitData, VerifierCircuitData},
         config::{AlgebraicHasher, GenericConfig},
         proof::{ProofWithPublicInputs, ProofWithPublicInputsTarget},
     },
@@ -30,7 +30,7 @@ use crate::{
         dummy::DummyProof,
         leafable::{Leafable as _, LeafableTarget},
         poseidon_hash_out::PoseidonHashOutTarget,
-        recursively_verifiable::RecursivelyVerifiable,
+        recursively_verifiable::add_proof_target_and_verify,
     },
 };
 
@@ -189,8 +189,8 @@ pub struct SenderTarget<const D: usize> {
 
 impl<const D: usize> SenderTarget<D> {
     pub fn new<F: RichField + Extendable<D>, C: GenericConfig<D, F = F> + 'static>(
-        spent_circuit: &SpentCircuit<F, C, D>,
-        tx_inclusion_circuit: &TxInclusionCircuit<F, C, D>,
+        spent_vd: &VerifierCircuitData<F, C, D>,
+        tx_inclusion_vd: &VerifierCircuitData<F, C, D>,
         builder: &mut CircuitBuilder<F, D>,
         is_checked: bool,
     ) -> Self
@@ -198,8 +198,8 @@ impl<const D: usize> SenderTarget<D> {
         C::Hasher: AlgebraicHasher<F>,
     {
         // verify proof
-        let spent_proof = spent_circuit.add_proof_target_and_verify(builder);
-        let tx_inclusion_proof = tx_inclusion_circuit.add_proof_target_and_verify(builder);
+        let spent_proof = add_proof_target_and_verify(spent_vd, builder);
+        let tx_inclusion_proof = add_proof_target_and_verify(tx_inclusion_vd, builder);
         let spent_pis = SpentPublicInputsTarget::from_slice(&spent_proof.public_inputs);
         let tx_inclusion_pis =
             TxInclusionPublicInputsTarget::from_slice(&tx_inclusion_proof.public_inputs);
@@ -288,13 +288,12 @@ where
     C::Hasher: AlgebraicHasher<F>,
 {
     pub fn new(
-        spent_circuit: &SpentCircuit<F, C, D>,
-        tx_inclusion_circuit: &TxInclusionCircuit<F, C, D>,
+        spent_vd: &VerifierCircuitData<F, C, D>,
+        tx_inclusion_vd: &VerifierCircuitData<F, C, D>,
     ) -> Self {
         let config = CircuitConfig::default();
         let mut builder = CircuitBuilder::<F, D>::new(config.clone());
-        let target =
-            SenderTarget::new::<F, C>(spent_circuit, tx_inclusion_circuit, &mut builder, true);
+        let target = SenderTarget::new::<F, C>(spent_vd, tx_inclusion_vd, &mut builder, true);
         let pis = SenderPublicInputsTarget {
             prev_balance_pis: target.prev_balance_pis.clone(),
             new_balance_pis: target.new_balance_pis.clone(),
@@ -319,16 +318,5 @@ where
         let mut pw = PartialWitness::<F>::new();
         self.target.set_witness(&mut pw, value);
         self.data.prove(pw)
-    }
-}
-
-impl<F, C, const D: usize> RecursivelyVerifiable<F, C, D> for SenderCircuit<F, C, D>
-where
-    F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F> + 'static,
-    C::Hasher: AlgebraicHasher<F>,
-{
-    fn circuit_data(&self) -> &CircuitData<F, C, D> {
-        &self.data
     }
 }

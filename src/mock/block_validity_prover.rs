@@ -13,7 +13,7 @@ use plonky2::{
 
 use crate::{
     circuits::validity::{
-        validity_circuit::ValidityCircuit, validity_pis::ValidityPublicInputs,
+        validity_circuit::VerifierCircuitData, validity_pis::ValidityPublicInputs,
         validity_processor::ValidityProcessor,
     },
     common::{
@@ -264,7 +264,7 @@ where
             .get_or_init(|| ValidityProcessor::new())
     }
 
-    pub fn validity_circuit(&self) -> &ValidityCircuit<F, C, D> {
+    pub fn validity_circuit(&self) -> &VerifierCircuitData<F, C, D> {
         &self.validity_processor().validity_circuit
     }
 }

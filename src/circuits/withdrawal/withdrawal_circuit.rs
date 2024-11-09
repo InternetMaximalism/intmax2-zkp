@@ -10,7 +10,10 @@ use plonky2::{
     },
     plonk::{
         circuit_builder::CircuitBuilder,
-        circuit_data::{CircuitConfig, CircuitData, CommonCircuitData, VerifierCircuitTarget},
+        circuit_data::{
+            CircuitConfig, CircuitData, CommonCircuitData, VerifierCircuitData,
+            VerifierCircuitTarget,
+        },
         config::{AlgebraicHasher, GenericConfig},
         proof::{ProofWithPublicInputs, ProofWithPublicInputsTarget},
     },
@@ -25,11 +28,9 @@ use crate::{
     },
     utils::{
         cyclic::{vd_from_pis_slice_target, vd_vec_len},
-        recursively_verifiable::RecursivelyVerifiable,
+        recursively_verifiable::add_proof_target_and_verify,
     },
 };
-
-use super::withdrawal_inner_circuit::WithdrawalInnerCircuit;
 
 #[derive(Debug)]
 pub struct WithdrawalCircuit<F, C, const D: usize>
@@ -50,12 +51,12 @@ where
     C: GenericConfig<D, F = F> + 'static,
     C::Hasher: AlgebraicHasher<F>,
 {
-    pub fn new(withdrawal_innser_circuit: &WithdrawalInnerCircuit<F, C, D>) -> Self {
+    pub fn new(withdrawal_inner_verifier_data: &VerifierCircuitData<F, C, D>) -> Self {
         let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::default());
         let is_first_step = builder.add_virtual_bool_target_safe();
         let is_not_first_step = builder.not(is_first_step);
         let withdrawal_inner_proof =
-            withdrawal_innser_circuit.add_proof_target_and_verify(&mut builder);
+            add_proof_target_and_verify(withdrawal_inner_verifier_data, &mut builder);
         let prev_withdrawal_hash =
             Bytes32Target::from_slice(&withdrawal_inner_proof.public_inputs[0..BYTES32_LEN]);
         let withdrawal_hash =

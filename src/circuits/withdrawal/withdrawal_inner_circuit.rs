@@ -4,7 +4,7 @@ use plonky2::{
     iop::witness::{PartialWitness, WitnessWrite},
     plonk::{
         circuit_builder::CircuitBuilder,
-        circuit_data::{CircuitConfig, CircuitData},
+        circuit_data::{CircuitConfig, CircuitData, VerifierCircuitData},
         config::{AlgebraicHasher, GenericConfig},
         proof::{ProofWithPublicInputs, ProofWithPublicInputsTarget},
     },
@@ -16,7 +16,7 @@ use crate::{
         bytes32::{Bytes32, Bytes32Target},
         u32limb_trait::U32LimbTargetTrait,
     },
-    utils::recursively_verifiable::RecursivelyVerifiable,
+    utils::recursively_verifiable::add_proof_target_and_verify,
 };
 
 use super::single_withdrawal_circuit::SingleWithdrawalCircuit;
@@ -27,7 +27,7 @@ where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
 {
-    data: CircuitData<F, C, D>,
+    pub data: CircuitData<F, C, D>,
     prev_withdral_hash: Bytes32Target,
     single_withdrawal_proof: ProofWithPublicInputsTarget<D>,
 }
@@ -38,10 +38,10 @@ where
     C: GenericConfig<D, F = F> + 'static,
     C::Hasher: AlgebraicHasher<F>,
 {
-    pub fn new(single_withdrawal_circuit: &SingleWithdrawalCircuit<F, C, D>) -> Self {
+    pub fn new(single_withdrawal_vd: &VerifierCircuitData<F, C, D>) -> Self {
         let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::default());
         let single_withdrawal_proof =
-            single_withdrawal_circuit.add_proof_target_and_verify(&mut builder);
+            add_proof_target_and_verify(single_withdrawal_vd, &mut builder);
         let withdrawal = WithdrawalTarget::from_slice(&single_withdrawal_proof.public_inputs);
         let prev_withdral_hash = Bytes32Target::new(&mut builder, false); // connect later
         let withdrawal_hash =
@@ -66,15 +66,5 @@ where
             .set_witness(&mut pw, prev_withdrawal_hash);
         pw.set_proof_with_pis_target(&self.single_withdrawal_proof, single_withdrawal_proof);
         self.data.prove(pw)
-    }
-}
-
-impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F> + 'static, const D: usize>
-    RecursivelyVerifiable<F, C, D> for WithdrawalInnerCircuit<F, C, D>
-where
-    <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
-{
-    fn circuit_data(&self) -> &CircuitData<F, C, D> {
-        &self.data
     }
 }

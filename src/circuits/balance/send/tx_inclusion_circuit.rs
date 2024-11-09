@@ -15,11 +15,8 @@ use plonky2::{
 };
 
 use crate::{
-    circuits::validity::{
-        validity_circuit::ValidityCircuit,
-        validity_pis::{
-            ValidityPublicInputs, ValidityPublicInputsTarget, VALIDITY_PUBLIC_INPUTS_LEN,
-        },
+    circuits::validity::validity_pis::{
+        ValidityPublicInputs, ValidityPublicInputsTarget, VALIDITY_PUBLIC_INPUTS_LEN,
     },
     common::{
         public_state::{PublicState, PublicStateTarget, PUBLIC_STATE_LEN},
@@ -41,7 +38,7 @@ use crate::{
     utils::{
         conversion::ToU64,
         poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget},
-        recursively_verifiable::RecursivelyVerifiable,
+        recursively_verifiable::add_proof_target_and_verify,
     },
 };
 
@@ -236,7 +233,7 @@ pub struct TxInclusionTarget<const D: usize> {
 
 impl<const D: usize> TxInclusionTarget<D> {
     pub fn new<F: RichField + Extendable<D>, C: GenericConfig<D, F = F> + 'static>(
-        validity_circuit: &ValidityCircuit<F, C, D>,
+        validity_vd: &VerifierCircuitData<F, C, D>,
         builder: &mut CircuitBuilder<F, D>,
         is_checked: bool,
     ) -> Self
@@ -254,7 +251,7 @@ impl<const D: usize> TxInclusionTarget<D> {
         let sender_leaf = SenderLeafTarget::new(builder, is_checked);
         let sender_merkle_proof = SenderMerkleProofTarget::new(builder, SENDER_TREE_HEIGHT);
 
-        let validity_proof = validity_circuit.add_proof_target_and_verify(builder);
+        let validity_proof = add_proof_target_and_verify(validity_vd, builder);
         let validity_pis = ValidityPublicInputsTarget::from_slice(
             &validity_proof.public_inputs[0..VALIDITY_PUBLIC_INPUTS_LEN],
         );
@@ -349,9 +346,9 @@ where
     C: GenericConfig<D, F = F> + 'static,
     C::Hasher: AlgebraicHasher<F>,
 {
-    pub fn new(validity_circuit: &ValidityCircuit<F, C, D>) -> Self {
+    pub fn new(validity_vd: &VerifierCircuitData<F, C, D>) -> Self {
         let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::default());
-        let target = TxInclusionTarget::new::<F, C>(validity_circuit, &mut builder, true);
+        let target = TxInclusionTarget::new::<F, C>(validity_vd, &mut builder, true);
         let pis = TxInclusionPublicInputsTarget {
             prev_public_state: target.prev_public_state.clone(),
             new_public_state: target.new_public_state.clone(),
@@ -371,17 +368,6 @@ where
         let mut pw = PartialWitness::<F>::new();
         self.target.set_witness(&mut pw, value);
         self.data.prove(pw)
-    }
-}
-
-impl<F, C, const D: usize> RecursivelyVerifiable<F, C, D> for TxInclusionCircuit<F, C, D>
-where
-    F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F> + 'static,
-    C::Hasher: AlgebraicHasher<F>,
-{
-    fn circuit_data(&self) -> &CircuitData<F, C, D> {
-        &self.data
     }
 }
 

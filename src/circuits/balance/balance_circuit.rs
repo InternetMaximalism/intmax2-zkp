@@ -37,14 +37,11 @@ use crate::{
         conversion::ToField as _,
         cyclic::vd_vec_len,
         poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget},
-        recursively_verifiable::RecursivelyVerifiable as _,
+        recursively_verifiable::add_proof_target_and_verify,
     },
 };
 
-use super::{
-    balance_pis::{BalancePublicInputs, BALANCE_PUBLIC_INPUTS_LEN},
-    transition::transition_circuit::BalanceTransitionCircuit,
-};
+use super::balance_pis::{BalancePublicInputs, BALANCE_PUBLIC_INPUTS_LEN};
 
 use crate::utils::cyclic::vd_from_pis_slice_target;
 
@@ -68,12 +65,13 @@ where
     C: GenericConfig<D, F = F> + 'static,
     C::Hasher: AlgebraicHasher<F>,
 {
-    pub fn new(balance_transition_circuit: &BalanceTransitionCircuit<F, C, D>) -> Self {
+    pub fn new(balance_transition_verifier_data: &VerifierCircuitData<F, C, D>) -> Self {
         let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::default());
         let is_first_step = builder.add_virtual_bool_target_safe();
         let is_not_first_step = builder.not(is_first_step);
 
-        let transition_proof = balance_transition_circuit.add_proof_target_and_verify(&mut builder);
+        let transition_proof =
+            add_proof_target_and_verify(balance_transition_verifier_data, &mut builder);
 
         let prev_pis_ = BalancePublicInputsTarget::from_slice(
             &transition_proof.public_inputs[0..BALANCE_PUBLIC_INPUTS_LEN],
@@ -84,7 +82,7 @@ where
         );
         let inner_balance_vd = vd_from_pis_slice_target(
             &transition_proof.public_inputs,
-            &balance_transition_circuit.data.common.config,
+            &balance_transition_verifier_data.common.config,
         )
         .expect("Failed to parse inner balance vd");
         builder.register_public_inputs(&new_pis.to_vec());

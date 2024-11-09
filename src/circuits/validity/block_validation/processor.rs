@@ -44,10 +44,10 @@ where
         let aggregation_circuit = AggregationCircuit::new();
         let format_validation_circuit = FormatValidationCircuit::new();
         let main_validation_circuit = MainValidationCircuit::new(
-            &account_inclusion_circuit,
-            &account_exclusion_circuit,
-            &format_validation_circuit,
-            &aggregation_circuit,
+            &account_inclusion_circuit.data.verifier_data(),
+            &account_exclusion_circuit.data.verifier_data(),
+            &format_validation_circuit.data.verifier_data(),
+            &aggregation_circuit.data.verifier_data(),
         );
 
         Self {
@@ -140,8 +140,8 @@ where
 
 //     use crate::{
 //         circuits::validity::block_validation::processor::MainValidationProcessor,
-//         mock::block_builder::MockBlockBuilder, utils::test_utils::tx::generate_random_tx_requests,
-//     };
+//         mock::block_builder::MockBlockBuilder,
+// utils::test_utils::tx::generate_random_tx_requests,     };
 
 //     type F = GoldilocksField;
 //     const D: usize = 2;
