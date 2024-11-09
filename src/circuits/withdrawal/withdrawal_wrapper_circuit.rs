@@ -21,7 +21,7 @@ use crate::{
         bytes32::{Bytes32, Bytes32Target, BYTES32_LEN},
         u32limb_trait::{U32LimbTargetTrait as _, U32LimbTrait},
     },
-    utils::recursively_verifiable::add_proof_target_and_verify,
+    utils::recursively_verifiable::add_proof_target_and_verify_cyclic,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -90,7 +90,8 @@ where
 {
     pub fn new(withdrawal_verifier_data: &VerifierCircuitData<F, C, D>) -> Self {
         let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::default());
-        let withdrawal_proof = add_proof_target_and_verify(withdrawal_verifier_data, &mut builder);
+        let withdrawal_proof =
+            add_proof_target_and_verify_cyclic(withdrawal_verifier_data, &mut builder);
         let last_withdrawal_hash =
             Bytes32Target::from_slice(&withdrawal_proof.public_inputs[0..BYTES32_LEN]);
         let withdrawal_aggregator = AddressTarget::new(&mut builder, true);

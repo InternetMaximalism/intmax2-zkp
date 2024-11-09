@@ -38,7 +38,7 @@ use crate::{
     utils::{
         conversion::ToU64,
         poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget},
-        recursively_verifiable::add_proof_target_and_verify,
+        recursively_verifiable::add_proof_target_and_verify_cyclic,
     },
 };
 
@@ -251,7 +251,7 @@ impl<const D: usize> TxInclusionTarget<D> {
         let sender_leaf = SenderLeafTarget::new(builder, is_checked);
         let sender_merkle_proof = SenderMerkleProofTarget::new(builder, SENDER_TREE_HEIGHT);
 
-        let validity_proof = add_proof_target_and_verify(validity_vd, builder);
+        let validity_proof = add_proof_target_and_verify_cyclic(validity_vd, builder);
         let validity_pis = ValidityPublicInputsTarget::from_slice(
             &validity_proof.public_inputs[0..VALIDITY_PUBLIC_INPUTS_LEN],
         );
