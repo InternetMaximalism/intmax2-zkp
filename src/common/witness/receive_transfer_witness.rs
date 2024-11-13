@@ -11,7 +11,7 @@ use super::{
     private_transition_witness::PrivateTransitionWitness, transfer_witness::TransferWitness,
 };
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[serde(bound = "")]
 pub struct ReceiveTransferWitness<F, C, const D: usize>
