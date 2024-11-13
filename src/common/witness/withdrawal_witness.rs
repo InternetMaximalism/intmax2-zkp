@@ -19,7 +19,7 @@ use crate::{
     utils::leafable::Leafable,
 };
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[serde(bound = "")]
 pub struct WithdrawalWitness<F, C, const D: usize>
