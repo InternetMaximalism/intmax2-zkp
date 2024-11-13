@@ -3,6 +3,7 @@ use ark_bn254::{Bn254, Fr, G1Affine, G2Affine};
 use ark_ec::{pairing::Pairing as _, AffineRepr as _};
 use num::BigUint;
 use plonky2_bn254::fields::recover::RecoverFromX;
+use serde::{Deserialize, Serialize};
 
 use crate::{
     common::signature::{
@@ -19,7 +20,8 @@ use super::{
 };
 
 // Information that block builder presents to the user
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct BlockProposal {
     pub tx_tree_root: Bytes32,
     pub tx_index: usize,
