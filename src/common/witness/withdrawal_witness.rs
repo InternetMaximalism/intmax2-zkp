@@ -7,6 +7,7 @@ use plonky2::{
         proof::ProofWithPublicInputs,
     },
 };
+use serde::{Deserialize, Serialize};
 
 use super::transfer_witness::TransferWitness;
 use crate::{
@@ -18,7 +19,9 @@ use crate::{
     utils::leafable::Leafable,
 };
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[serde(bound = "")]
 pub struct WithdrawalWitness<F, C, const D: usize>
 where
     F: RichField + Extendable<D>,

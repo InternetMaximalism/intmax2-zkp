@@ -4,6 +4,7 @@ use plonky2::{
     hash::hash_types::RichField,
     plonk::{config::GenericConfig, proof::ProofWithPublicInputs},
 };
+use serde::{Deserialize, Serialize};
 
 use crate::{
     circuits::validity::validity_pis::ValidityPublicInputs,
@@ -13,7 +14,9 @@ use crate::{
     },
 };
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[serde(bound = "")]
 pub struct UpdateWitness<F, C, const D: usize>
 where
     F: RichField + Extendable<D>,

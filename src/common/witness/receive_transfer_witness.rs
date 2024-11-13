@@ -3,6 +3,7 @@ use plonky2::{
     hash::hash_types::RichField,
     plonk::{config::GenericConfig, proof::ProofWithPublicInputs},
 };
+use serde::{Deserialize, Serialize};
 
 use crate::common::trees::block_hash_tree::BlockHashMerkleProof;
 
@@ -10,7 +11,9 @@ use super::{
     private_transition_witness::PrivateTransitionWitness, transfer_witness::TransferWitness,
 };
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[serde(bound = "")]
 pub struct ReceiveTransferWitness<F, C, const D: usize>
 where
     F: RichField + Extendable<D>,
