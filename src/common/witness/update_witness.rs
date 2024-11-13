@@ -14,7 +14,7 @@ use crate::{
     },
 };
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[serde(bound = "")]
 pub struct UpdateWitness<F, C, const D: usize>
