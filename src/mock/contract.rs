@@ -93,14 +93,16 @@ impl MockContract {
         message_point: FlatG2,
         sender_public_keys: Vec<U256>, // dummy pubkeys are trimmed
     ) -> anyhow::Result<()> {
-        ensure!(
-            pairing_check(
-                agg_pubkey.clone(),
-                agg_signature.clone(),
-                message_point.clone()
-            ),
-            "invalid signature"
-        );
+        if sender_flag != Bytes16::default() {
+            ensure!(
+                pairing_check(
+                    agg_pubkey.clone(),
+                    agg_signature.clone(),
+                    message_point.clone()
+                ),
+                "invalid signature"
+            );
+        }
         log::info!("post registration block");
         let mut padded_pubkeys = sender_public_keys.clone();
         padded_pubkeys.resize(NUM_SENDERS_IN_BLOCK, U256::dummy_pubkey());

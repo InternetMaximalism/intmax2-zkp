@@ -120,7 +120,7 @@ impl BlockBuilder {
             self.status == BlockBuilderStatus::AcceptingTxs,
             "not accepting txs"
         );
-        if self.is_registration_block.is_none() {
+        if self.tx_requests.is_empty() {
             // if there is no tx request, it is a non-registration block
             self.is_registration_block = Some(false);
         }
