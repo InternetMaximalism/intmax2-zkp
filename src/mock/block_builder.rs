@@ -285,8 +285,7 @@ impl BlockBuilder {
             )?;
         }
 
-        // reset
-        *self = Self::new();
+        self.reset();
 
         Ok(())
     }
@@ -310,6 +309,10 @@ impl BlockBuilder {
         self.construct_block()?;
         self.post_block(contract, validity_prover)?;
         Ok(())
+    }
+
+    pub fn reset(&mut self) {
+        *self = Self::new();
     }
 }
 
