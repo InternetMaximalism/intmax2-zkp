@@ -462,6 +462,7 @@ impl Client {
         // update user data
         user_data.block_number = meta.block_number.unwrap();
         user_data.deposit_lpt = meta.timestamp;
+        user_data.processed_deposit_uuids.push(meta.uuid.clone());
 
         // save proof and user data
         store_vault_server.save_balance_proof(key.pubkey, new_balance_proof);
@@ -522,6 +523,7 @@ impl Client {
         // update user data
         user_data.block_number = meta.block_number.unwrap();
         user_data.transfer_lpt = meta.timestamp;
+        user_data.processed_transfer_uuids.push(meta.uuid.clone());
 
         // save proof and user data
         store_vault_server.save_balance_proof(key.pubkey, new_balance_proof);
@@ -563,6 +565,7 @@ impl Client {
         // update user data
         user_data.block_number = meta.block_number.unwrap();
         user_data.tx_lpt = meta.timestamp;
+        user_data.processed_tx_uuids.push(meta.uuid.clone());
         tx_data
             .spent_witness
             .update_private_state(&mut user_data.full_private_state)?;
@@ -632,6 +635,7 @@ impl Client {
         // update user data
         user_data.block_number = meta.block_number.unwrap();
         user_data.withdrawal_lpt = meta.timestamp;
+        user_data.processed_withdrawal_uuids.push(meta.uuid.clone());
 
         // save user data
         store_vault_server.save_user_data(key.pubkey, user_data.encrypt(key.pubkey));

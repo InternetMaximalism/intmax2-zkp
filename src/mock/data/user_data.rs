@@ -24,6 +24,11 @@ pub struct UserData {
     pub transfer_lpt: u64,
     pub tx_lpt: u64,
     pub withdrawal_lpt: u64,
+
+    pub processed_deposit_uuids: Vec<String>,
+    pub processed_transfer_uuids: Vec<String>,
+    pub processed_tx_uuids: Vec<String>,
+    pub processed_withdrawal_uuids: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -36,6 +41,11 @@ struct UserDataPacked {
     pub transfer_lpt: u64,
     pub tx_lpt: u64,
     pub withdrawal_lpt: u64,
+
+    pub processed_deposit_uuids: Vec<String>,
+    pub processed_transfer_uuids: Vec<String>,
+    pub processed_tx_uuids: Vec<String>,
+    pub processed_withdrawal_uuids: Vec<String>,
 }
 
 impl UserData {
@@ -49,6 +59,11 @@ impl UserData {
             transfer_lpt: 0,
             tx_lpt: 0,
             withdrawal_lpt: 0,
+
+            processed_deposit_uuids: vec![],
+            processed_transfer_uuids: vec![],
+            processed_tx_uuids: vec![],
+            processed_withdrawal_uuids: vec![],
         }
     }
 
@@ -61,6 +76,10 @@ impl UserData {
             transfer_lpt: self.transfer_lpt,
             tx_lpt: self.tx_lpt,
             withdrawal_lpt: self.withdrawal_lpt,
+            processed_deposit_uuids: self.processed_deposit_uuids.clone(),
+            processed_transfer_uuids: self.processed_transfer_uuids.clone(),
+            processed_tx_uuids: self.processed_tx_uuids.clone(),
+            processed_withdrawal_uuids: self.processed_withdrawal_uuids.clone(),
         };
         bincode::serialize(&packed).unwrap()
     }
@@ -76,6 +95,10 @@ impl UserData {
             transfer_lpt: packed.transfer_lpt,
             tx_lpt: packed.tx_lpt,
             withdrawal_lpt: packed.withdrawal_lpt,
+            processed_deposit_uuids: packed.processed_deposit_uuids,
+            processed_transfer_uuids: packed.processed_transfer_uuids,
+            processed_tx_uuids: packed.processed_tx_uuids,
+            processed_withdrawal_uuids: packed.processed_withdrawal_uuids,
         })
     }
 
