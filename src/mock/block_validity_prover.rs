@@ -131,13 +131,10 @@ where
                 .insert(block_number, block_witness.get_sender_tree().leaves());
 
             let tx_tree_root = full_block.signature.tx_tree_root;
-            // ignore empty tx tree root because we allow duplicated empty tx tree root
-            if tx_tree_root != Bytes32::default() {
-                if self.tx_tree_roots.contains_key(&tx_tree_root) {
-                    anyhow::bail!("tx tree root {} already exists", tx_tree_root);
-                } else {
-                    self.tx_tree_roots.insert(tx_tree_root, block_number);
-                }
+            if tx_tree_root != Bytes32::default()
+                && validity_witness.to_validity_pis().unwrap().is_valid_block
+            {
+                self.tx_tree_roots.insert(tx_tree_root, block_number);
             }
         }
         self.deposit_correspondence = contract.deposit_correspondence.clone();
