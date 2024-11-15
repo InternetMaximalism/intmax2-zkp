@@ -55,9 +55,9 @@ impl IndexedMerkleTree {
             })
             .collect::<Vec<_>>();
         ensure!(0 < low_leaf_candidates.len(), "key already exists");
-        assert!(
+        ensure!(
             low_leaf_candidates.len() == 1,
-            "low_index; too many candidates"
+            "low_index: too many candidates"
         );
         let (low_leaf_index, _) = low_leaf_candidates[0];
         Ok(low_leaf_index)
