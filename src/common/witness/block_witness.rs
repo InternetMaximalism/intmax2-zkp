@@ -169,7 +169,7 @@ impl BlockWitness {
         );
 
         // Update block tree
-        let block_merkle_proof = block_tree.prove(self.block.block_number as usize);
+        let block_merkle_proof = block_tree.prove(self.block.block_number as u64);
         block_tree.push(self.block.hash());
 
         // Update account tree

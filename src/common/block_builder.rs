@@ -24,7 +24,7 @@ use super::{
 #[serde(rename_all = "camelCase")]
 pub struct BlockProposal {
     pub tx_tree_root: Bytes32,
-    pub tx_index: usize,
+    pub tx_index: u32,
     pub tx_merkle_proof: TxMerkleProof,
     pub pubkeys: Vec<U256>, // pubkeys of the senders, without padding
     pub pubkeys_hash: Bytes32,
@@ -33,7 +33,11 @@ pub struct BlockProposal {
 impl BlockProposal {
     pub fn verify(&self, tx: Tx) -> anyhow::Result<()> {
         self.tx_merkle_proof
-            .verify(&tx, self.tx_index, self.tx_tree_root.reduce_to_hash_out())
+            .verify(
+                &tx,
+                self.tx_index as u64,
+                self.tx_tree_root.reduce_to_hash_out(),
+            )
             .map_err(|e| anyhow::anyhow!("Failed to verify tx merkle proof: {}", e))?;
         ensure!(
             get_pubkey_hash(&self.pubkeys) == self.pubkeys_hash,
