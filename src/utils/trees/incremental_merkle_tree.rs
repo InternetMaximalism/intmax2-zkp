@@ -74,7 +74,7 @@ impl<V: Leafable> IncrementalMerkleTree<V> {
 
     pub fn push(&mut self, leaf: V) {
         let index = self.leaves.len() as u64;
-        assert!(index < (1 << self.height()));
+        assert!(index < (1u64 << (self.height() as u64)));
         let leaf_hash = leaf.hash();
         self.leaves.push(leaf);
         let index_bits = u64_le_bits(index, self.height());
