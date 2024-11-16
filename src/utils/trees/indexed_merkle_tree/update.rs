@@ -28,7 +28,7 @@ use super::{
 #[serde(rename_all = "camelCase")]
 pub struct UpdateProof {
     pub leaf_proof: IndexedMerkleProof,
-    pub leaf_index: usize,
+    pub leaf_index: u64,
     pub prev_leaf: IndexedMerkleLeaf,
 }
 
@@ -111,14 +111,14 @@ impl UpdateProofTarget {
     ) -> Self {
         Self {
             leaf_proof: IndexedMerkleProofTarget::constant(builder, &value.leaf_proof),
-            leaf_index: builder.constant(F::from_canonical_usize(value.leaf_index)),
+            leaf_index: builder.constant(F::from_canonical_u64(value.leaf_index)),
             prev_leaf: IndexedMerkleLeafTarget::constant(builder, &value.prev_leaf),
         }
     }
 
     pub fn set_witness<F: RichField, W: Witness<F>>(&self, witness: &mut W, value: &UpdateProof) {
         self.leaf_proof.set_witness(witness, &value.leaf_proof);
-        witness.set_target(self.leaf_index, F::from_canonical_usize(value.leaf_index));
+        witness.set_target(self.leaf_index, F::from_canonical_u64(value.leaf_index));
         self.prev_leaf.set_witness(witness, &value.prev_leaf);
     }
 

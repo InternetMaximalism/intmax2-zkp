@@ -335,7 +335,7 @@ impl<VT: LeafableTarget> MerkleProofTarget<VT> {
     }
 }
 
-pub fn usize_le_bits(num: usize, length: usize) -> Vec<bool> {
+pub fn u64_le_bits(num: u64, length: usize) -> Vec<bool> {
     let mut result = Vec::with_capacity(length);
     let mut n = num;
     for _ in 0..length {
@@ -384,7 +384,7 @@ mod tests {
             let index = rng.gen_range(0..1 << height);
             let new_leaf = Bytes32::rand(&mut rng);
             let leaf_hash = new_leaf.hash();
-            let index_bits = usize_le_bits(index, height);
+            let index_bits = u64_le_bits(index, height);
             tree.update_leaf(index_bits.clone(), leaf_hash);
             let proof = tree.prove(index_bits.clone());
             proof
@@ -407,7 +407,7 @@ mod tests {
         let index = rng.gen_range(0..1 << height);
         let leaf = Bytes32::rand(&mut rng);
         let leaf_hash = leaf.hash();
-        let index_bits = usize_le_bits(index, height);
+        let index_bits = u64_le_bits(index, height);
         tree.update_leaf(index_bits.clone(), leaf_hash);
         let proof = tree.prove(index_bits.clone());
 
@@ -423,7 +423,7 @@ mod tests {
         let mut pw = PartialWitness::<F>::new();
         leaf_t.set_witness(&mut pw, leaf);
         root_t.set_witness(&mut pw, tree.get_root());
-        pw.set_target(index_t, F::from_canonical_usize(index));
+        pw.set_target(index_t, F::from_canonical_u64(index));
         proof_t.set_witness(&mut pw, &proof);
 
         data.prove(pw).unwrap();

@@ -36,7 +36,7 @@ use super::{
 pub struct MembershipProof {
     pub is_included: bool,
     pub leaf_proof: IndexedMerkleProof,
-    pub leaf_index: usize,
+    pub leaf_index: u64,
     pub leaf: IndexedMerkleLeaf,
 }
 
@@ -123,7 +123,7 @@ impl MembershipProofTarget {
         Self {
             is_included: builder.constant_bool(value.is_included),
             leaf_proof: IndexedMerkleProofTarget::constant(builder, &value.leaf_proof),
-            leaf_index: builder.constant(F::from_canonical_usize(value.leaf_index)),
+            leaf_index: builder.constant(F::from_canonical_u64(value.leaf_index)),
             leaf: IndexedMerkleLeafTarget::constant(builder, &value.leaf),
         }
     }
@@ -135,7 +135,7 @@ impl MembershipProofTarget {
     ) {
         witness.set_bool_target(self.is_included, value.is_included);
         self.leaf_proof.set_witness(witness, &value.leaf_proof);
-        witness.set_target(self.leaf_index, F::from_canonical_usize(value.leaf_index));
+        witness.set_target(self.leaf_index, F::from_canonical_u64(value.leaf_index));
         self.leaf.set_witness(witness, &value.leaf);
     }
 

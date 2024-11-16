@@ -16,7 +16,7 @@ use super::merkle_tree::{MerkleProof, MerkleProofTarget, MerkleTree};
 use crate::utils::{
     leafable::{Leafable, LeafableTarget},
     leafable_hasher::LeafableHasher,
-    trees::merkle_tree::usize_le_bits,
+    trees::merkle_tree::u64_le_bits,
 };
 
 // Merkle Tree that holds leaves as a vec. It is suitable for handling indexed
@@ -43,8 +43,8 @@ impl<V: Leafable> IncrementalMerkleTree<V> {
     }
 
     // NOTICE: `None` and `V::empty_leaf()` are treated equivalently.
-    pub fn get_leaf(&self, index: usize) -> V {
-        match self.leaves.get(index) {
+    pub fn get_leaf(&self, index: u64) -> V {
+        match self.leaves.get(index as usize) {
             Some(leaf) => leaf.clone(),
             None => V::empty_leaf(),
         }
@@ -66,32 +66,32 @@ impl<V: Leafable> IncrementalMerkleTree<V> {
         self.leaves.is_empty()
     }
 
-    pub fn update(&mut self, index: usize, leaf: V) {
-        let index_bits = usize_le_bits(index, self.height());
+    pub fn update(&mut self, index: u64, leaf: V) {
+        let index_bits = u64_le_bits(index, self.height());
         self.merkle_tree.update_leaf(index_bits, leaf.hash());
-        self.leaves[index] = leaf;
+        self.leaves[index as usize] = leaf;
     }
 
     pub fn push(&mut self, leaf: V) {
-        let index = self.leaves.len();
+        let index = self.leaves.len() as u64;
         assert!(index < (1 << self.height()));
         let leaf_hash = leaf.hash();
         self.leaves.push(leaf);
-        let index_bits = usize_le_bits(index, self.height());
+        let index_bits = u64_le_bits(index, self.height());
         self.merkle_tree.update_leaf(index_bits, leaf_hash);
     }
 
     pub fn pop(&mut self) {
         assert!(!self.leaves.is_empty());
         self.leaves.pop();
-        let index = self.leaves.len();
+        let index = self.leaves.len() as u64;
         let leaf = V::empty_leaf();
-        let index_bits = usize_le_bits(index, self.height());
+        let index_bits = u64_le_bits(index, self.height());
         self.merkle_tree.update_leaf(index_bits, leaf.hash());
     }
 
-    pub fn prove(&self, index: usize) -> IncrementalMerkleProof<V> {
-        let index_bits = usize_le_bits(index, self.height());
+    pub fn prove(&self, index: u64) -> IncrementalMerkleProof<V> {
+        let index_bits = u64_le_bits(index, self.height());
         IncrementalMerkleProof(self.merkle_tree.prove(index_bits))
     }
 }
@@ -114,21 +114,21 @@ impl<V: Leafable> IncrementalMerkleProof<V> {
     pub fn get_root(
         &self,
         leaf_data: &V,
-        index: usize,
+        index: u64,
     ) -> <V::LeafableHasher as LeafableHasher>::HashOut {
         let height = self.0.height();
-        let index_bits = usize_le_bits(index, height);
+        let index_bits = u64_le_bits(index, height);
         self.0.get_root(leaf_data, index_bits)
     }
 
     pub fn verify(
         &self,
         leaf_data: &V,
-        index: usize,
+        index: u64,
         merkle_root: <V::LeafableHasher as LeafableHasher>::HashOut,
     ) -> anyhow::Result<()> {
         let height = self.0.height();
-        let index_bits = usize_le_bits(index, height);
+        let index_bits = u64_le_bits(index, height);
         self.0.verify(leaf_data, index_bits, merkle_root)
     }
 
@@ -338,7 +338,7 @@ mod tests {
         let mut pw = PartialWitness::<F>::new();
         leaf_t.set_witness(&mut pw, leaf);
         root_t.set_witness(&mut pw, tree.get_root());
-        pw.set_target(index_t, F::from_canonical_usize(index));
+        pw.set_target(index_t, F::from_canonical_u64(index));
         proof_t.set_witness(&mut pw, &proof);
         data.prove(pw).unwrap();
     }

@@ -36,15 +36,15 @@ impl IndexedMerkleTree {
         self.0.get_root()
     }
 
-    pub fn get_leaf(&self, index: usize) -> IndexedMerkleLeaf {
+    pub fn get_leaf(&self, index: u64) -> IndexedMerkleLeaf {
         self.0.get_leaf(index)
     }
 
-    pub fn prove(&self, index: usize) -> IndexedMerkleProof {
+    pub fn prove(&self, index: u64) -> IndexedMerkleProof {
         self.0.prove(index)
     }
 
-    pub(crate) fn low_index(&self, key: U256) -> Result<usize> {
+    pub(crate) fn low_index(&self, key: U256) -> Result<u64> {
         let low_leaf_candidates = self
             .0
             .leaves()
@@ -60,10 +60,10 @@ impl IndexedMerkleTree {
             "low_index: too many candidates"
         );
         let (low_leaf_index, _) = low_leaf_candidates[0];
-        Ok(low_leaf_index)
+        Ok(low_leaf_index as u64)
     }
 
-    pub(crate) fn index(&self, key: U256) -> Option<usize> {
+    pub(crate) fn index(&self, key: U256) -> Option<u64> {
         let leaf_candidates = self
             .0
             .leaves()
@@ -76,13 +76,13 @@ impl IndexedMerkleTree {
         }
         assert!(
             leaf_candidates.len() == 1,
-            "find_index; too many candidates"
+            "find_index: too many candidates"
         );
         let (leaf_index, _) = leaf_candidates[0];
-        Some(leaf_index)
+        Some(leaf_index as u64)
     }
 
-    pub fn key(&self, index: usize) -> U256 {
+    pub fn key(&self, index: u64) -> U256 {
         self.0.get_leaf(index).key
     }
 

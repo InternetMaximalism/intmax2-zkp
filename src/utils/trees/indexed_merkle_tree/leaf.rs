@@ -26,7 +26,7 @@ use crate::{ethereum_types::u256::U256, utils::leafable::Leafable};
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct IndexedMerkleLeaf {
-    pub next_index: usize,
+    pub next_index: u64,
     pub key: U256,
     pub next_key: U256,
     pub value: u64, // last block number for accout tree or just zero for nullifier
@@ -89,7 +89,7 @@ impl IndexedMerkleLeafTarget {
         builder: &mut CircuitBuilder<F, D>,
         value: &IndexedMerkleLeaf,
     ) -> Self {
-        let next_index = builder.constant(F::from_canonical_usize(value.next_index));
+        let next_index = builder.constant(F::from_canonical_u64(value.next_index));
         let key = U256Target::constant(builder, value.key);
         let next_key = U256Target::constant(builder, value.next_key);
         let value = builder.constant(F::from_canonical_u64(value.value));
@@ -106,7 +106,7 @@ impl IndexedMerkleLeafTarget {
         witness: &mut W,
         value: &IndexedMerkleLeaf,
     ) {
-        witness.set_target(self.next_index, F::from_canonical_usize(value.next_index));
+        witness.set_target(self.next_index, F::from_canonical_u64(value.next_index));
         self.key.set_witness(witness, value.key);
         self.next_key.set_witness(witness, value.next_key);
         witness.set_target(self.value, F::from_canonical_u64(value.value));

@@ -14,7 +14,7 @@ use super::merkle_tree::{MerkleProof, MerkleProofTarget, MerkleTree};
 use crate::utils::{
     leafable::{Leafable, LeafableTarget},
     leafable_hasher::LeafableHasher,
-    trees::merkle_tree::usize_le_bits,
+    trees::merkle_tree::u64_le_bits,
 };
 
 // Merkle Tree that holds leaves as a vec. It is suitable for handling indexed
@@ -22,7 +22,7 @@ use crate::utils::{
 #[derive(Debug, Clone)]
 pub struct SparseMerkleTree<V: Leafable> {
     merkle_tree: MerkleTree<V>,
-    leaves: HashMap<usize, V>,
+    leaves: HashMap<u64, V>,
 }
 
 impl<V: Leafable> SparseMerkleTree<V> {
@@ -40,7 +40,7 @@ impl<V: Leafable> SparseMerkleTree<V> {
     }
 
     // NOTICE: `None` and `V::empty_leaf()` are treated equivalently.
-    pub fn get_leaf(&self, index: usize) -> V {
+    pub fn get_leaf(&self, index: u64) -> V {
         match self.leaves.get(&index) {
             Some(leaf) => leaf.clone(),
             None => V::empty_leaf(),
@@ -51,7 +51,7 @@ impl<V: Leafable> SparseMerkleTree<V> {
         self.merkle_tree.get_root()
     }
 
-    pub fn leaves(&self) -> HashMap<usize, V> {
+    pub fn leaves(&self) -> HashMap<u64, V> {
         self.leaves.clone()
     }
 
@@ -63,14 +63,14 @@ impl<V: Leafable> SparseMerkleTree<V> {
         self.leaves.is_empty()
     }
 
-    pub fn update(&mut self, index: usize, leaf: V) {
-        let index_bits = usize_le_bits(index, self.height());
+    pub fn update(&mut self, index: u64, leaf: V) {
+        let index_bits = u64_le_bits(index, self.height());
         self.merkle_tree.update_leaf(index_bits, leaf.hash());
         self.leaves.insert(index, leaf);
     }
 
-    pub fn prove(&self, index: usize) -> SparseMerkleProof<V> {
-        let index_bits = usize_le_bits(index, self.height());
+    pub fn prove(&self, index: u64) -> SparseMerkleProof<V> {
+        let index_bits = u64_le_bits(index, self.height());
         SparseMerkleProof(self.merkle_tree.prove(index_bits))
     }
 }
@@ -82,21 +82,21 @@ impl<V: Leafable> SparseMerkleProof<V> {
     pub fn get_root(
         &self,
         leaf_data: &V,
-        index: usize,
+        index: u64,
     ) -> <V::LeafableHasher as LeafableHasher>::HashOut {
         let height = self.0.height();
-        let index_bits = usize_le_bits(index, height);
+        let index_bits = u64_le_bits(index, height);
         self.0.get_root(leaf_data, index_bits)
     }
 
     pub fn verify(
         &self,
         leaf_data: &V,
-        index: usize,
+        index: u64,
         merkle_root: <V::LeafableHasher as LeafableHasher>::HashOut,
     ) -> anyhow::Result<()> {
         let height = self.0.height();
-        let index_bits = usize_le_bits(index, height);
+        let index_bits = u64_le_bits(index, height);
         self.0.verify(leaf_data, index_bits, merkle_root)
     }
 
@@ -216,7 +216,7 @@ impl<VT: LeafableTarget> SparseMerkleProofTarget<VT> {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SparseMerkleTreePacked<V: Leafable> {
     height: usize,
-    leaves: Vec<(usize, V)>,
+    leaves: Vec<(u64, V)>,
 }
 
 impl<V: Leafable> SparseMerkleTree<V> {
@@ -312,7 +312,7 @@ mod tests {
         let mut pw = PartialWitness::<F>::new();
         leaf_t.set_witness(&mut pw, leaf);
         root_t.set_witness(&mut pw, tree.get_root());
-        pw.set_target(index_t, F::from_canonical_usize(index));
+        pw.set_target(index_t, F::from_canonical_u64(index));
         proof_t.set_witness(&mut pw, &proof);
         data.prove(pw).unwrap();
     }

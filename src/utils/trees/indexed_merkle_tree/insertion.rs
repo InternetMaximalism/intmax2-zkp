@@ -32,10 +32,10 @@ use super::{
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct IndexedInsertionProof {
-    pub index: usize,
+    pub index: u64,
     pub low_leaf_proof: IndexedMerkleProof,
     pub leaf_proof: IndexedMerkleProof,
-    pub low_leaf_index: usize,
+    pub low_leaf_index: u64,
     pub prev_low_leaf: IndexedMerkleLeaf,
 }
 
@@ -50,7 +50,7 @@ pub struct IndexedInsertionProofTarget {
 
 impl IndexedMerkleTree {
     pub fn insert(&mut self, key: U256, value: u64) -> Result<()> {
-        let index = self.0.leaves().len();
+        let index = self.0.leaves().len() as u64;
         let low_index = self.low_index(key)?;
         let prev_low_leaf = self.0.get_leaf(low_index);
         let new_low_leaf = IndexedMerkleLeaf {
@@ -70,7 +70,7 @@ impl IndexedMerkleTree {
     }
 
     pub fn prove_and_insert(&mut self, key: U256, value: u64) -> Result<IndexedInsertionProof> {
-        let index = self.0.leaves().len();
+        let index = self.0.leaves().len() as u64;
         let low_index = self.low_index(key)?;
         let prev_low_leaf = self.0.get_leaf(low_index);
         let new_low_leaf = IndexedMerkleLeaf {
@@ -207,10 +207,10 @@ impl IndexedInsertionProofTarget {
         value: &IndexedInsertionProof,
     ) -> Self {
         Self {
-            index: builder.constant(F::from_canonical_usize(value.index)),
+            index: builder.constant(F::from_canonical_u64(value.index)),
             low_leaf_proof: IndexedMerkleProofTarget::constant(builder, &value.low_leaf_proof),
             leaf_proof: IndexedMerkleProofTarget::constant(builder, &value.leaf_proof),
-            low_leaf_index: builder.constant(F::from_canonical_usize(value.low_leaf_index)),
+            low_leaf_index: builder.constant(F::from_canonical_u64(value.low_leaf_index)),
             prev_low_leaf: IndexedMerkleLeafTarget::constant(builder, &value.prev_low_leaf),
         }
     }
@@ -220,13 +220,13 @@ impl IndexedInsertionProofTarget {
         witness: &mut W,
         value: &IndexedInsertionProof,
     ) {
-        witness.set_target(self.index, F::from_canonical_usize(value.index));
+        witness.set_target(self.index, F::from_canonical_u64(value.index));
         self.low_leaf_proof
             .set_witness(witness, &value.low_leaf_proof);
         self.leaf_proof.set_witness(witness, &value.leaf_proof);
         witness.set_target(
             self.low_leaf_index,
-            F::from_canonical_usize(value.low_leaf_index),
+            F::from_canonical_u64(value.low_leaf_index),
         );
         self.prev_low_leaf
             .set_witness(witness, &value.prev_low_leaf);
