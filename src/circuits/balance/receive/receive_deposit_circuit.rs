@@ -114,7 +114,7 @@ impl ReceiveDepositPublicInputsTarget {
 pub struct ReceiveDepositValue {
     pub pubkey: U256,
     pub deposit_salt: Salt,
-    pub deposit_index: usize,
+    pub deposit_index: u32,
     pub deposit: Deposit,
     pub deposit_merkle_proof: DepositMerkleProof,
     pub public_state: PublicState,
@@ -127,7 +127,7 @@ impl ReceiveDepositValue {
     pub fn new(
         pubkey: U256,
         deposit_salt: Salt,
-        deposit_index: usize,
+        deposit_index: u32,
         deposit: &Deposit,
         deposit_merkle_proof: &DepositMerkleProof,
         public_state: &PublicState,
@@ -140,7 +140,11 @@ impl ReceiveDepositValue {
             "Invalid pubkey salt hash"
         );
         deposit_merkle_proof
-            .verify(&deposit, deposit_index, public_state.deposit_tree_root)
+            .verify(
+                &deposit,
+                deposit_index as u64,
+                public_state.deposit_tree_root,
+            )
             .map_err(|e| anyhow::anyhow!("Invalid deposit merkle proof: {}", e))?;
 
         let nullifier: Bytes32 = deposit.poseidon_hash().into();
@@ -250,7 +254,7 @@ impl ReceiveDepositTarget {
         self.deposit_salt.set_witness(witness, value.deposit_salt);
         witness.set_target(
             self.deposit_index,
-            F::from_canonical_usize(value.deposit_index),
+            F::from_canonical_u32(value.deposit_index),
         );
         self.deposit.set_witness(witness, &value.deposit);
         self.deposit_merkle_proof

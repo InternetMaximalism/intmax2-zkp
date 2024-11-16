@@ -112,12 +112,12 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         block_hash_merkle_proof
             .verify(
                 &Bytes32::default(),
-                block_number as usize,
+                block_number as u64,
                 prev_block_tree_root,
             )
             .expect("Block hash merkle proof is invalid");
         let new_block_tree_root =
-            block_hash_merkle_proof.get_root(&block_pis.block_hash, block_number as usize);
+            block_hash_merkle_proof.get_root(&block_pis.block_hash, block_number as u64);
 
         Self {
             block_pis,

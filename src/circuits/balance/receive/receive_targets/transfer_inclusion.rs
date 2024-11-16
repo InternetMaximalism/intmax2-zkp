@@ -34,10 +34,10 @@ pub struct TransferInclusionValue<
     C: GenericConfig<D, F = F> + 'static,
     const D: usize,
 > {
-    pub transfer: Transfer,    // transfer to be proved included
-    pub transfer_index: usize, // the index of the transfer in the tranfer merkle tree
+    pub transfer: Transfer,  // transfer to be proved included
+    pub transfer_index: u32, // the index of the transfer in the tranfer merkle tree
     pub transfer_merkle_proof: TransferMerkleProof, // transfer merkle proof that proves i
-    pub tx: Tx,                // tx that includes the transfer
+    pub tx: Tx,              // tx that includes the transfer
     pub balance_proof: ProofWithPublicInputs<F, C, D>, // balance proof that includes the tx
     pub balance_circuit_vd: VerifierOnlyCircuitData<C, D>, // balance circuit verifier data
     pub public_state: PublicState, // public state of the balance proof
@@ -51,7 +51,7 @@ where
     pub fn new(
         balance_verifier_data: &VerifierCircuitData<F, C, D>,
         transfer: &Transfer,
-        transfer_index: usize,
+        transfer_index: u32,
         transfer_merkle_proof: &TransferMerkleProof,
         tx: &Tx,
         balance_proof: &ProofWithPublicInputs<F, C, D>,
@@ -72,12 +72,12 @@ where
         assert_eq!(balance_pis.last_tx_hash, tx.hash());
         let _is_insufficient = balance_pis
             .last_tx_insufficient_flags
-            .random_access(transfer_index);
+            .random_access(transfer_index as usize);
         #[cfg(not(feature = "skip_insufficient_check"))]
         ensure!(!_is_insufficient, "Transfer is insufficient");
         // check merkle proof
         transfer_merkle_proof
-            .verify(&transfer, transfer_index, tx.transfer_tree_root)
+            .verify(&transfer, transfer_index as u64, tx.transfer_tree_root)
             .map_err(|e| anyhow::anyhow!("Invalid transfer merkle proof: {}", e))?;
         Ok(Self {
             transfer: transfer.clone(),
@@ -162,7 +162,7 @@ impl<const D: usize> TransferInclusionTarget<D> {
         self.transfer.set_witness(witness, value.transfer);
         witness.set_target(
             self.transfer_index,
-            F::from_canonical_usize(value.transfer_index),
+            F::from_canonical_u32(value.transfer_index),
         );
         self.transfer_merkle_proof
             .set_witness(witness, &value.transfer_merkle_proof);
@@ -193,8 +193,8 @@ mod tests {
         common::{generic_address::GenericAddress, salt::Salt, transfer::Transfer},
         ethereum_types::u256::U256,
         mock::{
-            block_builder::MockBlockBuilder, sync_balance_prover::SyncBalanceProver,
-            block_validity_prover::BlockValidityProver, wallet::MockWallet,
+            block_builder::MockBlockBuilder, block_validity_prover::BlockValidityProver,
+            sync_balance_prover::SyncBalanceProver, wallet::MockWallet,
         },
     };
 

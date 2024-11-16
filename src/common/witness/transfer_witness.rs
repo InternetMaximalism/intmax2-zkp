@@ -8,6 +8,6 @@ use crate::common::{transfer::Transfer, trees::transfer_tree::TransferMerkleProo
 pub struct TransferWitness {
     pub tx: Tx,
     pub transfer: Transfer,
-    pub transfer_index: usize,
+    pub transfer_index: u32,
     pub transfer_merkle_proof: TransferMerkleProof,
 }

@@ -77,12 +77,12 @@ where
             "validity proof pis mismatch"
         );
         let sender_tree = tx_witnes.get_sender_tree();
-        let sender_leaf = sender_tree.get_leaf(tx_witnes.tx_index);
+        let sender_leaf = sender_tree.get_leaf(tx_witnes.tx_index as u64);
         ensure!(
             sender_leaf.sender == prev_balance_pis.pubkey,
             "sender pubkey mismatch"
         );
-        let sender_merkle_proof = sender_tree.prove(tx_witnes.tx_index);
+        let sender_merkle_proof = sender_tree.prove(tx_witnes.tx_index as u64);
         let tx_inclusion_value = TxInclusionValue::new(
             validity_vd,
             prev_balance_pis.pubkey,

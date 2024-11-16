@@ -187,10 +187,10 @@ impl SpentValue {
             .zip(prev_balances.iter())
         {
             proof
-                .verify(prev_balance, transfer.token_index as usize, asset_tree_root)
+                .verify(prev_balance, transfer.token_index as u64, asset_tree_root)
                 .map_err(|e| anyhow::anyhow!("asset merkle proof verification failed: {}", e))?;
             let new_balance = prev_balance.sub(transfer.amount);
-            asset_tree_root = proof.get_root(&new_balance, transfer.token_index as usize);
+            asset_tree_root = proof.get_root(&new_balance, transfer.token_index as u64);
             insufficient_bits.push(new_balance.is_insufficient);
         }
         let insufficient_flags = InsufficientFlags::from_bits_be(&insufficient_bits);
@@ -387,7 +387,7 @@ mod tests {
             .map(|_| AssetLeaf::rand(&mut rng))
             .collect::<Vec<_>>();
         for (i, balance) in prev_balances.iter().enumerate() {
-            asset_tree.update(i, *balance);
+            asset_tree.update(i as u64, *balance);
         }
         let prev_private_state = PrivateState {
             asset_tree_root: asset_tree.get_root(),
@@ -406,10 +406,10 @@ mod tests {
         for (index, (transfer, prev_balance)) in
             transfers.iter().zip(prev_balances.iter()).enumerate()
         {
-            assert_eq!(*prev_balance, asset_tree.get_leaf(index));
-            let proof = asset_tree.prove(transfer.token_index as usize);
+            assert_eq!(*prev_balance, asset_tree.get_leaf(index as u64));
+            let proof = asset_tree.prove(transfer.token_index as u64);
             let new_balance = prev_balance.sub(transfer.amount);
-            asset_tree.update(transfer.token_index as usize, new_balance);
+            asset_tree.update(transfer.token_index as u64, new_balance);
             asset_merkle_proofs.push(proof);
         }
         let new_private_state_salt = Salt::rand(&mut rng);

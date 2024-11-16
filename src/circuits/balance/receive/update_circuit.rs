@@ -137,7 +137,7 @@ where
         block_merkle_proof
             .verify(
                 &prev_public_state.block_hash,
-                prev_public_state.block_number as usize,
+                prev_public_state.block_number as u64,
                 validity_pis.public_state.block_tree_root,
             )
             .map_err(|e| anyhow::anyhow!("block merkle proof is invalid: {:?}", e))?;

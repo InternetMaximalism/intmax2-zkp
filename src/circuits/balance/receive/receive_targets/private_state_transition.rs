@@ -57,13 +57,13 @@ impl PrivateStateTransitionValue {
         asset_merkle_proof
             .verify(
                 &prev_asset_leaf,
-                token_index as usize,
+                token_index as u64,
                 prev_private_state.asset_tree_root,
             )
             .map_err(|e| anyhow::anyhow!("Invalid asset merkle proof: {}", e))?;
         let new_asset_leaf = prev_asset_leaf.add(amount);
         let new_asset_tree_root =
-            asset_merkle_proof.get_root(&new_asset_leaf, token_index as usize);
+            asset_merkle_proof.get_root(&new_asset_leaf, token_index as u64);
         let new_private_state = PrivateState {
             asset_tree_root: new_asset_tree_root,
             nullifier_tree_root: new_nullifier_tree_root,
@@ -215,10 +215,10 @@ mod tests {
             salt: Salt::rand(&mut rng),
         };
 
-        let prev_asset_leaf = asset_tree.get_leaf(transfer.token_index as usize);
-        let asset_merkle_proof = asset_tree.prove(transfer.token_index as usize);
+        let prev_asset_leaf = asset_tree.get_leaf(transfer.token_index as u64);
+        let asset_merkle_proof = asset_tree.prove(transfer.token_index as u64);
         let new_asset_leaf = prev_asset_leaf.add(transfer.amount);
-        asset_tree.update(transfer.token_index as usize, new_asset_leaf);
+        asset_tree.update(transfer.token_index as u64, new_asset_leaf);
 
         let nullifier: Bytes32 = transfer.commitment().into();
         let nullifier_proof = nullifier_tree.prove_and_insert(nullifier).unwrap();

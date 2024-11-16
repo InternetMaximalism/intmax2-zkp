@@ -130,7 +130,7 @@ pub struct TxInclusionValue<
     pub validity_proof: ProofWithPublicInputs<F, C, D>,
     pub block_merkle_proof: BlockHashMerkleProof,
     pub prev_account_membership_proof: AccountMembershipProof,
-    pub sender_index: usize,
+    pub sender_index: u32,
     pub tx: Tx,
     pub tx_merkle_proof: TxMerkleProof,
     pub sender_leaf: SenderLeaf,
@@ -157,7 +157,7 @@ where
                                                                  * shows no tx has been sent
                                                                  * before
                                                                  * the block of validity proof. */
-        sender_index: usize,
+        sender_index: u32,
         tx: &Tx,
         tx_merkle_proof: &TxMerkleProof,
         sender_leaf: &SenderLeaf,
@@ -172,7 +172,7 @@ where
         block_merkle_proof
             .verify(
                 &prev_public_state.block_hash,
-                prev_public_state.block_number as usize,
+                prev_public_state.block_number as u64,
                 validity_pis.public_state.block_tree_root,
             )
             .map_err(|e| anyhow::anyhow!("block merkle proof is invalid: {:?}", e))?;
@@ -190,10 +190,14 @@ where
             .try_into()
             .map_err(|e| anyhow::anyhow!("tx tree root is invalid: {:?}", e))?;
         tx_merkle_proof
-            .verify(tx, sender_index, tx_tree_root)
+            .verify(tx, sender_index as u64, tx_tree_root)
             .map_err(|e| anyhow::anyhow!("tx merkle proof is invalid: {:?}", e))?;
         sender_merkle_proof
-            .verify(sender_leaf, sender_index, validity_pis.sender_tree_root)
+            .verify(
+                sender_leaf,
+                sender_index as u64,
+                validity_pis.sender_tree_root,
+            )
             .map_err(|e| anyhow::anyhow!("sender merkle proof is invalid: {:?}", e))?;
 
         ensure!(sender_leaf.sender == pubkey, "sender pubkey mismatch");
@@ -317,10 +321,7 @@ impl<const D: usize> TxInclusionTarget<D> {
             .set_witness(witness, &value.block_merkle_proof);
         self.prev_account_membership_proof
             .set_witness(witness, &value.prev_account_membership_proof);
-        witness.set_target(
-            self.sender_index,
-            F::from_canonical_usize(value.sender_index),
-        );
+        witness.set_target(self.sender_index, F::from_canonical_u32(value.sender_index));
         self.tx.set_witness(witness, value.tx);
         self.tx_merkle_proof
             .set_witness(witness, &value.tx_merkle_proof);

@@ -47,7 +47,7 @@ where
         assert!(
             !balance_pis
                 .last_tx_insufficient_flags
-                .random_access(self.transfer_witness.transfer_index),
+                .random_access(self.transfer_witness.transfer_index as usize),
             "insufficient flag is true"
         );
         let transfer = self.transfer_witness.transfer.clone();

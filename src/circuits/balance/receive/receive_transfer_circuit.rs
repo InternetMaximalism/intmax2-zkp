@@ -160,7 +160,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         block_merkle_proof
             .verify(
                 &transfer_inclusion.public_state.block_hash,
-                transfer_inclusion.public_state.block_number as usize,
+                transfer_inclusion.public_state.block_number as u64,
                 public_state.block_tree_root,
             )
             .map_err(|e| anyhow::anyhow!("block merkle proof verification failed: {:?}", e))?;
