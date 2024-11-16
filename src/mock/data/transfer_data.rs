@@ -32,7 +32,7 @@ where
 
     // Used for updating receiver's balance proof
     pub transfer: Transfer,
-    pub transfer_index: usize,
+    pub transfer_index: u32,
     pub transfer_merkle_proof: TransferMerkleProof,
 }
 
@@ -68,7 +68,7 @@ where
         self.transfer_merkle_proof
             .verify(
                 &self.transfer,
-                self.transfer_index,
+                self.transfer_index as u64,
                 self.tx_data.tx.transfer_tree_root,
             )
             .map_err(|e| anyhow::anyhow!("transfer merkle proof validation failed: {}", e))?;

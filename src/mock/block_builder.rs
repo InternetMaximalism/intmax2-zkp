@@ -140,8 +140,8 @@ impl BlockBuilder {
 
         let mut proposals = Vec::new();
         for (pubkey, _tx) in self.tx_requests.iter() {
-            let tx_index = sorted_txs.iter().position(|(p, _)| p == pubkey).unwrap();
-            let tx_merkle_proof = tx_tree.prove(tx_index);
+            let tx_index = sorted_txs.iter().position(|(p, _)| p == pubkey).unwrap() as u32;
+            let tx_merkle_proof = tx_tree.prove(tx_index as u64);
             proposals.push(BlockProposal {
                 tx_tree_root,
                 tx_index,

@@ -122,7 +122,7 @@ impl UserData {
         self.full_private_state.to_private_state().commitment()
     }
 
-    pub fn balances(&self) -> HashMap<usize, AssetLeaf> {
+    pub fn balances(&self) -> HashMap<u64, AssetLeaf> {
         self.full_private_state.asset_tree.leaves()
     }
 }

@@ -26,7 +26,7 @@ pub struct MockContract {
     pub full_blocks: Vec<FullBlock>,
     pub deposit_tree: DepositTree,
     pub deposit_trees: HashMap<u32, DepositTree>, // snap shot of deposit tree at each block
-    pub deposit_correspondence: HashMap<Bytes32, (usize, u32)>, /* deposit_hash -> (deposit_index,
+    pub deposit_correspondence: HashMap<Bytes32, (u32, u32)>, /* deposit_hash -> (deposit_index,
                                                    * block_number) */
 }
 
@@ -71,7 +71,7 @@ impl MockContract {
 
     /// Simpler interface for depositing tokens. Returns the id of deposit
     pub fn deposit(&mut self, pubkey_salt_hash: Bytes32, token_index: u32, amount: U256) {
-        let deposit_index = self.deposit_tree.len();
+        let deposit_index = self.deposit_tree.len() as u32;
         let deposit = Deposit {
             pubkey_salt_hash,
             token_index,

@@ -26,7 +26,7 @@ where
 
     // Used for updating sender's balance proof
     pub tx: Tx,
-    pub tx_index: usize,
+    pub tx_index: u32,
     pub tx_merkle_proof: TxMerkleProof,
     pub tx_tree_root: Bytes32,
 }
@@ -37,8 +37,11 @@ where
     C: GenericConfig<D, F = F>,
 {
     pub fn validate(&self) -> anyhow::Result<()> {
-        self.tx_merkle_proof
-            .verify(&self.tx, self.tx_index, self.tx_tree_root.try_into()?)?;
+        self.tx_merkle_proof.verify(
+            &self.tx,
+            self.tx_index as u64,
+            self.tx_tree_root.try_into()?,
+        )?;
         Ok(())
     }
 }

@@ -195,7 +195,7 @@ fn send_transfers(
         .unwrap();
 }
 
-fn print_balances(balances: &HashMap<usize, AssetLeaf>) {
+fn print_balances(balances: &HashMap<u64, AssetLeaf>) {
     for (token_index, asset_leaf) in balances {
         if asset_leaf.is_insufficient {
             continue;

@@ -68,7 +68,7 @@ where
         .map_err(|_| anyhow::anyhow!("deposit merkle proof not found"))?;
     let deposit_witness = DepositWitness {
         deposit_salt: deposit_data.deposit_salt,
-        deposit_index: deposit_index as usize,
+        deposit_index,
         deposit: deposit_data.deposit.clone(),
         deposit_merkle_proof,
     };

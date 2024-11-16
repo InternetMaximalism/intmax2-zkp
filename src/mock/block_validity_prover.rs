@@ -48,7 +48,7 @@ where
     block_trees: HashMap<u32, BlockHashTree>,
     validity_proofs: HashMap<u32, ProofWithPublicInputs<F, C, D>>,
     sender_leaves: HashMap<u32, Vec<SenderLeaf>>, // block number -> sender leaves
-    deposit_correspondence: HashMap<Bytes32, (usize, u32)>, /* deposit_hash ->
+    deposit_correspondence: HashMap<Bytes32, (u32, u32)>, /* deposit_hash ->
                                                    * (deposit_index, block_number) */
     deposit_trees: HashMap<u32, DepositTree>, // snap shot of deposit tree at each block
     tx_tree_roots: HashMap<Bytes32, u32>,     // tx tree root at each block
@@ -174,7 +174,7 @@ where
     }
 
     // utilities
-    pub fn get_account_id(&self, pubkey: U256) -> Option<usize> {
+    pub fn get_account_id(&self, pubkey: U256) -> Option<u64> {
         self.account_trees
             .get(&self.last_block_number)
             .unwrap()
@@ -182,10 +182,7 @@ where
     }
 
     // returns deposit index and block number
-    pub fn get_deposit_index_and_block_number(
-        &self,
-        deposit_hash: Bytes32,
-    ) -> Option<(usize, u32)> {
+    pub fn get_deposit_index_and_block_number(&self, deposit_hash: Bytes32) -> Option<(u32, u32)> {
         self.deposit_correspondence.get(&deposit_hash).cloned()
     }
 
@@ -219,7 +216,7 @@ where
                 "block tree not found for block number {}",
                 root_block_number
             ))?;
-        Ok(block_tree.prove(leaf_block_number as usize))
+        Ok(block_tree.prove(leaf_block_number as u64))
     }
 
     fn get_account_membership_proof(
@@ -244,7 +241,7 @@ where
     pub fn get_deposit_merkle_proof(
         &self,
         block_number: u32,
-        deposit_index: usize,
+        deposit_index: u32,
     ) -> anyhow::Result<DepositMerkleProof> {
         let deposit_tree = &self
             .deposit_trees
@@ -253,7 +250,7 @@ where
                 "deposit tree not found for block number {}",
                 block_number
             ))?;
-        Ok(deposit_tree.prove(deposit_index))
+        Ok(deposit_tree.prove(deposit_index as u64))
     }
 
     pub fn validity_processor(&self) -> &ValidityProcessor<F, C, D> {
