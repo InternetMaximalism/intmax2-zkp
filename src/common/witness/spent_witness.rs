@@ -48,10 +48,10 @@ impl SpentWitness {
         let mut prev_balances = vec![];
         let mut asset_tree = asset_tree.clone();
         for transfer in transfers {
-            let prev_balance = asset_tree.get_leaf(transfer.token_index as usize);
-            let proof = asset_tree.prove(transfer.token_index as usize);
+            let prev_balance = asset_tree.get_leaf(transfer.token_index as u64);
+            let proof = asset_tree.prove(transfer.token_index as u64);
             let new_balance = prev_balance.sub(transfer.amount);
-            asset_tree.update(transfer.token_index as usize, new_balance);
+            asset_tree.update(transfer.token_index as u64, new_balance);
             prev_balances.push(prev_balance);
             asset_merkle_proofs.push(proof);
         }
@@ -98,11 +98,11 @@ impl SpentWitness {
         for transfer in &self.transfers {
             let prev_balance = full_private_state
                 .asset_tree
-                .get_leaf(transfer.token_index as usize);
+                .get_leaf(transfer.token_index as u64);
             let new_balance = prev_balance.sub(transfer.amount);
             full_private_state
                 .asset_tree
-                .update(transfer.token_index as usize, new_balance);
+                .update(transfer.token_index as u64, new_balance);
         }
 
         full_private_state.nonce += 1;

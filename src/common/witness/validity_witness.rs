@@ -32,14 +32,14 @@ impl ValidityWitness {
             .block_merkle_proof
             .verify(
                 &Bytes32::default(),
-                block.block_number as usize,
+                block.block_number as u64,
                 prev_block_tree_root,
             )
             .expect("Block merkle proof is invalid");
         let block_tree_root = self
             .validity_transition_witness
             .block_merkle_proof
-            .get_root(&block.hash(), block.block_number as usize);
+            .get_root(&block.hash(), block.block_number as u64);
 
         let main_validation_pis = self.block_witness.to_main_validation_pis().map_err(|e| {
             anyhow::anyhow!(

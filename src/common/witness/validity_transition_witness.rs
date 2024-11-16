@@ -24,8 +24,8 @@ pub struct ValidityTransitionWitness {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AccountRegistrationProofOrDummy {
-    pub index: usize,
-    pub low_leaf_index: usize,
+    pub index: u64,
+    pub low_leaf_index: u64,
     pub prev_low_leaf: IndexedMerkleLeaf,
 
     // None if it is a dummy proof

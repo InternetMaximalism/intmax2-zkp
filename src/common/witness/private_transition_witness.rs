@@ -35,12 +35,12 @@ impl PrivateTransitionWitness {
         new_salt: Salt,
     ) -> anyhow::Result<Self> {
         let prev_private_state = full_private_state.to_private_state();
-        let prev_asset_leaf = full_private_state.asset_tree.get_leaf(token_index as usize);
-        let asset_merkle_proof = full_private_state.asset_tree.prove(token_index as usize);
+        let prev_asset_leaf = full_private_state.asset_tree.get_leaf(token_index as u64);
+        let asset_merkle_proof = full_private_state.asset_tree.prove(token_index as u64);
         let new_asset_leaf = prev_asset_leaf.add(amount); // receiving token
         full_private_state
             .asset_tree
-            .update(token_index as usize, new_asset_leaf);
+            .update(token_index as u64, new_asset_leaf);
         let nullifier_proof = full_private_state
             .nullifier_tree
             .prove_and_insert(nullifier)
