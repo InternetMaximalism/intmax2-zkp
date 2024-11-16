@@ -82,7 +82,7 @@ impl U32LimbTargetTrait<ACCOUNT_ID_PACKED_LEN> for AccountIdPackedTarget {
 }
 
 impl AccountIdPacked {
-    pub fn pack(account_ids: &[usize]) -> Self {
+    pub fn pack(account_ids: &[u64]) -> Self {
         assert_eq!(account_ids.len(), NUM_SENDERS_IN_BLOCK);
         let account_id_bits = account_ids
             .into_iter()
@@ -91,7 +91,7 @@ impl AccountIdPacked {
         Self::from_bits_be(&account_id_bits)
     }
 
-    pub fn unpack(&self) -> Vec<usize> {
+    pub fn unpack(&self) -> Vec<u64> {
         let bits = self.to_bits_be();
         let account_ids = bits
             .into_iter()
@@ -180,7 +180,7 @@ impl AccountIdPackedTarget {
     }
 }
 
-fn account_id_to_bits_be(account_id: usize) -> Vec<bool> {
+fn account_id_to_bits_be(account_id: u64) -> Vec<bool> {
     assert!(account_id < 1 << ACCOUNT_ID_BITS);
     let mut result = Vec::with_capacity(40);
     for i in (0..ACCOUNT_ID_BITS).rev() {
@@ -189,7 +189,7 @@ fn account_id_to_bits_be(account_id: usize) -> Vec<bool> {
     result
 }
 
-fn bits_be_to_account_id(vec: &[bool]) -> usize {
+fn bits_be_to_account_id(vec: &[bool]) -> u64 {
     assert_eq!(vec.len(), ACCOUNT_ID_BITS);
     let mut result = 0;
     for (i, &bit) in vec.iter().enumerate() {
