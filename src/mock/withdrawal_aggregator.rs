@@ -48,6 +48,17 @@ where
         }
     }
 
+    pub fn reset(&mut self) {
+        let withdrawal_processor = std::mem::take(&mut self.withdrawal_processor);
+        let balance_common_data = self.balance_common_data.clone();
+        *self = Self {
+            balance_common_data,
+            withdrawal_processor,
+            prev_withdrawal_proof: None,
+            withdrawals: vec![],
+        };
+    }
+
     pub fn add(
         &mut self,
         single_withdrawal_proof: &ProofWithPublicInputs<F, C, D>,
