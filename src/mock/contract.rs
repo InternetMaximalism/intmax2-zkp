@@ -45,6 +45,10 @@ impl MockContract {
         }
     }
 
+    pub fn reset(&mut self) {
+        *self = Self::new();
+    }
+
     pub fn get_next_block_number(&self) -> u32 {
         self.full_blocks.len() as u32
     }

@@ -50,6 +50,10 @@ where
         }
     }
 
+    pub fn reset(&mut self) {
+        *self = Self::new();
+    }
+
     pub fn save_balance_proof(&mut self, pubkey: U256, proof: ProofWithPublicInputs<F, C, D>) {
         let balance_pis = BalancePublicInputs::from_pis(&proof.public_inputs);
         log::info!(

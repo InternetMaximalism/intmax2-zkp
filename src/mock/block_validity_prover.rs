@@ -84,6 +84,29 @@ where
         }
     }
 
+    pub fn reset(&mut self) {
+        let validity_processor = std::mem::take(&mut self.validity_processor);
+        let last_block_number = 0;
+        let account_tree = AccountTree::initialize();
+        let mut block_tree = BlockHashTree::new(BLOCK_HASH_TREE_HEIGHT);
+        block_tree.push(Block::genesis().hash());
+        let mut account_trees = HashMap::new();
+        account_trees.insert(last_block_number, account_tree);
+        let mut block_trees = HashMap::new();
+        block_trees.insert(last_block_number, block_tree);
+        *self = Self {
+            validity_processor,
+            last_block_number,
+            account_trees,
+            block_trees,
+            validity_proofs: HashMap::new(),
+            sender_leaves: HashMap::new(),
+            deposit_correspondence: HashMap::new(),
+            deposit_trees: HashMap::new(),
+            tx_tree_roots: HashMap::new(),
+        };
+    }
+
     pub fn sync(&mut self, contract: &MockContract) -> anyhow::Result<()> {
         let mut account_tree = self
             .account_trees

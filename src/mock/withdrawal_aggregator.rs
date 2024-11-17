@@ -1,3 +1,5 @@
+use std::sync::OnceLock;
+
 use anyhow::ensure;
 use plonky2::{
     field::extension::Extendable,
@@ -25,7 +27,8 @@ where
     C: GenericConfig<D, F = F>,
     <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
 {
-    withdrawal_processor: WithdrawalProcessor<F, C, D>,
+    balance_common_data: CommonCircuitData<F, D>,
+    withdrawal_processor: OnceLock<WithdrawalProcessor<F, C, D>>, // delayed initialization
     prev_withdrawal_proof: Option<ProofWithPublicInputs<F, C, D>>,
     withdrawals: Vec<Withdrawal>,
 }
@@ -38,7 +41,8 @@ where
 {
     pub fn new(balance_common_data: &CommonCircuitData<F, D>) -> Self {
         Self {
-            withdrawal_processor: WithdrawalProcessor::new(balance_common_data),
+            balance_common_data: balance_common_data.clone(),
+            withdrawal_processor: OnceLock::new(),
             prev_withdrawal_proof: None,
             withdrawals: vec![],
         }
@@ -48,7 +52,7 @@ where
         &mut self,
         single_withdrawal_proof: &ProofWithPublicInputs<F, C, D>,
     ) -> anyhow::Result<()> {
-        self.withdrawal_processor
+        self.withdrawal_processor()
             .single_withdrawal_circuit
             .verify(single_withdrawal_proof)
             .map_err(|e| anyhow::anyhow!("Invalid single withdrawal proof: {:?}", e))?;
@@ -56,7 +60,7 @@ where
             Withdrawal::from_u64_slice(&single_withdrawal_proof.public_inputs.to_u64_vec());
 
         let withdrawal_proof = self
-            .withdrawal_processor
+            .withdrawal_processor()
             .prove_chain(single_withdrawal_proof, &self.prev_withdrawal_proof)
             .map_err(|e| anyhow::anyhow!("Failed to prove withdrawal chain: {}", e))?;
 
@@ -75,9 +79,10 @@ where
         );
 
         let withdrawals = self.withdrawals.clone();
+        let prev_withdrawal_proof = self.prev_withdrawal_proof.clone().unwrap();
         let withdrawal_proof = self
-            .withdrawal_processor
-            .prove_wrap(&self.prev_withdrawal_proof.as_ref().unwrap(), aggregator)
+            .withdrawal_processor_mut()
+            .prove_wrap(&prev_withdrawal_proof, aggregator)
             .map_err(|e| anyhow::anyhow!("Failed to prove withdrawal wrapper: {}", e))?;
 
         // reset state
@@ -87,7 +92,17 @@ where
         Ok((withdrawals, withdrawal_proof))
     }
 
+    pub fn withdrawal_processor(&self) -> &WithdrawalProcessor<F, C, D> {
+        self.withdrawal_processor
+            .get_or_init(|| WithdrawalProcessor::new(&self.balance_common_data))
+    }
+
+    pub fn withdrawal_processor_mut(&mut self) -> &WithdrawalProcessor<F, C, D> {
+        self.withdrawal_processor
+            .get_mut_or_init(|| WithdrawalProcessor::new(&self.balance_common_data))
+    }
+
     pub fn single_withdrawal_circuit(&self) -> &SingleWithdrawalCircuit<F, C, D> {
-        &self.withdrawal_processor.single_withdrawal_circuit
+        &self.withdrawal_processor().single_withdrawal_circuit
     }
 }
