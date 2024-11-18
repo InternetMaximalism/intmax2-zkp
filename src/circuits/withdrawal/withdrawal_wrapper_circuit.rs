@@ -77,7 +77,7 @@ where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
 {
-    data: CircuitData<F, C, D>,
+    pub data: CircuitData<F, C, D>,
     withdrawal_proof: ProofWithPublicInputsTarget<D>,
     withdrawal_aggregator: AddressTarget, // Who makes the withdrawal proof and receive the reward
 }
