@@ -29,7 +29,7 @@ pub fn sign_to_tx_root(privkey: Fr, tx_tree_root: Bytes32, pubkey_hash: Bytes32)
     (message_point * privkey * Fr::from(BigUint::from(weight))).into()
 }
 
-pub(crate) fn hash_to_weight(my_pubkey: U256, pubkey_hash: Bytes32) -> U256 {
+pub fn hash_to_weight(my_pubkey: U256, pubkey_hash: Bytes32) -> U256 {
     type F = GoldilocksField;
     let flattened = my_pubkey
         .to_u32_vec()
