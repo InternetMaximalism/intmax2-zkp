@@ -63,7 +63,7 @@ impl IndexedMerkleTree {
         Ok(low_leaf_index as u64)
     }
 
-    pub(crate) fn index(&self, key: U256) -> Option<u64> {
+    pub fn index(&self, key: U256) -> Option<u64> {
         let leaf_candidates = self
             .0
             .leaves()
