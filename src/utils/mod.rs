@@ -7,8 +7,6 @@ pub mod logic;
 pub mod poseidon_hash_out;
 pub mod recursively_verifiable;
 pub mod serialize;
+pub mod test_utils;
 pub mod trees;
 pub mod wrapper;
-
-#[cfg(test)]
-pub mod test_utils;
