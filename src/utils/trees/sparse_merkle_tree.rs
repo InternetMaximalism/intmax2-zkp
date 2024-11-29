@@ -214,20 +214,20 @@ impl<VT: LeafableTarget> SparseMerkleProofTarget<VT> {
 
 // serialization
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SparseMerkleTreePacked<V: Leafable> {
+struct SparseMerkleTreePacked<V: Leafable> {
     height: usize,
     leaves: Vec<(u64, V)>,
 }
 
 impl<V: Leafable> SparseMerkleTree<V> {
-    pub fn pack(&self) -> SparseMerkleTreePacked<V> {
+    fn pack(&self) -> SparseMerkleTreePacked<V> {
         SparseMerkleTreePacked {
             height: self.height(),
             leaves: self.leaves().into_iter().collect(),
         }
     }
 
-    pub fn unpack(packed: SparseMerkleTreePacked<V>) -> SparseMerkleTree<V> {
+    fn unpack(packed: SparseMerkleTreePacked<V>) -> SparseMerkleTree<V> {
         let mut tree = SparseMerkleTree::new(packed.height);
         // todo: batch update
         for (index, leaf) in packed.leaves {
@@ -245,11 +245,7 @@ where
     where
         S: Serializer,
     {
-        SparseMerkleTreePacked {
-            height: self.height(),
-            leaves: self.leaves().into_iter().collect(),
-        }
-        .serialize(serializer)
+        self.pack().serialize(serializer)
     }
 }
 

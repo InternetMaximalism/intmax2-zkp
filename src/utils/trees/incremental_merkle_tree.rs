@@ -268,8 +268,7 @@ impl<V: Leafable + Serialize> Serialize for IncrementalMerkleTree<V> {
     where
         S: Serializer,
     {
-        let packed = self.pack();
-        packed.serialize(serializer)
+        self.pack().serialize(serializer)
     }
 }
 
