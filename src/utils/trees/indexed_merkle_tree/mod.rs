@@ -18,9 +18,7 @@ use crate::{
 use anyhow::Result;
 use leaf::{IndexedMerkleLeaf, IndexedMerkleLeafTarget};
 
-use super::incremental_merkle_tree::IncrementalMerkleTreePacked;
-
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IndexedMerkleTree(IncrementalMerkleTree<IndexedMerkleLeaf>);
 pub type IndexedMerkleProof = IncrementalMerkleProof<IndexedMerkleLeaf>;
 pub type IndexedMerkleProofTarget = IncrementalMerkleProofTarget<IndexedMerkleLeafTarget>;
@@ -101,16 +99,3 @@ impl IndexedMerkleTree {
     }
 }
 
-// serialization
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct IndexedMerkleTreePacked(IncrementalMerkleTreePacked<IndexedMerkleLeaf>);
-
-impl IndexedMerkleTree {
-    pub fn pack(&self) -> IndexedMerkleTreePacked {
-        IndexedMerkleTreePacked(self.0.pack())
-    }
-
-    pub fn unpack(packed: IndexedMerkleTreePacked) -> Self {
-        Self(IncrementalMerkleTree::unpack(packed.0))
-    }
-}

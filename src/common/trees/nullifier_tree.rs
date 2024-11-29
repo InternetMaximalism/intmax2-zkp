@@ -9,7 +9,7 @@ use crate::{
         poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget},
         trees::indexed_merkle_tree::{
             insertion::{IndexedInsertionProof, IndexedInsertionProofTarget},
-            IndexedMerkleTree, IndexedMerkleTreePacked,
+            IndexedMerkleTree,
         },
     },
 };
@@ -25,7 +25,7 @@ use plonky2::{
 };
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NullifierTree(IndexedMerkleTree);
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NullifierInsersionProof(IndexedInsertionProof);
@@ -140,19 +140,5 @@ impl NullifierInsersionProofTarget {
     {
         let expected_new_root = self.get_new_root::<F, C, D>(builder, prev_root, nullifier);
         expected_new_root.connect(builder, new_root);
-    }
-}
-
-// serialization
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct NullifierTreePacked(IndexedMerkleTreePacked);
-
-impl NullifierTree {
-    pub fn pack(&self) -> NullifierTreePacked {
-        NullifierTreePacked(self.0.pack())
-    }
-
-    pub fn unpack(packed: NullifierTreePacked) -> Self {
-        Self(IndexedMerkleTree::unpack(packed.0))
     }
 }

@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     common::{
-        private_state::{FullPrivateState, FullPrivateStatePacked, PrivateState},
+        private_state::{FullPrivateState, PrivateState},
         signature::key_set::KeySet,
         trees::asset_tree::AssetLeaf,
     },
@@ -11,7 +11,7 @@ use crate::{
     utils::poseidon_hash_out::PoseidonHashOut,
 };
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UserData {
     pub pubkey: U256,
 
@@ -20,23 +20,6 @@ pub struct UserData {
 
     // The latest unix timestamp of processed (incorporated into the balance proof or rejected)
     // actions
-    pub deposit_lpt: u64,
-    pub transfer_lpt: u64,
-    pub tx_lpt: u64,
-    pub withdrawal_lpt: u64,
-
-    pub processed_deposit_uuids: Vec<String>,
-    pub processed_transfer_uuids: Vec<String>,
-    pub processed_tx_uuids: Vec<String>,
-    pub processed_withdrawal_uuids: Vec<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct UserDataPacked {
-    pubkey: U256,
-    block_number: u32,
-    full_private_state: FullPrivateStatePacked,
-
     pub deposit_lpt: u64,
     pub transfer_lpt: u64,
     pub tx_lpt: u64,
@@ -68,38 +51,12 @@ impl UserData {
     }
 
     fn to_bytes(&self) -> Vec<u8> {
-        let packed = UserDataPacked {
-            pubkey: self.pubkey,
-            block_number: self.block_number,
-            full_private_state: self.full_private_state.pack(),
-            deposit_lpt: self.deposit_lpt,
-            transfer_lpt: self.transfer_lpt,
-            tx_lpt: self.tx_lpt,
-            withdrawal_lpt: self.withdrawal_lpt,
-            processed_deposit_uuids: self.processed_deposit_uuids.clone(),
-            processed_transfer_uuids: self.processed_transfer_uuids.clone(),
-            processed_tx_uuids: self.processed_tx_uuids.clone(),
-            processed_withdrawal_uuids: self.processed_withdrawal_uuids.clone(),
-        };
-        bincode::serialize(&packed).unwrap()
+        bincode::serialize(&self).unwrap()
     }
 
     fn from_bytes(bytes: &[u8]) -> anyhow::Result<Self> {
-        let packed: UserDataPacked = bincode::deserialize(bytes)?;
-        let full_private_state = FullPrivateState::unpack(packed.full_private_state);
-        Ok(Self {
-            pubkey: packed.pubkey,
-            block_number: packed.block_number,
-            full_private_state,
-            deposit_lpt: packed.deposit_lpt,
-            transfer_lpt: packed.transfer_lpt,
-            tx_lpt: packed.tx_lpt,
-            withdrawal_lpt: packed.withdrawal_lpt,
-            processed_deposit_uuids: packed.processed_deposit_uuids,
-            processed_transfer_uuids: packed.processed_transfer_uuids,
-            processed_tx_uuids: packed.processed_tx_uuids,
-            processed_withdrawal_uuids: packed.processed_withdrawal_uuids,
-        })
+        let user_data = bincode::deserialize(bytes)?;
+        Ok(user_data)
     }
 
     pub fn encrypt(&self, _pubkey: U256) -> Vec<u8> {

@@ -237,6 +237,34 @@ impl<V: Leafable> SparseMerkleTree<V> {
     }
 }
 
+impl<V: Leafable> Serialize for SparseMerkleTree<V>
+where
+    V: Serialize,
+{
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        SparseMerkleTreePacked {
+            height: self.height(),
+            leaves: self.leaves().into_iter().collect(),
+        }
+        .serialize(serializer)
+    }
+}
+
+impl<'de, V: Leafable> Deserialize<'de> for SparseMerkleTree<V>
+where
+    V: Deserialize<'de>,
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        SparseMerkleTreePacked::<V>::deserialize(deserializer).map(SparseMerkleTree::unpack)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::{

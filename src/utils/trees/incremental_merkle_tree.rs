@@ -10,7 +10,7 @@ use plonky2::{
         config::{AlgebraicHasher, GenericConfig},
     },
 };
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use super::merkle_tree::{MerkleProof, MerkleProofTarget, MerkleTree};
 use crate::utils::{
@@ -238,28 +238,48 @@ impl<VT: LeafableTarget> IncrementalMerkleProofTarget<VT> {
     }
 }
 
-// serialization
+// Serialization and Deserialization
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct IncrementalMerkleTreePacked<V: Leafable> {
+struct IncrementalMerkleTreePacked<V: Leafable> {
     height: usize,
     leaves: Vec<V>,
 }
 
 impl<V: Leafable> IncrementalMerkleTree<V> {
-    pub fn pack(&self) -> IncrementalMerkleTreePacked<V> {
+    fn pack(&self) -> IncrementalMerkleTreePacked<V> {
         IncrementalMerkleTreePacked {
             height: self.height(),
             leaves: self.leaves(),
         }
     }
 
-    pub fn unpack(packed: IncrementalMerkleTreePacked<V>) -> Self {
+    fn unpack(packed: IncrementalMerkleTreePacked<V>) -> Self {
         let mut tree = IncrementalMerkleTree::new(packed.height);
         // todo: batch update
         for leaf in packed.leaves {
             tree.push(leaf);
         }
         tree
+    }
+}
+
+impl<V: Leafable + Serialize> Serialize for IncrementalMerkleTree<V> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let packed = self.pack();
+        packed.serialize(serializer)
+    }
+}
+
+impl<'de, V: Leafable + Deserialize<'de>> Deserialize<'de> for IncrementalMerkleTree<V> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let packed = IncrementalMerkleTreePacked::deserialize(deserializer)?;
+        Ok(Self::unpack(packed))
     }
 }
 
