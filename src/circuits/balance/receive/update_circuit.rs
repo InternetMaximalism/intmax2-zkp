@@ -199,7 +199,7 @@ impl<const D: usize> UpdateTarget<D> {
             validity_pis.public_state.account_tree_root,
         );
         let last_block_number = account_membership_proof.get_value(builder);
-        // assert last_block_number <= validity_pis.public_state.block_number
+        // assert last_block_number <= prev_public_state.block_number
         let diff = builder.sub(prev_public_state.block_number, last_block_number);
         builder.range_check(diff, 32);
         Self {
