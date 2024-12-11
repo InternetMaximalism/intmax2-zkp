@@ -5,7 +5,7 @@ use crate::ethereum_types::{
 };
 use ark_bn254::{Fr, G1Affine, G2Affine};
 use ark_ec::AffineRepr;
-use num::{BigUint, Zero as _};
+use num::{BigUint, One, Zero as _};
 use plonky2::{
     field::{extension::Extendable, goldilocks_field::GoldilocksField, types::Field as _},
     hash::{hash_types::RichField, poseidon::PoseidonHash},
@@ -16,7 +16,9 @@ use plonky2::{
     plonk::circuit_builder::CircuitBuilder,
 };
 use plonky2_bn254::{
-    curves::g2::G2Target, fields::biguint::BigUintTarget, utils::hash_to_g2::HashToG2 as _,
+    curves::g2::G2Target,
+    fields::biguint::{BigUintTarget, CircuitBuilderBiguint},
+    utils::hash_to_g2::HashToG2 as _,
 };
 use plonky2_u32::gadgets::arithmetic_u32::U32Target;
 
@@ -45,7 +47,7 @@ pub(crate) fn hash_to_weight(my_pubkey: U256, pubkey_hash: Bytes32) -> U256 {
         .collect::<Vec<_>>();
     let mut challenger = Challenger::<F, PoseidonHash>::new();
     challenger.observe_elements(&flattened);
-    let output = challenger.get_n_challenges(8);
+    let output = challenger.get_n_challenges(16);
     f_slice_to_biguint(&output).try_into().unwrap()
 }
 
@@ -62,7 +64,7 @@ pub(crate) fn hash_to_weight_circuit<F: RichField + Extendable<D>, const D: usiz
         .collect::<Vec<_>>();
     let mut challenger = RecursiveChallenger::<F, PoseidonHash, D>::new(builder);
     challenger.observe_elements(&flattened);
-    let output = challenger.get_n_challenges(builder, 8);
+    let output = challenger.get_n_challenges(builder, 16);
     let output = target_slice_to_biguint_target(builder, &output);
 
     U256Target::from_slice(
@@ -88,7 +90,8 @@ fn f_slice_to_biguint<F: RichField>(input: &[F]) -> BigUint {
     for (i, limb) in limbs.iter().enumerate() {
         value += BigUint::from(*limb) << (i * 32);
     }
-    value
+    let r = BigUint::from(Fr::from(-1)) + BigUint::one();
+    value % r
 }
 
 fn target_slice_to_biguint_target<F: RichField + Extendable<D>, const D: usize>(
@@ -103,7 +106,9 @@ fn target_slice_to_biguint_target<F: RichField + Extendable<D>, const D: usize>(
             U32Target(lo)
         })
         .collect::<Vec<_>>();
-    BigUintTarget { limbs }
+    let r = BigUint::from(Fr::from(-1)) + BigUint::one();
+    let value = BigUintTarget { limbs };
+    builder.div_rem_biguint(&value, &r).1
 }
 
 #[cfg(test)]
