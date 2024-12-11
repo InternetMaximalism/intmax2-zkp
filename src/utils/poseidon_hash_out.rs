@@ -311,7 +311,9 @@ fn safe_split_lo_and_hi<F: RichField + Extendable<D>, const D: usize>(
     // However, when x < 2^32, there are two possible decompositions:
     // 1) hi = 0, lo = x
     // 2) hi = 2^32 - 1, lo = x + 1
-    // Therefore, an additional constraint is needed: when hi = 2^32 - 1, lo must be 0
+    // By adding the constraint that lo must be 0 when hi = 2^32 - 1, we can eliminate the latter
+    // case. This constraint still allows any value of x to be decomposed, because
+    // hi = 2^32 - 1, lo = 0 gives hi*2^32 + lo = p - 1, which is the maximum value in the field.
     let hi_max = builder.constant(F::from_canonical_u64((1 << 32) - 1));
     let is_hi_max = builder.is_equal(hi, hi_max);
     let t = builder.mul(is_hi_max.target, lo);
