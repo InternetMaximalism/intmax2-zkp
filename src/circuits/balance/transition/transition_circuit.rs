@@ -300,6 +300,7 @@ impl<const D: usize> BalanceTransitionTarget<D> {
                 condition,
             );
             BalancePublicInputsTarget {
+                pubkey: pis.pubkey,
                 public_state: pis.new_public_state,
                 ..prev_balance_pis.clone()
             }
