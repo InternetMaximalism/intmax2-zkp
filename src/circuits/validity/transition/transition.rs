@@ -212,18 +212,18 @@ impl<const D: usize> ValidityTransitionTarget<D> {
             new_account_tree_root,
         );
 
-        let prev_block_number = block_pis.block_number;
+        let block_number = block_pis.block_number;
         let empty_leaf = Bytes32Target::zero::<F, D, Bytes32>(builder);
         block_hash_merkle_proof.verify::<F, C, D>(
             builder,
             &empty_leaf,
-            prev_block_number,
+            block_number,
             prev_block_tree_root,
         );
         let new_block_tree_root = block_hash_merkle_proof.get_root::<F, C, D>(
             builder,
             &block_pis.block_hash,
-            prev_block_number,
+            block_number,
         );
 
         Self {
