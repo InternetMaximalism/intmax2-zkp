@@ -82,6 +82,9 @@ where
             .prev_block_hash
             .connect(&mut builder, prev_pis.public_state.block_hash);
 
+        // connect block_pis to transition_target
+        block_pis.connect(&mut builder, &transition_target.block_pis);
+
         let new_pis = ValidityPublicInputsTarget {
             public_state: PublicStateTarget {
                 prev_account_tree_root: transition_target.prev_account_tree_root,

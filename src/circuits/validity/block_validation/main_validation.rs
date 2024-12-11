@@ -179,6 +179,28 @@ impl MainValidationPublicInputsTarget {
         }
     }
 
+    pub fn connect<F: RichField + Extendable<D>, const D: usize>(
+        &self,
+        builder: &mut CircuitBuilder<F, D>,
+        other: &Self,
+    ) {
+        self.prev_block_hash.connect(builder, other.prev_block_hash);
+        self.block_hash.connect(builder, other.block_hash);
+        self.deposit_tree_root
+            .connect(builder, other.deposit_tree_root);
+        self.account_tree_root
+            .connect(builder, other.account_tree_root);
+        self.tx_tree_root.connect(builder, other.tx_tree_root);
+        self.sender_tree_root
+            .connect(builder, other.sender_tree_root);
+        builder.connect(self.block_number, other.block_number);
+        builder.connect(
+            self.is_registration_block.target,
+            other.is_registration_block.target,
+        );
+        builder.connect(self.is_valid.target, other.is_valid.target);
+    }
+
     pub fn set_witness<W: Witness<F>, F: Field>(
         &self,
         witness: &mut W,
