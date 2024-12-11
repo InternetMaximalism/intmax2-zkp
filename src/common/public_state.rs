@@ -47,7 +47,7 @@ impl PublicState {
         let block_number = 0;
         Self {
             block_tree_root: block_tree.get_root(),
-            prev_account_tree_root: PoseidonHashOut::default(),
+            prev_account_tree_root: account_tree.get_root(),
             account_tree_root: account_tree.get_root(),
             deposit_tree_root: deposit_tree_root.get_root(),
             block_hash,
