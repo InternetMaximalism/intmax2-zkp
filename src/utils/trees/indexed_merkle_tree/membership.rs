@@ -159,6 +159,7 @@ impl MembershipProofTarget {
             .key
             .conditional_assert_eq(builder, key, self.is_included);
 
+        // exclusion case
         let is_exclusion = builder.not(self.is_included);
         let key_lt = self.leaf.key.is_lt(builder, &key);
         let next_key_gt = key.is_lt(builder, &self.leaf.next_key);
