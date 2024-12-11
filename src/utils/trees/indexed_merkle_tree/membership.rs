@@ -159,12 +159,14 @@ impl MembershipProofTarget {
             .key
             .conditional_assert_eq(builder, key, self.is_included);
 
-        // exclusion case
         let is_exclusion = builder.not(self.is_included);
         let key_lt = self.leaf.key.is_lt(builder, &key);
+        let next_key_gt = key.is_lt(builder, &self.leaf.next_key);
         let is_next_key_zero = self.leaf.next_key.is_zero::<F, D, U256>(builder);
-        let is_key_lt_or_next_key_zero = builder.or(key_lt, is_next_key_zero);
-        builder.conditional_assert_true(is_exclusion, is_key_lt_or_next_key_zero);
+        let is_next_key_gt_or_next_key_zero = builder.or(next_key_gt, is_next_key_zero);
+        let is_key_lt_and_next_key_gt_or_next_key_zero =
+            builder.and(key_lt, is_next_key_gt_or_next_key_zero);
+        builder.conditional_assert_true(is_exclusion, is_key_lt_and_next_key_gt_or_next_key_zero);
     }
 
     pub fn get_value<F: RichField + Extendable<D>, const D: usize>(
