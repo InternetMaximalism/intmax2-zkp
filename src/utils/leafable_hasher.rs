@@ -8,6 +8,7 @@ use plonky2::{
     },
 };
 use plonky2_keccak::{builder::BuilderKeccak256 as _, utils::solidity_keccak256};
+use serde::{de::DeserializeOwned, Serialize};
 
 use super::poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget};
 use crate::ethereum_types::{
@@ -17,7 +18,15 @@ use crate::ethereum_types::{
 use core::{fmt::Debug, hash::Hash};
 
 pub trait LeafableHasher: Debug + Clone {
-    type HashOut: Clone + Copy + Debug + Default + PartialEq + Eq + Hash;
+    type HashOut: Clone
+        + Copy
+        + Debug
+        + Default
+        + PartialEq
+        + Eq
+        + Hash
+        + Serialize
+        + DeserializeOwned;
     type HashOutTarget: Clone + Debug;
 
     fn two_to_one(left: Self::HashOut, right: Self::HashOut) -> Self::HashOut;

@@ -98,13 +98,7 @@ impl<V: Leafable> IncrementalMerkleTree<V> {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct IncrementalMerkleProof<V: Leafable>(
-    #[serde(bound(
-        serialize = "<V::LeafableHasher as LeafableHasher>::HashOut: Serialize",
-        deserialize = "<V::LeafableHasher as LeafableHasher>::HashOut: Deserialize<'de>"
-    ))]
-    pub MerkleProof<V>,
-);
+pub struct IncrementalMerkleProof<V: Leafable>(pub MerkleProof<V>);
 
 impl<V: Leafable> IncrementalMerkleProof<V> {
     pub fn dummy(height: usize) -> Self {
