@@ -76,6 +76,7 @@ impl AccountRegistrationValue {
                 )
                 .expect("Invalid account registration proof");
             if will_update {
+                assert_eq!(account_registration_proof.index as u64, next_account_id);
                 next_account_id += 1;
             }
         }
@@ -144,6 +145,11 @@ impl AccountRegistrationTarget {
                 sender_leaf.sender.clone(),
                 block_number,
                 account_tree_root.clone(),
+            );
+            builder.conditional_assert_eq(
+                will_update.target,
+                next_account_id,
+                account_registration_proof.index,
             );
             let incremented_next_account_id = builder.add_const(next_account_id, F::ONE);
             next_account_id =
