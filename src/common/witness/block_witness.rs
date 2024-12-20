@@ -39,6 +39,7 @@ pub struct BlockWitness {
     pub signature: SignatureContent,
     pub pubkeys: Vec<U256>,
     pub prev_account_tree_root: PoseidonHashOut,
+    pub prev_next_account_id: u64,
     pub prev_block_tree_root: PoseidonHashOut,
     pub account_id_packed: Option<AccountIdPacked>, // in account id case
     pub account_merkle_proofs: Option<Vec<AccountMerkleProof>>, // in account id case
@@ -52,6 +53,7 @@ pub struct CompressedBlockWitness {
     pub signature: SignatureContent,
     pub pubkeys: Vec<U256>,
     pub prev_account_tree_root: PoseidonHashOut,
+    pub prev_next_account_id: u64,
     pub prev_block_tree_root: PoseidonHashOut,
     pub account_id_packed: Option<AccountIdPacked>, // in account id case
     pub significant_account_merkle_proofs: Option<Vec<AccountMerkleProof>>, // in account id case
@@ -69,6 +71,7 @@ impl BlockWitness {
             signature: SignatureContent::default(),
             pubkeys: vec![],
             prev_account_tree_root: account_tree.get_root(),
+            prev_next_account_id: 2,
             prev_block_tree_root: block_hash_tree.get_root(),
             account_id_packed: None,
             account_merkle_proofs: None,
@@ -138,6 +141,7 @@ impl BlockWitness {
             signature: self.signature.clone(),
             pubkeys: self.pubkeys.clone(),
             prev_account_tree_root: self.prev_account_tree_root.clone(),
+            prev_next_account_id: self.prev_next_account_id,
             prev_block_tree_root: self.prev_block_tree_root.clone(),
             account_id_packed: self.account_id_packed.clone(),
             significant_account_merkle_proofs,
@@ -195,6 +199,7 @@ impl BlockWitness {
             signature: compressed.signature.clone(),
             pubkeys: compressed.pubkeys.clone(),
             prev_account_tree_root: compressed.prev_account_tree_root.clone(),
+            prev_next_account_id: compressed.prev_next_account_id,
             prev_block_tree_root: compressed.prev_block_tree_root.clone(),
             account_id_packed: compressed.account_id_packed.clone(),
             account_merkle_proofs,

@@ -89,6 +89,7 @@ where
             public_state: PublicStateTarget {
                 prev_account_tree_root: transition_target.prev_account_tree_root,
                 account_tree_root: transition_target.new_account_tree_root,
+                next_account_id: transition_target.new_next_account_id,
                 block_tree_root: transition_target.new_block_tree_root,
                 block_hash: block_pis.block_hash,
                 block_number: block_pis.block_number,
