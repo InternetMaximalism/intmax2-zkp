@@ -147,6 +147,11 @@ impl MockBlockBuilder {
         let signature_hash = signature.hash();
 
         let prev_block = self.last_validity_witness.block_witness.block.clone();
+        let prev_next_account_id = self
+            .last_validity_witness
+            .to_validity_pis()
+            .public_state
+            .next_account_id;
         let block = Block {
             prev_block_hash: prev_block.hash(),
             deposit_tree_root: self.deposit_tree.get_root(),
@@ -160,6 +165,7 @@ impl MockBlockBuilder {
             signature: signature.clone(),
             pubkeys: pubkeys.clone(),
             prev_account_tree_root,
+            prev_next_account_id,
             prev_block_tree_root,
             account_id_packed,
             account_merkle_proofs,
@@ -200,18 +206,14 @@ impl MockBlockBuilder {
             if block_pis.is_valid && block_pis.is_registration_block {
                 let mut account_registration_proofs = Vec::new();
                 for sender_leaf in &sender_leaves {
-                    let last_block_number = if sender_leaf.is_valid {
-                        block_pis.block_number
-                    } else {
-                        0
-                    };
                     let is_dummy_pubkey = sender_leaf.sender.is_dummy_pubkey();
-                    let proof = if is_dummy_pubkey {
-                        AccountRegistrationProof::dummy(ACCOUNT_TREE_HEIGHT)
-                    } else {
+                    let will_update = sender_leaf.is_valid && !is_dummy_pubkey;
+                    let proof = if will_update {
                         self.account_tree
-                            .prove_and_insert(sender_leaf.sender, last_block_number as u64)
+                            .prove_and_insert(sender_leaf.sender, block_pis.block_number as u64)
                             .unwrap()
+                    } else {
+                        AccountRegistrationProof::dummy(ACCOUNT_TREE_HEIGHT)
                     };
                     account_registration_proofs.push(proof);
                 }

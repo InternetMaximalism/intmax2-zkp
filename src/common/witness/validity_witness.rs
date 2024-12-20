@@ -72,6 +72,7 @@ impl ValidityWitness {
         // transition account tree root
         let prev_account_tree_root = self.block_witness.prev_account_tree_root;
         let mut account_tree_root = prev_account_tree_root;
+        let mut next_account_id = self.block_witness.prev_next_account_id;
         if main_validation_pis.is_valid && main_validation_pis.is_registration_block {
             let account_registration_proofs = self
                 .validity_transition_witness
@@ -84,20 +85,19 @@ impl ValidityWitness {
                 .iter()
                 .zip(account_registration_proofs)
             {
-                let last_block_number = if sender_leaf.is_valid {
-                    block.block_number
-                } else {
-                    0
-                };
                 let is_not_dummy = !sender_leaf.sender.is_dummy_pubkey();
+                let will_update = sender_leaf.is_valid && is_not_dummy;
                 account_tree_root = account_registration_proof
                     .conditional_get_new_root(
-                        is_not_dummy,
+                        will_update,
                         sender_leaf.sender,
-                        last_block_number as u64,
+                        block.block_number as u64,
                         account_tree_root,
                     )
                     .expect("Invalid account registration proof");
+                if will_update {
+                    next_account_id += 1;
+                }
             }
         }
         if main_validation_pis.is_valid && !main_validation_pis.is_registration_block {
@@ -133,6 +133,7 @@ impl ValidityWitness {
             public_state: PublicState {
                 prev_account_tree_root,
                 account_tree_root,
+                next_account_id,
                 block_tree_root,
                 deposit_tree_root: block.deposit_tree_root,
                 block_number: block.block_number,
