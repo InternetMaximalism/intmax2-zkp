@@ -73,6 +73,10 @@ where
             .public_state
             .account_tree_root
             .connect(&mut builder, transition_target.prev_account_tree_root);
+        builder.connect(
+            prev_pis.public_state.next_account_id,
+            transition_target.prev_next_account_id,
+        );
 
         // connect block_pis to transition_target
         block_pis
