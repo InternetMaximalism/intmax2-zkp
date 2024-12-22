@@ -184,6 +184,8 @@ impl PublicStateTarget {
             .connect(builder, other.prev_account_tree_root);
         self.account_tree_root
             .connect(builder, other.account_tree_root);
+        self.prev_account_tree_root
+            .connect(builder, other.prev_account_tree_root);
         self.block_tree_root.connect(builder, other.block_tree_root);
         self.deposit_tree_root
             .connect(builder, other.deposit_tree_root);
@@ -204,7 +206,11 @@ impl PublicStateTarget {
         );
         self.account_tree_root
             .conditional_assert_eq(builder, other.account_tree_root, condition);
-        builder.conditional_assert_eq(condition.target, self.next_account_id, other.next_account_id);
+        builder.conditional_assert_eq(
+            condition.target,
+            self.next_account_id,
+            other.next_account_id,
+        );
         self.block_tree_root
             .conditional_assert_eq(builder, other.block_tree_root, condition);
         self.deposit_tree_root
@@ -219,7 +225,10 @@ impl PublicStateTarget {
             .set_witness(witness, value.prev_account_tree_root);
         self.account_tree_root
             .set_witness(witness, value.account_tree_root);
-        witness.set_target(self.next_account_id, F::from_canonical_u64(value.next_account_id));
+        witness.set_target(
+            self.next_account_id,
+            F::from_canonical_u64(value.next_account_id),
+        );
         self.block_tree_root
             .set_witness(witness, value.block_tree_root);
         self.deposit_tree_root
