@@ -25,10 +25,11 @@ use super::trees::deposit_tree::DepositTree;
 #[derive(Clone, Default, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Block {
-    pub prev_block_hash: Bytes32,   // The hash of the previous block
-    pub deposit_tree_root: Bytes32, // The root of the deposit tree
-    pub signature_hash: Bytes32,    // The hash of the signature of the block
-    pub block_number: u32,          // The number of the block
+    pub prev_block_hash: Bytes32,      // The hash of the previous block
+    pub deposit_tree_root: Bytes32,    // The root of the deposit tree
+    pub signature_hash: Bytes32,       // The hash of the signature of the block
+    pub block_number: u32,             // The number of the block
+    pub block_time_since_genesis: u32, // The block timestamp since contract deployment (seconds)
 }
 
 #[derive(Clone, Debug)]
@@ -37,6 +38,7 @@ pub struct BlockTarget {
     pub deposit_tree_root: Bytes32Target,
     pub signature_hash: Bytes32Target,
     pub block_number: Target,
+    pub block_time_since_genesis: Target,
 }
 
 impl Block {
@@ -47,6 +49,7 @@ impl Block {
             deposit_tree_root,
             signature_hash: Bytes32::default(),
             block_number: 0,
+            block_time_since_genesis: 0,
         }
     }
 
@@ -55,7 +58,7 @@ impl Block {
             self.prev_block_hash.to_u32_vec(),
             self.deposit_tree_root.to_u32_vec(),
             self.signature_hash.to_u32_vec(),
-            vec![self.block_number],
+            vec![self.block_number, self.block_time_since_genesis],
         ]
         .concat()
     }
@@ -79,11 +82,13 @@ impl BlockTarget {
         if is_checked {
             builder.range_check(block_number, 32);
         }
+        let block_time_since_genesis = builder.add_virtual_target();
         Self {
             prev_block_hash: Bytes32Target::new(builder, is_checked),
             deposit_tree_root: Bytes32Target::new(builder, is_checked),
             signature_hash: Bytes32Target::new(builder, is_checked),
             block_number,
+            block_time_since_genesis,
         }
     }
 
@@ -93,7 +98,11 @@ impl BlockTarget {
             .into_iter()
             .chain(self.deposit_tree_root.to_vec().into_iter())
             .chain(self.signature_hash.to_vec().into_iter())
-            .chain([self.block_number].iter().copied())
+            .chain(
+                [self.block_number, self.block_time_since_genesis]
+                    .iter()
+                    .copied(),
+            )
             .collect::<Vec<_>>()
     }
 
@@ -126,5 +135,9 @@ impl BlockTarget {
         self.signature_hash
             .set_witness(witness, value.signature_hash);
         witness.set_target(self.block_number, F::from_canonical_u32(value.block_number));
+        witness.set_target(
+            self.block_time_since_genesis,
+            F::from_canonical_u32(value.block_time_since_genesis),
+        );
     }
 }
