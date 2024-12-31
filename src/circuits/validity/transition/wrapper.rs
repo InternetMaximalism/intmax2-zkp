@@ -48,15 +48,11 @@ where
         account_update_vd: &VerifierCircuitData<F, C, D>,
     ) -> Self {
         let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::default());
-        let main_validation_proof =
-            add_proof_target_and_verify(main_validation_vd, &mut builder);
+        let main_validation_proof = add_proof_target_and_verify(main_validation_vd, &mut builder);
         let block_pis =
             MainValidationPublicInputsTarget::from_slice(&main_validation_proof.public_inputs);
-        let transition_target = ValidityTransitionTarget::new(
-            account_registration_vd,
-            account_update_vd,
-            &mut builder,
-        );
+        let transition_target =
+            ValidityTransitionTarget::new(account_registration_vd, account_update_vd, &mut builder);
         let prev_pis = ValidityPublicInputsTarget::new(&mut builder, false);
 
         prev_pis
@@ -88,6 +84,7 @@ where
             tx_tree_root: block_pis.tx_tree_root,
             sender_tree_root: block_pis.sender_tree_root,
             is_valid_block: block_pis.is_valid,
+            block_time_since_genesis: block_pis.block_time_since_genesis,
         };
 
         let concat_pis = vec![prev_pis.to_vec(), new_pis.to_vec()].concat();

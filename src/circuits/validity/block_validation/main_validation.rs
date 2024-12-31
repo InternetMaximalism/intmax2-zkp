@@ -57,7 +57,7 @@ use super::{
     utils::{get_pubkey_commitment, get_pubkey_commitment_circuit},
 };
 
-pub const MAIN_VALIDATION_PUBLIC_INPUT_LEN: usize = 4 * BYTES32_LEN + 2 * 4 + 3;
+pub const MAIN_VALIDATION_PUBLIC_INPUT_LEN: usize = 4 * BYTES32_LEN + 2 * 4 + 4;
 
 #[derive(Clone, Debug)]
 pub struct MainValidationPublicInputs {
@@ -70,6 +70,7 @@ pub struct MainValidationPublicInputs {
     pub block_number: u32,
     pub is_registration_block: bool,
     pub is_valid: bool,
+    pub block_time_since_genesis: u32,
 }
 
 #[derive(Clone, Debug)]
@@ -83,6 +84,7 @@ pub struct MainValidationPublicInputsTarget {
     pub block_number: Target,
     pub is_registration_block: BoolTarget,
     pub is_valid: BoolTarget,
+    pub block_time_since_genesis: Target,
 }
 
 impl MainValidationPublicInputs {
@@ -94,9 +96,18 @@ impl MainValidationPublicInputs {
         let account_tree_root = PoseidonHashOut::from_u64_slice(&input[24..28]);
         let tx_tree_root = Bytes32::from_u64_slice(&input[28..36]);
         let sender_tree_root = PoseidonHashOut::from_u64_slice(&input[36..40]);
-        let block_number = input[40] as u32;
+        let block_number = input[40];
+        if block_number >= u32::MAX as u64 {
+            panic!("block_time_since_genesis is too large");
+        }
+
         let is_registration_block = input[41] == 1;
         let is_valid = input[42] == 1;
+        let block_time_since_genesis = input[43];
+        if block_time_since_genesis >= u32::MAX as u64 {
+            panic!("block_time_since_genesis is too large");
+        }
+
         Self {
             prev_block_hash,
             block_hash,
@@ -104,9 +115,10 @@ impl MainValidationPublicInputs {
             account_tree_root,
             tx_tree_root,
             sender_tree_root,
-            block_number,
+            block_number: block_number as u32,
             is_registration_block,
             is_valid,
+            block_time_since_genesis: block_time_since_genesis as u32,
         }
     }
 }
@@ -119,10 +131,12 @@ impl MainValidationPublicInputsTarget {
         let block_number = builder.add_virtual_target();
         let is_registration_block = builder.add_virtual_bool_target_unsafe();
         let is_valid = builder.add_virtual_bool_target_unsafe();
+        let block_time_since_genesis = builder.add_virtual_target();
         if is_checked {
             builder.range_check(block_number, 32);
             builder.assert_bool(is_registration_block);
             builder.assert_bool(is_valid);
+            builder.range_check(block_time_since_genesis, 32);
         }
         Self {
             prev_block_hash: Bytes32Target::new(builder, is_checked),
@@ -134,6 +148,7 @@ impl MainValidationPublicInputsTarget {
             block_number,
             is_registration_block,
             is_valid,
+            block_time_since_genesis,
         }
     }
 
@@ -151,6 +166,7 @@ impl MainValidationPublicInputsTarget {
                 self.block_number,
                 self.is_registration_block.target,
                 self.is_valid.target,
+                self.block_time_since_genesis,
             ])
             .collect::<Vec<_>>();
         assert_eq!(vec.len(), MAIN_VALIDATION_PUBLIC_INPUT_LEN);
@@ -168,6 +184,7 @@ impl MainValidationPublicInputsTarget {
         let block_number = input[40];
         let is_registration_block = BoolTarget::new_unsafe(input[41]);
         let is_valid = BoolTarget::new_unsafe(input[42]);
+        let block_time_since_genesis = input[43];
         Self {
             prev_block_hash,
             block_hash,
@@ -178,6 +195,7 @@ impl MainValidationPublicInputsTarget {
             block_number,
             is_registration_block,
             is_valid,
+            block_time_since_genesis,
         }
     }
 
@@ -199,6 +217,10 @@ impl MainValidationPublicInputsTarget {
         witness.set_target(self.block_number, F::from_canonical_u32(value.block_number));
         witness.set_bool_target(self.is_registration_block, value.is_registration_block);
         witness.set_bool_target(self.is_valid, value.is_valid);
+        witness.set_target(
+            self.block_time_since_genesis,
+            F::from_canonical_u32(value.block_time_since_genesis),
+        );
     }
 }
 
@@ -623,6 +645,7 @@ where
             block_number: target.block.block_number,
             is_registration_block: target.is_registration_block,
             is_valid: target.is_valid,
+            block_time_since_genesis: target.block.block_time_since_genesis,
         };
         builder.register_public_inputs(&pis.to_vec());
         let data = builder.build();

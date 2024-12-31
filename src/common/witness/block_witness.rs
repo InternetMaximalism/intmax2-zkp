@@ -73,6 +73,7 @@ impl BlockWitness {
                 block_number: validity_pis.public_state.block_number,
                 is_registration_block: false, // genesis block is not a registration block
                 is_valid: validity_pis.is_valid_block,
+                block_time_since_genesis: validity_pis.block_time_since_genesis,
             });
         }
 
@@ -142,6 +143,7 @@ impl BlockWitness {
             block_number: block.block_number,
             is_registration_block,
             is_valid: result,
+            block_time_since_genesis: block.block_time_since_genesis,
         })
     }
 

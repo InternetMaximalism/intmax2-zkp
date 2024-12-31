@@ -22,7 +22,7 @@ use crate::{
 };
 
 pub const VALIDITY_PUBLIC_INPUTS_LEN: usize =
-    PUBLIC_STATE_LEN + BYTES32_LEN + POSEIDON_HASH_OUT_LEN + 1;
+    PUBLIC_STATE_LEN + BYTES32_LEN + POSEIDON_HASH_OUT_LEN + 2;
 
 /// Public inputs for the validity circuit
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -31,6 +31,7 @@ pub struct ValidityPublicInputs {
     pub public_state: PublicState,
     pub tx_tree_root: Bytes32,
     pub sender_tree_root: PoseidonHashOut,
+    pub block_time_since_genesis: u32,
     pub is_valid_block: bool,
 }
 
@@ -40,6 +41,7 @@ pub struct ValidityPublicInputsTarget {
     pub tx_tree_root: Bytes32Target,
     pub sender_tree_root: PoseidonHashOutTarget,
     pub is_valid_block: BoolTarget,
+    pub block_time_since_genesis: Target,
 }
 
 impl ValidityPublicInputs {
@@ -53,6 +55,7 @@ impl ValidityPublicInputs {
             tx_tree_root,
             sender_tree_root,
             is_valid_block,
+            block_time_since_genesis: 0,
         }
     }
 
@@ -64,6 +67,7 @@ impl ValidityPublicInputs {
             .chain(self.tx_tree_root.to_u64_vec())
             .chain(self.sender_tree_root.elements.into_iter())
             .chain(vec![self.is_valid_block as u64])
+            .chain(vec![self.block_time_since_genesis as u64])
             .collect::<Vec<_>>();
         assert_eq!(vec.len(), VALIDITY_PUBLIC_INPUTS_LEN);
         vec
@@ -79,11 +83,17 @@ impl ValidityPublicInputs {
                 ..PUBLIC_STATE_LEN + BYTES32_LEN + POSEIDON_HASH_OUT_LEN],
         );
         let is_valid_block = input[PUBLIC_STATE_LEN + BYTES32_LEN + POSEIDON_HASH_OUT_LEN] == 1;
+        let block_time_since_genesis =
+            input[PUBLIC_STATE_LEN + BYTES32_LEN + POSEIDON_HASH_OUT_LEN + 1];
+        if block_time_since_genesis >= u32::MAX as u64 {
+            panic!("block_time_since_genesis is too large");
+        }
         Self {
             public_state,
             tx_tree_root,
             sender_tree_root,
             is_valid_block,
+            block_time_since_genesis: block_time_since_genesis as u32,
         }
     }
 
@@ -101,6 +111,7 @@ impl ValidityPublicInputsTarget {
             .chain(self.tx_tree_root.to_vec())
             .chain(self.sender_tree_root.elements.into_iter())
             .chain(vec![self.is_valid_block.target])
+            .chain(vec![self.block_time_since_genesis])
             .collect::<Vec<_>>();
         assert_eq!(vec.len(), VALIDITY_PUBLIC_INPUTS_LEN);
         vec
@@ -117,11 +128,14 @@ impl ValidityPublicInputsTarget {
         );
         let is_valid_block =
             BoolTarget::new_unsafe(input[PUBLIC_STATE_LEN + BYTES32_LEN + POSEIDON_HASH_OUT_LEN]);
+        let block_time_since_genesis =
+            input[PUBLIC_STATE_LEN + BYTES32_LEN + POSEIDON_HASH_OUT_LEN + 1];
         Self {
             public_state,
             tx_tree_root,
             sender_tree_root,
             is_valid_block,
+            block_time_since_genesis,
         }
     }
 
@@ -139,11 +153,17 @@ impl ValidityPublicInputsTarget {
         if is_checked {
             builder.assert_bool(is_valid_block);
         }
+        let block_time_since_genesis = builder.add_virtual_target();
+        if is_checked {
+            builder.range_check(block_time_since_genesis, 32);
+        }
+
         Self {
             public_state: PublicStateTarget::new(builder, is_checked),
             tx_tree_root: Bytes32Target::new(builder, is_checked),
             sender_tree_root: PoseidonHashOutTarget::new(builder),
             is_valid_block,
+            block_time_since_genesis,
         }
     }
 
@@ -151,11 +171,13 @@ impl ValidityPublicInputsTarget {
         builder: &mut CircuitBuilder<F, D>,
         value: &ValidityPublicInputs,
     ) -> Self {
+        let block_time_since_genesis = F::from_canonical_u32(value.block_time_since_genesis);
         Self {
             public_state: PublicStateTarget::constant(builder, &value.public_state),
             tx_tree_root: Bytes32Target::constant(builder, value.tx_tree_root),
             sender_tree_root: PoseidonHashOutTarget::constant(builder, value.sender_tree_root),
             is_valid_block: builder.constant_bool(value.is_valid_block),
+            block_time_since_genesis: builder.constant(block_time_since_genesis),
         }
     }
 
@@ -169,6 +191,10 @@ impl ValidityPublicInputsTarget {
         self.sender_tree_root
             .connect(builder, other.sender_tree_root);
         builder.connect(self.is_valid_block.target, other.is_valid_block.target);
+        builder.connect(
+            self.block_time_since_genesis,
+            other.block_time_since_genesis,
+        );
     }
 
     pub fn conditional_assert_eq<F: RichField + Extendable<D>, const D: usize>(
@@ -188,6 +214,11 @@ impl ValidityPublicInputsTarget {
             self.is_valid_block.target,
             other.is_valid_block.target,
         );
+        builder.conditional_assert_eq(
+            condition.target,
+            self.block_time_since_genesis,
+            other.block_time_since_genesis,
+        );
     }
 
     pub fn set_witness<F: RichField, W: Witness<F>>(
@@ -200,5 +231,8 @@ impl ValidityPublicInputsTarget {
         self.sender_tree_root
             .set_witness(witness, value.sender_tree_root);
         witness.set_bool_target(self.is_valid_block, value.is_valid_block);
+
+        let block_time_since_genesis = F::from_canonical_u32(value.block_time_since_genesis);
+        witness.set_target(self.block_time_since_genesis, block_time_since_genesis);
     }
 }

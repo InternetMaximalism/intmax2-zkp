@@ -127,6 +127,7 @@ impl ValidityWitness {
             tx_tree_root: main_validation_pis.tx_tree_root,
             sender_tree_root: main_validation_pis.sender_tree_root,
             is_valid_block: main_validation_pis.is_valid,
+            block_time_since_genesis: block.block_time_since_genesis,
         })
     }
 
