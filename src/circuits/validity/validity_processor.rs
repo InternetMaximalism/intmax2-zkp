@@ -42,7 +42,7 @@ where
         #[cfg(not(feature = "dummy_validity_proof"))]
         let transition_processor = TransitionProcessor::new();
         #[cfg(not(feature = "dummy_validity_proof"))]
-        let validity_circuit = VerifierCircuitData::new(
+        let validity_circuit = ValidityCircuit::new(
             &transition_processor
                 .transition_wrapper_circuit
                 .data
