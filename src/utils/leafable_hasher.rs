@@ -239,7 +239,7 @@ impl LeafableHasher for KeccakLeafableHasher {
     fn hash_out_target<F: RichField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
     ) -> Self::HashOutTarget {
-        Bytes32Target::new(builder, false)
+        Bytes32Target::new(builder, true)
     }
 
     fn constant_hash_out_target<F: RichField + Extendable<D>, const D: usize>(

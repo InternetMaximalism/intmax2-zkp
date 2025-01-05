@@ -30,7 +30,9 @@ use super::account_transition_pis::AccountTransitionPublicInputsTarget;
 
 pub struct AccountRegistrationValue {
     pub prev_account_tree_root: PoseidonHashOut,
+    pub prev_next_account_id: u64,
     pub new_account_tree_root: PoseidonHashOut,
+    pub new_next_account_id: u64,
     pub sender_tree_root: PoseidonHashOut,
     pub block_number: u32,
     pub sender_leaves: Vec<SenderLeaf>,
@@ -40,6 +42,7 @@ pub struct AccountRegistrationValue {
 impl AccountRegistrationValue {
     pub fn new(
         prev_account_tree_root: PoseidonHashOut,
+        prev_next_account_id: u64,
         block_number: u32,
         sender_leaves: Vec<SenderLeaf>,
         account_registration_proofs: Vec<AccountRegistrationProof>,
@@ -57,28 +60,31 @@ impl AccountRegistrationValue {
         let sender_tree_root = get_merkle_root_from_leaves(SENDER_TREE_HEIGHT, &sender_leaves);
 
         let mut account_tree_root = prev_account_tree_root;
+        let mut next_account_id = prev_next_account_id;
         for (sender_leaf, account_registration_proof) in
             sender_leaves.iter().zip(account_registration_proofs.iter())
         {
-            let last_block_number = if sender_leaf.did_return_sig {
-                block_number
-            } else {
-                0
-            };
             let is_not_dummy_pubkey = !sender_leaf.sender.is_dummy_pubkey();
+            let will_update = sender_leaf.did_return_sig && is_not_dummy_pubkey;
             account_tree_root = account_registration_proof
                 .conditional_get_new_root(
-                    is_not_dummy_pubkey,
+                    will_update,
                     sender_leaf.sender,
-                    last_block_number as u64,
+                    block_number as u64,
                     account_tree_root,
                 )
                 .expect("Invalid account registration proof");
+            if will_update {
+                assert_eq!(account_registration_proof.index as u64, next_account_id);
+                next_account_id += 1;
+            }
         }
 
         Self {
             prev_account_tree_root,
+            prev_next_account_id,
             new_account_tree_root: account_tree_root,
+            new_next_account_id: next_account_id,
             sender_tree_root,
             block_number,
             sender_leaves,
@@ -90,7 +96,9 @@ impl AccountRegistrationValue {
 #[derive(Debug)]
 pub struct AccountRegistrationTarget {
     pub prev_account_tree_root: PoseidonHashOutTarget,
+    pub prev_next_account_id: Target,
     pub new_account_tree_root: PoseidonHashOutTarget,
+    pub new_next_account_id: Target,
     pub sender_tree_root: PoseidonHashOutTarget,
     pub block_number: Target,
     pub sender_leaves: Vec<SenderLeafTarget>,
@@ -105,6 +113,7 @@ impl AccountRegistrationTarget {
         <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
     {
         let prev_account_tree_root = PoseidonHashOutTarget::new(builder);
+        let prev_next_account_id = builder.add_virtual_target();
         let block_number = builder.add_virtual_target();
 
         // Range check is not needed because we check the commitment
@@ -120,26 +129,36 @@ impl AccountRegistrationTarget {
             &sender_leaves,
         );
 
-        let zero = builder.zero();
         let mut account_tree_root = prev_account_tree_root;
+        let mut next_account_id = prev_next_account_id;
         for (sender_leaf, account_registration_proof) in
             sender_leaves.iter().zip(account_registration_proofs.iter())
         {
-            let last_block_number = builder.select(sender_leaf.did_return_sig, block_number, zero);
             let is_dummy_pubkey = sender_leaf.sender.is_dummy_pubkey(builder);
             let is_not_dummy_pubkey = builder.not(is_dummy_pubkey);
+            let will_update = builder.and(sender_leaf.did_return_sig, is_not_dummy_pubkey);
             account_tree_root = account_registration_proof.conditional_get_new_root::<F, C, D>(
                 builder,
-                is_not_dummy_pubkey,
+                will_update,
                 sender_leaf.sender.clone(),
-                last_block_number.clone(),
+                block_number,
                 account_tree_root.clone(),
             );
+            builder.conditional_assert_eq(
+                will_update.target,
+                next_account_id,
+                account_registration_proof.index,
+            );
+            let incremented_next_account_id = builder.add_const(next_account_id, F::ONE);
+            next_account_id =
+                builder.select(will_update, incremented_next_account_id, next_account_id);
         }
 
         Self {
             prev_account_tree_root,
+            prev_next_account_id,
             new_account_tree_root: account_tree_root,
+            new_next_account_id: next_account_id,
             sender_tree_root,
             block_number,
             sender_leaves,
@@ -154,8 +173,16 @@ impl AccountRegistrationTarget {
     ) {
         self.prev_account_tree_root
             .set_witness(witness, value.prev_account_tree_root);
+        witness.set_target(
+            self.prev_next_account_id,
+            F::from_canonical_u64(value.prev_next_account_id),
+        );
         self.new_account_tree_root
             .set_witness(witness, value.new_account_tree_root);
+        witness.set_target(
+            self.new_next_account_id,
+            F::from_canonical_u64(value.new_next_account_id),
+        );
         self.sender_tree_root
             .set_witness(witness, value.sender_tree_root);
         witness.set_target(self.block_number, F::from_canonical_u32(value.block_number));
@@ -199,7 +226,9 @@ where
         let target = AccountRegistrationTarget::new::<F, C, D>(&mut builder);
         let pis = AccountTransitionPublicInputsTarget {
             prev_account_tree_root: target.prev_account_tree_root.clone(),
+            prev_next_account_id: target.prev_next_account_id.clone(),
             new_account_tree_root: target.new_account_tree_root.clone(),
+            new_next_account_id: target.new_next_account_id.clone(),
             sender_tree_root: target.sender_tree_root.clone(),
             block_number: target.block_number.clone(),
         };
@@ -248,12 +277,16 @@ mod tests {
     fn account_registration() {
         let mut rng = rand::thread_rng();
         let mut tree = AccountTree::initialize();
+        let mut next_account_id = 2;
+
         for _ in 0..100 {
             let keyset = KeySet::rand(&mut rng);
             let last_block_number = rng.gen();
             tree.insert(keyset.pubkey, last_block_number).unwrap();
+            next_account_id += 1;
         }
         let prev_account_tree_root = tree.get_root();
+        let prev_next_account_id = next_account_id;
 
         let mut pubkeys = (0..10).map(|_| U256::rand(&mut rng)).collect::<Vec<_>>();
         pubkeys.resize(NUM_SENDERS_IN_BLOCK, U256::dummy_pubkey()); // pad with dummy pubkeys
@@ -262,22 +295,22 @@ mod tests {
         let block_number: u32 = 1000;
         let mut account_registration_proofs = Vec::new();
         for sender_leaf in sender_leaves.iter() {
-            let last_block_number = if sender_leaf.did_return_sig {
-                block_number
-            } else {
-                0
-            };
             let is_dummy_pubkey = sender_leaf.sender.is_dummy_pubkey();
-            let proof = if is_dummy_pubkey {
-                AccountRegistrationProof::dummy(ACCOUNT_TREE_HEIGHT)
-            } else {
-                tree.prove_and_insert(sender_leaf.sender, last_block_number as u64)
+            let will_update = sender_leaf.did_return_sig && !is_dummy_pubkey;
+            let proof = if will_update {
+                tree.prove_and_insert(sender_leaf.sender, block_number as u64)
                     .unwrap()
+            } else {
+                AccountRegistrationProof::dummy(ACCOUNT_TREE_HEIGHT)
             };
             account_registration_proofs.push(proof);
+            if will_update {
+                next_account_id += 1;
+            }
         }
         let account_registration_value = AccountRegistrationValue::new(
             prev_account_tree_root,
+            prev_next_account_id,
             block_number,
             sender_leaves,
             account_registration_proofs,

@@ -63,6 +63,10 @@ where
             .public_state
             .account_tree_root
             .connect(&mut builder, transition_target.prev_account_tree_root);
+        builder.connect(
+            prev_pis.public_state.next_account_id,
+            transition_target.prev_next_account_id,
+        );
 
         // connect block_pis to transition_target
         block_pis
@@ -72,10 +76,14 @@ where
             .prev_block_hash
             .connect(&mut builder, prev_pis.public_state.block_hash);
 
+        // connect block_pis to transition_target
+        block_pis.connect(&mut builder, &transition_target.block_pis);
+
         let new_pis = ValidityPublicInputsTarget {
             public_state: PublicStateTarget {
                 prev_account_tree_root: transition_target.prev_account_tree_root,
                 account_tree_root: transition_target.new_account_tree_root,
+                next_account_id: transition_target.new_next_account_id,
                 block_tree_root: transition_target.new_block_tree_root,
                 block_hash: block_pis.block_hash,
                 block_number: block_pis.block_number,

@@ -327,7 +327,11 @@ impl<const D: usize> BalanceTransitionTarget<D> {
                 &prev_balance_pis.public_state,
                 condition,
             );
+            prev_balance_pis
+                .pubkey
+                .conditional_assert_eq(builder, pis.pubkey, condition);
             BalancePublicInputsTarget {
+                pubkey: pis.pubkey,
                 public_state: pis.new_public_state,
                 ..prev_balance_pis.clone()
             }

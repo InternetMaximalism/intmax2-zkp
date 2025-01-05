@@ -70,6 +70,7 @@ where
     ) -> Result<ProofWithPublicInputs<F, C, D>> {
         let prev_account_tree_root = validity_witness.block_witness.prev_account_tree_root;
         let prev_block_tree_root = validity_witness.block_witness.prev_block_tree_root;
+        let prev_next_account_id = validity_witness.block_witness.prev_next_account_id;
 
         let block_pis = validity_witness
             .block_witness
@@ -93,6 +94,7 @@ where
             );
             let value = AccountRegistrationValue::new(
                 prev_account_tree_root,
+                prev_next_account_id,
                 block_pis.block_number,
                 sender_leaves.clone(),
                 account_registration_proofs,
@@ -114,6 +116,7 @@ where
             );
             let value = AccountUpdateValue::new(
                 prev_account_tree_root,
+                prev_next_account_id,
                 block_pis.block_number,
                 prev_sender_leaves.clone(),
                 account_update_proofs,
@@ -128,6 +131,7 @@ where
             &self.account_update_circuit,
             block_pis,
             prev_account_tree_root,
+            prev_next_account_id,
             prev_block_tree_root,
             account_registration_proof,
             account_update_proof,
