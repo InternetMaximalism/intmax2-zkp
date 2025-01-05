@@ -31,9 +31,6 @@ use plonky2::{
     },
 };
 
-#[cfg(not(feature = "dummy_validity_proof"))]
-use super::transition::wrapper::TransitionWrapperCircuit;
-
 #[derive(Debug)]
 pub struct ValidityCircuit<F, C, const D: usize>
 where
@@ -54,12 +51,12 @@ where
     C::Hasher: AlgebraicHasher<F>,
 {
     pub fn new(
-        #[cfg(not(feature = "dummy_validity_proof"))] validity_wrap_vd: &VerifierCircuitData<
+        #[cfg(not(feature = "dummy_validity_proof"))] transition_wrap_vd: &VerifierCircuitData<
             F,
             C,
             D,
         >,
-        #[cfg(feature = "dummy_validity_proof")] dummy_validity_wrap_vd: &VerifierCircuitData<
+        #[cfg(feature = "dummy_validity_proof")] dummy_transition_wrap_vd: &VerifierCircuitData<
             F,
             C,
             D,
@@ -70,9 +67,9 @@ where
         let is_not_first_step = builder.not(is_first_step);
 
         #[cfg(not(feature = "dummy_validity_proof"))]
-        let transition_proof = validity_wrap_circuit.add_proof_target_and_verify(&mut builder);
+        let transition_proof = add_proof_target_and_verify(transition_wrap_vd, &mut builder);
         #[cfg(feature = "dummy_validity_proof")]
-        let transition_proof = add_proof_target_and_verify(dummy_validity_wrap_vd, &mut builder);
+        let transition_proof = add_proof_target_and_verify(dummy_transition_wrap_vd, &mut builder);
 
         let prev_pis_ = ValidityPublicInputsTarget::from_slice(
             &transition_proof.public_inputs[0..VALIDITY_PUBLIC_INPUTS_LEN],
