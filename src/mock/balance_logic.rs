@@ -154,7 +154,7 @@ where
             sender_balance_pis.public_state.block_number,
         )
         .map_err(|e| anyhow::anyhow!("get_block_merkle_proof failed: {:?}", e))?;
-    let receive_trasfer_witness = ReceiveTransferWitness {
+    let receive_transfer_witness = ReceiveTransferWitness {
         transfer_witness,
         private_transition_witness,
         sender_balance_proof: sender_balance_proof.clone(),
@@ -165,7 +165,7 @@ where
     let balance_proof = balance_processor
         .prove_receive_transfer(
             pubkey,
-            &receive_trasfer_witness,
+            &receive_transfer_witness,
             &Some(before_balance_proof),
         )
         .map_err(|e| anyhow::anyhow!("prove_deposit failed: {:?}", e))?;

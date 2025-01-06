@@ -186,11 +186,17 @@ impl<const D: usize> TransferInclusionTarget<D> {
 //     };
 
 //     use crate::{
-//         circuits::balance::{
-//             balance_processor::BalanceProcessor,
-//             receive::receive_targets::transfer_inclusion::TransferInclusionTarget,
+//         circuits::{
+//             balance::{
+//                 balance_processor::BalanceProcessor,
+//                 receive::receive_targets::transfer_inclusion::TransferInclusionTarget,
+//             },
+//             validity::validity_processor::ValidityProcessor,
 //         },
-//         common::{generic_address::GenericAddress, salt::Salt, transfer::Transfer},
+//         common::{
+//             generic_address::GenericAddress, salt::Salt, signature::key_set::KeySet,
+//             transfer::Transfer,
+//         },
 //         ethereum_types::u256::U256,
 //     };
 
@@ -203,18 +209,15 @@ impl<const D: usize> TransferInclusionTarget<D> {
 //     #[test]
 //     fn transfer_inclusion() {
 //         let mut rng = rand::thread_rng();
-//         // let mut block_builder = MockBlockBuilder::new();
-//         // let mut sync_validity_prover = SyncValidityProver::<F, C, D>::new();
-//         // let balance_processor = BalanceProcessor::new(sync_validity_prover.validity_circuit());
+//         let validity_processor = ValidityProcessor::new();
+//         let balance_processor = BalanceProcessor::new(&validity_processor.get_verifier_data());
 
 //         // // personal data
-//         // let mut alice = MockWallet::new_rand(&mut rng);
-//         // let bob = MockWallet::new_rand(&mut rng);
-//         // let mut alice_balance_prover = SyncBalanceProver::<F, C, D>::new();
-
+//         let alice_key = KeySet::rand(&mut rng);
+//         let bob_key = KeySet::rand(&mut rng);
 //         // send tx
 //         let transfer = Transfer {
-//             recipient: GenericAddress::from_pubkey(bob.get_pubkey()),
+//             recipient: GenericAddress::from_pubkey(bob_key.pubkey),
 //             token_index: 0,
 //             amount: U256::rand_small(&mut rng),
 //             salt: Salt::rand(&mut rng),

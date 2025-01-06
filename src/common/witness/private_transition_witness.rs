@@ -46,6 +46,7 @@ impl PrivateTransitionWitness {
             .prove_and_insert(nullifier)
             .map_err(|e| anyhow::anyhow!("nullifier already exists: {}", e))?;
         full_private_state.salt = new_salt;
+        full_private_state.prev_private_commitment = prev_private_state.commitment();
         Ok(PrivateTransitionWitness {
             token_index,
             amount,

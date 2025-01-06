@@ -203,7 +203,6 @@ impl SpentValue {
             salt: new_private_state_salt,
             ..prev_private_state.clone()
         };
-        let prev_private_commitment = prev_private_state.commitment();
         let new_private_commitment = new_private_state.commitment();
         let transfer_root = get_merkle_root_from_leaves(TRANSFER_TREE_HEIGHT, &transfers);
         let tx = Tx {
@@ -268,7 +267,6 @@ impl SpentTarget {
             salt: new_private_state_salt,
             ..prev_private_state
         };
-        let prev_private_commitment = prev_private_state.commitment(builder);
         let new_private_commitment = new_private_state.commitment(builder);
         let transfer_root = get_merkle_root_from_leaves_circuit::<F, C, D, _>(
             builder,

@@ -68,21 +68,21 @@ where
         &self,
         validity_vd: &VerifierCircuitData<F, C, D>,
         prev_balance_pis: &BalancePublicInputs,
-        tx_witnes: &TxWitness,
+        tx_witness: &TxWitness,
         update_witness: &UpdateWitness<F, C, D>,
     ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
         let update_validity_pis = update_witness.validity_pis();
         ensure!(
-            update_validity_pis == tx_witnes.validity_pis,
+            update_validity_pis == tx_witness.validity_pis,
             "validity proof pis mismatch"
         );
-        let sender_tree = tx_witnes.get_sender_tree();
-        let sender_leaf = sender_tree.get_leaf(tx_witnes.tx_index as u64);
+        let sender_tree = tx_witness.get_sender_tree();
+        let sender_leaf = sender_tree.get_leaf(tx_witness.tx_index as u64);
         ensure!(
             sender_leaf.sender == prev_balance_pis.pubkey,
             "sender pubkey mismatch"
         );
-        let sender_merkle_proof = sender_tree.prove(tx_witnes.tx_index as u64);
+        let sender_merkle_proof = sender_tree.prove(tx_witness.tx_index as u64);
         let tx_inclusion_value = TxInclusionValue::new(
             validity_vd,
             prev_balance_pis.pubkey,
@@ -90,9 +90,9 @@ where
             &update_witness.validity_proof,
             &update_witness.block_merkle_proof,
             &update_witness.prev_account_membership_proof()?,
-            tx_witnes.tx_index,
-            &tx_witnes.tx,
-            &tx_witnes.tx_merkle_proof,
+            tx_witness.tx_index,
+            &tx_witness.tx,
+            &tx_witness.tx_merkle_proof,
             &sender_leaf,
             &sender_merkle_proof,
         )
@@ -106,7 +106,7 @@ where
         &self,
         validity_vd: &VerifierCircuitData<F, C, D>,
         prev_balance_pis: &BalancePublicInputs,
-        tx_witnes: &TxWitness,
+        tx_witness: &TxWitness,
         update_witness: &UpdateWitness<F, C, D>,
         spent_proof: &ProofWithPublicInputs<F, C, D>,
     ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
@@ -115,9 +115,9 @@ where
             spent_pis.prev_private_commitment == prev_balance_pis.private_commitment,
             "prev private commitment mismatch"
         );
-        ensure!(spent_pis.tx == tx_witnes.tx, "tx mismatch");
+        ensure!(spent_pis.tx == tx_witness.tx, "tx mismatch");
         let tx_inclusion_proof =
-            self.prove_tx_inclusion(validity_vd, prev_balance_pis, tx_witnes, update_witness)?;
+            self.prove_tx_inclusion(validity_vd, prev_balance_pis, tx_witness, update_witness)?;
         let sender_value = SenderValue::new(
             &self.spent_circuit,
             &self.tx_inclusion_circuit,
