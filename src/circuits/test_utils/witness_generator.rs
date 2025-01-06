@@ -5,17 +5,21 @@ use crate::{
     common::{
         block::Block,
         block_builder::{construct_signature, SenderWithSignature},
+        private_state::FullPrivateState,
+        salt::Salt,
         signature::{key_set::KeySet, sign::sign_to_tx_root_and_expiry, utils::get_pubkey_hash},
+        transfer::Transfer,
         trees::{
             account_tree::AccountTree, block_hash_tree::BlockHashTree, deposit_tree::DepositTree,
-            tx_tree::TxTree,
+            transfer_tree::TransferTree, tx_tree::TxTree,
         },
         tx::Tx,
         witness::{
-            full_block::FullBlock, tx_witness::TxWitness, validity_witness::ValidityWitness,
+            full_block::FullBlock, spent_witness::SpentWitness, transfer_witness::TransferWitness,
+            tx_witness::TxWitness, validity_witness::ValidityWitness,
         },
     },
-    constants::{NUM_SENDERS_IN_BLOCK, TX_TREE_HEIGHT},
+    constants::{NUM_SENDERS_IN_BLOCK, NUM_TRANSFERS_IN_TX, TRANSFER_TREE_HEIGHT, TX_TREE_HEIGHT},
     ethereum_types::{account_id_packed::AccountIdPacked, bytes32::Bytes32},
 };
 
@@ -166,6 +170,47 @@ pub fn construct_validity_witness(
     Ok((validity_witness, tx_witnesses))
 }
 
+pub fn construct_spent_witness(
+    full_private_state: &mut FullPrivateState,
+    transfers: &[Transfer],
+) -> anyhow::Result<SpentWitness> {
+    assert!(transfers.len() < NUM_TRANSFERS_IN_TX);
+    let mut transfers = transfers.to_vec();
+    transfers.resize(NUM_TRANSFERS_IN_TX, Transfer::default());
+
+    let mut transfer_tree = TransferTree::new(TRANSFER_TREE_HEIGHT);
+    for transfer in &transfers {
+        transfer_tree.push(transfer.clone());
+    }
+    let tx = Tx {
+        transfer_tree_root: transfer_tree.get_root(),
+        nonce: full_private_state.nonce,
+    };
+
+    let mut transfer_witnesses = Vec::new();
+    for (index, transfer) in transfers.iter().enumerate() {
+        let transfer_merkle_proof = transfer_tree.prove(index as u64);
+        transfer_witnesses.push(TransferWitness {
+            tx,
+            transfer: transfer.clone(),
+            transfer_index: index as u32,
+            transfer_merkle_proof,
+        });
+    }
+
+    let mut rng = rand::thread_rng();
+    let new_private_state_salt = Salt::rand(&mut rng);
+    let spent_witness = SpentWitness::new(
+        &full_private_state.asset_tree,
+        &full_private_state.to_private_state(),
+        &transfers,
+        tx,
+        new_private_state_salt,
+    )?;
+    spent_witness.update_private_state(full_private_state)?;
+    Ok(spent_witness)
+}
+
 #[cfg(test)]
 mod tests {
     use crate::{
@@ -181,6 +226,8 @@ mod tests {
         constants::DEPOSIT_TREE_HEIGHT,
     };
 
+    use super::MockTxRequest;
+
     #[test]
     fn test_construct_validity_witness() {
         let mut account_tree = AccountTree::initialize();
@@ -192,7 +239,7 @@ mod tests {
         for _ in 0..10 {
             let sender_key = KeySet::rand(&mut rng);
             let tx = Tx::rand(&mut rng);
-            let tx_requests = vec![super::MockTxRequest {
+            let tx_requests = vec![MockTxRequest {
                 tx,
                 sender_key,
                 will_return_sig: true,

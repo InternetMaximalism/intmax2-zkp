@@ -70,7 +70,6 @@ impl MockWallet {
         transfers.resize(NUM_TRANSFERS_IN_TX, Transfer::default());
 
         
-
         let mut transfer_tree = TransferTree::new(TRANSFER_TREE_HEIGHT);
         for transfer in &transfers {
             transfer_tree.push(transfer.clone());
