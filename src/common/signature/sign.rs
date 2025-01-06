@@ -106,7 +106,7 @@ fn target_slice_to_biguint_target<F: RichField + Extendable<D>, const D: usize>(
         .iter()
         .map(|c| {
             let (lo, _hi) = builder.split_low_high(*c, 32, 64);
-            // discard the high bits because it's not uniformally distributed
+            // discard the high bits because it's not uniformly distributed
             U32Target(lo)
         })
         .collect::<Vec<_>>();
