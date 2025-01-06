@@ -2,6 +2,7 @@ use crate::ethereum_types::{
     bytes32::{Bytes32, Bytes32Target},
     u256::{U256Target, U256},
     u32limb_trait::{U32LimbTargetTrait as _, U32LimbTrait as _},
+    u64::{U64Target, U64},
 };
 use ark_bn254::{Fr, G1Affine, G2Affine};
 use ark_ec::AffineRepr;
@@ -13,7 +14,10 @@ use plonky2::{
         challenger::{Challenger, RecursiveChallenger},
         target::Target,
     },
-    plonk::circuit_builder::CircuitBuilder,
+    plonk::{
+        circuit_builder::CircuitBuilder,
+        config::{AlgebraicHasher, GenericConfig},
+    },
 };
 use plonky2_bn254::{
     curves::g2::G2Target,
@@ -22,11 +26,18 @@ use plonky2_bn254::{
 };
 use plonky2_u32::gadgets::arithmetic_u32::U32Target;
 
-pub fn sign_to_tx_root(privkey: Fr, tx_tree_root: Bytes32, pubkey_hash: Bytes32) -> G2Affine {
+use super::flatten::FlatG2Target;
+
+pub fn sign_to_tx_root_and_expiry(
+    privkey: Fr,
+    tx_tree_root: Bytes32,
+    expiry: u64,
+    pubkey_hash: Bytes32,
+) -> G2Affine {
     let pubkey: G1Affine = (G1Affine::generator() * privkey).into();
     let pubkey_x: U256 = pubkey.x.into();
     let weight = hash_to_weight(pubkey_x, pubkey_hash);
-    let message_point = tx_tree_root_to_message_point(tx_tree_root);
+    let message_point = tx_tree_root_and_expiry_to_message_point(tx_tree_root, expiry.into());
 
     (message_point * privkey * Fr::from(BigUint::from(weight))).into()
 }
@@ -71,13 +82,37 @@ pub(crate) fn hash_to_weight_circuit<F: RichField + Extendable<D>, const D: usiz
     )
 }
 
-pub fn tx_tree_root_to_message_point(tx_tree_root: Bytes32) -> G2Affine {
-    let tx_tree_root = tx_tree_root
+pub fn tx_tree_root_and_expiry_to_message_point(tx_tree_root: Bytes32, expiry: U64) -> G2Affine {
+    let elements = tx_tree_root
         .to_u32_vec()
         .iter()
+        .chain(expiry.to_u32_vec().iter())
         .map(|x| GoldilocksField::from_canonical_u32(*x))
         .collect::<Vec<_>>();
-    let message_point = G2Target::<GoldilocksField, 2>::hash_to_g2(&tx_tree_root);
+    let message_point = G2Target::<GoldilocksField, 2>::hash_to_g2(&elements);
+    message_point
+}
+
+pub fn tx_tree_root_and_expiry_to_message_point_target<
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F> + 'static,
+    const D: usize,
+>(
+    builder: &mut CircuitBuilder<F, D>,
+    tx_tree_root: Bytes32Target,
+    expiry: U64Target,
+) -> FlatG2Target
+where
+    <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
+{
+    let elements = tx_tree_root
+        .to_vec()
+        .iter()
+        .chain(expiry.to_vec().iter())
+        .cloned()
+        .collect::<Vec<_>>();
+    let message_point: FlatG2Target =
+        G2Target::<F, D>::hash_to_g2_circuit::<C>(builder, &elements).into();
     message_point
 }
 

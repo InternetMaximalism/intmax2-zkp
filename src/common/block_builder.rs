@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     common::signature::{
-        sign::{hash_to_weight, tx_tree_root_to_message_point},
+        sign::{hash_to_weight, tx_tree_root_and_expiry_to_message_point},
         utils::get_pubkey_hash,
     },
     constants::NUM_SENDERS_IN_BLOCK,
@@ -17,7 +17,9 @@ use crate::{
 };
 
 use super::{
-    signature::{flatten::FlatG2, key_set::KeySet, sign::sign_to_tx_root, SignatureContent},
+    signature::{
+        flatten::FlatG2, key_set::KeySet, sign::sign_to_tx_root_and_expiry, SignatureContent,
+    },
     trees::tx_tree::TxMerkleProof,
     tx::Tx,
 };
@@ -51,8 +53,13 @@ impl BlockProposal {
     }
 
     pub fn sign(&self, key: KeySet) -> UserSignature {
-        let signature: FlatG2 =
-            sign_to_tx_root(key.privkey, self.tx_tree_root, self.pubkeys_hash).into();
+        let signature: FlatG2 = sign_to_tx_root_and_expiry(
+            key.privkey,
+            self.tx_tree_root,
+            self.expiry,
+            self.pubkeys_hash,
+        )
+        .into();
         UserSignature {
             pubkey: key.pubkey,
             signature,
@@ -107,7 +114,7 @@ pub fn construct_signature(
             (acc + x).into()
         });
     // message point
-    let message_point = tx_tree_root_to_message_point(tx_tree_root);
+    let message_point = tx_tree_root_and_expiry_to_message_point(tx_tree_root, expiry.into());
     assert!(
         Bn254::pairing(agg_pubkey, message_point)
             == Bn254::pairing(G1Affine::generator(), agg_signature)
@@ -134,12 +141,17 @@ pub struct UserSignature {
 
 impl UserSignature {
     // verify single user signature
-    pub fn verify(&self, tx_tree_root: Bytes32, pubkey_hash: Bytes32) -> anyhow::Result<()> {
+    pub fn verify(
+        &self,
+        tx_tree_root: Bytes32,
+        expiry: u64,
+        pubkey_hash: Bytes32,
+    ) -> anyhow::Result<()> {
         let weight = hash_to_weight(self.pubkey, pubkey_hash);
         let pubkey_g1: G1Affine = G1Affine::recover_from_x(self.pubkey.into());
         let weighted_pubkey_g1: G1Affine = (pubkey_g1 * Fr::from(BigUint::from(weight))).into();
         let signature_g2: G2Affine = self.signature.clone().into();
-        let message_point = tx_tree_root_to_message_point(tx_tree_root);
+        let message_point = tx_tree_root_and_expiry_to_message_point(tx_tree_root, expiry.into());
         ensure!(
             Bn254::pairing(weighted_pubkey_g1, message_point)
                 == Bn254::pairing(G1Affine::generator(), signature_g2),

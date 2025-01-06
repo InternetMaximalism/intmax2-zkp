@@ -182,7 +182,7 @@ impl BlockBuilder {
 
         let memo = self.memo.as_ref().unwrap();
         signature
-            .verify(memo.tx_tree_root, memo.pubkey_hash)
+            .verify(memo.tx_tree_root, memo.expiry, memo.pubkey_hash)
             .map_err(|e| {
                 anyhow::anyhow!("Invalid signature for pubkey {}: {}", signature.pubkey, e)
             })?;

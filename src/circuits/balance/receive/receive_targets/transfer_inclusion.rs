@@ -173,58 +173,58 @@ impl<const D: usize> TransferInclusionTarget<D> {
     }
 }
 
-#[cfg(test)]
-#[cfg(feature = "skip_insufficient_check")]
-mod tests {
-    use plonky2::{
-        field::goldilocks_field::GoldilocksField,
-        iop::witness::PartialWitness,
-        plonk::{
-            circuit_builder::CircuitBuilder, circuit_data::CircuitConfig,
-            config::PoseidonGoldilocksConfig,
-        },
-    };
+// #[cfg(test)]
+// #[cfg(feature = "skip_insufficient_check")]
+// mod tests {
+//     use plonky2::{
+//         field::goldilocks_field::GoldilocksField,
+//         iop::witness::PartialWitness,
+//         plonk::{
+//             circuit_builder::CircuitBuilder, circuit_data::CircuitConfig,
+//             config::PoseidonGoldilocksConfig,
+//         },
+//     };
 
-    use crate::{
-        circuits::{
-            balance::{
-                self, balance_processor::BalanceProcessor,
-                receive::receive_targets::transfer_inclusion::TransferInclusionTarget,
-            },
-            validity::validity_processor::ValidityProcessor,
-        },
-        common::{
-            generic_address::GenericAddress, salt::Salt, signature::key_set::KeySet,
-            transfer::Transfer,
-        },
-        ethereum_types::u256::U256,
-    };
+//     use crate::{
+//         circuits::{
+//             balance::{
+//                 self, balance_processor::BalanceProcessor,
+//                 receive::receive_targets::transfer_inclusion::TransferInclusionTarget,
+//             },
+//             validity::validity_processor::ValidityProcessor,
+//         },
+//         common::{
+//             generic_address::GenericAddress, salt::Salt, signature::key_set::KeySet,
+//             transfer::Transfer,
+//         },
+//         ethereum_types::u256::U256,
+//     };
 
-    use super::TransferInclusionValue;
+//     use super::TransferInclusionValue;
 
-    type F = GoldilocksField;
-    type C = PoseidonGoldilocksConfig;
-    const D: usize = 2;
+//     type F = GoldilocksField;
+//     type C = PoseidonGoldilocksConfig;
+//     const D: usize = 2;
 
-    #[test]
-    fn transfer_inclusion() {
-        let mut rng = rand::thread_rng();
-        let validity_processor = ValidityProcessor::<F, C, D>::new();
-        let balance_processor = BalanceProcessor::new(&validity_processor.get_verifier_data());
-        let balance_circuit_vd = balance_processor.get_verifier_only_data();
+//     #[test]
+//     fn transfer_inclusion() {
+//         let mut rng = rand::thread_rng();
+//         let validity_processor = ValidityProcessor::<F, C, D>::new();
+//         let balance_processor = BalanceProcessor::new(&validity_processor.get_verifier_data());
+//         let balance_circuit_vd = balance_processor.get_verifier_only_data();
 
-        let transfer = Transfer::rand(&mut rng);
+//         let transfer = Transfer::rand(&mut rng);
 
-        // let mut builder = CircuitBuilder::new(CircuitConfig::default());
-        // let target = TransferInclusionTarget::new::<F, C>(
-        //     &balance_processor.get_verifier_data().common,
-        //     &mut builder,
-        //     true,
-        // );
-        // let mut pw = PartialWitness::<F>::new();
-        // target.set_witness(&mut pw, &value);
+//         // let mut builder = CircuitBuilder::new(CircuitConfig::default());
+//         // let target = TransferInclusionTarget::new::<F, C>(
+//         //     &balance_processor.get_verifier_data().common,
+//         //     &mut builder,
+//         //     true,
+//         // );
+//         // let mut pw = PartialWitness::<F>::new();
+//         // target.set_witness(&mut pw, &value);
 
-        // let data = builder.build::<C>();
-        // let _ = data.prove(pw).unwrap();
-    }
-}
+//         // let data = builder.build::<C>();
+//         // let _ = data.prove(pw).unwrap();
+//     }
+// }

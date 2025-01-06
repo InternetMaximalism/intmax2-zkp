@@ -5,7 +5,7 @@ use crate::{
     common::{
         block::Block,
         block_builder::{construct_signature, SenderWithSignature},
-        signature::{key_set::KeySet, sign::sign_to_tx_root, utils::get_pubkey_hash},
+        signature::{key_set::KeySet, sign::sign_to_tx_root_and_expiry, utils::get_pubkey_hash},
         trees::{
             account_tree::AccountTree, block_hash_tree::BlockHashTree, deposit_tree::DepositTree,
             tx_tree::TxTree,
@@ -56,7 +56,6 @@ pub fn construct_validity_witness(
         tx_tree.push(r.tx.clone());
     }
     let tx_tree_root: Bytes32 = tx_tree.get_root().into();
-    let expiry = 0; // dummy value
 
     let mut tx_info = Vec::new();
     for r in tx_requests.iter() {
@@ -98,7 +97,15 @@ pub fn construct_validity_witness(
         .iter()
         .map(|r| {
             let signature = if r.will_return_sig {
-                Some(sign_to_tx_root(r.sender_key.privkey, tx_tree_root, pubkey_hash).into())
+                Some(
+                    sign_to_tx_root_and_expiry(
+                        r.sender_key.privkey,
+                        tx_tree_root,
+                        expiry,
+                        pubkey_hash,
+                    )
+                    .into(),
+                )
             } else {
                 None
             };
@@ -140,6 +147,6 @@ pub fn construct_validity_witness(
         account_ids: trimmed_account_ids,
     };
     let block_witness = full_block.to_block_witness(account_tree, block_tree)?;
-    let validity_witness = block_witness.update_trees(account_tree, block_tree)?;
+    let _validity_witness = block_witness.update_trees(account_tree, block_tree)?;
     todo!()
 }
