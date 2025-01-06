@@ -26,8 +26,8 @@ where
 
     encrypted_deposit_data: EncryptedDataMap, /* receiver's pubkey ->
                                                * encrypted_deposit_data */
-    encrypted_tranfer_data: EncryptedDataMap, /* receiver's pubkey ->
-                                               * encrypted_transfer_data */
+    encrypted_transfer_data: EncryptedDataMap, /* receiver's pubkey ->
+                                                * encrypted_transfer_data */
     encrypted_tx_data: EncryptedDataMap, /* sender's pubkey ->
                                           * encrypted_tx_data */
     encrypted_withdrawal_data: EncryptedDataMap, /* receiver's pubkey ->
@@ -44,7 +44,7 @@ where
             encrypted_user_data: HashMap::new(),
             balance_proofs: HashMap::new(),
             encrypted_deposit_data: EncryptedDataMap::new(),
-            encrypted_tranfer_data: EncryptedDataMap::new(),
+            encrypted_transfer_data: EncryptedDataMap::new(),
             encrypted_tx_data: EncryptedDataMap::new(),
             encrypted_withdrawal_data: EncryptedDataMap::new(),
         }
@@ -115,11 +115,11 @@ where
     }
 
     pub fn save_transfer_data(&mut self, pubkey: U256, encypted_data: Vec<u8>) {
-        self.encrypted_tranfer_data.insert(pubkey, encypted_data);
+        self.encrypted_transfer_data.insert(pubkey, encypted_data);
     }
 
     pub fn get_transfer_data(&self, uuid: &str) -> Option<(MetaData, Vec<u8>)> {
-        self.encrypted_tranfer_data.get(uuid)
+        self.encrypted_transfer_data.get(uuid)
     }
 
     pub fn get_transfer_data_all_after(
@@ -127,7 +127,8 @@ where
         pubkey: U256,
         timestamp: u64,
     ) -> Vec<(MetaData, Vec<u8>)> {
-        self.encrypted_tranfer_data.get_all_after(pubkey, timestamp)
+        self.encrypted_transfer_data
+            .get_all_after(pubkey, timestamp)
     }
 
     pub fn save_tx_data(&mut self, pubkey: U256, encypted_data: Vec<u8>) {

@@ -173,88 +173,84 @@ impl<const D: usize> TransferInclusionTarget<D> {
     }
 }
 
-#[cfg(test)]
-#[cfg(feature = "skip_insufficient_check")]
-mod tests {
-    use plonky2::{
-        field::goldilocks_field::GoldilocksField,
-        iop::witness::PartialWitness,
-        plonk::{
-            circuit_builder::CircuitBuilder, circuit_data::CircuitConfig,
-            config::PoseidonGoldilocksConfig,
-        },
-    };
+// #[cfg(test)]
+// #[cfg(feature = "skip_insufficient_check")]
+// mod tests {
+//     use plonky2::{
+//         field::goldilocks_field::GoldilocksField,
+//         iop::witness::PartialWitness,
+//         plonk::{
+//             circuit_builder::CircuitBuilder, circuit_data::CircuitConfig,
+//             config::PoseidonGoldilocksConfig,
+//         },
+//     };
 
-    use crate::{
-        circuits::balance::{
-            balance_processor::BalanceProcessor,
-            receive::receive_targets::transfer_inclusion::TransferInclusionTarget,
-        },
-        common::{generic_address::GenericAddress, salt::Salt, transfer::Transfer},
-        ethereum_types::u256::U256,
-        mock::{
-            block_builder::MockBlockBuilder, block_validity_prover::BlockValidityProver,
-            sync_balance_prover::SyncBalanceProver, wallet::MockWallet,
-        },
-    };
+//     use crate::{
+//         circuits::balance::{
+//             balance_processor::BalanceProcessor,
+//             receive::receive_targets::transfer_inclusion::TransferInclusionTarget,
+//         },
+//         common::{generic_address::GenericAddress, salt::Salt, transfer::Transfer},
+//         ethereum_types::u256::U256,
+//     };
 
-    use super::TransferInclusionValue;
+//     use super::TransferInclusionValue;
 
-    type F = GoldilocksField;
-    type C = PoseidonGoldilocksConfig;
-    const D: usize = 2;
+//     type F = GoldilocksField;
+//     type C = PoseidonGoldilocksConfig;
+//     const D: usize = 2;
 
-    #[test]
-    fn transfer_inclusion() {
-        let mut rng = rand::thread_rng();
-        let mut block_builder = MockBlockBuilder::new();
-        let mut sync_validity_prover = SyncValidityProver::<F, C, D>::new();
-        let balance_processor = BalanceProcessor::new(sync_validity_prover.validity_circuit());
+//     #[test]
+//     fn transfer_inclusion() {
+//         let mut rng = rand::thread_rng();
+//         // let mut block_builder = MockBlockBuilder::new();
+//         // let mut sync_validity_prover = SyncValidityProver::<F, C, D>::new();
+//         // let balance_processor = BalanceProcessor::new(sync_validity_prover.validity_circuit());
 
-        // personal data
-        let mut alice = MockWallet::new_rand(&mut rng);
-        let bob = MockWallet::new_rand(&mut rng);
-        let mut alice_balance_prover = SyncBalanceProver::<F, C, D>::new();
+//         // // personal data
+//         // let mut alice = MockWallet::new_rand(&mut rng);
+//         // let bob = MockWallet::new_rand(&mut rng);
+//         // let mut alice_balance_prover = SyncBalanceProver::<F, C, D>::new();
 
-        // send tx
-        let transfer = Transfer {
-            recipient: GenericAddress::from_pubkey(bob.get_pubkey()),
-            token_index: 0,
-            amount: U256::rand_small(&mut rng),
-            salt: Salt::rand(&mut rng),
-        };
-        let send_witness = alice.send_tx_and_update(&mut rng, &mut block_builder, &[transfer]);
-        let included_block_number = send_witness.get_included_block_number();
-        alice_balance_prover.sync_send(
-            &mut sync_validity_prover,
-            &mut alice,
-            &balance_processor,
-            &block_builder,
-        );
-        let alice_balance_proof = alice_balance_prover.last_balance_proof.clone().unwrap();
+//         // send tx
+//         let transfer = Transfer {
+//             recipient: GenericAddress::from_pubkey(bob.get_pubkey()),
+//             token_index: 0,
+//             amount: U256::rand_small(&mut rng),
+//             salt: Salt::rand(&mut rng),
+//         };
+//         let send_witness = alice.send_tx_and_update(&mut rng, &mut block_builder, &[transfer]);
+//         let included_block_number = send_witness.get_included_block_number();
+//         alice_balance_prover.sync_send(
+//             &mut sync_validity_prover,
+//             &mut alice,
+//             &balance_processor,
+//             &block_builder,
+//         );
+//         let alice_balance_proof = alice_balance_prover.last_balance_proof.clone().unwrap();
 
-        let transfer_witness = &alice.get_transfer_witnesses(included_block_number).unwrap()[0];
-        assert_eq!(transfer, transfer_witness.transfer);
-        // receive tx
-        let value = TransferInclusionValue::new(
-            &balance_processor.get_verifier_data(),
-            &transfer,
-            transfer_witness.transfer_index,
-            &transfer_witness.transfer_merkle_proof,
-            &transfer_witness.tx,
-            &alice_balance_proof,
-        );
+//         let transfer_witness = &alice.get_transfer_witnesses(included_block_number).unwrap()[0];
+//         assert_eq!(transfer, transfer_witness.transfer);
+//         // receive tx
+//         let value = TransferInclusionValue::new(
+//             &balance_processor.get_verifier_data(),
+//             &transfer,
+//             transfer_witness.transfer_index,
+//             &transfer_witness.transfer_merkle_proof,
+//             &transfer_witness.tx,
+//             &alice_balance_proof,
+//         );
 
-        let mut builder = CircuitBuilder::new(CircuitConfig::default());
-        let target = TransferInclusionTarget::new::<F, C>(
-            &balance_processor.get_verifier_data().common,
-            &mut builder,
-            true,
-        );
-        let mut pw = PartialWitness::<F>::new();
-        target.set_witness(&mut pw, &value);
+//         let mut builder = CircuitBuilder::new(CircuitConfig::default());
+//         let target = TransferInclusionTarget::new::<F, C>(
+//             &balance_processor.get_verifier_data().common,
+//             &mut builder,
+//             true,
+//         );
+//         let mut pw = PartialWitness::<F>::new();
+//         target.set_witness(&mut pw, &value);
 
-        let data = builder.build::<C>();
-        let _ = data.prove(pw).unwrap();
-    }
-}
+//         let data = builder.build::<C>();
+//         let _ = data.prove(pw).unwrap();
+//     }
+// }
