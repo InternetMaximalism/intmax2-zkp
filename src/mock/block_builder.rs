@@ -33,6 +33,7 @@ pub struct BlockBuilder {
 #[derive(Debug, Clone)]
 struct ProposalMemo {
     tx_tree_root: Bytes32,
+    expiry: u64,
     pubkeys: Vec<U256>, // padded pubkeys
     pubkey_hash: Bytes32,
     proposals: Vec<BlockProposal>,
@@ -125,12 +126,14 @@ impl BlockBuilder {
             tx_tree.push(tx.clone());
         }
         let tx_tree_root: Bytes32 = tx_tree.get_root().into();
+        let expiry = 0; // dummy value
 
         let mut proposals = Vec::new();
         for (pubkey, _tx) in self.tx_requests.iter() {
             let tx_index = sorted_txs.iter().position(|(p, _)| p == pubkey).unwrap() as u32;
             let tx_merkle_proof = tx_tree.prove(tx_index as u64);
             proposals.push(BlockProposal {
+                expiry,
                 tx_tree_root,
                 tx_index,
                 tx_merkle_proof,
@@ -141,6 +144,7 @@ impl BlockBuilder {
 
         let memo = ProposalMemo {
             tx_tree_root,
+            expiry,
             pubkeys,
             pubkey_hash,
             proposals,
@@ -241,6 +245,7 @@ impl BlockBuilder {
 
         let signature = construct_signature(
             memo.tx_tree_root,
+            memo.expiry,
             memo.pubkey_hash,
             account_id_hash,
             self.is_registration_block.unwrap(),
@@ -255,6 +260,7 @@ impl BlockBuilder {
                 .collect::<Vec<_>>();
             contract.post_registration_block(
                 memo.tx_tree_root,
+                memo.expiry.into(),
                 signature.sender_flag,
                 signature.agg_pubkey,
                 signature.agg_signature,
@@ -264,6 +270,7 @@ impl BlockBuilder {
         } else {
             contract.post_non_registration_block(
                 memo.tx_tree_root,
+                memo.expiry.into(),
                 signature.sender_flag,
                 signature.agg_pubkey,
                 signature.agg_signature,

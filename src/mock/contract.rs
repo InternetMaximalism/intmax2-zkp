@@ -92,6 +92,7 @@ impl MockContract {
     pub fn post_registration_block(
         &mut self,
         tx_tree_root: Bytes32,
+        expiry: U64,
         sender_flag: Bytes16,
         agg_pubkey: FlatG1,
         agg_signature: FlatG2,
@@ -115,6 +116,7 @@ impl MockContract {
         let signature = SignatureContent {
             is_registration_block: true,
             tx_tree_root,
+            expiry,
             sender_flag,
             pubkey_hash,
             account_id_hash: Bytes32::default(),
@@ -145,6 +147,7 @@ impl MockContract {
     pub fn post_non_registration_block(
         &mut self,
         tx_tree_root: Bytes32,
+        expiry: U64,
         sender_flag: Bytes16,
         agg_pubkey: FlatG1,
         agg_signature: FlatG2,
@@ -168,6 +171,7 @@ impl MockContract {
         let signature = SignatureContent {
             is_registration_block: false,
             tx_tree_root,
+            expiry,
             sender_flag,
             pubkey_hash: public_keys_hash,
             account_id_hash: account_ids_packed.hash(),

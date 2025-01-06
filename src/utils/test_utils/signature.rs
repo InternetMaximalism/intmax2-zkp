@@ -73,6 +73,7 @@ impl SignatureContent {
         );
         let signature = Self {
             tx_tree_root,
+            expiry: 0.into(),
             is_registration_block,
             sender_flag,
             pubkey_hash,

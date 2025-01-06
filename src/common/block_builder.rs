@@ -26,6 +26,7 @@ use super::{
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BlockProposal {
+    pub expiry: u64,
     pub tx_tree_root: Bytes32,
     pub tx_index: u32,
     pub tx_merkle_proof: TxMerkleProof,
@@ -67,6 +68,7 @@ pub struct SenderWithSignature {
 
 pub fn construct_signature(
     tx_tree_root: Bytes32,
+    expiry: u64,
     pubkey_hash: Bytes32,
     account_id_hash: Bytes32,
     is_registration_block: bool,
@@ -111,8 +113,9 @@ pub fn construct_signature(
             == Bn254::pairing(G1Affine::generator(), agg_signature)
     );
     SignatureContent {
-        tx_tree_root,
         is_registration_block,
+        tx_tree_root,
+        expiry: expiry.into(),
         sender_flag,
         pubkey_hash,
         account_id_hash,
