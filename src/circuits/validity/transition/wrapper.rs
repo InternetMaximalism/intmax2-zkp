@@ -92,7 +92,6 @@ where
             tx_tree_root: block_pis.tx_tree_root,
             sender_tree_root: block_pis.sender_tree_root,
             is_valid_block: block_pis.is_valid,
-            block_time_since_genesis: block_pis.block_time_since_genesis,
         };
 
         let concat_pis = vec![prev_pis.to_vec(), new_pis.to_vec()].concat();

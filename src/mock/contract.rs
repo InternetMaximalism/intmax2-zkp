@@ -75,16 +75,6 @@ impl MockContract {
             .unwrap_or_default()
     }
 
-    fn get_block_time_since_genesis(&self) -> u32 {
-        let now = std::time::SystemTime::now();
-        let block_time_since_genesis = now
-            .duration_since(self.genesis_block_time)
-            .expect("time went backwards")
-            .as_secs() as u32;
-
-        block_time_since_genesis
-    }
-
     /// Simpler interface for depositing tokens. Returns the id of deposit
     pub fn deposit(&mut self, pubkey_salt_hash: Bytes32, token_index: u32, amount: U256) {
         let deposit_index = self.deposit_tree.len() as u32;
@@ -138,7 +128,6 @@ impl MockContract {
             deposit_tree_root: self.deposit_tree.get_root(),
             signature_hash: signature.hash(),
             block_number: self.get_next_block_number(),
-            block_time_since_genesis: self.get_block_time_since_genesis(),
         };
         let full_block = FullBlock {
             block: block.clone(),
@@ -191,7 +180,6 @@ impl MockContract {
             deposit_tree_root: self.deposit_tree.get_root(),
             signature_hash: signature.hash(),
             block_number: self.get_next_block_number(),
-            block_time_since_genesis: self.get_block_time_since_genesis(),
         };
         let full_block = FullBlock {
             block: block.clone(),
