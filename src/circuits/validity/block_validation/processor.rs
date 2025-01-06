@@ -60,6 +60,7 @@ where
     }
 
     pub fn prove(&self, block_witness: &BlockWitness) -> Result<ProofWithPublicInputs<F, C, D>> {
+        let sender_leaves = block_witness.get_sender_tree().leaves();
         let (account_exclusion_proof, account_inclusion_proof) =
             if block_witness.signature.is_registration_block {
                 let account_exclusion_value = AccountExclusionValue::new(
@@ -68,7 +69,7 @@ where
                         .account_membership_proofs
                         .clone()
                         .expect("Account membership proofs are missing"),
-                    block_witness.pubkeys.clone(),
+                    sender_leaves,
                 );
                 let account_exclusion_proof = self
                     .account_exclusion_circuit

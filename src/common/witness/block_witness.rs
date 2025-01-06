@@ -84,6 +84,7 @@ impl BlockWitness {
         let signature = self.signature.clone();
         let pubkeys = self.pubkeys.clone();
         let account_tree_root = self.prev_account_tree_root;
+        let sender_leaves = get_sender_leaves(&pubkeys, signature.sender_flag);
 
         let pubkey_hash = get_pubkey_hash(&pubkeys);
         let is_registration_block = signature.is_registration_block;
@@ -102,7 +103,7 @@ impl BlockWitness {
                     .ok_or(anyhow::anyhow!(
                         "account_membership_proofs is None in registration block"
                     ))?,
-                pubkeys.clone(),
+                sender_leaves,
             );
             result = result && account_exclusion_value.is_valid;
         } else {

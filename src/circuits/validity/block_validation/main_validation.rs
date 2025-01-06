@@ -290,6 +290,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         let pubkey_hash = get_pubkey_hash(&pubkeys);
         let is_registration_block = signature.is_registration_block;
         let is_pubkey_eq = signature.pubkey_hash == pubkey_hash;
+
         if is_registration_block {
             // When pubkey is directly given, the constraint is that signature.pubkey_hash and
             // pubkey_hash match.
@@ -307,6 +308,8 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
             "signature hash mismatch"
         );
 
+        let sender_tree_root = get_sender_tree_root(&pubkeys, signature.sender_flag);
+
         if is_registration_block {
             // Account exclusion verification
             let account_exclusion_proof = account_exclusion_proof
@@ -320,8 +323,8 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
                 &account_exclusion_proof.public_inputs.to_u64_vec(),
             );
             assert_eq!(
-                pis.pubkey_commitment, pubkey_commitment,
-                "pubkey commitment mismatch"
+                pis.sender_tree_root, sender_tree_root,
+                "sender_tree_root mismatch"
             );
             assert_eq!(
                 pis.account_tree_root, account_tree_root,
@@ -407,7 +410,6 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         // block hash calculation
         let prev_block_hash = block.prev_block_hash;
         let block_hash = block.hash();
-        let sender_tree_root = get_sender_tree_root(&pubkeys, signature.sender_flag);
 
         Self {
             block,
@@ -465,6 +467,8 @@ impl<const D: usize> MainValidationTarget<D> {
         let pubkeys = (0..NUM_SENDERS_IN_BLOCK)
             .map(|_| U256Target::new(builder, true))
             .collect::<Vec<_>>();
+        let sender_tree_root =
+            get_sender_tree_root_circuit::<F, C, D>(builder, &pubkeys, signature.sender_flag);
         let pubkey_commitment = get_pubkey_commitment_circuit(builder, &pubkeys);
         let pubkey_hash = get_pubkey_hash_circuit::<F, C, D>(builder, &pubkeys);
         let account_tree_root = PoseidonHashOutTarget::new(builder);
@@ -490,8 +494,8 @@ impl<const D: usize> MainValidationTarget<D> {
         let account_exclusion_pis =
             AccountExclusionPublicInputsTarget::from_slice(&account_exclusion_proof.public_inputs);
         account_exclusion_pis
-            .pubkey_commitment
-            .conditional_assert_eq(builder, pubkey_commitment, is_registration_block);
+            .sender_tree_root
+            .conditional_assert_eq(builder, sender_tree_root, is_registration_block);
         account_exclusion_pis
             .account_tree_root
             .conditional_assert_eq(builder, account_tree_root, is_registration_block);
@@ -555,8 +559,6 @@ impl<const D: usize> MainValidationTarget<D> {
 
         let prev_block_hash = block.prev_block_hash;
         let block_hash = block.hash::<F, C, D>(builder);
-        let sender_tree_root =
-            get_sender_tree_root_circuit::<F, C, D>(builder, &pubkeys, signature.sender_flag);
 
         Self {
             block,

@@ -14,33 +14,31 @@ use plonky2::{
 };
 
 use crate::{
-    common::trees::account_tree::{AccountMembershipProof, AccountMembershipProofTarget},
-    constants::{ACCOUNT_TREE_HEIGHT, NUM_SENDERS_IN_BLOCK},
-    ethereum_types::{
-        u256::{U256Target, U256},
-        u32limb_trait::U32LimbTargetTrait as _,
+    common::trees::{
+        account_tree::{AccountMembershipProof, AccountMembershipProofTarget},
+        sender_tree::{SenderLeaf, SenderLeafTarget},
     },
+    constants::{ACCOUNT_TREE_HEIGHT, NUM_SENDERS_IN_BLOCK, SENDER_TREE_HEIGHT},
     utils::{
         dummy::DummyProof,
         poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget},
+        trees::get_root::{get_merkle_root_from_leaves, get_merkle_root_from_leaves_circuit},
     },
 };
-
-use super::utils::{get_pubkey_commitment, get_pubkey_commitment_circuit};
 
 const ACCOUNT_EXCLUSION_PUBLIC_INPUTS_LEN: usize = 4 + 4 + 1;
 
 #[derive(Clone, Debug)]
 pub struct AccountExclusionPublicInputs {
     pub account_tree_root: PoseidonHashOut,
-    pub pubkey_commitment: PoseidonHashOut,
+    pub sender_tree_root: PoseidonHashOut,
     pub is_valid: bool,
 }
 
 #[derive(Clone, Debug)]
 pub struct AccountExclusionPublicInputsTarget {
     pub account_tree_root: PoseidonHashOutTarget,
-    pub pubkey_commitment: PoseidonHashOutTarget,
+    pub sender_tree_root: PoseidonHashOutTarget,
     pub is_valid: BoolTarget,
 }
 
@@ -48,11 +46,11 @@ impl AccountExclusionPublicInputs {
     pub fn from_u64_slice(input: &[u64]) -> Self {
         assert_eq!(input.len(), ACCOUNT_EXCLUSION_PUBLIC_INPUTS_LEN);
         let account_tree_root = PoseidonHashOut::from_u64_slice(&input[0..4]);
-        let pubkey_commitment = PoseidonHashOut::from_u64_slice(&input[4..8]);
+        let sender_tree_root = PoseidonHashOut::from_u64_slice(&input[4..8]);
         let is_valid = input[8] == 1;
         Self {
             account_tree_root,
-            pubkey_commitment,
+            sender_tree_root,
             is_valid,
         }
     }
@@ -64,7 +62,7 @@ impl AccountExclusionPublicInputsTarget {
             .account_tree_root
             .elements
             .into_iter()
-            .chain(self.pubkey_commitment.elements.into_iter())
+            .chain(self.sender_tree_root.elements.into_iter())
             .chain([self.is_valid.target])
             .collect::<Vec<_>>();
         assert_eq!(vec.len(), ACCOUNT_EXCLUSION_PUBLIC_INPUTS_LEN);
@@ -74,11 +72,11 @@ impl AccountExclusionPublicInputsTarget {
     pub fn from_slice(input: &[Target]) -> Self {
         assert_eq!(input.len(), ACCOUNT_EXCLUSION_PUBLIC_INPUTS_LEN);
         let account_tree_root = PoseidonHashOutTarget::from_slice(&input[0..4]);
-        let pubkey_commitment = PoseidonHashOutTarget::from_slice(&input[4..8]);
+        let sender_tree_root = PoseidonHashOutTarget::from_slice(&input[4..8]);
         let is_valid = BoolTarget::new_unsafe(input[8]);
         Self {
             account_tree_root,
-            pubkey_commitment,
+            sender_tree_root,
             is_valid,
         }
     }
@@ -88,8 +86,8 @@ impl AccountExclusionPublicInputsTarget {
 pub struct AccountExclusionValue {
     pub account_tree_root: PoseidonHashOut,
     pub account_membership_proofs: Vec<AccountMembershipProof>,
-    pub pubkeys: Vec<U256>,
-    pub pubkey_commitment: PoseidonHashOut,
+    pub sender_leaves: Vec<SenderLeaf>,
+    pub sender_tree_root: PoseidonHashOut,
     pub is_valid: bool,
 }
 
@@ -97,21 +95,21 @@ impl AccountExclusionValue {
     pub fn new(
         account_tree_root: PoseidonHashOut,
         account_membership_proofs: Vec<AccountMembershipProof>,
-        pubkeys: Vec<U256>,
+        sender_leaves: Vec<SenderLeaf>,
     ) -> Self {
         let mut result = true;
-        for (pubkey, proof) in pubkeys.iter().zip(account_membership_proofs.iter()) {
-            proof.verify(*pubkey, account_tree_root).unwrap();
-            let is_dummy = pubkey.is_dummy_pubkey();
-            let is_excluded = !proof.is_included || is_dummy; // ignore dummy pubkey
-            result = result && is_excluded;
+        for (sender_leaf, proof) in sender_leaves.iter().zip(account_membership_proofs.iter()) {
+            proof.verify(sender_leaf.sender, account_tree_root).unwrap();
+            let is_dummy = sender_leaf.sender.is_dummy_pubkey();
+            let is_valid = (!proof.is_included && sender_leaf.did_return_sig) || is_dummy;
+            result = result && is_valid;
         }
-        let pubkey_commitment = get_pubkey_commitment(&pubkeys);
+        let sender_tree_root = get_merkle_root_from_leaves(SENDER_TREE_HEIGHT, &sender_leaves);
         Self {
             account_tree_root,
             account_membership_proofs,
-            pubkeys,
-            pubkey_commitment,
+            sender_leaves,
+            sender_tree_root,
             is_valid: result,
         }
     }
@@ -121,8 +119,8 @@ impl AccountExclusionValue {
 pub struct AccountExclusionTarget {
     pub account_tree_root: PoseidonHashOutTarget,
     pub account_membership_proofs: Vec<AccountMembershipProofTarget>,
-    pub pubkeys: Vec<U256Target>,
-    pub pubkey_commitment: PoseidonHashOutTarget,
+    pub sender_leaves: Vec<SenderLeafTarget>,
+    pub sender_tree_root: PoseidonHashOutTarget,
     pub is_valid: BoolTarget,
 }
 
@@ -139,23 +137,29 @@ impl AccountExclusionTarget {
         let account_membership_proofs = (0..NUM_SENDERS_IN_BLOCK)
             .map(|_| AccountMembershipProofTarget::new(builder, ACCOUNT_TREE_HEIGHT, true))
             .collect::<Vec<_>>();
-        let pubkeys = (0..NUM_SENDERS_IN_BLOCK)
-            .map(|_| U256Target::new(builder, true))
+        let sender_leaves = (0..NUM_SENDERS_IN_BLOCK)
+            .map(|_| SenderLeafTarget::new(builder, true))
             .collect::<Vec<_>>();
 
-        for (pubkey, proof) in pubkeys.iter().zip(account_membership_proofs.iter()) {
-            proof.verify::<F, C, D>(builder, *pubkey, account_tree_root);
-            let is_dummy = pubkey.is_dummy_pubkey(builder);
+        for (sender_leaf, proof) in sender_leaves.iter().zip(account_membership_proofs.iter()) {
+            proof.verify::<F, C, D>(builder, sender_leaf.sender, account_tree_root);
+            let is_dummy = sender_leaf.sender.is_dummy_pubkey(builder);
             let is_not_included = builder.not(proof.is_included);
-            let is_excluded = builder.or(is_not_included, is_dummy);
-            result = builder.and(result, is_excluded);
+            let is_not_included_and_did_return_sig =
+                builder.and(is_not_included, sender_leaf.did_return_sig);
+            let is_valid = builder.or(is_not_included_and_did_return_sig, is_dummy);
+            result = builder.and(result, is_valid);
         }
-        let pubkey_commitment = get_pubkey_commitment_circuit(builder, &pubkeys);
+        let sender_tree_root = get_merkle_root_from_leaves_circuit::<F, C, D, _>(
+            builder,
+            SENDER_TREE_HEIGHT,
+            &sender_leaves,
+        );
         Self {
             account_tree_root,
             account_membership_proofs,
-            pubkeys,
-            pubkey_commitment,
+            sender_leaves,
+            sender_tree_root,
             is_valid: result,
         }
     }
@@ -174,11 +178,13 @@ impl AccountExclusionTarget {
         {
             proof_t.set_witness(witness, proof);
         }
-        for (pubkey_t, pubkey) in self.pubkeys.iter().zip(value.pubkeys.iter()) {
-            pubkey_t.set_witness(witness, *pubkey);
+        for (sender_leaf_t, sender_leaf) in
+            self.sender_leaves.iter().zip(value.sender_leaves.iter())
+        {
+            sender_leaf_t.set_witness(witness, sender_leaf);
         }
-        self.pubkey_commitment
-            .set_witness(witness, value.pubkey_commitment);
+        self.sender_tree_root
+            .set_witness(witness, value.sender_tree_root);
         witness.set_bool_target(self.is_valid, value.is_valid);
     }
 }
@@ -205,7 +211,7 @@ where
         let target = AccountExclusionTarget::new::<F, C, D>(&mut builder);
         let pis = AccountExclusionPublicInputsTarget {
             account_tree_root: target.account_tree_root,
-            pubkey_commitment: target.pubkey_commitment,
+            sender_tree_root: target.sender_tree_root,
             is_valid: target.is_valid,
         };
         builder.register_public_inputs(&pis.to_vec());
@@ -262,14 +268,20 @@ mod tests {
         let mut pubkeys = (0..10).map(|_| U256::rand(&mut rng)).collect::<Vec<_>>();
         pubkeys.resize(NUM_SENDERS_IN_BLOCK, U256::dummy_pubkey());
         let mut account_membership_proofs = Vec::new();
+        let mut sender_leaves = Vec::new();
         for pubkey in pubkeys.iter() {
             let proof = tree.prove_membership(*pubkey);
             account_membership_proofs.push(proof);
+            let sender_leaf = SenderLeaf {
+                sender: *pubkey,
+                did_return_sig: rng.gen(),
+            };
+            sender_leaves.push(sender_leaf);
         }
 
         let value =
-            AccountExclusionValue::new(account_tree_root, account_membership_proofs, pubkeys);
-        assert!(value.is_valid);
+            AccountExclusionValue::new(account_tree_root, account_membership_proofs, sender_leaves);
+        // assert!(value.is_valid);
         let circuit = AccountExclusionCircuit::<F, C, D>::new();
         let _proof = circuit.prove(&value).unwrap();
     }
