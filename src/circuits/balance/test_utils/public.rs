@@ -11,7 +11,9 @@ use crate::{
             tx_tree::TxTree,
         },
         tx::Tx,
-        witness::{full_block::FullBlock, validity_witness::ValidityWitness},
+        witness::{
+            full_block::FullBlock, tx_witness::TxWitness, validity_witness::ValidityWitness,
+        },
     },
     constants::{NUM_SENDERS_IN_BLOCK, TX_TREE_HEIGHT},
     ethereum_types::{account_id_packed::AccountIdPacked, bytes32::Bytes32},
@@ -33,7 +35,7 @@ pub fn construct_validity_witness(
     deposit_tree: &DepositTree,
     is_registration_block: bool,
     tx_requests: &[MockTxRequest],
-) -> anyhow::Result<ValidityWitness> {
+) -> anyhow::Result<(ValidityWitness, Vec<TxWitness>)> {
     let mut normalized_requests = tx_requests.to_vec();
     normalized_requests.sort_by(|a, b| b.sender_key.pubkey.cmp(&a.sender_key.pubkey));
     normalized_requests.resize(
@@ -147,6 +149,64 @@ pub fn construct_validity_witness(
         account_ids: trimmed_account_ids,
     };
     let block_witness = full_block.to_block_witness(account_tree, block_tree)?;
-    let _validity_witness = block_witness.update_trees(account_tree, block_tree)?;
-    todo!()
+    let validity_witness = block_witness.update_trees(account_tree, block_tree)?;
+    let validity_pis = validity_witness.to_validity_pis()?;
+    let sender_leaves = block_witness.get_sender_tree().leaves();
+
+    let tx_witnesses = tx_info
+        .iter()
+        .map(|(tx, index, proof)| TxWitness {
+            validity_pis: validity_pis.clone(),
+            sender_leaves: sender_leaves.clone(),
+            tx: tx.clone(),
+            tx_index: *index,
+            tx_merkle_proof: proof.clone(),
+        })
+        .collect::<Vec<_>>();
+    Ok((validity_witness, tx_witnesses))
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{
+        circuits::validity::validity_pis::ValidityPublicInputs,
+        common::{
+            signature::key_set::KeySet,
+            trees::{
+                account_tree::AccountTree, block_hash_tree::BlockHashTree,
+                deposit_tree::DepositTree,
+            },
+            tx::Tx,
+        },
+        constants::DEPOSIT_TREE_HEIGHT,
+    };
+
+    #[test]
+    fn test_construct_validity_witness() {
+        let mut account_tree = AccountTree::initialize();
+        let mut block_tree = BlockHashTree::initialize();
+        let deposit_tree = DepositTree::new(DEPOSIT_TREE_HEIGHT);
+        let mut rng = rand::thread_rng();
+
+        let mut prev_validity_pis = ValidityPublicInputs::genesis();
+        for _ in 0..10 {
+            let sender_key = KeySet::rand(&mut rng);
+            let tx = Tx::rand(&mut rng);
+            let tx_requests = vec![super::MockTxRequest {
+                tx,
+                sender_key,
+                will_return_sig: true,
+            }];
+            let (validity_witness, _) = super::construct_validity_witness(
+                prev_validity_pis.clone(),
+                &mut account_tree,
+                &mut block_tree,
+                &deposit_tree,
+                true,
+                &tx_requests,
+            )
+            .unwrap();
+            prev_validity_pis = validity_witness.to_validity_pis().unwrap();
+        }
+    }
 }
