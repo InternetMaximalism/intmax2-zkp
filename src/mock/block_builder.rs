@@ -1,32 +1,20 @@
 use crate::{
     common::{
-        block_builder::{BlockProposal, UserSignature},
-        signature::{
-            flatten::FlatG2,
-            sign::{hash_to_weight, tx_tree_root_to_message_point},
-            utils::get_pubkey_hash,
-            SignatureContent,
-        },
+        block_builder::{construct_signature, BlockProposal, SenderWithSignature, UserSignature},
+        signature::utils::get_pubkey_hash,
         trees::tx_tree::TxTree,
         tx::Tx,
     },
     constants::{NUM_SENDERS_IN_BLOCK, TX_TREE_HEIGHT},
-    ethereum_types::{
-        account_id_packed::AccountIdPacked, bytes16::Bytes16, bytes32::Bytes32, u256::U256,
-        u32limb_trait::U32LimbTrait,
-    },
+    ethereum_types::{account_id_packed::AccountIdPacked, bytes32::Bytes32, u256::U256},
 };
 use anyhow::ensure;
-use ark_bn254::{Bn254, Fr, G1Affine, G2Affine};
-use ark_ec::{pairing::Pairing as _, AffineRepr as _};
 use hashbrown::HashMap;
-use num::BigUint;
 use plonky2::{
     field::extension::Extendable,
     hash::hash_types::RichField,
     plonk::config::{AlgebraicHasher, GenericConfig},
 };
-use plonky2_bn254::fields::recover::RecoverFromX as _;
 
 use super::{block_validity_prover::BlockValidityProver, contract::MockContract};
 
@@ -313,68 +301,6 @@ impl BlockBuilder {
 
     pub fn reset(&mut self) {
         *self = Self::new();
-    }
-}
-
-struct SenderWithSignature {
-    sender: U256,
-    signature: Option<FlatG2>,
-}
-
-fn construct_signature(
-    tx_tree_root: Bytes32,
-    pubkey_hash: Bytes32,
-    account_id_hash: Bytes32,
-    is_registration_block: bool,
-    sender_with_signatures: &[SenderWithSignature],
-) -> SignatureContent {
-    assert_eq!(sender_with_signatures.len(), NUM_SENDERS_IN_BLOCK);
-    let sender_flag_bits = sender_with_signatures
-        .iter()
-        .map(|s| s.signature.is_some())
-        .collect::<Vec<_>>();
-    let sender_flag = Bytes16::from_bits_be(&sender_flag_bits);
-    let agg_pubkey = sender_with_signatures
-        .iter()
-        .map(|s| {
-            let weight = hash_to_weight(s.sender, pubkey_hash);
-            if s.signature.is_some() {
-                let pubkey_g1: G1Affine = G1Affine::recover_from_x(s.sender.into());
-                (pubkey_g1 * Fr::from(BigUint::from(weight))).into()
-            } else {
-                G1Affine::zero()
-            }
-        })
-        .fold(G1Affine::zero(), |acc: G1Affine, x: G1Affine| {
-            (acc + x).into()
-        });
-    let agg_signature = sender_with_signatures
-        .iter()
-        .map(|s| {
-            if let Some(signature) = s.signature.clone() {
-                signature.into()
-            } else {
-                G2Affine::zero()
-            }
-        })
-        .fold(G2Affine::zero(), |acc: G2Affine, x: G2Affine| {
-            (acc + x).into()
-        });
-    // message point
-    let message_point = tx_tree_root_to_message_point(tx_tree_root);
-    assert!(
-        Bn254::pairing(agg_pubkey, message_point)
-            == Bn254::pairing(G1Affine::generator(), agg_signature)
-    );
-    SignatureContent {
-        tx_tree_root,
-        is_registration_block,
-        sender_flag,
-        pubkey_hash,
-        account_id_hash,
-        agg_pubkey: agg_pubkey.into(),
-        agg_signature: agg_signature.into(),
-        message_point: message_point.into(),
     }
 }
 

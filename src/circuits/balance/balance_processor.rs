@@ -179,10 +179,7 @@ mod tests {
         field::goldilocks_field::GoldilocksField, plonk::config::PoseidonGoldilocksConfig,
     };
 
-    use crate::{
-        circuits::validity::validity_processor::ValidityProcessor, common::transfer::Transfer,
-        ethereum_types::u256::U256,
-    };
+    use crate::circuits::validity::validity_processor::ValidityProcessor;
 
     use super::BalanceProcessor;
 
