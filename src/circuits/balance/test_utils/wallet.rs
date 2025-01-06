@@ -1,35 +1,33 @@
-use plonky2::{
-    field::extension::Extendable,
-    hash::hash_types::RichField,
-    plonk::{config::GenericConfig, proof::ProofWithPublicInputs},
-};
-use rand::Rng;
+// use plonky2::{
+//     field::extension::Extendable,
+//     hash::hash_types::RichField,
+//     plonk::{config::GenericConfig, proof::ProofWithPublicInputs},
+// };
+// use rand::Rng;
 
-use crate::{
-    circuits::balance::balance_pis::BalancePublicInputs,
-    common::{
-        deposit::{get_pubkey_salt_hash, Deposit},
-        insufficient_flags::InsufficientFlags,
-        private_state::FullPrivateState,
-        salt::Salt,
-        signature::key_set::KeySet,
-        transfer::Transfer,
-        trees::transfer_tree::TransferTree,
-        tx::Tx,
-        witness::{
-            deposit_witness::{DepositCase, DepositWitness},
-            receive_deposit_witness::ReceiveDepositWitness,
-            receive_transfer_witness::ReceiveTransferWitness,
-            transfer_witness::TransferWitness,
-            tx_witness::TxWitness,
-        },
-    },
-    constants::{NUM_TRANSFERS_IN_TX, TRANSFER_TREE_HEIGHT},
-    ethereum_types::{bytes32::Bytes32, u256::U256, u32limb_trait::U32LimbTrait},
-    utils::leafable::Leafable,
-};
-
-// 1. 与えられたtransferを一つだけ含むvalidity witnessとtransfer witnessesを生成する
+// use crate::{
+//     circuits::balance::balance_pis::BalancePublicInputs,
+//     common::{
+//         deposit::{get_pubkey_salt_hash, Deposit},
+//         insufficient_flags::InsufficientFlags,
+//         private_state::FullPrivateState,
+//         salt::Salt,
+//         signature::key_set::KeySet,
+//         transfer::Transfer,
+//         trees::transfer_tree::TransferTree,
+//         tx::Tx,
+//         witness::{
+//             deposit_witness::{DepositCase, DepositWitness},
+//             receive_deposit_witness::ReceiveDepositWitness,
+//             receive_transfer_witness::ReceiveTransferWitness,
+//             transfer_witness::TransferWitness,
+//             tx_witness::TxWitness,
+//         },
+//     },
+//     constants::{NUM_TRANSFERS_IN_TX, TRANSFER_TREE_HEIGHT},
+//     ethereum_types::{bytes32::Bytes32, u256::U256, u32limb_trait::U32LimbTrait},
+//     utils::leafable::Leafable,
+// };
 
 // #[derive(Debug, Clone)]
 // pub struct MockWallet {
@@ -295,7 +293,8 @@ use crate::{
 //             self.generate_private_witness(rng, transfer.token_index, transfer.amount, nullifier);
 //         // block merkle proof
 //         let block_merkle_proof = block_builder
-//             .get_block_merkle_proof(receiver_block_number, balance_pis.public_state.block_number);
+//             .get_block_merkle_proof(receiver_block_number,
+// balance_pis.public_state.block_number);
 
 //         ReceiveTransferWitness {
 //             transfer_witness: transfer_witness.clone(),
@@ -408,8 +407,8 @@ use crate::{
 //         };
 
 //         for block_number in 1..3 {
-//             let send_witness = wallet.send_tx_and_update(&mut rng, &mut block_builder, &[transfer]);
-//             assert_eq!(send_witness.get_included_block_number(), block_number);
+//             let send_witness = wallet.send_tx_and_update(&mut rng, &mut block_builder,
+// &[transfer]);             assert_eq!(send_witness.get_included_block_number(), block_number);
 //         }
 
 //         let validity_processor = ValidityProcessor::<F, C, D>::new();
