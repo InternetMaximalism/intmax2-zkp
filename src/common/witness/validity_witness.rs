@@ -119,6 +119,7 @@ impl ValidityWitness {
                 deposit_tree_root: block.deposit_tree_root,
                 block_number: block.block_number,
                 block_hash: main_validation_pis.block_hash,
+                timestamp: block.timestamp,
             },
             tx_tree_root: main_validation_pis.tx_tree_root,
             sender_tree_root: main_validation_pis.sender_tree_root,

@@ -7,12 +7,13 @@ use crate::{
         bytes32::{Bytes32Target, BYTES32_LEN},
         u256::U256Target,
         u32limb_trait::U32LimbTrait as _,
+        u64::{U64Target, U64, U64_LEN},
     },
     utils::{
         conversion::ToU64,
         dummy::DummyProof,
         logic::BuilderLogic,
-        poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget},
+        poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget, POSEIDON_HASH_OUT_LEN},
         recursively_verifiable::{
             add_proof_target_and_conditionally_verify, add_proof_target_and_verify,
         },
@@ -57,7 +58,8 @@ use super::{
     utils::{get_pubkey_commitment, get_pubkey_commitment_circuit},
 };
 
-pub const MAIN_VALIDATION_PUBLIC_INPUT_LEN: usize = 4 * BYTES32_LEN + 2 * 4 + 3;
+pub const MAIN_VALIDATION_PUBLIC_INPUT_LEN: usize =
+    4 * BYTES32_LEN + 2 * POSEIDON_HASH_OUT_LEN + U64_LEN + 3;
 
 #[derive(Clone, Debug)]
 pub struct MainValidationPublicInputs {
@@ -67,6 +69,7 @@ pub struct MainValidationPublicInputs {
     pub account_tree_root: PoseidonHashOut,
     pub tx_tree_root: Bytes32,
     pub sender_tree_root: PoseidonHashOut,
+    pub timestamp: U64,
     pub block_number: u32,
     pub is_registration_block: bool,
     pub is_valid: bool,
@@ -80,6 +83,7 @@ pub struct MainValidationPublicInputsTarget {
     pub account_tree_root: PoseidonHashOutTarget,
     pub tx_tree_root: Bytes32Target,
     pub sender_tree_root: PoseidonHashOutTarget,
+    pub timestamp: U64Target,
     pub block_number: Target,
     pub is_registration_block: BoolTarget,
     pub is_valid: BoolTarget,
@@ -94,9 +98,10 @@ impl MainValidationPublicInputs {
         let account_tree_root = PoseidonHashOut::from_u64_slice(&input[24..28]);
         let tx_tree_root = Bytes32::from_u64_slice(&input[28..36]);
         let sender_tree_root = PoseidonHashOut::from_u64_slice(&input[36..40]);
-        let block_number = input[40];
-        let is_registration_block = input[41] == 1;
-        let is_valid = input[42] == 1;
+        let timestamp = U64::from_u64_slice(&input[40..42]);
+        let block_number = input[42];
+        let is_registration_block = input[43] == 1;
+        let is_valid = input[44] == 1;
         Self {
             prev_block_hash,
             block_hash,
@@ -104,6 +109,7 @@ impl MainValidationPublicInputs {
             account_tree_root,
             tx_tree_root,
             sender_tree_root,
+            timestamp,
             block_number: block_number as u32,
             is_registration_block,
             is_valid,
@@ -131,6 +137,7 @@ impl MainValidationPublicInputsTarget {
             account_tree_root: PoseidonHashOutTarget::new(builder),
             tx_tree_root: Bytes32Target::new(builder, is_checked),
             sender_tree_root: PoseidonHashOutTarget::new(builder),
+            timestamp: U64Target::new(builder, is_checked),
             block_number,
             is_registration_block,
             is_valid,
@@ -147,6 +154,7 @@ impl MainValidationPublicInputsTarget {
             .chain(self.account_tree_root.elements.into_iter())
             .chain(self.tx_tree_root.to_vec().into_iter())
             .chain(self.sender_tree_root.elements.into_iter())
+            .chain(self.timestamp.to_vec().into_iter())
             .chain([
                 self.block_number,
                 self.is_registration_block.target,
@@ -165,9 +173,10 @@ impl MainValidationPublicInputsTarget {
         let account_tree_root = PoseidonHashOutTarget::from_slice(&input[24..28]);
         let tx_tree_root = Bytes32Target::from_slice(&input[28..36]);
         let sender_tree_root = PoseidonHashOutTarget::from_slice(&input[36..40]);
-        let block_number = input[40];
-        let is_registration_block = BoolTarget::new_unsafe(input[41]);
-        let is_valid = BoolTarget::new_unsafe(input[42]);
+        let timestamp = U64Target::from_slice(&input[40..42]);
+        let block_number = input[42];
+        let is_registration_block = BoolTarget::new_unsafe(input[43]);
+        let is_valid = BoolTarget::new_unsafe(input[44]);
         Self {
             prev_block_hash,
             block_hash,
@@ -175,6 +184,7 @@ impl MainValidationPublicInputsTarget {
             account_tree_root,
             tx_tree_root,
             sender_tree_root,
+            timestamp,
             block_number,
             is_registration_block,
             is_valid,
@@ -195,6 +205,7 @@ impl MainValidationPublicInputsTarget {
         self.tx_tree_root.connect(builder, other.tx_tree_root);
         self.sender_tree_root
             .connect(builder, other.sender_tree_root);
+        self.timestamp.connect(builder, other.timestamp);
         builder.connect(self.block_number, other.block_number);
         builder.connect(
             self.is_registration_block.target,
@@ -218,6 +229,7 @@ impl MainValidationPublicInputsTarget {
         self.tx_tree_root.set_witness(witness, value.tx_tree_root);
         self.sender_tree_root
             .set_witness(witness, value.sender_tree_root);
+        self.timestamp.set_witness(witness, value.timestamp);
         witness.set_target(self.block_number, F::from_canonical_u32(value.block_number));
         witness.set_bool_target(self.is_registration_block, value.is_registration_block);
         witness.set_bool_target(self.is_valid, value.is_valid);
@@ -644,6 +656,7 @@ where
             account_tree_root: target.account_tree_root,
             tx_tree_root: target.signature.tx_tree_root,
             sender_tree_root: target.sender_tree_root,
+            timestamp: target.block.timestamp,
             block_number: target.block.block_number,
             is_registration_block: target.is_registration_block,
             is_valid: target.is_valid,

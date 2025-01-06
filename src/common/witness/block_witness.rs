@@ -72,6 +72,7 @@ impl BlockWitness {
                 account_tree_root: validity_pis.public_state.account_tree_root,
                 tx_tree_root: validity_pis.tx_tree_root,
                 sender_tree_root: validity_pis.sender_tree_root,
+                timestamp: validity_pis.public_state.timestamp,
                 block_number: validity_pis.public_state.block_number,
                 is_registration_block: false, // genesis block is not a registration block
                 is_valid: validity_pis.is_valid_block,
@@ -142,6 +143,7 @@ impl BlockWitness {
             account_tree_root,
             tx_tree_root,
             sender_tree_root,
+            timestamp: block.timestamp,
             block_number: block.block_number,
             is_registration_block,
             is_valid: result,

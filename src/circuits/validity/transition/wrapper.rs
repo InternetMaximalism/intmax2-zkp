@@ -87,6 +87,7 @@ where
                 block_tree_root: transition_target.new_block_tree_root,
                 block_hash: block_pis.block_hash,
                 block_number: block_pis.block_number,
+                timestamp: block_pis.timestamp,
                 deposit_tree_root: block_pis.deposit_tree_root,
             },
             tx_tree_root: block_pis.tx_tree_root,
