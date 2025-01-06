@@ -141,10 +141,6 @@ where
 //     use crate::{
 //         common::{generic_address::GenericAddress, salt::Salt, transfer::Transfer},
 //         ethereum_types::u256::U256,
-//         mock::{
-//             block_builder::MockBlockBuilder, sync_validity_prover::SyncValidityProver,
-//             wallet::MockWallet,
-//         },
 //     };
 
 //     use super::SenderProcessor;

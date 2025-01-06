@@ -1,1 +1,2 @@
-pub mod wallet;
+pub mod public;
+// pub mod wallet;
