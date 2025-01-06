@@ -178,7 +178,7 @@ impl ReceiveDepositValue {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone)]
 pub struct ReceiveDepositTarget {
     pub pubkey: U256Target,
     pub deposit_salt: SaltTarget,
