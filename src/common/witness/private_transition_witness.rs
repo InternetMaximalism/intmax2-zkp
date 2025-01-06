@@ -6,7 +6,7 @@ use crate::{
         salt::Salt,
         trees::{
             asset_tree::{AssetLeaf, AssetMerkleProof},
-            nullifier_tree::NullifierInsersionProof,
+            nullifier_tree::NullifierInsertionProof,
         },
     },
     ethereum_types::{bytes32::Bytes32, u256::U256},
@@ -21,7 +21,7 @@ pub struct PrivateTransitionWitness {
     pub nullifier: Bytes32,
     pub new_salt: Salt,
     pub prev_private_state: PrivateState,
-    pub nullifier_proof: NullifierInsersionProof,
+    pub nullifier_proof: NullifierInsertionProof,
     pub prev_asset_leaf: AssetLeaf,
     pub asset_merkle_proof: AssetMerkleProof,
 }

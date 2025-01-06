@@ -381,10 +381,6 @@ where
 //     use crate::{
 //         common::{generic_address::GenericAddress, salt::Salt, transfer::Transfer},
 //         ethereum_types::u256::U256,
-//         mock::{
-//             block_builder::MockBlockBuilder, sync_validity_prover::SyncValidityProver,
-//             wallet::MockWallet,
-//         },
 //     };
 
 //     use super::TxInclusionValue;
@@ -396,9 +392,9 @@ where
 //     #[test]
 //     fn tx_inclusion_circuit() {
 //         let mut rng = rand::thread_rng();
-//         let mut block_builder = MockBlockBuilder::new();
-//         let mut wallet = MockWallet::new_rand(&mut rng);
-//         let mut sync_prover = SyncValidityProver::<F, C, D>::new();
+//         // let mut block_builder = MockBlockBuilder::new();
+//         // let mut wallet = MockWallet::new_rand(&mut rng);
+//         // let mut sync_prover = SyncValidityProver::<F, C, D>::new();
 
 //         let transfer = Transfer {
 //             recipient: GenericAddress::rand_pubkey(&mut rng),
