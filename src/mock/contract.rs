@@ -18,6 +18,7 @@ use crate::{
     constants::{DEPOSIT_TREE_HEIGHT, NUM_SENDERS_IN_BLOCK},
     ethereum_types::{
         account_id_packed::AccountIdPacked, bytes16::Bytes16, bytes32::Bytes32, u256::U256,
+        u64::U64,
     },
     utils::leafable::Leafable,
 };
@@ -28,7 +29,6 @@ pub struct MockContract {
     pub deposit_trees: HashMap<u32, DepositTree>, // snap shot of deposit tree at each block
     pub deposit_correspondence: HashMap<Bytes32, (u32, u32)>, /* deposit_hash -> (deposit_index,
                                                    * block_number) */
-    pub genesis_block_time: std::time::SystemTime,
 }
 
 impl MockContract {
@@ -43,7 +43,6 @@ impl MockContract {
             deposit_tree,
             deposit_trees,
             deposit_correspondence,
-            genesis_block_time: std::time::SystemTime::now(),
         }
     }
 
@@ -127,6 +126,7 @@ impl MockContract {
             prev_block_hash: self.get_prev_block_hash(),
             deposit_tree_root: self.deposit_tree.get_root(),
             signature_hash: signature.hash(),
+            timestamp: timestamp(),
             block_number: self.get_next_block_number(),
         };
         let full_block = FullBlock {
@@ -179,6 +179,7 @@ impl MockContract {
             prev_block_hash: self.get_prev_block_hash(),
             deposit_tree_root: self.deposit_tree.get_root(),
             signature_hash: signature.hash(),
+            timestamp: timestamp(),
             block_number: self.get_next_block_number(),
         };
         let full_block = FullBlock {
@@ -201,4 +202,12 @@ fn pairing_check(agg_pubkey: FlatG1, agg_signature: FlatG2, message_point: FlatG
     let message_point: G2Affine = message_point.into();
     Bn254::pairing(agg_pubkey, message_point)
         == Bn254::pairing(G1Affine::generator(), agg_signature)
+}
+
+fn timestamp() -> U64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs()
+        .into()
 }
