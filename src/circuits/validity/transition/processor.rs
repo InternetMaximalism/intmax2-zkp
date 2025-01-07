@@ -154,40 +154,40 @@ where
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use plonky2::{
-        field::goldilocks_field::GoldilocksField, plonk::config::PoseidonGoldilocksConfig,
-    };
+// #[cfg(test)]
+// mod tests {
+//     use plonky2::{
+//         field::goldilocks_field::GoldilocksField, plonk::config::PoseidonGoldilocksConfig,
+//     };
 
-    use super::TransitionProcessor;
+//     use super::TransitionProcessor;
 
-    type F = GoldilocksField;
-    type C = PoseidonGoldilocksConfig;
-    const D: usize = 2;
+//     type F = GoldilocksField;
+//     type C = PoseidonGoldilocksConfig;
+//     const D: usize = 2;
 
-    #[test]
-    fn test_transition_processor() -> anyhow::Result<()> {
-        // let mut rng = rand::thread_rng();
-        // let mut block_builder = MockBlockBuilder::new();
-        // block_builder.post_block(true, generate_random_tx_requests(&mut rng));
+//     #[test]
+//     fn test_transition_processor() -> anyhow::Result<()> {
+//         let mut rng = rand::thread_rng();
+//         let mut block_builder = MockBlockBuilder::new();
+//         block_builder.post_block(true, generate_random_tx_requests(&mut rng));
 
-        // let transition_processor = TransitionProcessor::<F, C, D>::new();
-        // let txs = generate_random_tx_requests(&mut rng);
-        // let validity_witness = block_builder.post_block(true, txs);
+//         let transition_processor = TransitionProcessor::<F, C, D>::new();
+//         let txs = generate_random_tx_requests(&mut rng);
+//         let validity_witness = block_builder.post_block(true, txs);
 
-        // let prev_block_number = validity_witness.get_block_number() - 1;
-        // let prev_pis = block_builder
-        //     .aux_info
-        //     .get(&prev_block_number)
-        //     .unwrap()
-        //     .validity_witness
-        //     .to_validity_pis();
+//         let prev_block_number = validity_witness.get_block_number() - 1;
+//         let prev_pis = block_builder
+//             .aux_info
+//             .get(&prev_block_number)
+//             .unwrap()
+//             .validity_witness
+//             .to_validity_pis();
 
-        // let _proof = transition_processor
-        //     .prove(&prev_pis, &validity_witness)
-        //     .unwrap();
+//         let _proof = transition_processor
+//             .prove(&prev_pis, &validity_witness)
+//             .unwrap();
 
-        Ok(())
-    }
-}
+//         Ok(())
+//     }
+// }
