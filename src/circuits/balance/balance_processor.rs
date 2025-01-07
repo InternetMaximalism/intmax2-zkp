@@ -177,16 +177,24 @@ where
 mod tests {
     use crate::{
         circuits::{
-            balance::send::spent_circuit::SpentCircuit,
+            balance::{balance_pis::BalancePublicInputs, send::spent_circuit::SpentCircuit},
             test_utils::witness_generator::{construct_spent_witness, MockTxRequest},
         },
-        common::{private_state::FullPrivateState, signature::key_set::KeySet, transfer::Transfer},
+        common::{
+            insufficient_flags::InsufficientFlags, private_state::FullPrivateState,
+            signature::key_set::KeySet, transfer::Transfer,
+        },
     };
+    use anyhow::ensure;
     use plonky2::{
         field::goldilocks_field::GoldilocksField, plonk::config::PoseidonGoldilocksConfig,
     };
+    use std::sync::Arc;
 
-    use crate::circuits::validity::validity_processor::ValidityProcessor;
+    use crate::circuits::{
+        test_utils::state_manager::ValidityStateManager,
+        validity::validity_processor::ValidityProcessor,
+    };
 
     use super::BalanceProcessor;
 
@@ -202,12 +210,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "skip_insufficient_check")]
     fn balance_processor_send() -> anyhow::Result<()> {
-        use std::sync::Arc;
-
-        use crate::circuits::test_utils::state_manager::ValidityStateManager;
-
         let mut rng = rand::thread_rng();
         let validity_processor = Arc::new(ValidityProcessor::<F, C, D>::new());
         let balance_processor = BalanceProcessor::new(&validity_processor.get_verifier_data());
@@ -242,32 +245,33 @@ mod tests {
             &spent_proof,
             &None,
         )?;
+
         Ok(())
     }
 
-    // #[test]
-    // fn balance_processor_update() {
-    //     let mut rng = rand::thread_rng();
-    //     // shared state
-    //     let mut block_builder = MockBlockBuilder::new();
-    //     let mut sync_validity_prover = SyncValidityProver::<F, C, D>::new();
-    //     let balance_processor = BalanceProcessor::new(sync_validity_prover.validity_circuit());
+    #[test]
+    fn balance_processor_update() -> anyhow::Result<()> {
+        let mut rng = rand::thread_rng();
+        let validity_processor = Arc::new(ValidityProcessor::<F, C, D>::new());
+        let balance_processor = BalanceProcessor::new(&validity_processor.get_verifier_data());
+        let mut validity_state_manager = ValidityStateManager::new(validity_processor.clone());
 
-    //     // alice send tx0
-    //     let mut alice = MockWallet::new_rand(&mut rng);
-    //     let transfer0 = Transfer::rand(&mut rng);
-    //     alice.send_tx_and_update(&mut rng, &mut block_builder, &[transfer0]);
+        // post empty block
+        validity_state_manager.tick(false, &[])?;
 
-    //     // bob update balance proof
-    //     let mut bob = MockWallet::new_rand(&mut rng);
-    //     let mut bob_balance_prover = SyncBalanceProver::<F, C, D>::new();
-    //     bob_balance_prover.sync_no_send(
-    //         &mut sync_validity_prover,
-    //         &mut bob,
-    //         &balance_processor,
-    //         &block_builder,
-    //     );
-    // }
+        // alice update balance
+        let alice_key = KeySet::rand(&mut rng);
+        let update_witness =
+            validity_state_manager.get_update_witness(alice_key.pubkey, 1, 0, false)?;
+        let _alice_balance_proof = balance_processor.prove_update(
+            &validity_processor.get_verifier_data(),
+            alice_key.pubkey,
+            &update_witness,
+            &None,
+        )?;
+
+        Ok(())
+    }
 
     // #[test]
     // #[cfg(feature = "skip_insufficient_check")]

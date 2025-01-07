@@ -33,6 +33,6 @@ env_logger = "0.11.5"
 chrono = "0.4.38"
 
 [features]
-default = ["dummy_validity_proof", "skip_insufficient_check"]
+default = ["dummy_validity_proof",]
 dummy_validity_proof = []
 skip_insufficient_check = []
