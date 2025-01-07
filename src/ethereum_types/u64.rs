@@ -83,6 +83,14 @@ impl From<u64> for U64 {
     }
 }
 
+impl From<U64> for u64 {
+    fn from(value: U64) -> Self {
+        let hi = value.limbs[0] as u64;
+        let lo = value.limbs[1] as u64;
+        (hi << 32) | lo
+    }
+}
+
 impl TryFrom<BigUint> for U64 {
     type Error = anyhow::Error;
     fn try_from(value: BigUint) -> anyhow::Result<Self> {
