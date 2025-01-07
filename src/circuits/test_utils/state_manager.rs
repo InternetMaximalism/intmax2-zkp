@@ -1,6 +1,6 @@
 use std::{collections::HashMap, sync::Arc};
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use plonky2::{
     field::goldilocks_field::GoldilocksField,
     plonk::{config::PoseidonGoldilocksConfig, proof::ProofWithPublicInputs},
@@ -8,12 +8,14 @@ use plonky2::{
 
 use crate::{
     circuits::{
-        test_utils::witness_generator::construct_validity_witness,
+        test_utils::witness_generator::construct_validity_and_tx_witness,
         validity::{validity_pis::ValidityPublicInputs, validity_processor::ValidityProcessor},
     },
     common::{
         trees::{
-            account_tree::AccountTree, block_hash_tree::BlockHashTree, deposit_tree::DepositTree,
+            account_tree::AccountTree,
+            block_hash_tree::{BlockHashMerkleProof, BlockHashTree},
+            deposit_tree::DepositTree,
         },
         witness::{tx_witness::TxWitness, update_witness::UpdateWitness},
     },
@@ -78,7 +80,7 @@ impl ValidityStateManager {
         is_registration_block: bool,
         tx_requests: &[MockTxRequest],
     ) -> Result<Vec<TxWitness>> {
-        let (validity_witness, tx_witnesses) = construct_validity_witness(
+        let (validity_witness, tx_witnesses) = construct_validity_and_tx_witness(
             self.validity_pis.clone(),
             &mut self.account_tree,
             &mut self.block_tree,
@@ -119,5 +121,21 @@ impl ValidityStateManager {
             leaf_block_number,
             is_prev_account_tree,
         )
+    }
+
+    pub fn get_block_merkle_proof(
+        &self,
+        root_block_number: u32,
+        leaf_block_number: u32,
+    ) -> Result<BlockHashMerkleProof> {
+        let block_tree = self
+            .historical_block_trees
+            .get(&root_block_number)
+            .context(format!(
+                "Block tree not found for block number {}",
+                root_block_number
+            ))?;
+        let proof = block_tree.prove(leaf_block_number as u64);
+        Ok(proof)
     }
 }

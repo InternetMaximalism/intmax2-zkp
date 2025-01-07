@@ -43,7 +43,7 @@ pub struct MockTxRequest {
 
 // Receives an array of tuples consisting of tx and its sender's address, generates a block,
 // and constructs the validity witness of that block.
-pub fn construct_validity_witness(
+pub fn construct_validity_and_tx_witness(
     prev_validity_pis: ValidityPublicInputs,
     account_tree: &mut AccountTree,
     block_tree: &mut BlockHashTree,
@@ -181,10 +181,10 @@ pub fn construct_validity_witness(
     Ok((validity_witness, tx_witnesses))
 }
 
-pub fn construct_spent_witness(
+pub fn construct_spent_and_transfer_witness(
     full_private_state: &mut FullPrivateState,
     transfers: &[Transfer],
-) -> anyhow::Result<SpentWitness> {
+) -> anyhow::Result<(SpentWitness, Vec<TransferWitness>)> {
     assert!(transfers.len() < NUM_TRANSFERS_IN_TX);
     let mut transfers = transfers.to_vec();
     transfers.resize(NUM_TRANSFERS_IN_TX, Transfer::default());
@@ -219,7 +219,7 @@ pub fn construct_spent_witness(
         new_private_state_salt,
     )?;
     spent_witness.update_private_state(full_private_state)?;
-    Ok(spent_witness)
+    Ok((spent_witness, transfer_witnesses))
 }
 
 pub fn construct_update_witness(
@@ -291,7 +291,7 @@ mod tests {
                 sender_key,
                 will_return_sig: true,
             }];
-            let (validity_witness, _) = super::construct_validity_witness(
+            let (validity_witness, _) = super::construct_validity_and_tx_witness(
                 prev_validity_pis.clone(),
                 &mut account_tree,
                 &mut block_tree,

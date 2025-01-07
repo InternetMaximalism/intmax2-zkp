@@ -178,7 +178,7 @@ mod tests {
     use crate::{
         circuits::{
             balance::{balance_pis::BalancePublicInputs, send::spent_circuit::SpentCircuit},
-            test_utils::witness_generator::{construct_spent_witness, MockTxRequest},
+            test_utils::witness_generator::{construct_spent_and_transfer_witness, MockTxRequest},
         },
         common::{
             insufficient_flags::InsufficientFlags, private_state::FullPrivateState,
@@ -226,7 +226,8 @@ mod tests {
         // alice send transfer
         let transfer = Transfer::rand(&mut rng);
 
-        let spent_witness = construct_spent_witness(&mut alice_state, &[transfer])?;
+        let (spent_witness, _) =
+            construct_spent_and_transfer_witness(&mut alice_state, &[transfer])?;
         let spent_proof = spent_circuit.prove(&spent_witness.to_value()?)?;
         let tx_request = MockTxRequest {
             tx: spent_witness.tx,
@@ -273,56 +274,86 @@ mod tests {
         Ok(())
     }
 
-    // #[test]
-    // #[cfg(feature = "skip_insufficient_check")]
-    // fn balance_processor_receive_transfer() {
-    //     let mut rng = rand::thread_rng();
-    //     // shared state
-    //     let mut block_builder = MockBlockBuilder::new();
-    //     let mut sync_validity_prover = SyncValidityProver::<F, C, D>::new();
-    //     let balance_processor = BalanceProcessor::new(sync_validity_prover.validity_circuit());
+    #[test]
+    #[cfg(feature = "skip_insufficient_check")]
+    fn balance_processor_receive_transfer() -> anyhow::Result<()> {
+        use crate::common::{
+            salt::Salt,
+            witness::{
+                private_transition_witness::PrivateTransitionWitness,
+                receive_transfer_witness::ReceiveTransferWitness, tx_witness,
+            },
+        };
 
-    //     // accounts
-    //     let mut alice = MockWallet::new_rand(&mut rng);
-    //     let mut alice_balance_prover = SyncBalanceProver::<F, C, D>::new();
-    //     let mut bob = MockWallet::new_rand(&mut rng);
-    //     let mut bob_balance_prover = SyncBalanceProver::<F, C, D>::new();
+        let mut rng = rand::thread_rng();
+        let validity_processor = Arc::new(ValidityProcessor::<F, C, D>::new());
+        let balance_processor = BalanceProcessor::new(&validity_processor.get_verifier_data());
+        let spent_circuit = SpentCircuit::new();
 
-    //     let transfer = Transfer::rand_to(&mut rng, bob.get_pubkey());
-    //     let send_witness = alice.send_tx_and_update(&mut rng, &mut block_builder, &[transfer]);
-    //     let transfer_witness = &alice
-    //         .get_transfer_witnesses(send_witness.get_included_block_number())
-    //         .unwrap()[0];
-    //     alice_balance_prover.sync_send(
-    //         &mut sync_validity_prover,
-    //         &mut alice,
-    //         &balance_processor,
-    //         &block_builder,
-    //     );
-    //     let alice_balance_proof = alice_balance_prover.last_balance_proof.clone().unwrap();
+        // public state
+        let mut validity_state_manager = ValidityStateManager::new(validity_processor.clone());
 
-    //     // bob update balance proof
-    //     bob_balance_prover.sync_no_send(
-    //         &mut sync_validity_prover,
-    //         &mut bob,
-    //         &balance_processor,
-    //         &block_builder,
-    //     );
-    //     let bob_balance_proof = bob_balance_prover.get_balance_proof();
+        // local state
+        let alice_key = KeySet::rand(&mut rng);
+        let mut alice_state = FullPrivateState::new();
 
-    //     let receive_transfer_witness = bob.receive_transfer_and_update(
-    //         &mut rng,
-    //         &block_builder,
-    //         bob_balance_prover.last_block_number,
-    //         transfer_witness,
-    //         &alice_balance_proof,
-    //     );
-    //     let _new_bob_balance_proof = balance_processor.prove_receive_transfer(
-    //         bob.get_pubkey(),
-    //         &receive_transfer_witness,
-    //         &Some(bob_balance_proof),
-    //     );
-    // }
+        // alice send transfer
+        let transfer = Transfer::rand(&mut rng);
+
+        let (spent_witness, transfer_witnesses) =
+            construct_spent_and_transfer_witness(&mut alice_state, &[transfer])?;
+        let transfer_witness = transfer_witnesses[0].clone();
+        let spent_proof = spent_circuit.prove(&spent_witness.to_value()?)?;
+        let tx_request = MockTxRequest {
+            tx: spent_witness.tx,
+            sender_key: alice_key,
+            will_return_sig: true,
+        };
+        let tx_witnesses = validity_state_manager.tick(true, &[tx_request])?;
+        let tx_witness = tx_witnesses[0].clone();
+        let update_witness =
+            validity_state_manager.get_update_witness(alice_key.pubkey, 1, 0, true)?;
+        let alice_balance_proof = balance_processor.prove_send(
+            &validity_processor.get_verifier_data(),
+            alice_key.pubkey,
+            &tx_witness,
+            &update_witness,
+            &spent_proof,
+            &None,
+        )?;
+
+        // bob update balance proof
+        let bob_key = KeySet::rand(&mut rng);
+        let mut bob_state = FullPrivateState::new();
+
+        let update_witness =
+            validity_state_manager.get_update_witness(bob_key.pubkey, 1, 0, false)?;
+        let bob_balance_proof = balance_processor.prove_update(
+            &validity_processor.get_verifier_data(),
+            bob_key.pubkey,
+            &update_witness,
+            &None,
+        )?;
+        let private_transition_witness = PrivateTransitionWitness::new_from_transfer(
+            &mut bob_state,
+            transfer,
+            Salt::rand(&mut rng),
+        )?;
+        let block_merkle_proof = validity_state_manager.get_block_merkle_proof(1, 1)?;
+        let receive_transfer_witness = ReceiveTransferWitness {
+            transfer_witness,
+            private_transition_witness,
+            sender_balance_proof: alice_balance_proof,
+            block_merkle_proof,
+        };
+        balance_processor.prove_receive_transfer(
+            bob_key.pubkey,
+            &receive_transfer_witness,
+            &Some(bob_balance_proof),
+        )?;
+
+        Ok(())
+    }
 
     // #[test]
     // fn balance_processor_deposit() {

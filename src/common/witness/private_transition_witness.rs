@@ -2,12 +2,10 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     common::{
-        private_state::{FullPrivateState, PrivateState},
-        salt::Salt,
-        trees::{
+        deposit::Deposit, private_state::{FullPrivateState, PrivateState}, salt::Salt, transfer::Transfer, trees::{
             asset_tree::{AssetLeaf, AssetMerkleProof},
             nullifier_tree::NullifierInsertionProof,
-        },
+        }
     },
     ethereum_types::{bytes32::Bytes32, u256::U256},
 };
@@ -57,5 +55,35 @@ impl PrivateTransitionWitness {
             prev_asset_leaf,
             asset_merkle_proof,
         })
+    }
+
+    pub fn new_from_transfer(
+        full_private_state: &mut FullPrivateState,
+        transfer: Transfer,
+        new_salt: Salt,
+    ) -> anyhow::Result<Self> {
+        let nullifier: Bytes32 = transfer.commitment().into();
+        Self::new(
+            full_private_state,
+            transfer.token_index,
+            transfer.amount,
+            nullifier,
+            new_salt,
+        )
+    }
+
+    pub fn new_from_deposit(
+        full_private_state: &mut FullPrivateState,
+        deposit: Deposit,
+        new_salt: Salt,
+    ) -> anyhow::Result<Self> {
+        let nullifier: Bytes32 = deposit.poseidon_hash().into();
+        Self::new(
+            full_private_state,
+            deposit.token_index,
+            deposit.amount,
+            nullifier,
+            new_salt,
+        )
     }
 }
