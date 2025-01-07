@@ -89,6 +89,7 @@ impl FullBlock {
             signature: self.signature.clone(),
             pubkeys: pubkeys.clone(),
             prev_account_tree_root,
+            prev_next_account_id: account_tree.len() as u64,
             prev_block_tree_root,
             account_id_packed,
             account_merkle_proofs,

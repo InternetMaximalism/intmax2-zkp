@@ -195,13 +195,14 @@ impl SpentValue {
         }
         let insufficient_flags = InsufficientFlags::from_bits_be(&insufficient_bits);
         let is_valid = tx_nonce == prev_private_state.nonce;
+        let prev_private_commitment = prev_private_state.commitment();
         let new_private_state = PrivateState {
             asset_tree_root,
+            prev_private_commitment,
             nonce: prev_private_state.nonce + 1,
             salt: new_private_state_salt,
             ..prev_private_state.clone()
         };
-        let prev_private_commitment = prev_private_state.commitment();
         let new_private_commitment = new_private_state.commitment();
         let transfer_root = get_merkle_root_from_leaves(TRANSFER_TREE_HEIGHT, &transfers);
         let tx = Tx {
@@ -257,14 +258,15 @@ impl SpentTarget {
         }
         let insufficient_flags = InsufficientFlagsTarget::from_bits_be(builder, &insufficient_bits);
         let is_valid = builder.is_equal(prev_private_state.nonce, tx_nonce);
+        let prev_private_commitment = prev_private_state.commitment(builder);
         let one = builder.one();
         let new_private_state = PrivateStateTarget {
             asset_tree_root,
+            prev_private_commitment,
             nonce: builder.add(prev_private_state.nonce, one),
             salt: new_private_state_salt,
             ..prev_private_state
         };
-        let prev_private_commitment = prev_private_state.commitment(builder);
         let new_private_commitment = new_private_state.commitment(builder);
         let transfer_root = get_merkle_root_from_leaves_circuit::<F, C, D, _>(
             builder,

@@ -16,7 +16,7 @@ use crate::{
         },
     },
     constants::{NUM_TRANSFERS_IN_TX, TRANSFER_TREE_HEIGHT},
-    ethereum_types::u256::U256,
+    ethereum_types::{address::Address, u256::U256},
     mock::{balance_logic::process_transfer, data::user_data::UserData},
     utils::poseidon_hash_out::PoseidonHashOut,
 };
@@ -99,13 +99,16 @@ impl Client {
     {
         // todo: improve the way to choose deposit salt
         let deposit_salt = generate_salt(key, 0);
-
+        let nonce = 0;
+        let depositor = Address::default();
         // backup before contract call
         let pubkey_salt_hash = get_pubkey_salt_hash(key.pubkey, deposit_salt);
         let deposit = Deposit {
+            depositor,
             pubkey_salt_hash,
-            token_index,
             amount,
+            token_index,
+            nonce,
         };
         let deposit_data = DepositData {
             deposit_salt,

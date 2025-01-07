@@ -56,7 +56,7 @@ where
             C,
             D,
         >,
-        #[cfg(feature = "dummy_validity_proof")] dummy_validity_wrap_vd: &VerifierCircuitData<
+        #[cfg(feature = "dummy_validity_proof")] dummy_transition_wrap_vd: &VerifierCircuitData<
             F,
             C,
             D,
@@ -69,7 +69,7 @@ where
         #[cfg(not(feature = "dummy_validity_proof"))]
         let transition_proof = add_proof_target_and_verify(transition_wrap_vd, &mut builder);
         #[cfg(feature = "dummy_validity_proof")]
-        let transition_proof = add_proof_target_and_verify(dummy_validity_wrap_vd, &mut builder);
+        let transition_proof = add_proof_target_and_verify(dummy_transition_wrap_vd, &mut builder);
 
         let prev_pis_ = ValidityPublicInputsTarget::from_slice(
             &transition_proof.public_inputs[0..VALIDITY_PUBLIC_INPUTS_LEN],

@@ -139,6 +139,7 @@ impl ValidityPublicInputsTarget {
         if is_checked {
             builder.assert_bool(is_valid_block);
         }
+
         Self {
             public_state: PublicStateTarget::new(builder, is_checked),
             tx_tree_root: Bytes32Target::new(builder, is_checked),

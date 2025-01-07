@@ -15,6 +15,7 @@ use crate::{
     ethereum_types::{
         bytes32::{Bytes32, Bytes32Target},
         u32limb_trait::{U32LimbTargetTrait as _, U32LimbTrait},
+        u64::{U64Target, U64},
     },
     utils::poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget},
 };
@@ -28,6 +29,7 @@ pub struct Block {
     pub prev_block_hash: Bytes32,   // The hash of the previous block
     pub deposit_tree_root: Bytes32, // The root of the deposit tree
     pub signature_hash: Bytes32,    // The hash of the signature of the block
+    pub timestamp: U64,             // The timestamp of the block
     pub block_number: u32,          // The number of the block
 }
 
@@ -36,6 +38,7 @@ pub struct BlockTarget {
     pub prev_block_hash: Bytes32Target,
     pub deposit_tree_root: Bytes32Target,
     pub signature_hash: Bytes32Target,
+    pub timestamp: U64Target,
     pub block_number: Target,
 }
 
@@ -46,6 +49,7 @@ impl Block {
             prev_block_hash: Bytes32::default(),
             deposit_tree_root,
             signature_hash: Bytes32::default(),
+            timestamp: U64::zero(),
             block_number: 0,
         }
     }
@@ -55,6 +59,7 @@ impl Block {
             self.prev_block_hash.to_u32_vec(),
             self.deposit_tree_root.to_u32_vec(),
             self.signature_hash.to_u32_vec(),
+            self.timestamp.to_u32_vec(),
             vec![self.block_number],
         ]
         .concat()
@@ -83,6 +88,7 @@ impl BlockTarget {
             prev_block_hash: Bytes32Target::new(builder, is_checked),
             deposit_tree_root: Bytes32Target::new(builder, is_checked),
             signature_hash: Bytes32Target::new(builder, is_checked),
+            timestamp: U64Target::new(builder, is_checked),
             block_number,
         }
     }
@@ -93,7 +99,8 @@ impl BlockTarget {
             .into_iter()
             .chain(self.deposit_tree_root.to_vec().into_iter())
             .chain(self.signature_hash.to_vec().into_iter())
-            .chain([self.block_number].iter().copied())
+            .chain(self.timestamp.to_vec().into_iter())
+            .chain([self.block_number])
             .collect::<Vec<_>>()
     }
 
@@ -125,6 +132,7 @@ impl BlockTarget {
             .set_witness(witness, value.deposit_tree_root);
         self.signature_hash
             .set_witness(witness, value.signature_hash);
+        self.timestamp.set_witness(witness, value.timestamp);
         witness.set_target(self.block_number, F::from_canonical_u32(value.block_number));
     }
 }

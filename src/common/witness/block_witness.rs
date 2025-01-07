@@ -38,6 +38,7 @@ pub struct BlockWitness {
     pub signature: SignatureContent,
     pub pubkeys: Vec<U256>,
     pub prev_account_tree_root: PoseidonHashOut,
+    pub prev_next_account_id: u64,
     pub prev_block_tree_root: PoseidonHashOut,
     pub account_id_packed: Option<AccountIdPacked>, // in account id case
     pub account_merkle_proofs: Option<Vec<AccountMerkleProof>>, // in account id case
@@ -53,6 +54,7 @@ impl BlockWitness {
             signature: SignatureContent::default(),
             pubkeys: vec![],
             prev_account_tree_root: account_tree.get_root(),
+            prev_next_account_id: 2,
             prev_block_tree_root: block_hash_tree.get_root(),
             account_id_packed: None,
             account_merkle_proofs: None,
@@ -70,6 +72,7 @@ impl BlockWitness {
                 account_tree_root: validity_pis.public_state.account_tree_root,
                 tx_tree_root: validity_pis.tx_tree_root,
                 sender_tree_root: validity_pis.sender_tree_root,
+                timestamp: validity_pis.public_state.timestamp,
                 block_number: validity_pis.public_state.block_number,
                 is_registration_block: false, // genesis block is not a registration block
                 is_valid: validity_pis.is_valid_block,
@@ -81,6 +84,7 @@ impl BlockWitness {
         let signature = self.signature.clone();
         let pubkeys = self.pubkeys.clone();
         let account_tree_root = self.prev_account_tree_root;
+        let sender_leaves = get_sender_leaves(&pubkeys, signature.sender_flag);
 
         let pubkey_hash = get_pubkey_hash(&pubkeys);
         let is_registration_block = signature.is_registration_block;
@@ -99,7 +103,7 @@ impl BlockWitness {
                     .ok_or(anyhow::anyhow!(
                         "account_membership_proofs is None in registration block"
                     ))?,
-                pubkeys.clone(),
+                sender_leaves,
             );
             result = result && account_exclusion_value.is_valid;
         } else {
@@ -139,6 +143,7 @@ impl BlockWitness {
             account_tree_root,
             tx_tree_root,
             sender_tree_root,
+            timestamp: block.timestamp,
             block_number: block.block_number,
             is_registration_block,
             is_valid: result,

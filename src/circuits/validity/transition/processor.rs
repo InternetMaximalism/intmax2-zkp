@@ -70,6 +70,7 @@ where
     ) -> Result<ProofWithPublicInputs<F, C, D>> {
         let prev_account_tree_root = validity_witness.block_witness.prev_account_tree_root;
         let prev_block_tree_root = validity_witness.block_witness.prev_block_tree_root;
+        let prev_next_account_id = validity_witness.block_witness.prev_next_account_id;
 
         let block_pis = validity_witness
             .block_witness
@@ -93,6 +94,7 @@ where
             );
             let value = AccountRegistrationValue::new(
                 prev_account_tree_root,
+                prev_next_account_id,
                 block_pis.block_number,
                 sender_leaves.clone(),
                 account_registration_proofs,
@@ -114,6 +116,7 @@ where
             );
             let value = AccountUpdateValue::new(
                 prev_account_tree_root,
+                prev_next_account_id,
                 block_pis.block_number,
                 prev_sender_leaves.clone(),
                 account_update_proofs,
@@ -128,6 +131,7 @@ where
             &self.account_update_circuit,
             block_pis,
             prev_account_tree_root,
+            prev_next_account_id,
             prev_block_tree_root,
             account_registration_proof,
             account_update_proof,
@@ -152,9 +156,6 @@ where
 
 // #[cfg(test)]
 // mod tests {
-//     use crate::{
-//         mock::block_builder::MockBlockBuilder,
-// utils::test_utils::tx::generate_random_tx_requests,     };
 //     use plonky2::{
 //         field::goldilocks_field::GoldilocksField, plonk::config::PoseidonGoldilocksConfig,
 //     };
@@ -166,7 +167,7 @@ where
 //     const D: usize = 2;
 
 //     #[test]
-//     fn test_transition_processor() {
+//     fn test_transition_processor() -> anyhow::Result<()> {
 //         let mut rng = rand::thread_rng();
 //         let mut block_builder = MockBlockBuilder::new();
 //         block_builder.post_block(true, generate_random_tx_requests(&mut rng));
@@ -186,5 +187,7 @@ where
 //         let _proof = transition_processor
 //             .prove(&prev_pis, &validity_witness)
 //             .unwrap();
+
+//         Ok(())
 //     }
 // }

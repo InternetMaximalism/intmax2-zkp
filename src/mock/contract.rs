@@ -17,7 +17,8 @@ use crate::{
     },
     constants::{DEPOSIT_TREE_HEIGHT, NUM_SENDERS_IN_BLOCK},
     ethereum_types::{
-        account_id_packed::AccountIdPacked, bytes16::Bytes16, bytes32::Bytes32, u256::U256,
+        account_id_packed::AccountIdPacked, address::Address, bytes16::Bytes16, bytes32::Bytes32,
+        u256::U256, u64::U64,
     },
     utils::leafable::Leafable,
 };
@@ -73,13 +74,17 @@ impl MockContract {
             .unwrap_or_default()
     }
 
-    /// Simpler interface for depositing tokens. Returns the id of deposit
+    /// Simpler interface for depositing tokens.
     pub fn deposit(&mut self, pubkey_salt_hash: Bytes32, token_index: u32, amount: U256) {
         let deposit_index = self.deposit_tree.len() as u32;
+        let nonce = 0;
+        let depositor = Address::default();
         let deposit = Deposit {
+            depositor,
             pubkey_salt_hash,
-            token_index,
             amount,
+            token_index,
+            nonce,
         };
         self.deposit_tree.push(deposit.clone());
         let block_number = self.get_next_block_number();
@@ -91,6 +96,7 @@ impl MockContract {
     pub fn post_registration_block(
         &mut self,
         tx_tree_root: Bytes32,
+        expiry: U64,
         sender_flag: Bytes16,
         agg_pubkey: FlatG1,
         agg_signature: FlatG2,
@@ -114,6 +120,7 @@ impl MockContract {
         let signature = SignatureContent {
             is_registration_block: true,
             tx_tree_root,
+            expiry,
             sender_flag,
             pubkey_hash,
             account_id_hash: Bytes32::default(),
@@ -125,6 +132,7 @@ impl MockContract {
             prev_block_hash: self.get_prev_block_hash(),
             deposit_tree_root: self.deposit_tree.get_root(),
             signature_hash: signature.hash(),
+            timestamp: timestamp(),
             block_number: self.get_next_block_number(),
         };
         let full_block = FullBlock {
@@ -143,6 +151,7 @@ impl MockContract {
     pub fn post_non_registration_block(
         &mut self,
         tx_tree_root: Bytes32,
+        expiry: U64,
         sender_flag: Bytes16,
         agg_pubkey: FlatG1,
         agg_signature: FlatG2,
@@ -166,6 +175,7 @@ impl MockContract {
         let signature = SignatureContent {
             is_registration_block: false,
             tx_tree_root,
+            expiry,
             sender_flag,
             pubkey_hash: public_keys_hash,
             account_id_hash: account_ids_packed.hash(),
@@ -177,6 +187,7 @@ impl MockContract {
             prev_block_hash: self.get_prev_block_hash(),
             deposit_tree_root: self.deposit_tree.get_root(),
             signature_hash: signature.hash(),
+            timestamp: timestamp(),
             block_number: self.get_next_block_number(),
         };
         let full_block = FullBlock {
@@ -199,4 +210,12 @@ fn pairing_check(agg_pubkey: FlatG1, agg_signature: FlatG2, message_point: FlatG
     let message_point: G2Affine = message_point.into();
     Bn254::pairing(agg_pubkey, message_point)
         == Bn254::pairing(G1Affine::generator(), agg_signature)
+}
+
+fn timestamp() -> U64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs()
+        .into()
 }

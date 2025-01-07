@@ -176,6 +176,8 @@ impl<const D: usize> TransferInclusionTarget<D> {
 #[cfg(test)]
 #[cfg(feature = "skip_insufficient_check")]
 mod tests {
+    use std::sync::Arc;
+
     use plonky2::{
         field::goldilocks_field::GoldilocksField,
         iop::witness::PartialWitness,
@@ -186,16 +188,19 @@ mod tests {
     };
 
     use crate::{
-        circuits::balance::{
-            balance_processor::BalanceProcessor,
-            receive::receive_targets::transfer_inclusion::TransferInclusionTarget,
+        circuits::{
+            balance::{
+                balance_processor::BalanceProcessor,
+                receive::receive_targets::transfer_inclusion::TransferInclusionTarget,
+                send::spent_circuit::SpentCircuit,
+            },
+            test_utils::{
+                state_manager::ValidityStateManager,
+                witness_generator::{construct_spent_and_transfer_witness, MockTxRequest},
+            },
+            validity::validity_processor::ValidityProcessor,
         },
-        common::{generic_address::GenericAddress, salt::Salt, transfer::Transfer},
-        ethereum_types::u256::U256,
-        mock::{
-            block_builder::MockBlockBuilder, block_validity_prover::BlockValidityProver,
-            sync_balance_prover::SyncBalanceProver, wallet::MockWallet,
-        },
+        common::{private_state::FullPrivateState, signature::key_set::KeySet, transfer::Transfer},
     };
 
     use super::TransferInclusionValue;
@@ -205,45 +210,49 @@ mod tests {
     const D: usize = 2;
 
     #[test]
-    fn transfer_inclusion() {
+    fn transfer_inclusion() -> anyhow::Result<()> {
         let mut rng = rand::thread_rng();
-        let mut block_builder = MockBlockBuilder::new();
-        let mut sync_validity_prover = SyncValidityProver::<F, C, D>::new();
-        let balance_processor = BalanceProcessor::new(sync_validity_prover.validity_circuit());
+        let validity_processor = Arc::new(ValidityProcessor::<F, C, D>::new());
+        let balance_processor = BalanceProcessor::new(&validity_processor.get_verifier_data());
+        let spent_circuit = SpentCircuit::new();
+        let mut validity_state_manager = ValidityStateManager::new(validity_processor.clone());
 
-        // personal data
-        let mut alice = MockWallet::new_rand(&mut rng);
-        let bob = MockWallet::new_rand(&mut rng);
-        let mut alice_balance_prover = SyncBalanceProver::<F, C, D>::new();
+        // local state
+        let alice_key = KeySet::rand(&mut rng);
+        let mut alice_state = FullPrivateState::new();
 
-        // send tx
-        let transfer = Transfer {
-            recipient: GenericAddress::from_pubkey(bob.get_pubkey()),
-            token_index: 0,
-            amount: U256::rand_small(&mut rng),
-            salt: Salt::rand(&mut rng),
+        // alice send transfer
+        let transfer = Transfer::rand(&mut rng);
+
+        let (spent_witness, transfer_witnesses) =
+            construct_spent_and_transfer_witness(&mut alice_state, &[transfer])?;
+        let spent_proof = spent_circuit.prove(&spent_witness.to_value()?)?;
+        let tx_request = MockTxRequest {
+            tx: spent_witness.tx,
+            sender_key: alice_key,
+            will_return_sig: true,
         };
-        let send_witness = alice.send_tx_and_update(&mut rng, &mut block_builder, &[transfer]);
-        let included_block_number = send_witness.get_included_block_number();
-        alice_balance_prover.sync_send(
-            &mut sync_validity_prover,
-            &mut alice,
-            &balance_processor,
-            &block_builder,
-        );
-        let alice_balance_proof = alice_balance_prover.last_balance_proof.clone().unwrap();
+        let transfer_witness = transfer_witnesses[0].clone();
+        let tx_witnesses = validity_state_manager.tick(true, &[tx_request])?;
+        let update_witness =
+            validity_state_manager.get_update_witness(alice_key.pubkey, 1, 0, true)?;
+        let alice_balance_proof = balance_processor.prove_send(
+            &validity_processor.get_verifier_data(),
+            alice_key.pubkey,
+            &tx_witnesses[0],
+            &update_witness,
+            &spent_proof,
+            &None,
+        )?;
 
-        let transfer_witness = &alice.get_transfer_witnesses(included_block_number).unwrap()[0];
-        assert_eq!(transfer, transfer_witness.transfer);
-        // receive tx
-        let value = TransferInclusionValue::new(
+        let transfer_inclusion_value = TransferInclusionValue::new(
             &balance_processor.get_verifier_data(),
             &transfer,
             transfer_witness.transfer_index,
             &transfer_witness.transfer_merkle_proof,
             &transfer_witness.tx,
             &alice_balance_proof,
-        );
+        )?;
 
         let mut builder = CircuitBuilder::new(CircuitConfig::default());
         let target = TransferInclusionTarget::new::<F, C>(
@@ -252,9 +261,11 @@ mod tests {
             true,
         );
         let mut pw = PartialWitness::<F>::new();
-        target.set_witness(&mut pw, &value);
+        target.set_witness(&mut pw, &transfer_inclusion_value);
 
         let data = builder.build::<C>();
-        let _ = data.prove(pw).unwrap();
+        let _ = data.prove(pw)?;
+
+        Ok(())
     }
 }

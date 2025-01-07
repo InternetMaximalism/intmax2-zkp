@@ -1,7 +1,7 @@
 use crate::{
     common::signature::{
         key_set::KeySet,
-        sign::{hash_to_weight, sign_to_tx_root},
+        sign::{hash_to_weight, sign_to_tx_root_and_expiry},
         utils::get_pubkey_hash,
         SignatureContent,
     },
@@ -17,6 +17,7 @@ use rand::Rng;
 
 impl SignatureContent {
     pub fn rand<R: Rng>(rng: &mut R) -> (Vec<KeySet>, Self) {
+        let expiry = 0;
         let mut key_sets = (0..NUM_SENDERS_IN_BLOCK)
             .map(|_| KeySet::rand(rng))
             .collect::<Vec<_>>();
@@ -48,7 +49,9 @@ impl SignatureContent {
             });
         let agg_signature = key_sets
             .iter()
-            .map(|keyset| sign_to_tx_root(keyset.privkey, tx_tree_root, pubkey_hash))
+            .map(|keyset| {
+                sign_to_tx_root_and_expiry(keyset.privkey, tx_tree_root, expiry, pubkey_hash)
+            })
             .zip(sender_flag_bits.into_iter())
             .fold(
                 G2Affine::zero(),
@@ -73,6 +76,7 @@ impl SignatureContent {
         );
         let signature = Self {
             tx_tree_root,
+            expiry: expiry.into(),
             is_registration_block,
             sender_flag,
             pubkey_hash,

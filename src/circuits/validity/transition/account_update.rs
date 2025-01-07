@@ -31,6 +31,7 @@ use super::account_transition_pis::AccountTransitionPublicInputsTarget;
 pub(crate) struct AccountUpdateValue {
     pub(crate) prev_account_tree_root: PoseidonHashOut,
     pub(crate) new_account_tree_root: PoseidonHashOut,
+    pub(crate) next_account_id: u64,
     pub(crate) sender_tree_root: PoseidonHashOut,
     pub(crate) block_number: u32,
     pub(crate) sender_leaves: Vec<SenderLeaf>,
@@ -40,6 +41,7 @@ pub(crate) struct AccountUpdateValue {
 impl AccountUpdateValue {
     pub(crate) fn new(
         prev_account_tree_root: PoseidonHashOut,
+        prev_next_account_id: u64,
         block_number: u32,
         sender_leaves: Vec<SenderLeaf>,
         account_update_proofs: Vec<AccountUpdateProof>,
@@ -79,6 +81,7 @@ impl AccountUpdateValue {
         Self {
             prev_account_tree_root,
             new_account_tree_root: account_tree_root,
+            next_account_id: prev_next_account_id,
             sender_tree_root,
             block_number,
             sender_leaves,
@@ -91,6 +94,7 @@ impl AccountUpdateValue {
 pub(crate) struct AccountUpdateTarget {
     pub(crate) prev_account_tree_root: PoseidonHashOutTarget,
     pub(crate) new_account_tree_root: PoseidonHashOutTarget,
+    pub(crate) next_account_id: Target,
     pub(crate) sender_tree_root: PoseidonHashOutTarget,
     pub(crate) block_number: Target,
     pub(crate) sender_leaves: Vec<SenderLeafTarget>,
@@ -109,6 +113,7 @@ impl AccountUpdateTarget {
         <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
     {
         let prev_account_tree_root = PoseidonHashOutTarget::new(builder);
+        let next_account_id = builder.add_virtual_target();
         let block_number = builder.add_virtual_target();
 
         // Range check is not needed because we check the commitment
@@ -146,6 +151,7 @@ impl AccountUpdateTarget {
         Self {
             prev_account_tree_root,
             new_account_tree_root: account_tree_root,
+            next_account_id,
             sender_tree_root,
             block_number,
             sender_leaves,
@@ -162,6 +168,7 @@ impl AccountUpdateTarget {
             .set_witness(witness, value.prev_account_tree_root);
         self.new_account_tree_root
             .set_witness(witness, value.new_account_tree_root);
+        witness.set_target(self.next_account_id, F::from_canonical_u64(value.next_account_id));
         self.sender_tree_root
             .set_witness(witness, value.sender_tree_root);
         witness.set_target(self.block_number, F::from_canonical_u32(value.block_number));
@@ -205,7 +212,9 @@ where
         let target = AccountUpdateTarget::new::<F, C, D>(&mut builder);
         let pis = AccountTransitionPublicInputsTarget {
             prev_account_tree_root: target.prev_account_tree_root.clone(),
+            prev_next_account_id: target.next_account_id.clone(),
             new_account_tree_root: target.new_account_tree_root.clone(),
+            new_next_account_id: target.next_account_id.clone(),
             sender_tree_root: target.sender_tree_root.clone(),
             block_number: target.block_number.clone(),
         };
@@ -250,11 +259,13 @@ mod tests {
     fn account_update() {
         let mut rng = rand::thread_rng();
         let mut tree = AccountTree::initialize();
+        let mut next_account_id = 2;
         let pubkeys = (0..NUM_SENDERS_IN_BLOCK)
             .map(|_| U256::rand(&mut rng))
             .collect::<Vec<_>>();
         for punkey in &pubkeys {
             tree.insert(*punkey, 10).unwrap();
+            next_account_id += 1;
         }
         let prev_account_tree_root = tree.get_root();
 
@@ -278,6 +289,7 @@ mod tests {
 
         let account_registration_value = AccountUpdateValue::new(
             prev_account_tree_root,
+            next_account_id,
             block_number,
             sender_leaves,
             account_update_proofs,

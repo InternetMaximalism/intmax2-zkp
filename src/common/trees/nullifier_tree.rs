@@ -28,9 +28,9 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NullifierTree(IndexedMerkleTree);
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct NullifierInsersionProof(IndexedInsertionProof);
+pub struct NullifierInsertionProof(IndexedInsertionProof);
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct NullifierInsersionProofTarget(IndexedInsertionProofTarget);
+pub struct NullifierInsertionProofTarget(IndexedInsertionProofTarget);
 
 impl NullifierTree {
     pub fn new() -> Self {
@@ -41,15 +41,15 @@ impl NullifierTree {
         self.0.get_root()
     }
 
-    pub fn prove_and_insert(&mut self, nullifier: Bytes32) -> Result<NullifierInsersionProof> {
+    pub fn prove_and_insert(&mut self, nullifier: Bytes32) -> Result<NullifierInsertionProof> {
         let proof = self
             .0
             .prove_and_insert(U256::from_u32_slice(&nullifier.to_u32_vec()), 0)?;
-        Ok(NullifierInsersionProof(proof))
+        Ok(NullifierInsertionProof(proof))
     }
 }
 
-impl NullifierInsersionProof {
+impl NullifierInsertionProof {
     pub fn get_new_root(
         &self,
         prev_root: PoseidonHashOut,
@@ -76,7 +76,7 @@ impl NullifierInsersionProof {
     }
 }
 
-impl NullifierInsersionProofTarget {
+impl NullifierInsertionProofTarget {
     pub fn new<F: RichField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
         is_checked: bool,
@@ -90,7 +90,7 @@ impl NullifierInsersionProofTarget {
 
     pub fn constant<F: RichField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
-        value: &NullifierInsersionProof,
+        value: &NullifierInsertionProof,
     ) -> Self {
         Self(IndexedInsertionProofTarget::constant(builder, &value.0))
     }
@@ -98,7 +98,7 @@ impl NullifierInsersionProofTarget {
     pub fn set_witness<F: Field, W: WitnessWrite<F>>(
         &self,
         witness: &mut W,
-        value: &NullifierInsersionProof,
+        value: &NullifierInsertionProof,
     ) {
         self.0.set_witness(witness, &value.0)
     }

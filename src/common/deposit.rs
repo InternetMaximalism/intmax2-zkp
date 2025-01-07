@@ -13,6 +13,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     ethereum_types::{
+        address::{Address, AddressTarget},
         bytes32::{Bytes32, Bytes32Target},
         u256::{U256Target, U256},
         u32limb_trait::{U32LimbTargetTrait as _, U32LimbTrait},
@@ -30,24 +31,29 @@ use super::salt::{Salt, SaltTarget};
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Deposit {
+    pub depositor: Address,        // The address of the depositor
     pub pubkey_salt_hash: Bytes32, // The poseidon hash of the pubkey and salt, to hide the pubkey
-    pub token_index: u32,          // The index of the token
     pub amount: U256,              // The amount of the token, which is the amount of the deposit
+    pub token_index: u32,          // The index of the token
+    pub nonce: u32,                // The nonce to make the deposit unique
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone)]
 pub struct DepositTarget {
+    pub depositor: AddressTarget,
     pub pubkey_salt_hash: Bytes32Target,
-    pub token_index: Target,
     pub amount: U256Target,
+    pub token_index: Target,
+    pub nonce: Target,
 }
 
 impl Deposit {
     pub fn to_u32_vec(&self) -> Vec<u32> {
         let vec = vec![
+            self.depositor.to_u32_vec(),
             self.pubkey_salt_hash.to_u32_vec(),
-            vec![self.token_index],
             self.amount.to_u32_vec(),
+            vec![self.token_index, self.nonce],
         ]
         .concat();
         vec
@@ -55,9 +61,11 @@ impl Deposit {
 
     pub fn rand<R: Rng>(rng: &mut R) -> Self {
         Self {
+            depositor: Address::rand(rng),
             pubkey_salt_hash: Bytes32::rand(rng),
-            token_index: rng.gen(),
             amount: U256::rand(rng),
+            token_index: rng.gen(),
+            nonce: rng.gen(),
         }
     }
 
@@ -69,9 +77,10 @@ impl Deposit {
 impl DepositTarget {
     pub fn to_vec(&self) -> Vec<Target> {
         let vec = vec![
+            self.depositor.to_vec(),
             self.pubkey_salt_hash.to_vec(),
-            vec![self.token_index],
             self.amount.to_vec(),
+            vec![self.token_index, self.nonce],
         ]
         .concat();
         vec
@@ -81,13 +90,23 @@ impl DepositTarget {
         builder: &mut CircuitBuilder<F, D>,
         is_checked: bool,
     ) -> Self {
+        let depositor = AddressTarget::new(builder, is_checked);
         let pubkey_salt_hash = Bytes32Target::new(builder, is_checked);
-        let token_index = builder.add_virtual_target();
         let amount = U256Target::new(builder, is_checked);
+        let token_index = builder.add_virtual_target();
+        if is_checked {
+            builder.range_check(token_index, 32);
+        }
+        let nonce = builder.add_virtual_target();
+        if is_checked {
+            builder.range_check(nonce, 32);
+        }
         Self {
+            depositor,
             pubkey_salt_hash,
-            token_index,
             amount,
+            token_index,
+            nonce,
         }
     }
 
@@ -95,13 +114,17 @@ impl DepositTarget {
         builder: &mut CircuitBuilder<F, D>,
         value: &Deposit,
     ) -> Self {
+        let depositor = AddressTarget::constant(builder, value.depositor);
         let pubkey_salt_hash = Bytes32Target::constant(builder, value.pubkey_salt_hash);
-        let token_index = builder.constant(F::from_canonical_u32(value.token_index));
         let amount = U256Target::constant(builder, value.amount);
+        let token_index = builder.constant(F::from_canonical_u32(value.token_index));
+        let nonce = builder.constant(F::from_canonical_u32(value.nonce));
         Self {
+            depositor,
             pubkey_salt_hash,
-            token_index,
             amount,
+            token_index,
+            nonce,
         }
     }
 
@@ -113,10 +136,12 @@ impl DepositTarget {
     }
 
     pub fn set_witness<F: Field, W: WitnessWrite<F>>(&self, witness: &mut W, value: &Deposit) {
+        self.depositor.set_witness(witness, value.depositor);
         self.pubkey_salt_hash
             .set_witness(witness, value.pubkey_salt_hash);
-        witness.set_target(self.token_index, F::from_canonical_u32(value.token_index));
         self.amount.set_witness(witness, value.amount);
+        witness.set_target(self.token_index, F::from_canonical_u32(value.token_index));
+        witness.set_target(self.nonce, F::from_canonical_u32(value.nonce));
     }
 }
 

@@ -14,7 +14,7 @@ use crate::{
         salt::{Salt, SaltTarget},
         trees::{
             asset_tree::{AssetLeaf, AssetLeafTarget, AssetMerkleProof, AssetMerkleProofTarget},
-            nullifier_tree::{NullifierInsersionProof, NullifierInsersionProofTarget},
+            nullifier_tree::{NullifierInsertionProof, NullifierInsertionProofTarget},
         },
     },
     constants::ASSET_TREE_HEIGHT,
@@ -33,7 +33,7 @@ pub struct PrivateStateTransitionValue {
     pub nullifier: Bytes32,               // nullifier of corresponding transfer/deposit
     pub new_private_state_salt: Salt,     // new salt of the private state
     pub prev_private_state: PrivateState, // previous private state
-    pub nullifier_proof: NullifierInsersionProof, // merkle proof to update nullifier tree
+    pub nullifier_proof: NullifierInsertionProof, // merkle proof to update nullifier tree
     pub prev_asset_leaf: AssetLeaf,       /* previous asset leaf (balance) of correspoing
                                            * token_index */
     pub asset_merkle_proof: AssetMerkleProof, // merkle proof to update asset tree
@@ -47,10 +47,11 @@ impl PrivateStateTransitionValue {
         nullifier: Bytes32,
         new_salt: Salt,
         prev_private_state: &PrivateState,
-        nullifier_proof: &NullifierInsersionProof,
+        nullifier_proof: &NullifierInsertionProof,
         prev_asset_leaf: &AssetLeaf,
         asset_merkle_proof: &AssetMerkleProof,
     ) -> anyhow::Result<Self> {
+        let prev_private_commitment = prev_private_state.commitment();
         let new_nullifier_tree_root = nullifier_proof
             .get_new_root(prev_private_state.nullifier_tree_root, nullifier)
             .map_err(|e| anyhow::anyhow!("Invalid nullifier merkle proof: {}", e))?;
@@ -62,11 +63,11 @@ impl PrivateStateTransitionValue {
             )
             .map_err(|e| anyhow::anyhow!("Invalid asset merkle proof: {}", e))?;
         let new_asset_leaf = prev_asset_leaf.add(amount);
-        let new_asset_tree_root =
-            asset_merkle_proof.get_root(&new_asset_leaf, token_index as u64);
+        let new_asset_tree_root = asset_merkle_proof.get_root(&new_asset_leaf, token_index as u64);
         let new_private_state = PrivateState {
             asset_tree_root: new_asset_tree_root,
             nullifier_tree_root: new_nullifier_tree_root,
+            prev_private_commitment,
             salt: new_salt,
             ..prev_private_state.clone()
         };
@@ -91,7 +92,7 @@ pub struct PrivateStateTransitionTarget {
     pub nullifier: Bytes32Target,
     pub new_private_state_salt: SaltTarget,
     pub prev_private_state: PrivateStateTarget,
-    pub nullifier_proof: NullifierInsersionProofTarget,
+    pub nullifier_proof: NullifierInsertionProofTarget,
     pub prev_asset_leaf: AssetLeafTarget,
     pub asset_merkle_proof: AssetMerkleProofTarget,
     pub new_private_state: PrivateStateTarget,
@@ -110,10 +111,11 @@ impl PrivateStateTransitionTarget {
         let nullifier = Bytes32Target::new(builder, is_checked);
         let new_salt = SaltTarget::new(builder);
         let prev_private_state = PrivateStateTarget::new(builder);
-        let nullifier_proof = NullifierInsersionProofTarget::new(builder, is_checked);
+        let nullifier_proof = NullifierInsertionProofTarget::new(builder, is_checked);
         let prev_asset_leaf = AssetLeafTarget::new(builder, is_checked);
         let asset_merkle_proof = AssetMerkleProofTarget::new(builder, ASSET_TREE_HEIGHT);
 
+        let prev_private_commitment = prev_private_state.commitment(builder);
         let new_nullifier_tree_root = nullifier_proof.get_new_root::<F, C, D>(
             builder,
             prev_private_state.nullifier_tree_root,
@@ -131,6 +133,7 @@ impl PrivateStateTransitionTarget {
         let new_private_state = PrivateStateTarget {
             asset_tree_root: new_asset_tree_root,
             nullifier_tree_root: new_nullifier_tree_root,
+            prev_private_commitment,
             salt: new_salt,
             ..prev_private_state
         };
@@ -192,6 +195,7 @@ mod tests {
         },
         constants::ASSET_TREE_HEIGHT,
         ethereum_types::bytes32::Bytes32,
+        utils::poseidon_hash_out::PoseidonHashOut,
     };
 
     use super::PrivateStateTransitionValue;
@@ -211,9 +215,11 @@ mod tests {
         let prev_private_state = PrivateState {
             asset_tree_root: asset_tree.get_root(),
             nullifier_tree_root: nullifier_tree.get_root(),
+            prev_private_commitment: PoseidonHashOut::default(),
             nonce: rng.gen(),
             salt: Salt::rand(&mut rng),
         };
+        let prev_private_commitment = prev_private_state.commitment();
 
         let prev_asset_leaf = asset_tree.get_leaf(transfer.token_index as u64);
         let asset_merkle_proof = asset_tree.prove(transfer.token_index as u64);
@@ -239,6 +245,7 @@ mod tests {
         let expected_new_private_state = PrivateState {
             asset_tree_root: asset_tree.get_root(),
             nullifier_tree_root: nullifier_tree.get_root(),
+            prev_private_commitment,
             nonce: prev_private_state.nonce,
             salt: new_salt,
         };

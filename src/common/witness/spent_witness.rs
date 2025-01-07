@@ -85,6 +85,7 @@ impl SpentWitness {
             full_private_state.to_private_state() == self.prev_private_state,
             "prev private state mismatch"
         );
+        let prev_private_commitment = full_private_state.to_private_state().commitment();
 
         let value = self
             .to_value()
@@ -107,6 +108,7 @@ impl SpentWitness {
 
         full_private_state.nonce += 1;
         full_private_state.salt = self.new_private_state_salt;
+        full_private_state.prev_private_commitment = prev_private_commitment;
 
         ensure!(
             full_private_state.to_private_state().commitment() == value.new_private_commitment,

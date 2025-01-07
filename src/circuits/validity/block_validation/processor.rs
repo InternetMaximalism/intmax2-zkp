@@ -60,6 +60,7 @@ where
     }
 
     pub fn prove(&self, block_witness: &BlockWitness) -> Result<ProofWithPublicInputs<F, C, D>> {
+        let sender_leaves = block_witness.get_sender_tree().leaves();
         let (account_exclusion_proof, account_inclusion_proof) =
             if block_witness.signature.is_registration_block {
                 let account_exclusion_value = AccountExclusionValue::new(
@@ -68,7 +69,7 @@ where
                         .account_membership_proofs
                         .clone()
                         .expect("Account membership proofs are missing"),
-                    block_witness.pubkeys.clone(),
+                    sender_leaves,
                 );
                 let account_exclusion_proof = self
                     .account_exclusion_circuit
@@ -132,35 +133,69 @@ where
     }
 }
 
-// #[cfg(test)]
-// mod tests {
-//     use plonky2::{
-//         field::goldilocks_field::GoldilocksField, plonk::config::PoseidonGoldilocksConfig,
-//     };
+#[cfg(test)]
+mod tests {
+    use plonky2::{
+        field::goldilocks_field::GoldilocksField, plonk::config::PoseidonGoldilocksConfig,
+    };
+    use rand::Rng;
 
-//     use crate::{
-//         circuits::validity::block_validation::processor::MainValidationProcessor,
-//         mock::block_builder::MockBlockBuilder,
-// utils::test_utils::tx::generate_random_tx_requests,     };
+    use crate::{
+        circuits::{
+            test_utils::witness_generator::{construct_validity_and_tx_witness, MockTxRequest},
+            validity::{
+                block_validation::processor::MainValidationProcessor,
+                validity_pis::ValidityPublicInputs,
+            },
+        },
+        common::{
+            signature::key_set::KeySet,
+            trees::{
+                account_tree::AccountTree, block_hash_tree::BlockHashTree,
+                deposit_tree::DepositTree,
+            },
+            tx::Tx,
+        },
+        constants::NUM_SENDERS_IN_BLOCK,
+    };
 
-//     type F = GoldilocksField;
-//     const D: usize = 2;
-//     type C = PoseidonGoldilocksConfig;
+    type F = GoldilocksField;
+    const D: usize = 2;
+    type C = PoseidonGoldilocksConfig;
 
-//     #[test]
-//     fn main_validation_processor() {
-//         let main_validation_processor = MainValidationProcessor::<F, C, D>::new();
-//         let mut rng = rand::thread_rng();
-//         let mut block_builder = MockBlockBuilder::new();
-//         let txs = generate_random_tx_requests(&mut rng);
-//         let validity_witness = block_builder.post_block(true, txs);
-//         let instant = std::time::Instant::now();
-//         let _main_validation_proof = main_validation_processor
-//             .prove(&validity_witness.block_witness)
-//             .unwrap();
-//         println!(
-//             "main validation proof generation time: {:?}",
-//             instant.elapsed()
-//         );
-//     }
-// }
+    #[test]
+    fn main_validation_processor() -> anyhow::Result<()> {
+        let main_validation_processor = MainValidationProcessor::<F, C, D>::new();
+        let mut rng = rand::thread_rng();
+
+        let mut account_tree = AccountTree::initialize();
+        let mut block_tree = BlockHashTree::initialize();
+        let deposit_tree = DepositTree::initialize();
+
+        let prev_validity_pis = ValidityPublicInputs::genesis();
+        let tx_requests = (0..NUM_SENDERS_IN_BLOCK)
+            .map(|_| MockTxRequest {
+                tx: Tx::rand(&mut rng),
+                sender_key: KeySet::rand(&mut rng),
+                will_return_sig: rng.gen_bool(0.5),
+            })
+            .collect::<Vec<_>>();
+        let (validity_witness, _) = construct_validity_and_tx_witness(
+            prev_validity_pis,
+            &mut account_tree,
+            &mut block_tree,
+            &deposit_tree,
+            true,
+            &tx_requests,
+        )?;
+        let instant = std::time::Instant::now();
+        let _main_validation_proof = main_validation_processor
+            .prove(&validity_witness.block_witness)
+            .unwrap();
+        println!(
+            "main validation proof generation time: {:?}",
+            instant.elapsed()
+        );
+        Ok(())
+    }
+}
