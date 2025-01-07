@@ -180,12 +180,25 @@ mod tests {
             balance::send::spent_circuit::SpentCircuit,
             test_utils::witness_generator::{construct_spent_and_transfer_witness, MockTxRequest},
         },
-        common::{private_state::FullPrivateState, signature::key_set::KeySet, transfer::Transfer},
+        common::{
+            deposit::{get_pubkey_salt_hash, Deposit},
+            private_state::FullPrivateState,
+            salt::Salt,
+            signature::key_set::KeySet,
+            transfer::Transfer,
+            witness::{
+                deposit_witness::DepositWitness,
+                private_transition_witness::PrivateTransitionWitness,
+                receive_deposit_witness::ReceiveDepositWitness,
+            },
+        },
+        ethereum_types::{address::Address, u256::U256, u32limb_trait::U32LimbTrait},
     };
 
     use plonky2::{
         field::goldilocks_field::GoldilocksField, plonk::config::PoseidonGoldilocksConfig,
     };
+    use rand::Rng as _;
     use std::sync::Arc;
 
     use crate::circuits::{
@@ -276,14 +289,17 @@ mod tests {
     fn balance_processor_receive_transfer() -> anyhow::Result<()> {
         use rand::Rng;
 
-        use crate::{common::{
-            generic_address::GenericAddress,
-            salt::Salt,
-            witness::{
-                private_transition_witness::PrivateTransitionWitness,
-                receive_transfer_witness::ReceiveTransferWitness,
+        use crate::{
+            common::{
+                generic_address::GenericAddress,
+                salt::Salt,
+                witness::{
+                    private_transition_witness::PrivateTransitionWitness,
+                    receive_transfer_witness::ReceiveTransferWitness,
+                },
             },
-        }, ethereum_types::u256::U256};
+            ethereum_types::u256::U256,
+        };
 
         let mut rng = rand::thread_rng();
         let validity_processor = Arc::new(ValidityProcessor::<F, C, D>::new());
@@ -359,38 +375,65 @@ mod tests {
         Ok(())
     }
 
-    // #[test]
-    // fn balance_processor_deposit() {
-    //     let rng = &mut rand::thread_rng();
-    //     // shared state
-    //     let mut block_builder = MockBlockBuilder::new();
-    //     let mut sync_validity_prover = SyncValidityProver::<F, C, D>::new();
-    //     let balance_processor = BalanceProcessor::new(sync_validity_prover.validity_circuit());
+    #[test]
+    fn balance_processor_deposit() -> anyhow::Result<()> {
+        let mut rng = rand::thread_rng();
+        let validity_processor = Arc::new(ValidityProcessor::<F, C, D>::new());
+        let balance_processor = BalanceProcessor::new(&validity_processor.get_verifier_data());
+        let mut validity_state_manager = ValidityStateManager::new(validity_processor.clone());
 
-    //     // alice deposit
-    //     let mut alice = MockWallet::new_rand(rng);
-    //     let mut alice_balance_prover = SyncBalanceProver::<F, C, D>::new();
-    //     let deposit_amount = U256::rand_small(rng);
-    //     let first_deposit_index = alice.deposit(rng, &mut block_builder, 0, deposit_amount);
-    //     alice.deposit(rng, &mut block_builder, 1, deposit_amount); // dummy deposit
+        // local state
+        let alice_key = KeySet::rand(&mut rng);
+        let mut alice_state = FullPrivateState::new();
 
-    //     // post dummy block
-    //     let transfer = Transfer::rand(rng);
-    //     alice.send_tx_and_update(rng, &mut block_builder, &[transfer]);
-    //     alice_balance_prover.sync_send(
-    //         &mut sync_validity_prover,
-    //         &mut alice,
-    //         &balance_processor,
-    //         &block_builder,
-    //     );
-    //     let alice_balance_proof = alice_balance_prover.last_balance_proof.clone().unwrap();
+        // deposit
+        let deposit_salt = Salt::rand(&mut rng);
+        let deposit_salt_hash = get_pubkey_salt_hash(alice_key.pubkey, deposit_salt);
+        let deposit = Deposit {
+            depositor: Address::rand(&mut rng),
+            pubkey_salt_hash: deposit_salt_hash,
+            amount: U256::rand_small(&mut rng),
+            token_index: rng.gen(),
+            nonce: rng.gen(),
+        };
+        let deposit_index = validity_state_manager.deposit(&deposit)?;
 
-    //     let receive_deposit_witness =
-    //         alice.receive_deposit_and_update(rng, &block_builder, first_deposit_index);
-    //     let _new_alice_balance_proof = balance_processor.prove_receive_deposit(
-    //         alice.get_pubkey(),
-    //         &receive_deposit_witness,
-    //         &Some(alice_balance_proof),
-    //     );
-    // }
+        // post empty block to sync deposit tree
+        validity_state_manager.tick(false, &[])?;
+
+        // alice update balance proof
+        let update_witness =
+            validity_state_manager.get_update_witness(alice_key.pubkey, 1, 0, false)?;
+        let alice_balance_proof = balance_processor.prove_update(
+            &validity_processor.get_verifier_data(),
+            alice_key.pubkey,
+            &update_witness,
+            &None,
+        )?;
+
+        // alice receive deposit proof
+        let deposit_merkle_proof =
+            validity_state_manager.get_deposit_merkle_proof(1, deposit_index)?;
+        let deposit_witness = DepositWitness {
+            deposit_salt,
+            deposit_index,
+            deposit: deposit.clone(),
+            deposit_merkle_proof,
+        };
+        let private_transition_witness = PrivateTransitionWitness::new_from_deposit(
+            &mut alice_state,
+            deposit,
+            Salt::rand(&mut rng),
+        )?;
+        let receive_deposit_witness = ReceiveDepositWitness {
+            deposit_witness,
+            private_transition_witness,
+        };
+        let _alice_balance_proof = balance_processor.prove_receive_deposit(
+            alice_key.pubkey,
+            &receive_deposit_witness,
+            &Some(alice_balance_proof),
+        )?;
+        Ok(())
+    }
 }

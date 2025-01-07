@@ -12,10 +12,11 @@ use crate::{
         validity::{validity_pis::ValidityPublicInputs, validity_processor::ValidityProcessor},
     },
     common::{
+        deposit::Deposit,
         trees::{
             account_tree::AccountTree,
             block_hash_tree::{BlockHashMerkleProof, BlockHashTree},
-            deposit_tree::DepositTree,
+            deposit_tree::{DepositMerkleProof, DepositTree},
         },
         witness::{tx_witness::TxWitness, update_witness::UpdateWitness},
     },
@@ -70,8 +71,10 @@ impl ValidityStateManager {
         }
     }
 
-    pub fn get_block_number(&self) -> u32 {
-        self.validity_pis.public_state.block_number
+    pub fn deposit(&mut self, deposit: &Deposit) -> Result<u32> {
+        let deposit_index = self.deposit_tree.len() as u32;
+        self.deposit_tree.push(deposit.clone());
+        Ok(deposit_index)
     }
 
     // generate a new block and update the state manager
@@ -105,6 +108,10 @@ impl ValidityStateManager {
         Ok(tx_witnesses)
     }
 
+    pub fn get_block_number(&self) -> u32 {
+        self.validity_pis.public_state.block_number
+    }
+
     pub fn get_update_witness(
         &self,
         pubkey: U256,
@@ -136,6 +143,22 @@ impl ValidityStateManager {
                 root_block_number
             ))?;
         let proof = block_tree.prove(leaf_block_number as u64);
+        Ok(proof)
+    }
+
+    pub fn get_deposit_merkle_proof(
+        &self,
+        block_number: u32,
+        deposit_index: u32,
+    ) -> Result<DepositMerkleProof> {
+        let deposit_tree = self
+            .historical_deposit_trees
+            .get(&block_number)
+            .context(format!(
+                "Deposit tree not found for block number {}",
+                block_number
+            ))?;
+        let proof = deposit_tree.prove(deposit_index as u64);
         Ok(proof)
     }
 }
