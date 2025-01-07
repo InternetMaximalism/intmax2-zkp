@@ -175,9 +175,29 @@ where
 
 #[cfg(test)]
 mod tests {
+    use crate::{
+        circuits::{
+            balance::send::spent_circuit::SpentCircuit,
+            test_utils::witness_generator::{
+                construct_spent_witness, construct_update_witness, construct_validity_witness,
+                MockTxRequest,
+            },
+            validity::validity_pis::ValidityPublicInputs,
+        },
+        common::{
+            private_state::FullPrivateState,
+            signature::key_set::KeySet,
+            transfer::Transfer,
+            trees::{
+                account_tree::AccountTree, block_hash_tree::BlockHashTree,
+                deposit_tree::DepositTree,
+            },
+        },
+    };
     use plonky2::{
         field::goldilocks_field::GoldilocksField, plonk::config::PoseidonGoldilocksConfig,
     };
+    use std::collections::HashMap;
 
     use crate::circuits::validity::validity_processor::ValidityProcessor;
 
@@ -194,31 +214,80 @@ mod tests {
             BalanceProcessor::new(&validity_processor.validity_circuit.data.verifier_data());
     }
 
-    // #[test]
-    // #[cfg(feature = "skip_insufficient_check")]
-    // fn balance_processor_send() {
-    //     let mut rng = rand::thread_rng();
-    //     let mut block_builder = MockBlockBuilder::new();
-    //     let mut wallet = MockWallet::new_rand(&mut rng);
-    //     let mut sync_validity_prover = SyncValidityProver::<F, C, D>::new();
-    //     let mut sync_sender_prover = SyncBalanceProver::<F, C, D>::new();
-    //     let balance_processor = BalanceProcessor::new(sync_validity_prover.validity_circuit());
+    #[test]
+    #[cfg(feature = "skip_insufficient_check")]
+    fn balance_processor_send() -> anyhow::Result<()> {
+        let mut rng = rand::thread_rng();
+        let validity_processor = ValidityProcessor::<F, C, D>::new();
+        let balance_processor = BalanceProcessor::new(&validity_processor.get_verifier_data());
+        let spent_circuit = SpentCircuit::new();
 
-    //     // send tx0
-    //     let transfer0 = Transfer::rand(&mut rng);
-    //     wallet.send_tx_and_update(&mut rng, &mut block_builder, &[transfer0]);
+        // public state
+        let mut validity_pis = ValidityPublicInputs::genesis();
+        let mut validity_proof = None;
+        let mut account_tree = AccountTree::initialize();
+        let mut block_tree = BlockHashTree::initialize();
+        let deposit_tree = DepositTree::initialize();
+        let mut historical_account_trees = HashMap::from([(0u32, account_tree.clone())]);
+        let mut historical_block_trees = HashMap::from([(0u32, block_tree.clone())]);
+        let mut historical_deposit_trees = HashMap::from([(0u32, deposit_tree.clone())]);
+        let mut historical_validity_proofs = HashMap::new();
 
-    //     // send tx1
-    //     let transfer1 = Transfer::rand(&mut rng);
-    //     wallet.send_tx_and_update(&mut rng, &mut block_builder, &[transfer1]);
+        // local state
+        let alice_key = KeySet::rand(&mut rng);
+        let mut alice_state = FullPrivateState::new();
+        let mut alice_balance_proof = None;
 
-    //     sync_sender_prover.sync_send(
-    //         &mut sync_validity_prover,
-    //         &mut wallet,
-    //         &balance_processor,
-    //         &block_builder,
-    //     );
-    // }
+        // alice send transfer
+        let transfer = Transfer::rand(&mut rng);
+
+        let spent_witness = construct_spent_witness(&mut alice_state, &[transfer])?;
+        let spent_proof = spent_circuit.prove(&spent_witness.to_value()?)?;
+        let tx_request = MockTxRequest {
+            tx: spent_witness.tx,
+            sender_key: alice_key,
+            will_return_sig: true,
+        };
+        let (validity_witness, tx_witnesses) = construct_validity_witness(
+            validity_pis,
+            &mut account_tree,
+            &mut block_tree,
+            &deposit_tree,
+            true,
+            &[tx_request],
+        )?;
+        validity_pis = validity_witness.to_validity_pis()?;
+        validity_proof = validity_processor
+            .prove(&validity_proof, &validity_witness)?
+            .into();
+        historical_validity_proofs.insert(1, validity_proof.clone().unwrap());
+        historical_account_trees.insert(1, account_tree.clone());
+        historical_block_trees.insert(1, block_tree.clone());
+        historical_deposit_trees.insert(1, deposit_tree.clone());
+
+        let update_witness = construct_update_witness(
+            &historical_account_trees,
+            &historical_block_trees,
+            &historical_validity_proofs,
+            alice_key.pubkey,
+            1,
+            0,
+            true,
+        )?;
+
+        alice_balance_proof = balance_processor
+            .prove_send(
+                &validity_processor.get_verifier_data(),
+                alice_key.pubkey,
+                &tx_witnesses[0],
+                &update_witness,
+                &spent_proof,
+                &None,
+            )?
+            .into();
+
+        Ok(())
+    }
 
     // #[test]
     // fn balance_processor_update() {

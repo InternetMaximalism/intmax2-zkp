@@ -80,7 +80,7 @@ where
         validity_vd: &VerifierCircuitData<F, C, D>,
         balance_circuit_vd: &VerifierOnlyCircuitData<C, D>,
         prev_balance_pis: &BalancePublicInputs,
-        tx_witnes: &TxWitness,
+        tx_witness: &TxWitness,
         update_witness: &UpdateWitness<F, C, D>,
         spent_proof: &ProofWithPublicInputs<F, C, D>,
     ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
@@ -89,7 +89,7 @@ where
             .prove_send(
                 validity_vd,
                 prev_balance_pis,
-                tx_witnes,
+                tx_witness,
                 update_witness,
                 spent_proof,
             )
