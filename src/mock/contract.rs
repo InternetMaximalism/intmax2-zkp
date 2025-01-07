@@ -77,14 +77,12 @@ impl MockContract {
     /// Simpler interface for depositing tokens.
     pub fn deposit(&mut self, pubkey_salt_hash: Bytes32, token_index: u32, amount: U256) {
         let deposit_index = self.deposit_tree.len() as u32;
-        let nonce = 0;
         let depositor = Address::default();
         let deposit = Deposit {
             depositor,
             pubkey_salt_hash,
             amount,
             token_index,
-            nonce,
         };
         self.deposit_tree.push(deposit.clone());
         let block_number = self.get_next_block_number();

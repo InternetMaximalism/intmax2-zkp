@@ -99,7 +99,6 @@ impl Client {
     {
         // todo: improve the way to choose deposit salt
         let deposit_salt = generate_salt(key, 0);
-        let nonce = 0;
         let depositor = Address::default();
         // backup before contract call
         let pubkey_salt_hash = get_pubkey_salt_hash(key.pubkey, deposit_salt);
@@ -108,7 +107,6 @@ impl Client {
             pubkey_salt_hash,
             amount,
             token_index,
-            nonce,
         };
         let deposit_data = DepositData {
             deposit_salt,
