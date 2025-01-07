@@ -183,20 +183,16 @@ impl BlockWitness {
             if block_pis.is_valid && block_pis.is_registration_block {
                 let mut account_registration_proofs = Vec::new();
                 for sender_leaf in &sender_leaves {
-                    let last_block_number = if sender_leaf.did_return_sig {
-                        block_pis.block_number
-                    } else {
-                        0
-                    };
                     let is_dummy_pubkey = sender_leaf.sender.is_dummy_pubkey();
-                    let proof = if is_dummy_pubkey {
-                        AccountRegistrationProof::dummy(ACCOUNT_TREE_HEIGHT)
-                    } else {
+                    let will_update = sender_leaf.did_return_sig && !is_dummy_pubkey;
+                    let proof = if will_update {
                         account_tree
-                            .prove_and_insert(sender_leaf.sender, last_block_number as u64)
+                            .prove_and_insert(sender_leaf.sender, block_pis.block_number as u64)
                             .map_err(|e| {
                                 anyhow::anyhow!("failed to prove and insert account_tree: {}", e)
                             })?
+                    } else {
+                        AccountRegistrationProof::dummy(ACCOUNT_TREE_HEIGHT)
                     };
                     account_registration_proofs.push(proof);
                 }

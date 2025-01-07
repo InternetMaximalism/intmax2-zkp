@@ -100,8 +100,10 @@ impl AccountExclusionValue {
         let mut result = true;
         for (sender_leaf, proof) in sender_leaves.iter().zip(account_membership_proofs.iter()) {
             proof.verify(sender_leaf.sender, account_tree_root).unwrap();
-            let is_dummy = sender_leaf.sender.is_dummy_pubkey();
-            let is_valid = (!proof.is_included && sender_leaf.did_return_sig) || is_dummy;
+            // Only valid if the signature is returned and not included in the tree, or if the
+            // signature is not returned.
+            let is_valid =
+                (!proof.is_included && sender_leaf.did_return_sig) || !sender_leaf.did_return_sig;
             result = result && is_valid;
         }
         let sender_tree_root = get_merkle_root_from_leaves(SENDER_TREE_HEIGHT, &sender_leaves);
@@ -143,11 +145,11 @@ impl AccountExclusionTarget {
 
         for (sender_leaf, proof) in sender_leaves.iter().zip(account_membership_proofs.iter()) {
             proof.verify::<F, C, D>(builder, sender_leaf.sender, account_tree_root);
-            let is_dummy = sender_leaf.sender.is_dummy_pubkey(builder);
             let is_not_included = builder.not(proof.is_included);
             let is_not_included_and_did_return_sig =
                 builder.and(is_not_included, sender_leaf.did_return_sig);
-            let is_valid = builder.or(is_not_included_and_did_return_sig, is_dummy);
+            let did_not_return_sig = builder.not(sender_leaf.did_return_sig);
+            let is_valid = builder.or(is_not_included_and_did_return_sig, did_not_return_sig);
             result = builder.and(result, is_valid);
         }
         let sender_tree_root = get_merkle_root_from_leaves_circuit::<F, C, D, _>(
@@ -274,14 +276,14 @@ mod tests {
             account_membership_proofs.push(proof);
             let sender_leaf = SenderLeaf {
                 sender: *pubkey,
-                did_return_sig: rng.gen(),
+                did_return_sig: rng.gen() && !pubkey.is_dummy_pubkey(),
             };
             sender_leaves.push(sender_leaf);
         }
 
         let value =
             AccountExclusionValue::new(account_tree_root, account_membership_proofs, sender_leaves);
-        // assert!(value.is_valid);
+        assert!(value.is_valid);
         let circuit = AccountExclusionCircuit::<F, C, D>::new();
         let _proof = circuit.prove(&value).unwrap();
     }
