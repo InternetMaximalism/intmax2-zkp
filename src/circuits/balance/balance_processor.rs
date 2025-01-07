@@ -177,15 +177,12 @@ where
 mod tests {
     use crate::{
         circuits::{
-            balance::{balance_pis::BalancePublicInputs, send::spent_circuit::SpentCircuit},
+            balance::send::spent_circuit::SpentCircuit,
             test_utils::witness_generator::{construct_spent_and_transfer_witness, MockTxRequest},
         },
-        common::{
-            insufficient_flags::InsufficientFlags, private_state::FullPrivateState,
-            signature::key_set::KeySet, transfer::Transfer,
-        },
+        common::{private_state::FullPrivateState, signature::key_set::KeySet, transfer::Transfer},
     };
-    use anyhow::ensure;
+
     use plonky2::{
         field::goldilocks_field::GoldilocksField, plonk::config::PoseidonGoldilocksConfig,
     };
@@ -277,13 +274,16 @@ mod tests {
     #[test]
     #[cfg(feature = "skip_insufficient_check")]
     fn balance_processor_receive_transfer() -> anyhow::Result<()> {
-        use crate::common::{
+        use rand::Rng;
+
+        use crate::{common::{
+            generic_address::GenericAddress,
             salt::Salt,
             witness::{
                 private_transition_witness::PrivateTransitionWitness,
-                receive_transfer_witness::ReceiveTransferWitness, tx_witness,
+                receive_transfer_witness::ReceiveTransferWitness,
             },
-        };
+        }, ethereum_types::u256::U256};
 
         let mut rng = rand::thread_rng();
         let validity_processor = Arc::new(ValidityProcessor::<F, C, D>::new());
@@ -296,9 +296,16 @@ mod tests {
         // local state
         let alice_key = KeySet::rand(&mut rng);
         let mut alice_state = FullPrivateState::new();
+        let bob_key = KeySet::rand(&mut rng);
+        let mut bob_state = FullPrivateState::new();
 
         // alice send transfer
-        let transfer = Transfer::rand(&mut rng);
+        let transfer = Transfer {
+            recipient: GenericAddress::from_pubkey(bob_key.pubkey),
+            token_index: rng.gen(),
+            amount: U256::rand_small(&mut rng),
+            salt: Salt::rand(&mut rng),
+        };
 
         let (spent_witness, transfer_witnesses) =
             construct_spent_and_transfer_witness(&mut alice_state, &[transfer])?;
@@ -323,9 +330,6 @@ mod tests {
         )?;
 
         // bob update balance proof
-        let bob_key = KeySet::rand(&mut rng);
-        let mut bob_state = FullPrivateState::new();
-
         let update_witness =
             validity_state_manager.get_update_witness(bob_key.pubkey, 1, 0, false)?;
         let bob_balance_proof = balance_processor.prove_update(
