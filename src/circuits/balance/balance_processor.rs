@@ -224,10 +224,8 @@ mod tests {
         let mut rng = rand::thread_rng();
         let validity_processor = Arc::new(ValidityProcessor::<F, C, D>::new());
         let balance_processor = BalanceProcessor::new(&validity_processor.get_verifier_data());
-        let spent_circuit = SpentCircuit::new();
-
-        // public state
         let mut validity_state_manager = ValidityStateManager::new(validity_processor.clone());
+        let spent_circuit = SpentCircuit::new();
 
         // local state
         let alice_key = KeySet::rand(&mut rng);

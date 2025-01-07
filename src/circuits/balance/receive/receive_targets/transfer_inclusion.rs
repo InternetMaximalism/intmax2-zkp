@@ -173,58 +173,99 @@ impl<const D: usize> TransferInclusionTarget<D> {
     }
 }
 
-// #[cfg(test)]
-// #[cfg(feature = "skip_insufficient_check")]
-// mod tests {
-//     use plonky2::{
-//         field::goldilocks_field::GoldilocksField,
-//         iop::witness::PartialWitness,
-//         plonk::{
-//             circuit_builder::CircuitBuilder, circuit_data::CircuitConfig,
-//             config::PoseidonGoldilocksConfig,
-//         },
-//     };
+#[cfg(test)]
+#[cfg(feature = "skip_insufficient_check")]
+mod tests {
+    use std::sync::Arc;
 
-//     use crate::{
-//         circuits::{
-//             balance::{
-//                 self, balance_processor::BalanceProcessor,
-//                 receive::receive_targets::transfer_inclusion::TransferInclusionTarget,
-//             },
-//             validity::validity_processor::ValidityProcessor,
-//         },
-//         common::{
-//             generic_address::GenericAddress, salt::Salt, signature::key_set::KeySet,
-//             transfer::Transfer,
-//         },
-//         ethereum_types::u256::U256,
-//     };
+    use plonky2::{
+        field::goldilocks_field::GoldilocksField,
+        iop::witness::PartialWitness,
+        plonk::{
+            circuit_builder::CircuitBuilder, circuit_data::CircuitConfig,
+            config::PoseidonGoldilocksConfig,
+        },
+    };
 
-//     use super::TransferInclusionValue;
+    use crate::{
+        circuits::{
+            balance::{
+                balance_processor::BalanceProcessor,
+                receive::receive_targets::transfer_inclusion::TransferInclusionTarget,
+                send::spent_circuit::SpentCircuit,
+            },
+            test_utils::{
+                state_manager::ValidityStateManager,
+                witness_generator::{construct_spent_and_transfer_witness, MockTxRequest},
+            },
+            validity::validity_processor::ValidityProcessor,
+        },
+        common::{private_state::FullPrivateState, signature::key_set::KeySet, transfer::Transfer},
+    };
 
-//     type F = GoldilocksField;
-//     type C = PoseidonGoldilocksConfig;
-//     const D: usize = 2;
+    use super::TransferInclusionValue;
 
-//     #[test]
-//     fn transfer_inclusion() {
-//         let mut rng = rand::thread_rng();
-//         let validity_processor = ValidityProcessor::<F, C, D>::new();
-//         let balance_processor = BalanceProcessor::new(&validity_processor.get_verifier_data());
-//         let balance_circuit_vd = balance_processor.get_verifier_only_data();
+    type F = GoldilocksField;
+    type C = PoseidonGoldilocksConfig;
+    const D: usize = 2;
 
-//         let transfer = Transfer::rand(&mut rng);
+    #[test]
+    fn transfer_inclusion() -> anyhow::Result<()> {
+        let mut rng = rand::thread_rng();
+        let validity_processor = Arc::new(ValidityProcessor::<F, C, D>::new());
+        let balance_processor = BalanceProcessor::new(&validity_processor.get_verifier_data());
+        let spent_circuit = SpentCircuit::new();
+        let mut validity_state_manager = ValidityStateManager::new(validity_processor.clone());
 
-//         // let mut builder = CircuitBuilder::new(CircuitConfig::default());
-//         // let target = TransferInclusionTarget::new::<F, C>(
-//         //     &balance_processor.get_verifier_data().common,
-//         //     &mut builder,
-//         //     true,
-//         // );
-//         // let mut pw = PartialWitness::<F>::new();
-//         // target.set_witness(&mut pw, &value);
+        // local state
+        let alice_key = KeySet::rand(&mut rng);
+        let mut alice_state = FullPrivateState::new();
 
-//         // let data = builder.build::<C>();
-//         // let _ = data.prove(pw).unwrap();
-//     }
-// }
+        // alice send transfer
+        let transfer = Transfer::rand(&mut rng);
+
+        let (spent_witness, transfer_witnesses) =
+            construct_spent_and_transfer_witness(&mut alice_state, &[transfer])?;
+        let spent_proof = spent_circuit.prove(&spent_witness.to_value()?)?;
+        let tx_request = MockTxRequest {
+            tx: spent_witness.tx,
+            sender_key: alice_key,
+            will_return_sig: true,
+        };
+        let transfer_witness = transfer_witnesses[0].clone();
+        let tx_witnesses = validity_state_manager.tick(true, &[tx_request])?;
+        let update_witness =
+            validity_state_manager.get_update_witness(alice_key.pubkey, 1, 0, true)?;
+        let alice_balance_proof = balance_processor.prove_send(
+            &validity_processor.get_verifier_data(),
+            alice_key.pubkey,
+            &tx_witnesses[0],
+            &update_witness,
+            &spent_proof,
+            &None,
+        )?;
+
+        let transfer_inclusion_value = TransferInclusionValue::new(
+            &balance_processor.get_verifier_data(),
+            &transfer,
+            transfer_witness.transfer_index,
+            &transfer_witness.transfer_merkle_proof,
+            &transfer_witness.tx,
+            &alice_balance_proof,
+        )?;
+
+        let mut builder = CircuitBuilder::new(CircuitConfig::default());
+        let target = TransferInclusionTarget::new::<F, C>(
+            &balance_processor.get_verifier_data().common,
+            &mut builder,
+            true,
+        );
+        let mut pw = PartialWitness::<F>::new();
+        target.set_witness(&mut pw, &transfer_inclusion_value);
+
+        let data = builder.build::<C>();
+        let _ = data.prove(pw)?;
+
+        Ok(())
+    }
+}
