@@ -69,7 +69,10 @@ where
         balance_verifier_data
             .verify(balance_proof.clone())
             .map_err(|e| anyhow::anyhow!("Failed to verify balance proof: {}", e))?;
-        assert_eq!(balance_pis.last_tx_hash, tx.hash());
+        ensure!(
+            balance_pis.last_tx_hash == tx.hash(),
+            "Last tx hash mismatch"
+        );
         let _is_insufficient = balance_pis
             .last_tx_insufficient_flags
             .random_access(transfer_index as usize);
