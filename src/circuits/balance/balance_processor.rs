@@ -392,6 +392,7 @@ mod tests {
             pubkey_salt_hash: deposit_salt_hash,
             amount: U256::rand_small(&mut rng),
             token_index: rng.gen(),
+            is_eligible: true,
         };
         let deposit_index = validity_state_manager.deposit(&deposit)?;
 

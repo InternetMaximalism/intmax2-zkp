@@ -107,6 +107,7 @@ impl Client {
             pubkey_salt_hash,
             amount,
             token_index,
+            is_eligible: true,
         };
         let deposit_data = DepositData {
             deposit_salt,

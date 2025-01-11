@@ -1,7 +1,10 @@
 use plonky2::{
     field::{extension::Extendable, types::Field},
     hash::hash_types::RichField,
-    iop::{target::Target, witness::WitnessWrite},
+    iop::{
+        target::{BoolTarget, Target},
+        witness::WitnessWrite,
+    },
     plonk::{
         circuit_builder::CircuitBuilder,
         config::{AlgebraicHasher, GenericConfig},
@@ -35,6 +38,8 @@ pub struct Deposit {
     pub pubkey_salt_hash: Bytes32, // The poseidon hash of the pubkey and salt, to hide the pubkey
     pub amount: U256,              // The amount of the token, which is the amount of the deposit
     pub token_index: u32,          // The index of the token
+    pub is_eligible: bool,         /* The flag to indicate whether the depositor is eligible for
+                                    * the mining reward */
 }
 
 #[derive(Debug, Clone)]
@@ -43,6 +48,7 @@ pub struct DepositTarget {
     pub pubkey_salt_hash: Bytes32Target,
     pub amount: U256Target,
     pub token_index: Target,
+    pub is_eligible: BoolTarget,
 }
 
 impl Deposit {
@@ -51,7 +57,7 @@ impl Deposit {
             self.depositor.to_u32_vec(),
             self.pubkey_salt_hash.to_u32_vec(),
             self.amount.to_u32_vec(),
-            vec![self.token_index],
+            vec![self.token_index, self.is_eligible as u32],
         ]
         .concat();
         vec
@@ -63,6 +69,7 @@ impl Deposit {
             pubkey_salt_hash: Bytes32::rand(rng),
             amount: U256::rand(rng),
             token_index: rng.gen(),
+            is_eligible: true,
         }
     }
 
@@ -77,7 +84,7 @@ impl DepositTarget {
             self.depositor.to_vec(),
             self.pubkey_salt_hash.to_vec(),
             self.amount.to_vec(),
-            vec![self.token_index],
+            vec![self.token_index, self.is_eligible.target],
         ]
         .concat();
         vec
@@ -94,11 +101,13 @@ impl DepositTarget {
         if is_checked {
             builder.range_check(token_index, 32);
         }
+        let is_eligible = builder.add_virtual_bool_target_safe();
         Self {
             depositor,
             pubkey_salt_hash,
             amount,
             token_index,
+            is_eligible,
         }
     }
 
@@ -110,11 +119,13 @@ impl DepositTarget {
         let pubkey_salt_hash = Bytes32Target::constant(builder, value.pubkey_salt_hash);
         let amount = U256Target::constant(builder, value.amount);
         let token_index = builder.constant(F::from_canonical_u32(value.token_index));
+        let is_eligible = builder.constant_bool(value.is_eligible);
         Self {
             depositor,
             pubkey_salt_hash,
             amount,
             token_index,
+            is_eligible,
         }
     }
 
@@ -131,6 +142,7 @@ impl DepositTarget {
             .set_witness(witness, value.pubkey_salt_hash);
         self.amount.set_witness(witness, value.amount);
         witness.set_target(self.token_index, F::from_canonical_u32(value.token_index));
+        witness.set_bool_target(self.is_eligible, value.is_eligible);
     }
 }
 

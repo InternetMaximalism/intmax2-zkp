@@ -83,6 +83,7 @@ impl MockContract {
             pubkey_salt_hash,
             amount,
             token_index,
+            is_eligible: true,
         };
         self.deposit_tree.push(deposit.clone());
         let block_number = self.get_next_block_number();
