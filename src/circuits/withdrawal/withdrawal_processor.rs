@@ -57,7 +57,7 @@ where
         }
     }
 
-    // chainify withdrawal proofs
+    // Prove a withdrawal chain, given a single withdrawal proof and the previous withdrawal proof.
     pub fn prove_chain(
         &self,
         single_withdrawal_proof: &ProofWithPublicInputs<F, C, D>,
@@ -93,72 +93,101 @@ where
     }
 }
 
-// #[cfg(test)]
-// mod tests {
-//     use plonky2::{
-//         field::goldilocks_field::GoldilocksField, plonk::config::PoseidonGoldilocksConfig,
-//     };
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
 
-//     use crate::{
-//         circuits::balance::balance_processor::BalanceProcessor,
-//         common::{transfer::Transfer, witness::withdrawal_witness::WithdrawalWitness},
-//         ethereum_types::{
-//             bytes32::{Bytes32, BYTES32_LEN},
-//             u32limb_trait::U32LimbTrait,
-//         },
-//         mock::{
-//             block_builder::MockBlockBuilder, sync_balance_prover::SyncBalanceProver,
-//             sync_validity_prover::SyncValidityProver, wallet::MockWallet,
-//         },
-//         utils::conversion::ToU64,
-//     };
+    use plonky2::{
+        field::goldilocks_field::GoldilocksField, plonk::config::PoseidonGoldilocksConfig,
+    };
 
-//     use super::WithdrawalProcessor;
+    use crate::{
+        circuits::{
+            balance::balance_processor::BalanceProcessor,
+            test_utils::{
+                state_manager::ValidityStateManager,
+                witness_generator::{construct_spent_and_transfer_witness, MockTxRequest},
+            },
+            validity::validity_processor::ValidityProcessor,
+            withdrawal::single_withdrawal_circuit::SingleWithdrawalCircuit,
+        },
+        common::{
+            generic_address::GenericAddress, private_state::FullPrivateState, salt::Salt,
+            signature::key_set::KeySet, transfer::Transfer,
+            witness::withdrawal_witness::WithdrawalWitness,
+        },
+        ethereum_types::address::Address,
+        utils::wrapper::WrapperCircuit,
+        wrapper_config::plonky2_config::PoseidonBN128GoldilocksConfig,
+    };
 
-//     type F = GoldilocksField;
-//     type C = PoseidonGoldilocksConfig;
-//     const D: usize = 2;
+    use super::WithdrawalProcessor;
 
-//     #[test]
-//     fn withdawal_processor() {
-//         let mut rng = &mut rand::thread_rng();
-//         let mut block_builder = MockBlockBuilder::new();
-//         let mut wallet = MockWallet::new_rand(rng);
-//         let mut sync_validity_prover = SyncValidityProver::<F, C, D>::new();
-//         let mut sync_sender_prover = SyncBalanceProver::<F, C, D>::new();
-//         let balance_processor = BalanceProcessor::new(sync_validity_prover.validity_circuit());
+    type F = GoldilocksField;
+    type C = PoseidonGoldilocksConfig;
+    const D: usize = 2;
 
-//         // withdraw transfer 1
-//         let transfer = Transfer::rand_withdrawal(rng);
-//         let send_witness = wallet.send_tx_and_update(&mut rng, &mut block_builder, &[transfer]);
-//         sync_sender_prover.sync_send(
-//             &mut sync_validity_prover,
-//             &mut wallet,
-//             &balance_processor,
-//             &block_builder,
-//         );
-//         let transfer_witness = wallet
-//             .get_transfer_witnesses(send_witness.get_included_block_number())
-//             .unwrap()[0]
-//             .clone();
-//         let balance_proof = sync_sender_prover.get_balance_proof();
+    #[test]
+    fn withdrawal_processor() -> anyhow::Result<()> {
+        let mut rng = rand::thread_rng();
+        let validity_processor = Arc::new(ValidityProcessor::<F, C, D>::new());
+        let balance_processor = BalanceProcessor::new(&validity_processor.get_verifier_data());
+        let mut validity_state_manager = ValidityStateManager::new(validity_processor.clone());
+        let spent_circuit = balance_processor.spent_circuit();
+        let single_withdrawal_circuit =
+            SingleWithdrawalCircuit::new(balance_processor.common_data());
+        let withdrawal_processor = WithdrawalProcessor::new(balance_processor.common_data());
+        let gnark_wrapper = WrapperCircuit::<F, C, PoseidonBN128GoldilocksConfig, D>::new(
+            &withdrawal_processor
+                .withdrawal_wrapper_circuit
+                .data
+                .verifier_data(),
+        );
 
-//         let withdrawal_witness = WithdrawalWitness {
-//             transfer_witness,
-//             balance_proof,
-//         };
+        // withdraw transfer
+        let mut private_state = FullPrivateState::new();
+        let key = KeySet::rand(&mut rng);
+        let transfer = Transfer {
+            recipient: GenericAddress::from_address(Address::default()),
+            token_index: 0,
+            amount: 0.into(),
+            salt: Salt::default(),
+        };
+        let (spent_witness, transfer_witnesses) =
+            construct_spent_and_transfer_witness(&mut private_state, &[transfer])?;
+        let spent_proof = spent_circuit.prove(&spent_witness.to_value()?)?;
+        let tx_request = MockTxRequest {
+            tx: spent_witness.tx,
+            sender_key: key,
+            will_return_sig: true,
+        };
+        let tx_witnesses = validity_state_manager.tick(true, &[tx_request])?;
+        let update_witness = validity_state_manager.get_update_witness(key.pubkey, 1, 0, true)?;
 
-//         let withdraw_processor = WithdrawalProcessor::new(&balance_processor.balance_circuit);
-//         let withdrawal_proof = withdraw_processor
-//             .prove(&withdrawal_witness, &None)
-//             .expect("Failed to prove withdrawal");
+        let balance_proof = balance_processor.prove_send(
+            &validity_processor.get_verifier_data(),
+            key.pubkey,
+            &tx_witnesses[0],
+            &update_witness,
+            &spent_proof,
+            &None,
+        )?;
+        let transfer_witness = transfer_witnesses[0].clone();
 
-//         let withdrawal = withdrawal_witness.to_withdrawal();
-//         assert_eq!(
-//             withdrawal_proof.public_inputs[0..BYTES32_LEN].to_u64_vec(),
-//             withdrawal
-//                 .hash_with_prev_hash(Bytes32::default())
-//                 .to_u64_vec()
-//         );
-//     }
-// }
+        let withdrawal_witness = WithdrawalWitness {
+            transfer_witness,
+            balance_proof,
+        };
+        let transition_inclusion_value = withdrawal_witness
+            .to_transition_inclusion_value(&balance_processor.get_verifier_data())?;
+        let single_withdrawal_proof =
+            single_withdrawal_circuit.prove(&transition_inclusion_value)?;
+        let chained_withdrawal_proof =
+            withdrawal_processor.prove_chain(&single_withdrawal_proof, &None)?;
+        let wrapped_withdrawal_proof =
+            withdrawal_processor.prove_wrap(&chained_withdrawal_proof, Address::default())?;
+        let _gnark_inner_proof = gnark_wrapper.prove(&wrapped_withdrawal_proof)?;
+
+        Ok(())
+    }
+}

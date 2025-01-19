@@ -32,18 +32,10 @@ where
     InnerC: GenericConfig<D, F = F> + 'static,
     InnerC::Hasher: AlgebraicHasher<F>,
 {
-    pub fn new(
-        inner_circuit_verifier_data: &VerifierCircuitData<F, InnerC, D>,
-        pis_cut_off: Option<usize>,
-    ) -> Self {
+    pub fn new(inner_circuit_verifier_data: &VerifierCircuitData<F, InnerC, D>) -> Self {
         let mut builder = CircuitBuilder::new(CircuitConfig::default());
         let wrap_proof = add_proof_target_and_verify(inner_circuit_verifier_data, &mut builder);
-        let pis = if let Some(cut_off) = pis_cut_off {
-            wrap_proof.public_inputs[..cut_off].to_vec()
-        } else {
-            wrap_proof.public_inputs.to_vec()
-        };
-        builder.register_public_inputs(&pis);
+        builder.register_public_inputs(&wrap_proof.public_inputs);
         let data = builder.build();
         Self {
             data,

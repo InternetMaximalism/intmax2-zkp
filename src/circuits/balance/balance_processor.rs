@@ -2,7 +2,7 @@ use plonky2::{
     field::extension::Extendable,
     hash::hash_types::RichField,
     plonk::{
-        circuit_data::{VerifierCircuitData, VerifierOnlyCircuitData},
+        circuit_data::{CommonCircuitData, VerifierCircuitData, VerifierOnlyCircuitData},
         config::{AlgebraicHasher, GenericConfig},
         proof::ProofWithPublicInputs,
     },
@@ -19,7 +19,8 @@ use crate::{
 };
 
 use super::{
-    balance_circuit::BalanceCircuit, transition::transition_processor::BalanceTransitionProcessor,
+    balance_circuit::BalanceCircuit, send::spent_circuit::SpentCircuit,
+    transition::transition_processor::BalanceTransitionProcessor,
 };
 
 pub struct BalanceProcessor<F, C, const D: usize>
@@ -57,6 +58,17 @@ where
 
     pub fn get_verifier_data(&self) -> VerifierCircuitData<F, C, D> {
         self.balance_circuit.get_verifier_data()
+    }
+
+    pub fn spent_circuit(&self) -> &SpentCircuit<F, C, D> {
+        &self
+            .balance_transition_processor
+            .sender_processor
+            .spent_circuit
+    }
+
+    pub fn common_data(&self) -> &CommonCircuitData<F, D> {
+        &self.balance_circuit.data.common
     }
 
     pub fn prove_send(

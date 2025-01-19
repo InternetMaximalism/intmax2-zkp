@@ -26,7 +26,7 @@ where
     C: GenericConfig<D, F = F>,
 {
     pub data: CircuitData<F, C, D>,
-    prev_withdral_hash: Bytes32Target,
+    prev_withdrawal_hash: Bytes32Target,
     single_withdrawal_proof: ProofWithPublicInputsTarget<D>,
 }
 
@@ -41,15 +41,15 @@ where
         let single_withdrawal_proof =
             add_proof_target_and_verify(single_withdrawal_vd, &mut builder);
         let withdrawal = WithdrawalTarget::from_slice(&single_withdrawal_proof.public_inputs);
-        let prev_withdral_hash = Bytes32Target::new(&mut builder, false); // connect later
+        let prev_withdrawal_hash = Bytes32Target::new(&mut builder, false); // connect later
         let withdrawal_hash =
-            withdrawal.hash_with_prev_hash::<F, C, D>(&mut builder, prev_withdral_hash);
-        let pis = [prev_withdral_hash.to_vec(), withdrawal_hash.to_vec()].concat();
+            withdrawal.hash_with_prev_hash::<F, C, D>(&mut builder, prev_withdrawal_hash);
+        let pis = [prev_withdrawal_hash.to_vec(), withdrawal_hash.to_vec()].concat();
         builder.register_public_inputs(&pis);
         let data = builder.build();
         Self {
             data,
-            prev_withdral_hash,
+            prev_withdrawal_hash,
             single_withdrawal_proof,
         }
     }
@@ -60,7 +60,7 @@ where
         single_withdrawal_proof: &ProofWithPublicInputs<F, C, D>,
     ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
         let mut pw = PartialWitness::<F>::new();
-        self.prev_withdral_hash
+        self.prev_withdrawal_hash
             .set_witness(&mut pw, prev_withdrawal_hash);
         pw.set_proof_with_pis_target(&self.single_withdrawal_proof, single_withdrawal_proof);
         self.data.prove(pw)
