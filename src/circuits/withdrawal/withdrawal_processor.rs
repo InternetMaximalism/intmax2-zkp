@@ -125,6 +125,7 @@ mod tests {
 
     type F = GoldilocksField;
     type C = PoseidonGoldilocksConfig;
+    type OuterC = PoseidonBN128GoldilocksConfig;
     const D: usize = 2;
 
     #[test]
@@ -137,12 +138,14 @@ mod tests {
         let single_withdrawal_circuit =
             SingleWithdrawalCircuit::new(balance_processor.common_data());
         let withdrawal_processor = WithdrawalProcessor::new(balance_processor.common_data());
-        let gnark_wrapper = WrapperCircuit::<F, C, PoseidonBN128GoldilocksConfig, D>::new(
+        let inner_wrapper_circuit = WrapperCircuit::<F, C, C, D>::new(
             &withdrawal_processor
                 .withdrawal_wrapper_circuit
                 .data
                 .verifier_data(),
         );
+        let final_circuit =
+            WrapperCircuit::<F, C, OuterC, D>::new(&inner_wrapper_circuit.data.verifier_data());
 
         // withdraw transfer
         let mut private_state = FullPrivateState::new();
@@ -186,8 +189,28 @@ mod tests {
             withdrawal_processor.prove_chain(&single_withdrawal_proof, &None)?;
         let wrapped_withdrawal_proof =
             withdrawal_processor.prove_wrap(&chained_withdrawal_proof, Address::default())?;
-        let _gnark_inner_proof = gnark_wrapper.prove(&wrapped_withdrawal_proof)?;
 
+        let inner_wrapper_proof = inner_wrapper_circuit.prove(&wrapped_withdrawal_proof)?;
+        let final_proof = final_circuit.prove(&inner_wrapper_proof)?;
+
+        println!(
+            "Final circuit degree: {}",
+            final_circuit.data.common.degree_bits()
+        );
+
+        let final_proof_str = serde_json::to_string(&final_proof)?;
+        let final_circuit_vd = serde_json::to_string(&final_circuit.data.verifier_only)?;
+        let final_circuit_cd = serde_json::to_string(&final_circuit.data.common)?;
+        // save to files
+        std::fs::write(
+            "circuit_data/proof_with_public_inputs.json",
+            final_proof_str,
+        )?;
+        std::fs::write(
+            "circuit_data/verifier_only_circuit_data.json",
+            final_circuit_vd,
+        )?;
+        std::fs::write("circuit_data/common_circuit_data.json", final_circuit_cd)?;
         Ok(())
     }
 }
