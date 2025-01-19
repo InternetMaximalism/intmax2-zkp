@@ -198,10 +198,11 @@ mod tests {
             final_circuit.data.common.degree_bits()
         );
 
-        let final_proof_str = serde_json::to_string(&final_proof)?;
-        let final_circuit_vd = serde_json::to_string(&final_circuit.data.verifier_only)?;
-        let final_circuit_cd = serde_json::to_string(&final_circuit.data.common)?;
+        let final_proof_str = serde_json::to_string_pretty(&final_proof)?;
+        let final_circuit_vd = serde_json::to_string_pretty(&final_circuit.data.verifier_only)?;
+        let final_circuit_cd = serde_json::to_string_pretty(&final_circuit.data.common)?;
         // save to files
+        std::fs::create_dir_all("circuit_data")?;
         std::fs::write(
             "circuit_data/proof_with_public_inputs.json",
             final_proof_str,
