@@ -1,12 +1,20 @@
 use crate::{
-    common::{block::Block, deposit::Deposit, trees::deposit_tree::DepositMerkleProof},
+    circuits::mining::{
+        determine_lock_time::DetermineLockTimeValue, utils::get_mining_deposit_nullifier,
+    },
+    common::{
+        block::Block,
+        deposit::{get_pubkey_salt_hash, Deposit},
+        salt::Salt,
+        trees::deposit_tree::DepositMerkleProof,
+    },
     ethereum_types::{
         bytes32::{Bytes32, BYTES32_LEN},
         u256::{U256, U256_LEN},
         u32limb_trait::U32LimbTrait,
         u64::{U64, U64_LEN},
     },
-    utils::poseidon_hash_out::PoseidonHashOut,
+    utils::leafable::Leafable,
 };
 
 const START_TIME_PUBLIC_INPUTS_LEN: usize = U256_LEN + BYTES32_LEN + 1 + U64_LEN + BYTES32_LEN + 1;
@@ -63,11 +71,67 @@ pub struct StartTimeValue {
     pub deposit_merkle_proof: DepositMerkleProof,
     pub deposit: Deposit,
     pub deposit_index: u32,
-    pub deposit_salt: PoseidonHashOut,
+    pub deposit_salt: Salt,
     pub pubkey: U256,
     pub nullifier: Bytes32,
     pub lock_time: u32,
     pub block_hash: Bytes32,
-    pub block_number: u32,
 }
 
+impl StartTimeValue {
+    pub fn new(
+        prev_block: Block,
+        block: Block,
+        prev_deposit_merkle_proof: DepositMerkleProof,
+        deposit_merkle_proof: DepositMerkleProof,
+        deposit: Deposit,
+        deposit_index: u32,
+        deposit_salt: Salt,
+        pubkey: U256,
+    ) -> anyhow::Result<Self> {
+        // deposit non-inclusion proof of prev_deposit_merkle_proof
+        prev_deposit_merkle_proof
+            .verify(
+                &Deposit::empty_leaf(),
+                deposit_index as u64,
+                prev_block.deposit_tree_root,
+            )
+            .map_err(|e| anyhow::anyhow!("prev_deposit_merkle_proof.verify failed: {:?}", e))?;
+        // deposit inclusion proof of deposit_merkle_proof
+        deposit_merkle_proof
+            .verify(&deposit, deposit_index as u64, block.deposit_tree_root)
+            .map_err(|e| anyhow::anyhow!("deposit_merkle_proof.verify failed: {:?}", e))?;
+        // ensure that prev_block is the parent of block
+        if prev_block.hash() != block.prev_block_hash {
+            return Err(anyhow::anyhow!(
+                "prev_block.hash() != block.prev_block_hash"
+            ));
+        }
+        // proving that the deposit is bound to the pubkey
+        let pubkey_salt_hash = get_pubkey_salt_hash(pubkey, deposit_salt);
+        if pubkey_salt_hash != deposit.pubkey_salt_hash {
+            return Err(anyhow::anyhow!(
+                "pubkey_salt_hash != deposit.pubkey_salt_hash"
+            ));
+        }
+
+        let nullifier = get_mining_deposit_nullifier(&deposit, deposit_salt);
+        let block_hash = block.hash();
+        let determine_lock_time_value = DetermineLockTimeValue::new(block_hash, deposit_salt);
+        let lock_time = determine_lock_time_value.lock_time;
+
+        Ok(Self {
+            prev_block,
+            block,
+            prev_deposit_merkle_proof,
+            deposit_merkle_proof,
+            deposit,
+            deposit_index,
+            deposit_salt,
+            pubkey,
+            nullifier,
+            lock_time,
+            block_hash,
+        })
+    }
+}
