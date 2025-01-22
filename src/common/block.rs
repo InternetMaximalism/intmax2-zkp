@@ -1,7 +1,7 @@
 use plonky2::{
-    field::extension::Extendable,
+    field::{extension::Extendable, types::Field},
     hash::hash_types::RichField,
-    iop::{target::Target, witness::Witness},
+    iop::{target::Target, witness::WitnessWrite},
     plonk::{
         circuit_builder::CircuitBuilder,
         config::{AlgebraicHasher, GenericConfig},
@@ -125,7 +125,7 @@ impl BlockTarget {
         Bytes32Target::from_slice(&builder.keccak256::<C>(&self.to_vec()))
     }
 
-    pub fn set_witness<F: RichField, W: Witness<F>>(&self, witness: &mut W, value: &Block) {
+    pub fn set_witness<W: WitnessWrite<F>, F: Field>(&self, witness: &mut W, value: &Block) {
         self.prev_block_hash
             .set_witness(witness, value.prev_block_hash);
         self.deposit_tree_root

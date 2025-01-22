@@ -1,7 +1,7 @@
 use plonky2::{
-    field::extension::Extendable,
+    field::{extension::Extendable, types::Field},
     hash::hash_types::RichField,
-    iop::target::Target,
+    iop::{target::Target, witness::WitnessWrite},
     plonk::{
         circuit_builder::CircuitBuilder,
         config::{AlgebraicHasher, GenericConfig},
@@ -220,5 +220,28 @@ impl StartTimeTarget {
             nullifier,
             determine_lock_time_target,
         }
+    }
+
+    pub fn set_witness<W: WitnessWrite<F>, F: Field>(
+        &self,
+        witness: &mut W,
+        value: &StartTimeValue,
+    ) {
+        self.prev_block.set_witness(witness, &value.prev_block);
+        self.block.set_witness(witness, &value.block);
+        self.prev_deposit_merkle_proof
+            .set_witness(witness, &value.prev_deposit_merkle_proof);
+        self.deposit_merkle_proof
+            .set_witness(witness, &value.deposit_merkle_proof);
+        self.deposit.set_witness(witness, &value.deposit);
+        witness.set_target(
+            self.deposit_index,
+            F::from_canonical_u32(value.deposit_index),
+        );
+        self.deposit_salt.set_witness(witness, value.deposit_salt);
+        self.pubkey.set_witness(witness, value.pubkey);
+        self.nullifier.set_witness(witness, value.nullifier);
+        self.determine_lock_time_target
+            .set_witness(witness, &value.determine_lock_time_value);
     }
 }
