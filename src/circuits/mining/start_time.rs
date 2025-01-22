@@ -1,21 +1,35 @@
+use plonky2::{
+    field::extension::Extendable,
+    hash::hash_types::RichField,
+    iop::target::Target,
+    plonk::{
+        circuit_builder::CircuitBuilder,
+        config::{AlgebraicHasher, GenericConfig},
+    },
+};
+
 use crate::{
     circuits::mining::{
-        determine_lock_time::DetermineLockTimeValue, utils::get_mining_deposit_nullifier,
+        determine_lock_time::DetermineLockTimeValue,
+        utils::{get_mining_deposit_nullifier, get_mining_deposit_nullifier_circuit},
     },
     common::{
-        block::Block,
-        deposit::{get_pubkey_salt_hash, Deposit},
-        salt::Salt,
-        trees::deposit_tree::DepositMerkleProof,
+        block::{Block, BlockTarget},
+        deposit::{get_pubkey_salt_hash, get_pubkey_salt_hash_circuit, Deposit, DepositTarget},
+        salt::{Salt, SaltTarget},
+        trees::deposit_tree::{DepositMerkleProof, DepositMerkleProofTarget},
     },
+    constants::DEPOSIT_TREE_HEIGHT,
     ethereum_types::{
-        bytes32::{Bytes32, BYTES32_LEN},
-        u256::{U256, U256_LEN},
-        u32limb_trait::U32LimbTrait,
+        bytes32::{Bytes32, Bytes32Target, BYTES32_LEN},
+        u256::{U256Target, U256, U256_LEN},
+        u32limb_trait::{U32LimbTargetTrait as _, U32LimbTrait},
         u64::{U64, U64_LEN},
     },
-    utils::leafable::Leafable,
+    utils::leafable::{Leafable, LeafableTarget},
 };
+
+use super::determine_lock_time::DetermineLockTimeTarget;
 
 const START_TIME_PUBLIC_INPUTS_LEN: usize = U256_LEN + BYTES32_LEN + 1 + U64_LEN + BYTES32_LEN + 1;
 
@@ -74,8 +88,7 @@ pub struct StartTimeValue {
     pub deposit_salt: Salt,
     pub pubkey: U256,
     pub nullifier: Bytes32,
-    pub lock_time: u32,
-    pub block_hash: Bytes32,
+    pub determine_lock_time_value: DetermineLockTimeValue,
 }
 
 impl StartTimeValue {
@@ -118,7 +131,6 @@ impl StartTimeValue {
         let nullifier = get_mining_deposit_nullifier(&deposit, deposit_salt);
         let block_hash = block.hash();
         let determine_lock_time_value = DetermineLockTimeValue::new(block_hash, deposit_salt);
-        let lock_time = determine_lock_time_value.lock_time;
 
         Ok(Self {
             prev_block,
@@ -130,8 +142,83 @@ impl StartTimeValue {
             deposit_salt,
             pubkey,
             nullifier,
-            lock_time,
-            block_hash,
+            determine_lock_time_value,
         })
+    }
+}
+
+pub struct StartTimeTarget {
+    pub prev_block: BlockTarget,
+    pub block: BlockTarget,
+    pub prev_deposit_merkle_proof: DepositMerkleProofTarget,
+    pub deposit_merkle_proof: DepositMerkleProofTarget,
+    pub deposit: DepositTarget,
+    pub deposit_index: Target,
+    pub deposit_salt: SaltTarget,
+    pub pubkey: U256Target,
+    pub nullifier: Bytes32Target,
+    pub determine_lock_time_target: DetermineLockTimeTarget,
+}
+
+impl StartTimeTarget {
+    pub fn new<F: RichField + Extendable<D>, C: GenericConfig<D, F = F> + 'static, const D: usize>(
+        builder: &mut CircuitBuilder<F, D>,
+        is_checked: bool,
+    ) -> Self
+    where
+        <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
+    {
+        let prev_block = BlockTarget::new(builder, is_checked);
+        let block = BlockTarget::new(builder, is_checked);
+        let prev_deposit_merkle_proof = DepositMerkleProofTarget::new(builder, DEPOSIT_TREE_HEIGHT);
+        let deposit_merkle_proof = DepositMerkleProofTarget::new(builder, DEPOSIT_TREE_HEIGHT);
+        let deposit = DepositTarget::new(builder, is_checked);
+        let deposit_index = builder.add_virtual_target();
+        if is_checked {
+            builder.range_check(deposit_index, 32);
+        }
+        let deposit_salt = SaltTarget::new(builder);
+        let pubkey = U256Target::new(builder, is_checked);
+
+        let empty_deposit = DepositTarget::empty_leaf(builder);
+        prev_deposit_merkle_proof.verify::<F, C, D>(
+            builder,
+            &empty_deposit,
+            deposit_index,
+            prev_block.deposit_tree_root,
+        );
+        deposit_merkle_proof.verify::<F, C, D>(
+            builder,
+            &deposit,
+            deposit_index,
+            block.deposit_tree_root,
+        );
+        let prev_block_hash = prev_block.hash::<F, C, D>(builder);
+        prev_block_hash.connect(builder, block.prev_block_hash);
+        let pubkey_salt_hash = get_pubkey_salt_hash_circuit(builder, pubkey, deposit_salt);
+        pubkey_salt_hash.connect(builder, deposit.pubkey_salt_hash);
+
+        let nullifier = get_mining_deposit_nullifier_circuit(builder, &deposit, deposit_salt);
+        let block_hash = block.hash::<F, C, D>(builder);
+
+        let determine_lock_time_target = DetermineLockTimeTarget::new(builder, is_checked);
+        determine_lock_time_target
+            .block_hash
+            .connect(builder, block_hash);
+        determine_lock_time_target
+            .deposit_salt
+            .connect(builder, deposit_salt);
+        Self {
+            prev_block,
+            block,
+            prev_deposit_merkle_proof,
+            deposit_merkle_proof,
+            deposit,
+            deposit_index,
+            deposit_salt,
+            pubkey,
+            nullifier,
+            determine_lock_time_target,
+        }
     }
 }

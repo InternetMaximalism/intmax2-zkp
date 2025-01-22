@@ -48,13 +48,13 @@ impl DetermineLockTimeValue {
     }
 }
 
-pub struct DetermineStayTarget {
+pub struct DetermineLockTimeTarget {
     pub block_hash: Bytes32Target,
     pub deposit_salt: SaltTarget,
     pub lock_time: Target,
 }
 
-impl DetermineStayTarget {
+impl DetermineLockTimeTarget {
     pub fn new<F: RichField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
         is_checked: bool,
@@ -108,7 +108,7 @@ mod tests {
         ethereum_types::{bytes32::Bytes32, u32limb_trait::U32LimbTrait},
     };
 
-    use super::DetermineStayTarget;
+    use super::DetermineLockTimeTarget;
 
     type F = GoldilocksField;
     type C = PoseidonGoldilocksConfig;
@@ -124,7 +124,7 @@ mod tests {
         assert!(value.lock_time >= super::LOCK_TIME_MIN && value.lock_time <= super::LOCK_TIME_MAX);
 
         let mut builder = CircuitBuilder::new(CircuitConfig::default());
-        let target = DetermineStayTarget::new::<F, D>(&mut builder, true);
+        let target = DetermineLockTimeTarget::new::<F, D>(&mut builder, true);
         let data = builder.build::<C>();
 
         let mut pw = PartialWitness::new();
