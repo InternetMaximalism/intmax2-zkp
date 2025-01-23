@@ -55,7 +55,7 @@ impl Block {
     }
 
     pub fn to_u32_vec(&self) -> Vec<u32> {
-        vec![
+        [
             self.prev_block_hash.to_u32_vec(),
             self.deposit_tree_root.to_u32_vec(),
             self.signature_hash.to_u32_vec(),
@@ -97,9 +97,9 @@ impl BlockTarget {
         self.prev_block_hash
             .to_vec()
             .into_iter()
-            .chain(self.deposit_tree_root.to_vec().into_iter())
-            .chain(self.signature_hash.to_vec().into_iter())
-            .chain(self.timestamp.to_vec().into_iter())
+            .chain(self.deposit_tree_root.to_vec())
+            .chain(self.signature_hash.to_vec())
+            .chain(self.timestamp.to_vec())
             .chain([self.block_number])
             .collect::<Vec<_>>()
     }

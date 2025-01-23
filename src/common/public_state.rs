@@ -64,7 +64,7 @@ impl PublicState {
     }
 
     pub fn to_u64_vec(&self) -> Vec<u64> {
-        let vec = vec![
+        let vec = [
             self.block_tree_root.to_u64_vec(),
             self.prev_account_tree_root.to_u64_vec(),
             self.account_tree_root.to_u64_vec(),
@@ -132,7 +132,7 @@ impl PublicStateTarget {
     }
 
     pub fn to_vec(&self) -> Vec<Target> {
-        let vec = vec![
+        let vec = [
             self.block_tree_root.to_vec(),
             self.prev_account_tree_root.to_vec(),
             self.account_tree_root.to_vec(),

@@ -98,7 +98,7 @@ impl Withdrawal {
     }
 
     pub fn hash_with_prev_hash(&self, prev_withdrawal_hash: Bytes32) -> Bytes32 {
-        let input = vec![prev_withdrawal_hash.to_u32_vec(), self.to_u32_vec()].concat();
+        let input = [prev_withdrawal_hash.to_u32_vec(), self.to_u32_vec()].concat();
         Bytes32::from_u32_slice(&solidity_keccak256(&input))
     }
 
@@ -175,7 +175,7 @@ impl WithdrawalTarget {
     where
         <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
     {
-        let input = vec![prev_withdrawal_hash.to_vec(), self.to_vec()].concat();
+        let input = [prev_withdrawal_hash.to_vec(), self.to_vec()].concat();
         Bytes32Target::from_slice(&builder.keccak256::<C>(&input))
     }
 }

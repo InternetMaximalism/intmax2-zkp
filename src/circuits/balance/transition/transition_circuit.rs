@@ -487,7 +487,7 @@ where
             &config,
             &mut builder,
         );
-        let pis = vec![
+        let pis = [
             target.prev_balance_pis.to_vec(),
             target.new_balance_pis.to_vec(),
         ]

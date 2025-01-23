@@ -32,7 +32,7 @@ pub struct DetermineLockTimeValue {
 
 impl DetermineLockTimeValue {
     pub fn new(block_hash: Bytes32, deposit_salt: Salt) -> Self {
-        let inputs = vec![block_hash.to_u64_vec(), deposit_salt.to_u64_vec()].concat();
+        let inputs = [block_hash.to_u64_vec(), deposit_salt.to_u64_vec()].concat();
         let seed: BigUint = BigUint::from(U256::from(Bytes32::from(
             PoseidonHashOut::hash_inputs_u64(&inputs),
         )));
@@ -63,7 +63,7 @@ impl DetermineLockTimeTarget {
         let block_hash = Bytes32Target::new(builder, is_checked);
         let deposit_salt = SaltTarget::new(builder);
 
-        let inputs = vec![block_hash.to_vec(), deposit_salt.to_vec()].concat();
+        let inputs = [block_hash.to_vec(), deposit_salt.to_vec()].concat();
         let seed_poseidon = PoseidonHashOutTarget::hash_inputs(builder, &inputs);
         let seed_bytes32 = Bytes32Target::from_hash_out(builder, seed_poseidon);
         let seed_u256 = U256Target::from_slice(seed_bytes32.to_vec().as_slice());

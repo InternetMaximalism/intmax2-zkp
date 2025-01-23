@@ -38,7 +38,7 @@ where
         let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::default());
         let prev_pis = ValidityPublicInputsTarget::new(&mut builder, false);
         let new_pis = ValidityPublicInputsTarget::new(&mut builder, false);
-        let concat_pis = vec![prev_pis.to_vec(), new_pis.to_vec()].concat();
+        let concat_pis = [prev_pis.to_vec(), new_pis.to_vec()].concat();
         builder.register_public_inputs(&concat_pis);
         let data = builder.build::<C>();
         Self {

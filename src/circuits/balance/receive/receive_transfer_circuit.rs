@@ -59,7 +59,7 @@ where
     <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
 {
     pub fn to_vec(&self, config: &CircuitConfig) -> Vec<F> {
-        let mut vec = vec![
+        let mut vec = [
             self.prev_private_commitment.to_u64_vec(),
             self.new_private_commitment.to_u64_vec(),
             self.pubkey.to_u64_vec(),
@@ -101,7 +101,7 @@ pub struct ReceiveTransferPublicInputsTarget {
 
 impl ReceiveTransferPublicInputsTarget {
     pub fn to_vec(&self, config: &CircuitConfig) -> Vec<Target> {
-        let mut vec = vec![
+        let mut vec = [
             self.prev_private_commitment.to_vec(),
             self.new_private_commitment.to_vec(),
             self.pubkey.to_vec(),
