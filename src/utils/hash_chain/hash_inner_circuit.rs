@@ -11,13 +11,14 @@ use plonky2::{
 };
 
 use crate::{
-    common::withdrawal::WithdrawalTarget,
     ethereum_types::{
         bytes32::{Bytes32, Bytes32Target},
         u32limb_trait::U32LimbTargetTrait,
     },
     utils::recursively_verifiable::add_proof_target_and_verify,
 };
+
+use super::hash_with_prev_hash_circuit;
 
 #[derive(Debug)]
 pub struct HashInnerCircuit<F, C, const D: usize>
@@ -39,10 +40,10 @@ where
     pub fn new(single_vd: &VerifierCircuitData<F, C, D>) -> Self {
         let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::default());
         let single_proof = add_proof_target_and_verify(single_vd, &mut builder);
-        let withdrawal = WithdrawalTarget::from_slice(&single_proof.public_inputs);
+        let content = &single_proof.public_inputs.to_vec();
         let prev_hash = Bytes32Target::new(&mut builder, false); // connect later
-        let withdrawal_hash = withdrawal.hash_with_prev_hash::<F, C, D>(&mut builder, prev_hash);
-        let pis = [prev_hash.to_vec(), withdrawal_hash.to_vec()].concat();
+        let hash = hash_with_prev_hash_circuit::<F, C, D>(&mut builder, content, prev_hash);
+        let pis = [prev_hash.to_vec(), hash.to_vec()].concat();
         builder.register_public_inputs(&pis);
         let data = builder.build();
         Self {
