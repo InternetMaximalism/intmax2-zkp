@@ -8,6 +8,8 @@ use plonky2::{
     },
 };
 
+use crate::common::witness::claim_witness::ClaimWitness;
+
 use super::{deposit_time::DepositTimeCircuit, single_claim_proof::SingleClaimCircuit};
 
 #[derive(Debug)]
@@ -16,7 +18,7 @@ where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
 {
-    pub start_time_circuit: DepositTimeCircuit<F, C, D>,
+    pub deposit_time_circuit: DepositTimeCircuit<F, C, D>,
     pub single_claim_circuit: SingleClaimCircuit<F, C, D>,
 }
 
@@ -27,16 +29,24 @@ where
     <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
 {
     pub fn new(validity_vd: &VerifierCircuitData<F, C, D>) -> Self {
-        let start_time_circuit = DepositTimeCircuit::new();
+        let deposit_time_circuit = DepositTimeCircuit::new();
         let single_claim_circuit =
-            SingleClaimCircuit::new(validity_vd, &start_time_circuit.data.verifier_data());
+            SingleClaimCircuit::new(validity_vd, &deposit_time_circuit.data.verifier_data());
         Self {
-            start_time_circuit,
+            deposit_time_circuit,
             single_claim_circuit,
         }
     }
 
-    pub fn prove(&self) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
+    pub fn prove(
+        &self,
+        claim_witness: &ClaimWitness<F, C, D>,
+    ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
+        let deposit_time_value = claim_witness
+            .deposit_time_witness
+            .to_value()
+            .map_err(|e| anyhow::anyhow!("failed to create deposit_time_value: {}", e))?;
+        let deposit_time_proof = self.deposit_time_circuit.prove(&deposit_time_value)?;
         todo!()
     }
 }

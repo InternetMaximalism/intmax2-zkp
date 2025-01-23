@@ -172,11 +172,11 @@ pub struct DepositTimeValue {
 
 impl DepositTimeValue {
     pub fn new(
-        prev_block: Block,
-        block: Block,
-        prev_deposit_merkle_proof: DepositMerkleProof,
-        deposit_merkle_proof: DepositMerkleProof,
-        deposit: Deposit,
+        prev_block: &Block,
+        block: &Block,
+        prev_deposit_merkle_proof: &DepositMerkleProof,
+        deposit_merkle_proof: &DepositMerkleProof,
+        deposit: &Deposit,
         deposit_index: u32,
         deposit_salt: Salt,
         pubkey: U256,
@@ -212,11 +212,11 @@ impl DepositTimeValue {
         let determine_lock_time_value = DetermineLockTimeValue::new(block_hash, deposit_salt);
 
         Ok(Self {
-            prev_block,
-            block,
-            prev_deposit_merkle_proof,
-            deposit_merkle_proof,
-            deposit,
+            prev_block: prev_block.clone(),
+            block: block.clone(),
+            prev_deposit_merkle_proof: prev_deposit_merkle_proof.clone(),
+            deposit_merkle_proof: deposit_merkle_proof.clone(),
+            deposit: deposit.clone(),
             deposit_index,
             deposit_salt,
             block_hash,
@@ -442,11 +442,11 @@ mod tests {
         let deposit_merkle_proof = deposit_tree.prove(deposit_index as u64);
 
         let value = super::DepositTimeValue::new(
-            prev_block,
-            block,
-            prev_deposit_merkle_proof,
-            deposit_merkle_proof,
-            deposit,
+            &prev_block,
+            &block,
+            &prev_deposit_merkle_proof,
+            &deposit_merkle_proof,
+            &deposit,
             deposit_index,
             deposit_salt,
             pubkey,
