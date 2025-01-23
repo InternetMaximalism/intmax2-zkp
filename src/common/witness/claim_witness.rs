@@ -3,6 +3,8 @@ use plonky2::{
 };
 use serde::{Deserialize, Serialize};
 
+use crate::ethereum_types::address::Address;
+
 use super::{deposit_time_witness::DepositTimeWitness, update_witness::UpdateWitness};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -13,6 +15,7 @@ where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
 {
+    pub recipient: Address,
     pub deposit_time_witness: DepositTimeWitness,
     pub update_witness: UpdateWitness<F, C, D>,
 }

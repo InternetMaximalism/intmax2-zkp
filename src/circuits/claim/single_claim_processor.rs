@@ -8,7 +8,10 @@ use plonky2::{
     },
 };
 
-use crate::common::witness::claim_witness::ClaimWitness;
+use crate::{
+    circuits::claim::single_claim_proof::SingleClaimValue,
+    common::witness::claim_witness::ClaimWitness,
+};
 
 use super::{deposit_time::DepositTimeCircuit, single_claim_proof::SingleClaimCircuit};
 
@@ -18,6 +21,7 @@ where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
 {
+    pub validity_vd: VerifierCircuitData<F, C, D>,
     pub deposit_time_circuit: DepositTimeCircuit<F, C, D>,
     pub single_claim_circuit: SingleClaimCircuit<F, C, D>,
 }
@@ -33,6 +37,7 @@ where
         let single_claim_circuit =
             SingleClaimCircuit::new(validity_vd, &deposit_time_circuit.data.verifier_data());
         Self {
+            validity_vd: validity_vd.clone(),
             deposit_time_circuit,
             single_claim_circuit,
         }
@@ -47,6 +52,17 @@ where
             .to_value()
             .map_err(|e| anyhow::anyhow!("failed to create deposit_time_value: {}", e))?;
         let deposit_time_proof = self.deposit_time_circuit.prove(&deposit_time_value)?;
-        todo!()
+
+        let single_claim_value = SingleClaimValue::new(
+            &self.validity_vd,
+            &self.single_claim_circuit.data.verifier_data(),
+            claim_witness.recipient,
+            &claim_witness.update_witness.block_merkle_proof,
+            &claim_witness.update_witness.account_membership_proof,
+            &claim_witness.update_witness.validity_proof,
+            &deposit_time_proof,
+        )?;
+        let single_claim_proof = self.single_claim_circuit.prove(&single_claim_value)?;
+        Ok(single_claim_proof)
     }
 }

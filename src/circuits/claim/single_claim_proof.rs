@@ -43,7 +43,7 @@ pub struct SingleClaimValue<
     pub block_merkle_proof: BlockHashMerkleProof,
     pub account_membership_proof: AccountMembershipProof,
     pub validity_proof: ProofWithPublicInputs<F, C, D>,
-    pub start_time_proof: ProofWithPublicInputs<F, C, D>,
+    pub deposit_time_proof: ProofWithPublicInputs<F, C, D>,
 }
 
 impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
@@ -53,20 +53,20 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         validity_vd: &VerifierCircuitData<F, C, D>,
         start_time_vd: &VerifierCircuitData<F, C, D>,
         recipient: Address,
-        block_merkle_proof: BlockHashMerkleProof,
-        account_membership_proof: AccountMembershipProof,
-        validity_proof: ProofWithPublicInputs<F, C, D>,
-        start_time_proof: ProofWithPublicInputs<F, C, D>,
+        block_merkle_proof: &BlockHashMerkleProof,
+        account_membership_proof: &AccountMembershipProof,
+        validity_proof: &ProofWithPublicInputs<F, C, D>,
+        deposit_time_proof: &ProofWithPublicInputs<F, C, D>,
     ) -> anyhow::Result<Self> {
         validity_vd
             .verify(validity_proof.clone())
             .map_err(|e| anyhow::anyhow!("validity proof is invalid: {:?}", e))?;
         let validity_pis = ValidityPublicInputs::from_pis(&validity_proof.public_inputs);
         start_time_vd
-            .verify(start_time_proof.clone())
-            .map_err(|e| anyhow::anyhow!("start time proof is invalid: {:?}", e))?;
+            .verify(deposit_time_proof.clone())
+            .map_err(|e| anyhow::anyhow!("deposit time proof is invalid: {:?}", e))?;
         let start_time_pis =
-            DepositTimePublicInputs::from_u64_slice(&start_time_proof.public_inputs.to_u64_vec());
+            DepositTimePublicInputs::from_u64_slice(&deposit_time_proof.public_inputs.to_u64_vec());
         block_merkle_proof
             .verify(
                 &start_time_pis.block_hash,
@@ -94,10 +94,10 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
             recipient,
             block_hash,
             block_number,
-            block_merkle_proof,
-            account_membership_proof,
-            validity_proof,
-            start_time_proof,
+            block_merkle_proof: block_merkle_proof.clone(),
+            account_membership_proof: account_membership_proof.clone(),
+            validity_proof: validity_proof.clone(),
+            deposit_time_proof: deposit_time_proof.clone(),
         })
     }
 }
@@ -110,7 +110,7 @@ pub struct SingleClaimTarget<const D: usize> {
     pub block_merkle_proof: BlockHashMerkleProofTarget,
     pub account_membership_proof: AccountMembershipProofTarget,
     pub validity_proof: ProofWithPublicInputsTarget<D>,
-    pub start_time_proof: ProofWithPublicInputsTarget<D>,
+    pub deposit_time_proof: ProofWithPublicInputsTarget<D>,
 }
 
 impl<const D: usize> SingleClaimTarget<D> {
@@ -124,10 +124,10 @@ impl<const D: usize> SingleClaimTarget<D> {
         <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
     {
         let validity_proof = add_proof_target_and_verify(validity_vd, builder);
-        let start_time_proof = add_proof_target_and_verify(start_time_vd, builder);
+        let deposit_time_proof = add_proof_target_and_verify(start_time_vd, builder);
         let validity_pis = ValidityPublicInputsTarget::from_pis(&validity_proof.public_inputs);
         let start_time_pis =
-            DepositTimePublicInputsTarget::from_slice(&start_time_proof.public_inputs);
+            DepositTimePublicInputsTarget::from_slice(&deposit_time_proof.public_inputs);
 
         let block_merkle_proof = BlockHashMerkleProofTarget::new(builder, BLOCK_HASH_TREE_HEIGHT);
         let account_membership_proof =
@@ -162,7 +162,7 @@ impl<const D: usize> SingleClaimTarget<D> {
             block_merkle_proof,
             account_membership_proof,
             validity_proof,
-            start_time_proof,
+            deposit_time_proof,
         }
     }
 
@@ -185,7 +185,7 @@ impl<const D: usize> SingleClaimTarget<D> {
         self.account_membership_proof
             .set_witness(witness, &value.account_membership_proof);
         witness.set_proof_with_pis_target(&self.validity_proof, &value.validity_proof);
-        witness.set_proof_with_pis_target(&self.start_time_proof, &value.start_time_proof);
+        witness.set_proof_with_pis_target(&self.deposit_time_proof, &value.deposit_time_proof);
     }
 }
 
