@@ -98,4 +98,3 @@ impl IndexedMerkleTree {
         self.0.len()
     }
 }
-

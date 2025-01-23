@@ -22,8 +22,8 @@ pub const LOCK_TIME_MAX: u32 = 432000; // 5 days
 pub const LOCK_TIME_DELTA: u32 = LOCK_TIME_MAX - LOCK_TIME_MIN;
 
 // lock time is determined by the following formula:
-// lock_time = lock_time_min + (seed % LOCK_TIME_DELTA), where seed =
-// PoseidonHash(block_hash, deposit_salt)
+// lock_time = LOCK_TIME_MIN + (seed % LOCK_TIME_DELTA),
+// where seed = PoseidonHash(block_hash, deposit_salt)
 pub struct DetermineLockTimeValue {
     pub block_hash: Bytes32,
     pub deposit_salt: Salt,

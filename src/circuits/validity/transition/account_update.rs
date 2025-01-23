@@ -168,7 +168,10 @@ impl AccountUpdateTarget {
             .set_witness(witness, value.prev_account_tree_root);
         self.new_account_tree_root
             .set_witness(witness, value.new_account_tree_root);
-        witness.set_target(self.next_account_id, F::from_canonical_u64(value.next_account_id));
+        witness.set_target(
+            self.next_account_id,
+            F::from_canonical_u64(value.next_account_id),
+        );
         self.sender_tree_root
             .set_witness(witness, value.sender_tree_root);
         witness.set_target(self.block_number, F::from_canonical_u32(value.block_number));

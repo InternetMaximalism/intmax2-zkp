@@ -2,10 +2,14 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     common::{
-        deposit::Deposit, private_state::{FullPrivateState, PrivateState}, salt::Salt, transfer::Transfer, trees::{
+        deposit::Deposit,
+        private_state::{FullPrivateState, PrivateState},
+        salt::Salt,
+        transfer::Transfer,
+        trees::{
             asset_tree::{AssetLeaf, AssetMerkleProof},
             nullifier_tree::NullifierInsertionProof,
-        }
+        },
     },
     ethereum_types::{bytes32::Bytes32, u256::U256},
 };
