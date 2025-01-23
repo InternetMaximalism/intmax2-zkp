@@ -43,6 +43,10 @@ where
         }
     }
 
+    pub fn get_verifier_data(&self) -> VerifierCircuitData<F, C, D> {
+        self.single_claim_circuit.data.verifier_data()
+    }
+
     pub fn prove(
         &self,
         claim_witness: &ClaimWitness<F, C, D>,

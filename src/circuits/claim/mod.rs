@@ -1,7 +1,7 @@
+pub mod deposit_time;
 pub mod determine_lock_time;
 pub mod single_claim_processor;
 pub mod single_claim_proof;
-pub mod deposit_time;
 pub mod utils;
 
 #[cfg(test)]
@@ -21,7 +21,7 @@ mod tests {
         field::goldilocks_field::GoldilocksField, plonk::config::PoseidonGoldilocksConfig,
     };
 
-    use super::single_claim_proof::SingleClaimCircuit;
+    use super::single_claim_processor::SingleClaimProcessor;
 
     type F = GoldilocksField;
     type C = PoseidonGoldilocksConfig;
@@ -34,9 +34,9 @@ mod tests {
         let validity_processor = Arc::new(ValidityProcessor::<F, C, D>::new());
         let balance_processor = BalanceProcessor::new(&validity_processor.get_verifier_data());
         let mut validity_state_manager = ValidityStateManager::new(validity_processor.clone());
-        // let single_claim_circuit =
-        // SingleClaimCircuit::new(validity_processor.get_verifier_data());
-        // let withdrawal_processor =
-        //     HashChainProcessor::new(&single_withdrawal_circuit.data.verifier_data());
+        let single_claim_processor =
+            SingleClaimProcessor::new(&validity_processor.get_verifier_data());
+
+        let claim_processor = HashChainProcessor::new(&single_claim_processor.get_verifier_data());
     }
 }
