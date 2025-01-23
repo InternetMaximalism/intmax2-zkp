@@ -8,24 +8,30 @@ use crate::{
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct DepositTimeWitness {
+pub struct DepositTimePublicWitness {
     pub prev_block: Block,
     pub block: Block,
     pub prev_deposit_merkle_proof: DepositMerkleProof,
     pub deposit_merkle_proof: DepositMerkleProof,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DepositTimeWitness {
+    pub public_witness: DepositTimePublicWitness,
     pub deposit_index: u32,
-    pub deposit_salt: Salt,
     pub deposit: Deposit,
+    pub deposit_salt: Salt,
     pub pubkey: U256,
 }
 
 impl DepositTimeWitness {
     pub fn to_value(&self) -> anyhow::Result<DepositTimeValue> {
         DepositTimeValue::new(
-            &self.prev_block,
-            &self.block,
-            &self.prev_deposit_merkle_proof,
-            &self.deposit_merkle_proof,
+            &self.public_witness.prev_block,
+            &self.public_witness.block,
+            &self.public_witness.prev_deposit_merkle_proof,
+            &self.public_witness.deposit_merkle_proof,
             &self.deposit,
             self.deposit_index,
             self.deposit_salt,

@@ -50,6 +50,7 @@ pub fn construct_validity_and_tx_witness(
     deposit_tree: &DepositTree,
     is_registration_block: bool,
     tx_requests: &[MockTxRequest],
+    timestamp: u64,
 ) -> anyhow::Result<(ValidityWitness, Vec<TxWitness>)> {
     let mut normalized_requests = tx_requests.to_vec();
     normalized_requests.sort_by(|a, b| b.sender_key.pubkey.cmp(&a.sender_key.pubkey));
@@ -145,7 +146,7 @@ pub fn construct_validity_and_tx_witness(
         prev_block_hash: prev_validity_pis.public_state.block_hash,
         deposit_tree_root: deposit_tree.get_root(),
         signature_hash: signature.hash(),
-        timestamp: 0.into(), // dummy value
+        timestamp,
         block_number: prev_validity_pis.public_state.block_number + 1,
     };
     let trimmed_pubkeys = pubkeys
@@ -298,6 +299,7 @@ mod tests {
                 &deposit_tree,
                 true,
                 &tx_requests,
+                0,
             )
             .unwrap();
             prev_validity_pis = validity_witness.to_validity_pis().unwrap();

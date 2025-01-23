@@ -420,7 +420,7 @@ mod tests {
             prev_block_hash: Bytes32::rand(&mut rng),
             deposit_tree_root: deposit_tree.get_root(),
             signature_hash: Bytes32::rand(&mut rng),
-            timestamp: 0.into(),
+            timestamp: 0,
             block_number: 1,
         };
         let prev_deposit_merkle_proof = deposit_tree.prove(deposit_index as u64);
@@ -436,7 +436,7 @@ mod tests {
             prev_block_hash: prev_block.hash(),
             deposit_tree_root: deposit_tree.get_root(),
             signature_hash: Bytes32::rand(&mut rng),
-            timestamp: 111.into(),
+            timestamp: 111,
             block_number: 2,
         };
         let deposit_merkle_proof = deposit_tree.prove(deposit_index as u64);

@@ -187,6 +187,7 @@ mod tests {
             &deposit_tree,
             true,
             &tx_requests,
+            0,
         )?;
         let instant = std::time::Instant::now();
         let _main_validation_proof = main_validation_processor

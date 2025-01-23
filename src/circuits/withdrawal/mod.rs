@@ -68,7 +68,7 @@ mod tests {
             sender_key: key,
             will_return_sig: true,
         };
-        let tx_witnesses = validity_state_manager.tick(true, &[tx_request])?;
+        let tx_witnesses = validity_state_manager.tick(true, &[tx_request], 0)?;
         let update_witness = validity_state_manager.get_update_witness(key.pubkey, 1, 0, true)?;
 
         let balance_proof = balance_processor.prove_send(

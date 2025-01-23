@@ -29,7 +29,7 @@ pub struct Block {
     pub prev_block_hash: Bytes32,   // The hash of the previous block
     pub deposit_tree_root: Bytes32, // The root of the deposit tree
     pub signature_hash: Bytes32,    // The hash of the signature of the block
-    pub timestamp: U64,             // The timestamp of the block
+    pub timestamp: u64,             // The timestamp of the block
     pub block_number: u32,          // The number of the block
 }
 
@@ -49,7 +49,7 @@ impl Block {
             prev_block_hash: Bytes32::default(),
             deposit_tree_root,
             signature_hash: Bytes32::default(),
-            timestamp: U64::zero(),
+            timestamp: 0,
             block_number: 0,
         }
     }
@@ -59,7 +59,7 @@ impl Block {
             self.prev_block_hash.to_u32_vec(),
             self.deposit_tree_root.to_u32_vec(),
             self.signature_hash.to_u32_vec(),
-            self.timestamp.to_u32_vec(),
+            U64::from(self.timestamp).to_u32_vec(),
             vec![self.block_number],
         ]
         .concat()
@@ -132,7 +132,7 @@ impl BlockTarget {
             .set_witness(witness, value.deposit_tree_root);
         self.signature_hash
             .set_witness(witness, value.signature_hash);
-        self.timestamp.set_witness(witness, value.timestamp);
+        self.timestamp.set_witness(witness, U64::from(value.timestamp));
         witness.set_target(self.block_number, F::from_canonical_u32(value.block_number));
     }
 }

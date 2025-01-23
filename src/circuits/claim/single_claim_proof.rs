@@ -51,7 +51,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
 {
     pub fn new(
         validity_vd: &VerifierCircuitData<F, C, D>,
-        start_time_vd: &VerifierCircuitData<F, C, D>,
+        deposit_time_vd: &VerifierCircuitData<F, C, D>,
         recipient: Address,
         block_merkle_proof: &BlockHashMerkleProof,
         account_membership_proof: &AccountMembershipProof,
@@ -62,32 +62,38 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
             .verify(validity_proof.clone())
             .map_err(|e| anyhow::anyhow!("validity proof is invalid: {:?}", e))?;
         let validity_pis = ValidityPublicInputs::from_pis(&validity_proof.public_inputs);
-        start_time_vd
+        deposit_time_vd
             .verify(deposit_time_proof.clone())
             .map_err(|e| anyhow::anyhow!("deposit time proof is invalid: {:?}", e))?;
-        let start_time_pis =
+        let deposit_time_pis =
             DepositTimePublicInputs::from_u64_slice(&deposit_time_proof.public_inputs.to_u64_vec());
         block_merkle_proof
             .verify(
-                &start_time_pis.block_hash,
-                start_time_pis.block_number as u64,
+                &deposit_time_pis.block_hash,
+                deposit_time_pis.block_number as u64,
                 validity_pis.public_state.block_tree_root,
             )
             .map_err(|e| anyhow::anyhow!("block merkle proof is invalid: {:?}", e))?;
         account_membership_proof
             .verify(
-                start_time_pis.pubkey,
+                deposit_time_pis.pubkey,
                 validity_pis.public_state.account_tree_root,
             )
             .map_err(|e| anyhow::anyhow!("account membership proof is invalid: {:?}", e))?;
         let last_block_number = account_membership_proof.get_value() as u32;
-        if start_time_pis.block_number <= last_block_number {
+        if deposit_time_pis.block_number <= last_block_number {
             return Err(anyhow::anyhow!(
                 "last block number {} of the account is not older than the deposit block number {}",
                 last_block_number,
-                start_time_pis.block_number
+                deposit_time_pis.block_number
             ));
         }
+        if deposit_time_pis.block_timestamp + (deposit_time_pis.lock_time as u64)
+            < validity_pis.public_state.timestamp
+        {
+            return Err(anyhow::anyhow!("lock time is not passed yet."));
+        }
+
         let block_hash = validity_pis.public_state.block_hash;
         let block_number = validity_pis.public_state.block_number;
         Ok(Self {
@@ -116,7 +122,7 @@ pub struct SingleClaimTarget<const D: usize> {
 impl<const D: usize> SingleClaimTarget<D> {
     pub fn new<F: RichField + Extendable<D>, C: GenericConfig<D, F = F> + 'static>(
         validity_vd: &VerifierCircuitData<F, C, D>,
-        start_time_vd: &VerifierCircuitData<F, C, D>,
+        deposit_time_vd: &VerifierCircuitData<F, C, D>,
         builder: &mut CircuitBuilder<F, D>,
         is_checked: bool,
     ) -> Self
@@ -124,9 +130,9 @@ impl<const D: usize> SingleClaimTarget<D> {
         <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
     {
         let validity_proof = add_proof_target_and_verify(validity_vd, builder);
-        let deposit_time_proof = add_proof_target_and_verify(start_time_vd, builder);
+        let deposit_time_proof = add_proof_target_and_verify(deposit_time_vd, builder);
         let validity_pis = ValidityPublicInputsTarget::from_pis(&validity_proof.public_inputs);
-        let start_time_pis =
+        let deposit_time_pis =
             DepositTimePublicInputsTarget::from_slice(&deposit_time_proof.public_inputs);
 
         let block_merkle_proof = BlockHashMerkleProofTarget::new(builder, BLOCK_HASH_TREE_HEIGHT);
@@ -134,18 +140,18 @@ impl<const D: usize> SingleClaimTarget<D> {
             AccountMembershipProofTarget::new(builder, ACCOUNT_TREE_HEIGHT, is_checked);
         block_merkle_proof.verify::<F, C, D>(
             builder,
-            &start_time_pis.block_hash,
-            start_time_pis.block_number,
+            &deposit_time_pis.block_hash,
+            deposit_time_pis.block_number,
             validity_pis.public_state.block_tree_root,
         );
         account_membership_proof.verify::<F, C, D>(
             builder,
-            start_time_pis.pubkey,
+            deposit_time_pis.pubkey,
             validity_pis.public_state.account_tree_root,
         );
         let last_block_number = account_membership_proof.get_value(builder);
-        // assert last_block_number < start_time_pis.block_number
-        let diff = builder.sub(start_time_pis.block_number, last_block_number);
+        // assert last_block_number < deposit_time_pis.block_number
+        let diff = builder.sub(deposit_time_pis.block_number, last_block_number);
         builder.range_check(diff, 32);
         let zero = builder.zero();
         let is_diff_zero = builder.is_equal(diff, zero);
@@ -207,11 +213,11 @@ where
 {
     pub fn new(
         validity_vd: &VerifierCircuitData<F, C, D>,
-        start_time_vd: &VerifierCircuitData<F, C, D>,
+        deposit_time_vd: &VerifierCircuitData<F, C, D>,
     ) -> Self {
         let mut builder =
             CircuitBuilder::<F, D>::new(CircuitConfig::standard_recursion_zk_config());
-        let target = SingleClaimTarget::new(validity_vd, start_time_vd, &mut builder, true);
+        let target = SingleClaimTarget::new(validity_vd, deposit_time_vd, &mut builder, true);
         let data = builder.build();
         Self { data, target }
     }

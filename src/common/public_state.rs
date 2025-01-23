@@ -36,7 +36,7 @@ pub struct PublicState {
     pub next_account_id: u64,             // The index of the next new account
     pub deposit_tree_root: Bytes32,       // The root of the deposit tree
     pub block_hash: Bytes32,              // The hash of the current block
-    pub timestamp: U64,                   // The timestamp of the current block
+    pub timestamp: u64,                   // The timestamp of the current block
     pub block_number: u32,                // The number of the current block
 }
 
@@ -49,7 +49,7 @@ impl PublicState {
         let next_account_id = 2;
         let deposit_tree_root = DepositTree::new(DEPOSIT_TREE_HEIGHT);
         let block_hash = Block::genesis().hash();
-        let timestamp = U64::zero();
+        let timestamp = 0;
         let block_number = 0;
         Self {
             block_tree_root: block_tree.get_root(),
@@ -71,7 +71,7 @@ impl PublicState {
             vec![self.next_account_id as u64],
             self.deposit_tree_root.to_u64_vec(),
             self.block_hash.to_u64_vec(),
-            self.timestamp.to_u64_vec(),
+            U64::from(self.timestamp).to_u64_vec(),
             vec![self.block_number as u64],
         ]
         .concat();
@@ -87,7 +87,7 @@ impl PublicState {
         let next_account_id = input[12];
         let deposit_tree_root = Bytes32::from_u64_slice(&input[13..21]);
         let block_hash = Bytes32::from_u64_slice(&input[21..29]);
-        let timestamp = U64::from_u64_slice(&input[29..31]);
+        let timestamp = U64::from_u64_slice(&input[29..31]).into();
         let block_number = input[31] as u32;
         Self {
             block_tree_root,
@@ -183,7 +183,7 @@ impl PublicStateTarget {
             next_account_id: builder.constant(F::from_canonical_u64(value.next_account_id)),
             deposit_tree_root: Bytes32Target::constant(builder, value.deposit_tree_root),
             block_hash: Bytes32Target::constant(builder, value.block_hash),
-            timestamp: U64Target::constant(builder, value.timestamp),
+            timestamp: U64Target::constant(builder, U64::from(value.timestamp)),
             block_number: builder.constant(F::from_canonical_u32(value.block_number)),
         }
     }
@@ -250,7 +250,7 @@ impl PublicStateTarget {
         self.deposit_tree_root
             .set_witness(witness, value.deposit_tree_root);
         self.block_hash.set_witness(witness, value.block_hash);
-        self.timestamp.set_witness(witness, value.timestamp);
+        self.timestamp.set_witness(witness, U64::from(value.timestamp));
         witness.set_target(self.block_number, F::from_canonical_u32(value.block_number));
     }
 }

@@ -254,7 +254,7 @@ mod tests {
             sender_key: alice_key,
             will_return_sig: true,
         };
-        let tx_witnesses = validity_state_manager.tick(true, &[tx_request])?;
+        let tx_witnesses = validity_state_manager.tick(true, &[tx_request], 0)?;
         let update_witness =
             validity_state_manager.get_update_witness(alice_key.pubkey, 1, 0, true)?;
 
@@ -278,7 +278,7 @@ mod tests {
         let mut validity_state_manager = ValidityStateManager::new(validity_processor.clone());
 
         // post empty block
-        validity_state_manager.tick(false, &[])?;
+        validity_state_manager.tick(false, &[], 0)?;
 
         // alice update balance
         let alice_key = KeySet::rand(&mut rng);
@@ -409,7 +409,7 @@ mod tests {
         let deposit_index = validity_state_manager.deposit(&deposit)?;
 
         // post empty block to sync deposit tree
-        validity_state_manager.tick(false, &[])?;
+        validity_state_manager.tick(false, &[], 0)?;
 
         // alice update balance proof
         let update_witness =
