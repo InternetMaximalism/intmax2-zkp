@@ -15,7 +15,7 @@ use plonky2::{
 
 use crate::{
     circuits::{
-        claim::start_time::{StartTimePublicInputs, StartTimePublicInputsTarget},
+        claim::single::start_time::{StartTimePublicInputs, StartTimePublicInputsTarget},
         validity::validity_pis::{ValidityPublicInputs, ValidityPublicInputsTarget},
     },
     common::trees::{

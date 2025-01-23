@@ -14,7 +14,7 @@ use plonky2::{
 };
 
 use crate::{
-    circuits::claim::{
+    circuits::claim::single::{
         determine_lock_time::DetermineLockTimeValue,
         utils::{get_mining_deposit_nullifier, get_mining_deposit_nullifier_circuit},
     },
