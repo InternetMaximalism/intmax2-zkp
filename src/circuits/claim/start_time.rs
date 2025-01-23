@@ -14,7 +14,7 @@ use plonky2::{
 };
 
 use crate::{
-    circuits::mining::{
+    circuits::claim::{
         determine_lock_time::DetermineLockTimeValue,
         utils::{get_mining_deposit_nullifier, get_mining_deposit_nullifier_circuit},
     },
@@ -36,12 +36,14 @@ use crate::{
 
 use super::determine_lock_time::DetermineLockTimeTarget;
 
-const START_TIME_PUBLIC_INPUTS_LEN: usize = U256_LEN + BYTES32_LEN + 1 + U64_LEN + BYTES32_LEN + 1;
+const START_TIME_PUBLIC_INPUTS_LEN: usize =
+    U256_LEN + BYTES32_LEN + U256_LEN + 1 + U64_LEN + BYTES32_LEN + 1;
 
 #[derive(Debug, Clone)]
 pub struct StartTimePublicInputs {
     pub pubkey: U256,
     pub nullifier: Bytes32,
+    pub deposit_amount: U256,
     pub lock_time: u32,
     pub block_timestamp: u64,
     pub block_hash: Bytes32,
@@ -51,6 +53,7 @@ pub struct StartTimePublicInputs {
 impl StartTimePublicInputs {
     pub fn to_vec_u32(&self) -> Vec<u32> {
         let mut result = self.pubkey.to_u32_vec();
+        result.extend_from_slice(&self.nullifier.to_u32_vec());
         result.push(self.lock_time);
         result.extend_from_slice(&self.nullifier.to_u32_vec());
         result.extend_from_slice(&U64::from(self.block_timestamp).to_u32_vec());
@@ -64,23 +67,39 @@ impl StartTimePublicInputs {
         assert_eq!(inputs.len(), START_TIME_PUBLIC_INPUTS_LEN);
         let pubkey = U256::from_u32_slice(&inputs[0..U256_LEN]);
         let nullifier = Bytes32::from_u32_slice(&inputs[U256_LEN..U256_LEN + BYTES32_LEN]);
-        let lock_time = inputs[U256_LEN + BYTES32_LEN];
+        let deposit_amount = U256::from_u32_slice(
+            &inputs[U256_LEN + BYTES32_LEN..U256_LEN + BYTES32_LEN + U256_LEN],
+        );
+        let lock_time = inputs[U256_LEN + BYTES32_LEN + U256_LEN];
         let block_timestamp = U64::from_u32_slice(
-            &inputs[U256_LEN + BYTES32_LEN + 1..U256_LEN + BYTES32_LEN + 1 + U64_LEN],
+            &inputs[U256_LEN + BYTES32_LEN + U256_LEN + 1
+                ..U256_LEN + BYTES32_LEN + U256_LEN + 1 + U64_LEN],
         );
         let block_hash = Bytes32::from_u32_slice(
-            &inputs[U256_LEN + BYTES32_LEN + 1 + U64_LEN
-                ..U256_LEN + BYTES32_LEN + 1 + U64_LEN + BYTES32_LEN],
+            &inputs[U256_LEN + BYTES32_LEN + U256_LEN + 1 + U64_LEN
+                ..U256_LEN + BYTES32_LEN + U256_LEN + 1 + U64_LEN + BYTES32_LEN],
         );
-        let block_number = inputs[U256_LEN + BYTES32_LEN + 1 + U64_LEN + BYTES32_LEN];
+        let block_number = inputs[U256_LEN + BYTES32_LEN + U256_LEN + 1 + U64_LEN + BYTES32_LEN];
         Self {
             pubkey,
             nullifier,
+            deposit_amount,
             lock_time,
             block_timestamp: block_timestamp.into(),
             block_hash,
             block_number,
         }
+    }
+
+    pub fn from_u64_slice(inputs: &[u64]) -> Self {
+        let input_u32: Vec<u32> = inputs
+            .iter()
+            .map(|&x| {
+                assert!(x <= u32::MAX as u64);
+                x as u32
+            })
+            .collect();
+        Self::from_u32_slice(&input_u32)
     }
 }
 
@@ -88,6 +107,7 @@ impl StartTimePublicInputs {
 pub struct StartTimePublicInputsTarget {
     pub pubkey: U256Target,
     pub nullifier: Bytes32Target,
+    pub deposit_amount: U256Target,
     pub lock_time: Target,
     pub block_timestamp: U64Target,
     pub block_hash: Bytes32Target,
@@ -97,8 +117,9 @@ pub struct StartTimePublicInputsTarget {
 impl StartTimePublicInputsTarget {
     pub fn to_vec(&self) -> Vec<Target> {
         let mut result = self.pubkey.to_vec();
-        result.push(self.lock_time);
         result.extend_from_slice(&self.nullifier.to_vec());
+        result.extend_from_slice(&self.deposit_amount.to_vec());
+        result.push(self.lock_time);
         result.extend_from_slice(&self.block_timestamp.to_vec());
         result.extend_from_slice(&self.block_hash.to_vec());
         result.push(self.block_number);
@@ -110,20 +131,25 @@ impl StartTimePublicInputsTarget {
         assert_eq!(inputs.len(), START_TIME_PUBLIC_INPUTS_LEN);
         let pubkey = U256Target::from_slice(&inputs[0..U256_LEN]);
         let nullifier = Bytes32Target::from_slice(&inputs[U256_LEN..U256_LEN + BYTES32_LEN]);
-        let lock_time = inputs[U256_LEN + BYTES32_LEN];
+        let deposit_amount = U256Target::from_slice(
+            &inputs[U256_LEN + BYTES32_LEN..U256_LEN + BYTES32_LEN + U256_LEN],
+        );
+        let lock_time = inputs[U256_LEN + BYTES32_LEN + U256_LEN];
         let block_timestamp = U64Target::from_slice(
-            &inputs[U256_LEN + BYTES32_LEN + 1..U256_LEN + BYTES32_LEN + 1 + U64_LEN],
+            &inputs[U256_LEN + BYTES32_LEN + U256_LEN + 1
+                ..U256_LEN + BYTES32_LEN + U256_LEN + 1 + U64_LEN],
         );
         let block_hash = Bytes32Target::from_slice(
-            &inputs[U256_LEN + BYTES32_LEN + 1 + U64_LEN
-                ..U256_LEN + BYTES32_LEN + 1 + U64_LEN + BYTES32_LEN],
+            &inputs[U256_LEN + BYTES32_LEN + U256_LEN + 1 + U64_LEN
+                ..U256_LEN + BYTES32_LEN + U256_LEN + 1 + U64_LEN + BYTES32_LEN],
         );
-        let block_number = inputs[U256_LEN + BYTES32_LEN + 1 + U64_LEN + BYTES32_LEN];
+        let block_number = inputs[U256_LEN + BYTES32_LEN + U256_LEN + 1 + U64_LEN + BYTES32_LEN];
         Self {
             pubkey,
             nullifier,
+            deposit_amount,
             lock_time,
-            block_timestamp: block_timestamp.into(),
+            block_timestamp,
             block_hash,
             block_number,
         }
@@ -327,6 +353,7 @@ where
         let pis = StartTimePublicInputsTarget {
             pubkey: target.pubkey,
             nullifier: target.nullifier,
+            deposit_amount: target.deposit.amount,
             lock_time: target.determine_lock_time_target.lock_time,
             block_timestamp: target.block.timestamp,
             block_hash: target.block_hash,
