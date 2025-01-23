@@ -1,8 +1,91 @@
-pub mod single_withdrawal_circuit;
-pub mod withdrawal_circuit;
-pub mod withdrawal_inner_circuit;
-pub mod withdrawal_processor;
-pub mod withdrawal_wrapper_circuit;
+use anyhow::Result;
+use plonky2::{
+    field::extension::Extendable,
+    hash::hash_types::RichField,
+    plonk::{
+        circuit_data::CommonCircuitData,
+        config::{AlgebraicHasher, GenericConfig},
+        proof::ProofWithPublicInputs,
+    },
+};
+
+use crate::{
+    ethereum_types::{
+        address::Address,
+        bytes32::{Bytes32, BYTES32_LEN},
+        u32limb_trait::U32LimbTrait as _,
+    },
+    utils::conversion::ToU64,
+};
+
+pub struct WithdrawalProcessor<F, C, const D: usize>
+where
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+{
+    pub single_withdrawal_circuit: SingleWithdrawalCircuit<F, C, D>,
+    pub withdrawal_inner_circuit: WithdrawalInnerCircuit<F, C, D>,
+    pub withdrawal_circuit: WithdrawalCircuit<F, C, D>,
+    pub withdrawal_wrapper_circuit: WithdrawalWrapperCircuit<F, C, D>,
+}
+
+impl<F, C, const D: usize> WithdrawalProcessor<F, C, D>
+where
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F> + 'static,
+    C::Hasher: AlgebraicHasher<F>,
+{
+    pub fn new(balance_common_data: &CommonCircuitData<F, D>) -> Self {
+        let single_withdrawal_circuit = SingleWithdrawalCircuit::new(balance_common_data);
+        let withdrawal_inner_circuit =
+            WithdrawalInnerCircuit::new(&single_withdrawal_circuit.data.verifier_data());
+        let withdrawal_circuit =
+            WithdrawalCircuit::new(&withdrawal_inner_circuit.data.verifier_data());
+        let withdrawal_wrapper_circuit =
+            WithdrawalWrapperCircuit::new(&withdrawal_circuit.data.verifier_data());
+        Self {
+            single_withdrawal_circuit,
+            withdrawal_inner_circuit,
+            withdrawal_circuit,
+            withdrawal_wrapper_circuit,
+        }
+    }
+
+    // Prove a withdrawal chain, given a single withdrawal proof and the previous withdrawal proof.
+    pub fn prove_chain(
+        &self,
+        single_withdrawal_proof: &ProofWithPublicInputs<F, C, D>,
+        prev_withdrawal_proof: &Option<ProofWithPublicInputs<F, C, D>>,
+    ) -> Result<ProofWithPublicInputs<F, C, D>> {
+        let prev_withdrawal_hash = if prev_withdrawal_proof.is_some() {
+            Bytes32::from_u64_slice(
+                &prev_withdrawal_proof.as_ref().unwrap().public_inputs[0..BYTES32_LEN].to_u64_vec(),
+            )
+        } else {
+            Bytes32::default()
+        };
+        let withdrawal_inner_proof = self
+            .withdrawal_inner_circuit
+            .prove(prev_withdrawal_hash, single_withdrawal_proof)
+            .map_err(|e| anyhow::anyhow!("Failed to prove withdrawal inner: {}", e))?;
+        let withdrawal_proof = self
+            .withdrawal_circuit
+            .prove(&withdrawal_inner_proof, prev_withdrawal_proof)
+            .map_err(|e| anyhow::anyhow!("Failed to prove withdrawal: {}", e))?;
+        Ok(withdrawal_proof)
+    }
+
+    pub fn prove_wrap(
+        &self,
+        withdrawal_proof: &ProofWithPublicInputs<F, C, D>,
+        withdrawal_aggregator: Address,
+    ) -> Result<ProofWithPublicInputs<F, C, D>> {
+        let withdrawal_wrapper_proof = self
+            .withdrawal_wrapper_circuit
+            .prove(withdrawal_proof, withdrawal_aggregator)?;
+        Ok(withdrawal_wrapper_proof)
+    }
+}
 
 #[cfg(test)]
 mod tests {
