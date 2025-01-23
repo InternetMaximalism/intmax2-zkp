@@ -28,11 +28,9 @@ mod tests {
             witness::withdrawal_witness::WithdrawalWitness,
         },
         ethereum_types::address::Address,
-        utils::wrapper::WrapperCircuit,
+        utils::{hash_chain::hash_chain_processor::HashChainProcessor, wrapper::WrapperCircuit},
         wrapper_config::plonky2_config::PoseidonBN128GoldilocksConfig,
     };
-
-    use super::WithdrawalProcessor;
 
     type F = GoldilocksField;
     type C = PoseidonGoldilocksConfig;
@@ -48,12 +46,11 @@ mod tests {
         let spent_circuit = balance_processor.spent_circuit();
         let single_withdrawal_circuit =
             SingleWithdrawalCircuit::new(balance_processor.common_data());
-        let withdrawal_processor = WithdrawalProcessor::new(balance_processor.common_data());
+        let withdrawal_processor =
+            HashChainProcessor::new(&single_withdrawal_circuit.data.verifier_data());
+
         let inner_wrapper_circuit = WrapperCircuit::<F, C, C, D>::new(
-            &withdrawal_processor
-                .withdrawal_wrapper_circuit
-                .data
-                .verifier_data(),
+            &withdrawal_processor.chain_end_circuit.data.verifier_data(),
         );
         let final_circuit =
             WrapperCircuit::<F, C, OuterC, D>::new(&inner_wrapper_circuit.data.verifier_data());
@@ -99,7 +96,7 @@ mod tests {
         let chained_withdrawal_proof =
             withdrawal_processor.prove_chain(&single_withdrawal_proof, &None)?;
         let wrapped_withdrawal_proof =
-            withdrawal_processor.prove_wrap(&chained_withdrawal_proof, Address::default())?;
+            withdrawal_processor.prove_end(&chained_withdrawal_proof, Address::default())?;
 
         let inner_wrapper_proof = inner_wrapper_circuit.prove(&wrapped_withdrawal_proof)?;
         let final_proof = final_circuit.prove(&inner_wrapper_proof)?;
