@@ -27,6 +27,7 @@ use crate::{
         address::{Address, AddressTarget},
         bytes32::{Bytes32, Bytes32Target},
         u32limb_trait::U32LimbTargetTrait,
+        u64::U64Target,
     },
     utils::{conversion::ToU64, recursively_verifiable::add_proof_target_and_verify},
 };
@@ -88,10 +89,15 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
                 deposit_time_pis.block_number
             ));
         }
-        if deposit_time_pis.block_timestamp + (deposit_time_pis.lock_time as u64)
-            < validity_pis.public_state.timestamp
+        if validity_pis.public_state.timestamp
+            < deposit_time_pis.block_timestamp + (deposit_time_pis.lock_time as u64)
         {
-            return Err(anyhow::anyhow!("lock time is not passed yet."));
+            return Err(anyhow::anyhow!(
+                "lock time is not passed yet. deposit time: {}, lock time: {}, current time: {}",
+                deposit_time_pis.block_timestamp,
+                deposit_time_pis.lock_time,
+                validity_pis.public_state.timestamp
+            ));
         }
 
         let block_hash = validity_pis.public_state.block_hash;
@@ -157,8 +163,14 @@ impl<const D: usize> SingleClaimTarget<D> {
         let is_diff_zero = builder.is_equal(diff, zero);
         builder.assert_zero(is_diff_zero.target);
 
+        let lock_time = U64Target::from_u32_target(builder, deposit_time_pis.lock_time);
+        let maturity = deposit_time_pis.block_timestamp.add(builder, &lock_time);
+        let is_mature = maturity.is_le(builder, &validity_pis.public_state.timestamp);
+        builder.assert_one(is_mature.target);
+
         let block_hash = validity_pis.public_state.block_hash;
         let block_number = validity_pis.public_state.block_number;
+
         let recipient = AddressTarget::new(builder, is_checked);
 
         Self {

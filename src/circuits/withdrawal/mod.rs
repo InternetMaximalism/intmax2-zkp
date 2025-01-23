@@ -106,16 +106,19 @@ mod tests {
         let final_circuit_vd = serde_json::to_string_pretty(&final_circuit.data.verifier_only)?;
         let final_circuit_cd = serde_json::to_string_pretty(&final_circuit.data.common)?;
         // save to files
-        std::fs::create_dir_all("circuit_data")?;
+        std::fs::create_dir_all("circuit_data/withdrawal")?;
         std::fs::write(
-            "circuit_data/proof_with_public_inputs.json",
+            "circuit_data/withdrawal/proof_with_public_inputs.json",
             final_proof_str,
         )?;
         std::fs::write(
-            "circuit_data/verifier_only_circuit_data.json",
+            "circuit_data/withdrawal/verifier_only_circuit_data.json",
             final_circuit_vd,
         )?;
-        std::fs::write("circuit_data/common_circuit_data.json", final_circuit_cd)?;
+        std::fs::write(
+            "circuit_data/withdrawal/common_circuit_data.json",
+            final_circuit_cd,
+        )?;
         Ok(())
     }
 }

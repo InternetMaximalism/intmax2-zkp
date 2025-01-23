@@ -59,13 +59,14 @@ where
 
         let single_claim_value = SingleClaimValue::new(
             &self.validity_vd,
-            &self.single_claim_circuit.data.verifier_data(),
+            &self.deposit_time_circuit.data.verifier_data(),
             claim_witness.recipient,
             &claim_witness.update_witness.block_merkle_proof,
             &claim_witness.update_witness.account_membership_proof,
             &claim_witness.update_witness.validity_proof,
             &deposit_time_proof,
-        )?;
+        )
+        .map_err(|e| anyhow::anyhow!("failed to create single_claim_value: {}", e))?;
         let single_claim_proof = self.single_claim_circuit.prove(&single_claim_value)?;
         Ok(single_claim_proof)
     }
