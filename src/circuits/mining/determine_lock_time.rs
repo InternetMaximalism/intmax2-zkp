@@ -48,6 +48,7 @@ impl DetermineLockTimeValue {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct DetermineLockTimeTarget {
     pub block_hash: Bytes32Target,
     pub deposit_salt: SaltTarget,
