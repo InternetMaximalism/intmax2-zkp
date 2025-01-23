@@ -36,11 +36,11 @@ use crate::{
 
 use super::determine_lock_time::DetermineLockTimeTarget;
 
-const START_TIME_PUBLIC_INPUTS_LEN: usize =
+const DEPOSIT_TIME_PUBLIC_INPUTS_LEN: usize =
     U256_LEN + BYTES32_LEN + U256_LEN + 1 + U64_LEN + BYTES32_LEN + 1;
 
 #[derive(Debug, Clone)]
-pub struct StartTimePublicInputs {
+pub struct DepositTimePublicInputs {
     pub pubkey: U256,
     pub nullifier: Bytes32,
     pub deposit_amount: U256,
@@ -50,7 +50,7 @@ pub struct StartTimePublicInputs {
     pub block_number: u32,
 }
 
-impl StartTimePublicInputs {
+impl DepositTimePublicInputs {
     pub fn to_vec_u32(&self) -> Vec<u32> {
         let mut result = self.pubkey.to_u32_vec();
         result.extend_from_slice(&self.nullifier.to_u32_vec());
@@ -59,12 +59,12 @@ impl StartTimePublicInputs {
         result.extend_from_slice(&U64::from(self.block_timestamp).to_u32_vec());
         result.extend_from_slice(&self.block_hash.to_u32_vec());
         result.push(self.block_number);
-        assert_eq!(result.len(), START_TIME_PUBLIC_INPUTS_LEN);
+        assert_eq!(result.len(), DEPOSIT_TIME_PUBLIC_INPUTS_LEN);
         result
     }
 
     pub fn from_u32_slice(inputs: &[u32]) -> Self {
-        assert_eq!(inputs.len(), START_TIME_PUBLIC_INPUTS_LEN);
+        assert_eq!(inputs.len(), DEPOSIT_TIME_PUBLIC_INPUTS_LEN);
         let pubkey = U256::from_u32_slice(&inputs[0..U256_LEN]);
         let nullifier = Bytes32::from_u32_slice(&inputs[U256_LEN..U256_LEN + BYTES32_LEN]);
         let deposit_amount = U256::from_u32_slice(
@@ -104,7 +104,7 @@ impl StartTimePublicInputs {
 }
 
 #[derive(Debug, Clone)]
-pub struct StartTimePublicInputsTarget {
+pub struct DepositTimePublicInputsTarget {
     pub pubkey: U256Target,
     pub nullifier: Bytes32Target,
     pub deposit_amount: U256Target,
@@ -114,7 +114,7 @@ pub struct StartTimePublicInputsTarget {
     pub block_number: Target,
 }
 
-impl StartTimePublicInputsTarget {
+impl DepositTimePublicInputsTarget {
     pub fn to_vec(&self) -> Vec<Target> {
         let mut result = self.pubkey.to_vec();
         result.extend_from_slice(&self.nullifier.to_vec());
@@ -123,12 +123,12 @@ impl StartTimePublicInputsTarget {
         result.extend_from_slice(&self.block_timestamp.to_vec());
         result.extend_from_slice(&self.block_hash.to_vec());
         result.push(self.block_number);
-        assert_eq!(result.len(), START_TIME_PUBLIC_INPUTS_LEN);
+        assert_eq!(result.len(), DEPOSIT_TIME_PUBLIC_INPUTS_LEN);
         result
     }
 
     pub fn from_slice(inputs: &[Target]) -> Self {
-        assert_eq!(inputs.len(), START_TIME_PUBLIC_INPUTS_LEN);
+        assert_eq!(inputs.len(), DEPOSIT_TIME_PUBLIC_INPUTS_LEN);
         let pubkey = U256Target::from_slice(&inputs[0..U256_LEN]);
         let nullifier = Bytes32Target::from_slice(&inputs[U256_LEN..U256_LEN + BYTES32_LEN]);
         let deposit_amount = U256Target::from_slice(
@@ -156,7 +156,7 @@ impl StartTimePublicInputsTarget {
     }
 }
 
-pub struct StartTimeValue {
+pub struct DepositTimeValue {
     pub prev_block: Block,
     pub block: Block,
     pub prev_deposit_merkle_proof: DepositMerkleProof,
@@ -170,7 +170,7 @@ pub struct StartTimeValue {
     pub determine_lock_time_value: DetermineLockTimeValue,
 }
 
-impl StartTimeValue {
+impl DepositTimeValue {
     pub fn new(
         prev_block: Block,
         block: Block,
@@ -228,7 +228,7 @@ impl StartTimeValue {
 }
 
 #[derive(Debug, Clone)]
-pub struct StartTimeTarget {
+pub struct DepositTimeTarget {
     pub prev_block: BlockTarget,
     pub block: BlockTarget,
     pub prev_deposit_merkle_proof: DepositMerkleProofTarget,
@@ -242,7 +242,7 @@ pub struct StartTimeTarget {
     pub determine_lock_time_target: DetermineLockTimeTarget,
 }
 
-impl StartTimeTarget {
+impl DepositTimeTarget {
     pub fn new<F: RichField + Extendable<D>, C: GenericConfig<D, F = F> + 'static, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
         is_checked: bool,
@@ -308,7 +308,7 @@ impl StartTimeTarget {
     pub fn set_witness<W: WitnessWrite<F>, F: Field>(
         &self,
         witness: &mut W,
-        value: &StartTimeValue,
+        value: &DepositTimeValue,
     ) {
         self.prev_block.set_witness(witness, &value.prev_block);
         self.block.set_witness(witness, &value.block);
@@ -331,16 +331,16 @@ impl StartTimeTarget {
 }
 
 #[derive(Debug)]
-pub struct StartTimeCircuit<F, C, const D: usize>
+pub struct DepositTimeCircuit<F, C, const D: usize>
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
 {
     pub data: CircuitData<F, C, D>,
-    pub target: StartTimeTarget,
+    pub target: DepositTimeTarget,
 }
 
-impl<F, C, const D: usize> StartTimeCircuit<F, C, D>
+impl<F, C, const D: usize> DepositTimeCircuit<F, C, D>
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F> + 'static,
@@ -349,8 +349,8 @@ where
     pub fn new() -> Self {
         let config = CircuitConfig::default();
         let mut builder = CircuitBuilder::<F, D>::new(config.clone());
-        let target = StartTimeTarget::new::<F, C, D>(&mut builder, true);
-        let pis = StartTimePublicInputsTarget {
+        let target = DepositTimeTarget::new::<F, C, D>(&mut builder, true);
+        let pis = DepositTimePublicInputsTarget {
             pubkey: target.pubkey,
             nullifier: target.nullifier,
             deposit_amount: target.deposit.amount,
@@ -364,7 +364,10 @@ where
         Self { data, target }
     }
 
-    pub fn prove(&self, value: &StartTimeValue) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
+    pub fn prove(
+        &self,
+        value: &DepositTimeValue,
+    ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
         let mut pw = PartialWitness::<F>::new();
         self.target.set_witness(&mut pw, value);
         self.data.prove(pw)
@@ -396,7 +399,7 @@ mod tests {
     const D: usize = 2;
 
     #[test]
-    fn test_start_time_circuit() {
+    fn test_deposit_time_circuit() {
         let mut rng = rand::thread_rng();
 
         let pubkey = U256::rand(&mut rng);
@@ -438,7 +441,7 @@ mod tests {
         };
         let deposit_merkle_proof = deposit_tree.prove(deposit_index as u64);
 
-        let value = super::StartTimeValue::new(
+        let value = super::DepositTimeValue::new(
             prev_block,
             block,
             prev_deposit_merkle_proof,
@@ -450,7 +453,7 @@ mod tests {
         )
         .unwrap();
 
-        let circuit = super::StartTimeCircuit::<F, C, D>::new();
+        let circuit = super::DepositTimeCircuit::<F, C, D>::new();
         let _proof = circuit.prove(&value).unwrap();
     }
 }

@@ -15,7 +15,7 @@ use plonky2::{
 
 use crate::{
     circuits::{
-        claim::start_time::{StartTimePublicInputs, StartTimePublicInputsTarget},
+        claim::deposit_time::{DepositTimePublicInputs, DepositTimePublicInputsTarget},
         validity::validity_pis::{ValidityPublicInputs, ValidityPublicInputsTarget},
     },
     common::trees::{
@@ -66,7 +66,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
             .verify(start_time_proof.clone())
             .map_err(|e| anyhow::anyhow!("start time proof is invalid: {:?}", e))?;
         let start_time_pis =
-            StartTimePublicInputs::from_u64_slice(&start_time_proof.public_inputs.to_u64_vec());
+            DepositTimePublicInputs::from_u64_slice(&start_time_proof.public_inputs.to_u64_vec());
         block_merkle_proof
             .verify(
                 &start_time_pis.block_hash,
@@ -127,7 +127,7 @@ impl<const D: usize> SingleClaimTarget<D> {
         let start_time_proof = add_proof_target_and_verify(start_time_vd, builder);
         let validity_pis = ValidityPublicInputsTarget::from_pis(&validity_proof.public_inputs);
         let start_time_pis =
-            StartTimePublicInputsTarget::from_slice(&start_time_proof.public_inputs);
+            DepositTimePublicInputsTarget::from_slice(&start_time_proof.public_inputs);
 
         let block_merkle_proof = BlockHashMerkleProofTarget::new(builder, BLOCK_HASH_TREE_HEIGHT);
         let account_membership_proof =
