@@ -93,6 +93,11 @@ impl DetermineLockTimeTarget {
     }
 }
 
+pub fn get_lock_time(block_hash: Bytes32, deposit_salt: Salt) -> u64 {
+    let value = DetermineLockTimeValue::new(block_hash, deposit_salt);
+    value.lock_time as u64
+}
+
 #[cfg(test)]
 mod tests {
     use plonky2::{
