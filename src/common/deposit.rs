@@ -53,14 +53,13 @@ pub struct DepositTarget {
 
 impl Deposit {
     pub fn to_u32_vec(&self) -> Vec<u32> {
-        let vec = vec![
+        [
             self.depositor.to_u32_vec(),
             self.pubkey_salt_hash.to_u32_vec(),
             self.amount.to_u32_vec(),
             vec![self.token_index, self.is_eligible as u32],
         ]
-        .concat();
-        vec
+        .concat()
     }
 
     pub fn rand<R: Rng>(rng: &mut R) -> Self {
@@ -80,14 +79,13 @@ impl Deposit {
 
 impl DepositTarget {
     pub fn to_vec(&self) -> Vec<Target> {
-        let vec = vec![
+        [
             self.depositor.to_vec(),
             self.pubkey_salt_hash.to_vec(),
             self.amount.to_vec(),
             vec![self.token_index, self.is_eligible.target],
         ]
-        .concat();
-        vec
+        .concat()
     }
 
     pub fn new<F: RichField + Extendable<D>, const D: usize>(
@@ -180,7 +178,7 @@ impl LeafableTarget for DepositTarget {
 }
 
 pub fn get_pubkey_salt_hash(pubkey: U256, salt: Salt) -> Bytes32 {
-    let input = vec![pubkey.to_u64_vec(), salt.to_u64_vec()].concat();
+    let input = [pubkey.to_u64_vec(), salt.to_u64_vec()].concat();
     let hash = PoseidonHashOut::hash_inputs_u64(&input);
     hash.into()
 }
@@ -190,7 +188,7 @@ pub fn get_pubkey_salt_hash_circuit<F: RichField + Extendable<D>, const D: usize
     pubkey: U256Target,
     salt: SaltTarget,
 ) -> Bytes32Target {
-    let inputs = vec![pubkey.to_vec(), salt.to_vec()].concat();
+    let inputs = [pubkey.to_vec(), salt.to_vec()].concat();
     let hash = PoseidonHashOutTarget::hash_inputs(builder, &inputs);
     Bytes32Target::from_hash_out(builder, hash)
 }

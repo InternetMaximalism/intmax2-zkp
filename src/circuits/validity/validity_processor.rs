@@ -85,12 +85,12 @@ where
         #[cfg(not(feature = "dummy_validity_proof"))]
         let transition_proof = self
             .transition_processor
-            .prove(&prev_pis, &validity_witness)?;
+            .prove(&prev_pis, validity_witness)?;
         #[cfg(feature = "dummy_validity_proof")]
         let transition_proof = self
             .dummy_transition_circuit
             .prove(&prev_pis, &validity_witness)?;
-        self.validity_circuit.prove(&transition_proof, &prev_proof)
+        self.validity_circuit.prove(&transition_proof, prev_proof)
     }
 
     pub fn get_verifier_data(&self) -> VerifierCircuitData<F, C, D> {

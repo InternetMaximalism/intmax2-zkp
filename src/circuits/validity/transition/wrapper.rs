@@ -95,7 +95,7 @@ where
             is_valid_block: block_pis.is_valid,
         };
 
-        let concat_pis = vec![prev_pis.to_vec(), new_pis.to_vec()].concat();
+        let concat_pis = [prev_pis.to_vec(), new_pis.to_vec()].concat();
         builder.register_public_inputs(&concat_pis);
 
         let data = builder.build::<C>();

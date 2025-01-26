@@ -26,18 +26,14 @@ use crate::{
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct WithdrawalProofPublicInputs {
-    pub last_withdrawal_hash: Bytes32,
-    pub withdrawal_aggregator: Address,
+pub struct ChainEndProofPublicInputs {
+    pub last_hash: Bytes32,
+    pub aggregator: Address,
 }
 
-impl WithdrawalProofPublicInputs {
+impl ChainEndProofPublicInputs {
     pub fn to_u32_vec(&self) -> Vec<u32> {
-        [
-            self.last_withdrawal_hash.to_u32_vec(),
-            self.withdrawal_aggregator.to_u32_vec(),
-        ]
-        .concat()
+        [self.last_hash.to_u32_vec(), self.aggregator.to_u32_vec()].concat()
     }
 
     pub fn hash(&self) -> Bytes32 {
@@ -46,18 +42,14 @@ impl WithdrawalProofPublicInputs {
 }
 
 #[derive(Debug, Clone)]
-struct WithdrawalProofPublicInputsTarget {
-    last_withdrawal_hash: Bytes32Target,
-    withdrawal_aggregator: AddressTarget,
+struct ChainEndProofPublicInputsTarget {
+    last_hash: Bytes32Target,
+    aggregator: AddressTarget,
 }
 
-impl WithdrawalProofPublicInputsTarget {
+impl ChainEndProofPublicInputsTarget {
     fn to_vec(&self) -> Vec<Target> {
-        [
-            self.last_withdrawal_hash.to_vec(),
-            self.withdrawal_aggregator.to_vec(),
-        ]
-        .concat()
+        [self.last_hash.to_vec(), self.aggregator.to_vec()].concat()
     }
 
     fn hash<F: RichField + Extendable<D>, C: GenericConfig<D, F = F> + 'static, const D: usize>(
@@ -72,52 +64,49 @@ impl WithdrawalProofPublicInputsTarget {
 }
 
 #[derive(Debug)]
-pub struct WithdrawalWrapperCircuit<F, C, const D: usize>
+pub struct ChainEndCircuit<F, C, const D: usize>
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
 {
     pub data: CircuitData<F, C, D>,
-    withdrawal_proof: ProofWithPublicInputsTarget<D>,
-    withdrawal_aggregator: AddressTarget, // Who makes the withdrawal proof and receive the reward
+    proof: ProofWithPublicInputsTarget<D>,
+    aggregator: AddressTarget, // Who makes the aggregated proof and receive the reward
 }
 
-impl<F, C, const D: usize> WithdrawalWrapperCircuit<F, C, D>
+impl<F, C, const D: usize> ChainEndCircuit<F, C, D>
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F> + 'static,
     C::Hasher: AlgebraicHasher<F>,
 {
-    pub fn new(withdrawal_verifier_data: &VerifierCircuitData<F, C, D>) -> Self {
+    pub fn new(verifier_data: &VerifierCircuitData<F, C, D>) -> Self {
         let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::default());
-        let withdrawal_proof =
-            add_proof_target_and_verify_cyclic(withdrawal_verifier_data, &mut builder);
-        let last_withdrawal_hash =
-            Bytes32Target::from_slice(&withdrawal_proof.public_inputs[0..BYTES32_LEN]);
-        let withdrawal_aggregator = AddressTarget::new(&mut builder, true);
-        let pis = WithdrawalProofPublicInputsTarget {
-            last_withdrawal_hash,
-            withdrawal_aggregator,
+        let proof = add_proof_target_and_verify_cyclic(verifier_data, &mut builder);
+        let last_hash = Bytes32Target::from_slice(&proof.public_inputs[0..BYTES32_LEN]);
+        let aggregator = AddressTarget::new(&mut builder, true);
+        let pis = ChainEndProofPublicInputsTarget {
+            last_hash,
+            aggregator,
         };
         let pis_hash = pis.hash::<F, C, D>(&mut builder);
         builder.register_public_inputs(&pis_hash.to_vec());
         let data = builder.build();
         Self {
             data,
-            withdrawal_proof,
-            withdrawal_aggregator,
+            proof,
+            aggregator,
         }
     }
 
     pub fn prove(
         &self,
-        withdrawal_proof: &ProofWithPublicInputs<F, C, D>,
-        withdrawal_aggregator: Address,
+        proof: &ProofWithPublicInputs<F, C, D>,
+        aggregator: Address,
     ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
         let mut pw = PartialWitness::<F>::new();
-        pw.set_proof_with_pis_target(&self.withdrawal_proof, withdrawal_proof);
-        self.withdrawal_aggregator
-            .set_witness(&mut pw, withdrawal_aggregator);
+        pw.set_proof_with_pis_target(&self.proof, proof);
+        self.aggregator.set_witness(&mut pw, aggregator);
         self.data.prove(pw)
     }
 }

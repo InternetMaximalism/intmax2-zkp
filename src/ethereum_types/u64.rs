@@ -32,6 +32,19 @@ pub struct U64Target {
     limbs: [Target; U64_LEN],
 }
 
+impl U64Target {
+    pub fn from_u32_target<F: RichField + Extendable<D>, const D: usize>(
+        builder: &mut CircuitBuilder<F, D>,
+        target: Target,
+    ) -> Self {
+        builder.range_check(target, 32);
+        let zero = builder.zero();
+        Self {
+            limbs: [zero, target],
+        }
+    }
+}
+
 impl core::fmt::Debug for U64 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let b: BigUint = (*self).into();

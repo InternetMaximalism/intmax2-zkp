@@ -12,13 +12,17 @@ use crate::{
         validity::{validity_pis::ValidityPublicInputs, validity_processor::ValidityProcessor},
     },
     common::{
+        block::Block,
         deposit::Deposit,
         trees::{
             account_tree::AccountTree,
             block_hash_tree::{BlockHashMerkleProof, BlockHashTree},
             deposit_tree::{DepositMerkleProof, DepositTree},
         },
-        witness::{tx_witness::TxWitness, update_witness::UpdateWitness},
+        witness::{
+            deposit_time_witness::DepositTimePublicWitness, tx_witness::TxWitness,
+            update_witness::UpdateWitness,
+        },
     },
     ethereum_types::u256::U256,
 };
@@ -40,6 +44,7 @@ pub struct ValidityStateManager {
     pub deposit_tree: DepositTree,
 
     // historical states
+    pub historical_blocks: HashMap<u32, Block>,
     pub historical_account_trees: HashMap<u32, AccountTree>,
     pub historical_block_trees: HashMap<u32, BlockHashTree>,
     pub historical_deposit_trees: HashMap<u32, DepositTree>,
@@ -51,6 +56,7 @@ impl ValidityStateManager {
         let account_tree = AccountTree::initialize();
         let block_tree = BlockHashTree::initialize();
         let deposit_tree = DepositTree::initialize();
+        let historical_blocks = HashMap::from([(0, Block::genesis())]);
         let historical_account_trees = HashMap::from([(0, account_tree.clone())]);
         let historical_block_trees = HashMap::from([(0, block_tree.clone())]);
         let historical_deposit_trees = HashMap::from([(0, deposit_tree.clone())]);
@@ -64,6 +70,7 @@ impl ValidityStateManager {
             account_tree,
             block_tree,
             deposit_tree,
+            historical_blocks,
             historical_account_trees,
             historical_block_trees,
             historical_deposit_trees,
@@ -82,6 +89,7 @@ impl ValidityStateManager {
         &mut self,
         is_registration_block: bool,
         tx_requests: &[MockTxRequest],
+        timestamp: u64,
     ) -> Result<Vec<TxWitness>> {
         let (validity_witness, tx_witnesses) = construct_validity_and_tx_witness(
             self.validity_pis.clone(),
@@ -90,6 +98,7 @@ impl ValidityStateManager {
             &self.deposit_tree,
             is_registration_block,
             tx_requests,
+            timestamp,
         )?;
         self.validity_pis = validity_witness.to_validity_pis()?;
         self.validity_proof = self
@@ -97,6 +106,8 @@ impl ValidityStateManager {
             .prove(&self.validity_proof, &validity_witness)?
             .into();
         let block_number = validity_witness.get_block_number();
+        self.historical_blocks
+            .insert(block_number, validity_witness.block_witness.block.clone());
         self.historical_validity_proofs
             .insert(block_number, self.validity_proof.clone().unwrap());
         self.historical_account_trees
@@ -160,5 +171,32 @@ impl ValidityStateManager {
             ))?;
         let proof = deposit_tree.prove(deposit_index as u64);
         Ok(proof)
+    }
+
+    pub fn get_deposit_time_public_witness(
+        &self,
+        block_number: u32,
+        deposit_index: u32,
+    ) -> Result<DepositTimePublicWitness> {
+        let prev_block = self
+            .historical_blocks
+            .get(&(block_number - 1))
+            .context(format!(
+                "Block not found for block number {}",
+                block_number - 1
+            ))?;
+        let block = self
+            .historical_blocks
+            .get(&block_number)
+            .context(format!("Block not found for block number {}", block_number))?;
+        let prev_deposit_merkle_proof =
+            self.get_deposit_merkle_proof(block_number - 1, deposit_index)?;
+        let deposit_merkle_proof = self.get_deposit_merkle_proof(block_number, deposit_index)?;
+        Ok(DepositTimePublicWitness {
+            prev_block: prev_block.clone(),
+            block: block.clone(),
+            prev_deposit_merkle_proof,
+            deposit_merkle_proof,
+        })
     }
 }

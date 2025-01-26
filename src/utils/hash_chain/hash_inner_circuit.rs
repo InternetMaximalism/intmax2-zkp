@@ -11,7 +11,6 @@ use plonky2::{
 };
 
 use crate::{
-    common::withdrawal::WithdrawalTarget,
     ethereum_types::{
         bytes32::{Bytes32, Bytes32Target},
         u32limb_trait::U32LimbTargetTrait,
@@ -19,50 +18,49 @@ use crate::{
     utils::recursively_verifiable::add_proof_target_and_verify,
 };
 
+use super::hash_with_prev_hash_circuit;
+
 #[derive(Debug)]
-pub struct WithdrawalInnerCircuit<F, C, const D: usize>
+pub struct HashInnerCircuit<F, C, const D: usize>
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
 {
     pub data: CircuitData<F, C, D>,
-    prev_withdrawal_hash: Bytes32Target,
-    single_withdrawal_proof: ProofWithPublicInputsTarget<D>,
+    prev_hash: Bytes32Target,
+    single_proof: ProofWithPublicInputsTarget<D>,
 }
 
-impl<F, C, const D: usize> WithdrawalInnerCircuit<F, C, D>
+impl<F, C, const D: usize> HashInnerCircuit<F, C, D>
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F> + 'static,
     C::Hasher: AlgebraicHasher<F>,
 {
-    pub fn new(single_withdrawal_vd: &VerifierCircuitData<F, C, D>) -> Self {
+    pub fn new(single_vd: &VerifierCircuitData<F, C, D>) -> Self {
         let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::default());
-        let single_withdrawal_proof =
-            add_proof_target_and_verify(single_withdrawal_vd, &mut builder);
-        let withdrawal = WithdrawalTarget::from_slice(&single_withdrawal_proof.public_inputs);
-        let prev_withdrawal_hash = Bytes32Target::new(&mut builder, false); // connect later
-        let withdrawal_hash =
-            withdrawal.hash_with_prev_hash::<F, C, D>(&mut builder, prev_withdrawal_hash);
-        let pis = [prev_withdrawal_hash.to_vec(), withdrawal_hash.to_vec()].concat();
+        let single_proof = add_proof_target_and_verify(single_vd, &mut builder);
+        let content = &single_proof.public_inputs.to_vec();
+        let prev_hash = Bytes32Target::new(&mut builder, false); // connect later
+        let hash = hash_with_prev_hash_circuit::<F, C, D>(&mut builder, content, prev_hash);
+        let pis = [prev_hash.to_vec(), hash.to_vec()].concat();
         builder.register_public_inputs(&pis);
         let data = builder.build();
         Self {
             data,
-            prev_withdrawal_hash,
-            single_withdrawal_proof,
+            prev_hash,
+            single_proof,
         }
     }
 
     pub fn prove(
         &self,
-        prev_withdrawal_hash: Bytes32,
-        single_withdrawal_proof: &ProofWithPublicInputs<F, C, D>,
+        prev_hash: Bytes32,
+        single_proof: &ProofWithPublicInputs<F, C, D>,
     ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
         let mut pw = PartialWitness::<F>::new();
-        self.prev_withdrawal_hash
-            .set_witness(&mut pw, prev_withdrawal_hash);
-        pw.set_proof_with_pis_target(&self.single_withdrawal_proof, single_withdrawal_proof);
+        self.prev_hash.set_witness(&mut pw, prev_hash);
+        pw.set_proof_with_pis_target(&self.single_proof, single_proof);
         self.data.prove(pw)
     }
 }

@@ -211,10 +211,9 @@ fn pairing_check(agg_pubkey: FlatG1, agg_signature: FlatG2, message_point: FlatG
         == Bn254::pairing(G1Affine::generator(), agg_signature)
 }
 
-fn timestamp() -> U64 {
+fn timestamp() -> u64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap()
         .as_secs()
-        .into()
 }

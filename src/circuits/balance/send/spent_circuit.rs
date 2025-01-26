@@ -91,7 +91,7 @@ pub struct SpentPublicInputsTarget {
 
 impl SpentPublicInputsTarget {
     pub fn to_vec(&self) -> Vec<Target> {
-        let vec = vec![
+        let vec = [
             self.prev_private_commitment.to_vec(),
             self.new_private_commitment.to_vec(),
             self.tx.to_vec(),

@@ -51,7 +51,7 @@ pub struct UpdatePublicInputsTarget {
 
 impl UpdatePublicInputs {
     pub fn to_u64_vec(&self) -> Vec<u64> {
-        let vec = vec![
+        let vec = [
             self.pubkey.to_u64_vec(),
             self.prev_public_state.to_u64_vec(),
             self.new_public_state.to_u64_vec(),
@@ -77,7 +77,7 @@ impl UpdatePublicInputs {
 
 impl UpdatePublicInputsTarget {
     pub fn to_vec(&self) -> Vec<Target> {
-        let vec = vec![
+        let vec =[
             self.pubkey.to_vec(),
             self.prev_public_state.to_vec(),
             self.new_public_state.to_vec(),

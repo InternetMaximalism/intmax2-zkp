@@ -1,7 +1,7 @@
 use plonky2::{
-    field::extension::Extendable,
+    field::{extension::Extendable, types::Field},
     hash::hash_types::RichField,
-    iop::{target::Target, witness::Witness},
+    iop::{target::Target, witness::WitnessWrite},
     plonk::{
         circuit_builder::CircuitBuilder,
         config::{AlgebraicHasher, GenericConfig},
@@ -29,7 +29,7 @@ pub struct Block {
     pub prev_block_hash: Bytes32,   // The hash of the previous block
     pub deposit_tree_root: Bytes32, // The root of the deposit tree
     pub signature_hash: Bytes32,    // The hash of the signature of the block
-    pub timestamp: U64,             // The timestamp of the block
+    pub timestamp: u64,             // The timestamp of the block
     pub block_number: u32,          // The number of the block
 }
 
@@ -49,17 +49,17 @@ impl Block {
             prev_block_hash: Bytes32::default(),
             deposit_tree_root,
             signature_hash: Bytes32::default(),
-            timestamp: U64::zero(),
+            timestamp: 0,
             block_number: 0,
         }
     }
 
     pub fn to_u32_vec(&self) -> Vec<u32> {
-        vec![
+        [
             self.prev_block_hash.to_u32_vec(),
             self.deposit_tree_root.to_u32_vec(),
             self.signature_hash.to_u32_vec(),
-            self.timestamp.to_u32_vec(),
+            U64::from(self.timestamp).to_u32_vec(),
             vec![self.block_number],
         ]
         .concat()
@@ -97,9 +97,9 @@ impl BlockTarget {
         self.prev_block_hash
             .to_vec()
             .into_iter()
-            .chain(self.deposit_tree_root.to_vec().into_iter())
-            .chain(self.signature_hash.to_vec().into_iter())
-            .chain(self.timestamp.to_vec().into_iter())
+            .chain(self.deposit_tree_root.to_vec())
+            .chain(self.signature_hash.to_vec())
+            .chain(self.timestamp.to_vec())
             .chain([self.block_number])
             .collect::<Vec<_>>()
     }
@@ -125,14 +125,14 @@ impl BlockTarget {
         Bytes32Target::from_slice(&builder.keccak256::<C>(&self.to_vec()))
     }
 
-    pub fn set_witness<F: RichField, W: Witness<F>>(&self, witness: &mut W, value: &Block) {
+    pub fn set_witness<W: WitnessWrite<F>, F: Field>(&self, witness: &mut W, value: &Block) {
         self.prev_block_hash
             .set_witness(witness, value.prev_block_hash);
         self.deposit_tree_root
             .set_witness(witness, value.deposit_tree_root);
         self.signature_hash
             .set_witness(witness, value.signature_hash);
-        self.timestamp.set_witness(witness, value.timestamp);
+        self.timestamp.set_witness(witness, U64::from(value.timestamp));
         witness.set_target(self.block_number, F::from_canonical_u32(value.block_number));
     }
 }

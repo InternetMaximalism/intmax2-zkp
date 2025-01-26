@@ -69,7 +69,7 @@ pub struct MainValidationPublicInputs {
     pub account_tree_root: PoseidonHashOut,
     pub tx_tree_root: Bytes32,
     pub sender_tree_root: PoseidonHashOut,
-    pub timestamp: U64,
+    pub timestamp: u64,
     pub block_number: u32,
     pub is_registration_block: bool,
     pub is_valid: bool,
@@ -98,7 +98,7 @@ impl MainValidationPublicInputs {
         let account_tree_root = PoseidonHashOut::from_u64_slice(&input[24..28]);
         let tx_tree_root = Bytes32::from_u64_slice(&input[28..36]);
         let sender_tree_root = PoseidonHashOut::from_u64_slice(&input[36..40]);
-        let timestamp = U64::from_u64_slice(&input[40..42]);
+        let timestamp = U64::from_u64_slice(&input[40..42]).into();
         let block_number = input[42];
         let is_registration_block = input[43] == 1;
         let is_valid = input[44] == 1;
@@ -229,7 +229,7 @@ impl MainValidationPublicInputsTarget {
         self.tx_tree_root.set_witness(witness, value.tx_tree_root);
         self.sender_tree_root
             .set_witness(witness, value.sender_tree_root);
-        self.timestamp.set_witness(witness, value.timestamp);
+        self.timestamp.set_witness(witness, U64::from(value.timestamp));
         witness.set_target(self.block_number, F::from_canonical_u32(value.block_number));
         witness.set_bool_target(self.is_registration_block, value.is_registration_block);
         witness.set_bool_target(self.is_valid, value.is_valid);

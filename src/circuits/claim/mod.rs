@@ -1,0 +1,135 @@
+pub mod deposit_time;
+pub mod determine_lock_time;
+pub mod single_claim_processor;
+pub mod single_claim_proof;
+pub mod utils;
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+
+    use crate::{
+        circuits::{
+            test_utils::state_manager::ValidityStateManager,
+            validity::validity_processor::ValidityProcessor,
+        },
+        common::{
+            deposit::{get_pubkey_salt_hash, Deposit},
+            salt::Salt,
+            signature::key_set::KeySet,
+            witness::{claim_witness::ClaimWitness, deposit_time_witness::DepositTimeWitness},
+        },
+        ethereum_types::{address::Address, u256::U256, u32limb_trait::U32LimbTrait},
+        utils::{hash_chain::hash_chain_processor::HashChainProcessor, wrapper::WrapperCircuit},
+        wrapper_config::plonky2_config::PoseidonBN128GoldilocksConfig,
+    };
+    use plonky2::{
+        field::goldilocks_field::GoldilocksField, plonk::config::PoseidonGoldilocksConfig,
+    };
+    use rand::Rng as _;
+
+    use super::{determine_lock_time::LOCK_TIME_MAX, single_claim_processor::SingleClaimProcessor};
+
+    type F = GoldilocksField;
+    type C = PoseidonGoldilocksConfig;
+    type OuterC = PoseidonBN128GoldilocksConfig;
+    const D: usize = 2;
+
+    #[test]
+    fn test_claim() {
+        let mut rng = rand::thread_rng();
+        let validity_processor = Arc::new(ValidityProcessor::<F, C, D>::new());
+        let mut validity_state_manager = ValidityStateManager::new(validity_processor.clone());
+        let single_claim_processor =
+            SingleClaimProcessor::new(&validity_processor.get_verifier_data());
+        let claim_processor = HashChainProcessor::new(&single_claim_processor.get_verifier_data());
+
+        let key = KeySet::rand(&mut rng);
+
+        // deposit
+        let deposit_salt = Salt::rand(&mut rng);
+        let deposit_salt_hash = get_pubkey_salt_hash(key.pubkey, deposit_salt);
+        let deposit = Deposit {
+            depositor: Address::rand(&mut rng),
+            pubkey_salt_hash: deposit_salt_hash,
+            amount: U256::rand_small(&mut rng),
+            token_index: rng.gen(),
+            is_eligible: true,
+        };
+        let deposit_index = validity_state_manager.deposit(&deposit).unwrap();
+
+        // post empty block to sync deposit tree
+        validity_state_manager.tick(false, &[], 0).unwrap();
+
+        // lock time max passed in this block
+        validity_state_manager
+            .tick(false, &[], LOCK_TIME_MAX as u64)
+            .unwrap();
+
+        let update_witness = validity_state_manager
+            .get_update_witness(key.pubkey, 2, 1, false)
+            .unwrap();
+        let deposit_time_public_witness = validity_state_manager
+            .get_deposit_time_public_witness(1, deposit_index)
+            .unwrap();
+
+        let deposit_time_witness = DepositTimeWitness {
+            public_witness: deposit_time_public_witness,
+            deposit_index,
+            deposit,
+            deposit_salt,
+            pubkey: key.pubkey,
+        };
+        let recipient = Address::rand(&mut rng);
+        let claim_witness = ClaimWitness {
+            recipient,
+            deposit_time_witness,
+            update_witness,
+        };
+        let single_claim_proof = single_claim_processor.prove(&claim_witness).unwrap();
+
+        let cyclic_claim_proof = claim_processor
+            .prove_chain(&single_claim_proof, &None)
+            .unwrap();
+
+        let end_claim_proof = claim_processor
+            .prove_end(&cyclic_claim_proof, recipient)
+            .unwrap();
+
+        let inner_wrapper_circuit = WrapperCircuit::<F, C, C, D>::new(
+            &claim_processor.chain_end_circuit.data.verifier_data(),
+        );
+        let final_circuit =
+            WrapperCircuit::<F, C, OuterC, D>::new(&inner_wrapper_circuit.data.verifier_data());
+
+        let inner_wrapper_proof = inner_wrapper_circuit.prove(&end_claim_proof).unwrap();
+        let final_proof = final_circuit.prove(&inner_wrapper_proof).unwrap();
+
+        println!(
+            "Final circuit degree: {}",
+            final_circuit.data.common.degree_bits()
+        );
+
+        let final_proof_str = serde_json::to_string_pretty(&final_proof).unwrap();
+        let final_circuit_vd =
+            serde_json::to_string_pretty(&final_circuit.data.verifier_only).unwrap();
+        let final_circuit_cd = serde_json::to_string_pretty(&final_circuit.data.common).unwrap();
+        // save to files
+        std::fs::create_dir_all("circuit_data/claim").unwrap();
+        std::fs::write(
+            "circuit_data/claim/proof_with_public_inputs.json",
+            final_proof_str,
+        )
+        .unwrap();
+        std::fs::write(
+            "circuit_data/claim/verifier_only_circuit_data.json",
+            final_circuit_vd,
+        )
+        .unwrap();
+        std::fs::write(
+            "circuit_data/claim/common_circuit_data.json",
+            final_circuit_cd,
+        )
+        .unwrap();
+    }
+}
