@@ -1,5 +1,5 @@
 use plonky2::{
-    field::extension::Extendable,
+    field::{extension::Extendable, types::PrimeField64},
     hash::hash_types::RichField,
     iop::{
         target::Target,
@@ -17,12 +17,14 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     ethereum_types::{
-        address::{Address, AddressTarget},
+        address::{Address, AddressTarget, ADDRESS_LEN},
         bytes32::{Bytes32, Bytes32Target, BYTES32_LEN},
         u32limb_trait::{U32LimbTargetTrait as _, U32LimbTrait},
     },
-    utils::recursively_verifiable::add_proof_target_and_verify_cyclic,
+    utils::{conversion::ToU64 as _, recursively_verifiable::add_proof_target_and_verify_cyclic},
 };
+
+const CHAIN_END_PROOF_PUBLIC_INPUTS_LEN: usize = BYTES32_LEN + ADDRESS_LEN;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -33,7 +35,35 @@ pub struct ChainEndProofPublicInputs {
 
 impl ChainEndProofPublicInputs {
     pub fn to_u32_vec(&self) -> Vec<u32> {
-        [self.last_hash.to_u32_vec(), self.aggregator.to_u32_vec()].concat()
+        let vec = [self.last_hash.to_u32_vec(), self.aggregator.to_u32_vec()].concat();
+        assert_eq!(vec.len(), CHAIN_END_PROOF_PUBLIC_INPUTS_LEN);
+        vec
+    }
+
+    pub fn from_u32_slice(slice: &[u32]) -> Self {
+        assert_eq!(slice.len(), CHAIN_END_PROOF_PUBLIC_INPUTS_LEN);
+        let last_hash = Bytes32::from_u32_slice(&slice[0..BYTES32_LEN]);
+        let aggregator = Address::from_u32_slice(&slice[BYTES32_LEN..]);
+        Self {
+            last_hash,
+            aggregator,
+        }
+    }
+
+    pub fn from_u64_slice(slice: &[u64]) -> Self {
+        assert_eq!(slice.len(), CHAIN_END_PROOF_PUBLIC_INPUTS_LEN);
+        let inputs = slice
+            .into_iter()
+            .map(|&x| {
+                assert!(x <= u32::MAX as u64);
+                x as u32
+            })
+            .collect::<Vec<u32>>();
+        Self::from_u32_slice(&inputs)
+    }
+
+    pub fn from_pis<F: PrimeField64>(pis: &[F]) -> Self {
+        Self::from_u64_slice(&pis.to_u64_vec())
     }
 
     pub fn hash(&self) -> Bytes32 {

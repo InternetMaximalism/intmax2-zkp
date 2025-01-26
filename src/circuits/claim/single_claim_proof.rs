@@ -18,9 +18,12 @@ use crate::{
         claim::deposit_time::{DepositTimePublicInputs, DepositTimePublicInputsTarget},
         validity::validity_pis::{ValidityPublicInputs, ValidityPublicInputsTarget},
     },
-    common::trees::{
-        account_tree::{AccountMembershipProof, AccountMembershipProofTarget},
-        block_hash_tree::{BlockHashMerkleProof, BlockHashMerkleProofTarget},
+    common::{
+        claim::ClaimTarget,
+        trees::{
+            account_tree::{AccountMembershipProof, AccountMembershipProofTarget},
+            block_hash_tree::{BlockHashMerkleProof, BlockHashMerkleProofTarget},
+        },
     },
     constants::{ACCOUNT_TREE_HEIGHT, BLOCK_HASH_TREE_HEIGHT},
     ethereum_types::{
@@ -230,6 +233,16 @@ where
         let mut builder =
             CircuitBuilder::<F, D>::new(CircuitConfig::standard_recursion_zk_config());
         let target = SingleClaimTarget::new(validity_vd, deposit_time_vd, &mut builder, true);
+        let deposit_time_pis =
+            DepositTimePublicInputsTarget::from_slice(&target.deposit_time_proof.public_inputs);
+        let claim = ClaimTarget {
+            recipient: target.recipient,
+            amount: deposit_time_pis.deposit_amount,
+            nullifier: deposit_time_pis.nullifier,
+            block_hash: target.block_hash,
+            block_number: target.block_number,
+        };
+        builder.register_public_inputs(&claim.to_vec());
         let data = builder.build();
         Self { data, target }
     }
