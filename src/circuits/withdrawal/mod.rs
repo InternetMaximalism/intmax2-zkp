@@ -23,8 +23,15 @@ mod tests {
             signature::key_set::KeySet, transfer::Transfer,
             witness::withdrawal_witness::WithdrawalWitness,
         },
-        ethereum_types::address::Address,
-        utils::{hash_chain::hash_chain_processor::HashChainProcessor, wrapper::WrapperCircuit},
+        ethereum_types::{address::Address, bytes32::Bytes32, u32limb_trait::U32LimbTrait},
+        utils::{
+            conversion::ToU64,
+            hash_chain::{
+                chain_end_circuit::ChainEndProofPublicInputs,
+                hash_chain_processor::HashChainProcessor, hash_with_prev_hash,
+            },
+            wrapper::WrapperCircuit,
+        },
         wrapper_config::plonky2_config::PoseidonBN128GoldilocksConfig,
     };
 
@@ -34,7 +41,7 @@ mod tests {
     const D: usize = 2;
 
     #[test]
-    fn withdrawal_processor() -> anyhow::Result<()> {
+    fn test_withdrawal() -> anyhow::Result<()> {
         let mut rng = rand::thread_rng();
         let validity_processor = Arc::new(ValidityProcessor::<F, C, D>::new());
         let balance_processor = BalanceProcessor::new(&validity_processor.get_verifier_data());
@@ -91,10 +98,26 @@ mod tests {
             single_withdrawal_circuit.prove(&transition_inclusion_value)?;
         let chained_withdrawal_proof =
             withdrawal_processor.prove_chain(&single_withdrawal_proof, &None)?;
-        let wrapped_withdrawal_proof =
-            withdrawal_processor.prove_end(&chained_withdrawal_proof, Address::default())?;
+        let aggregator = Address::default();
+        let end_withdrawal_proof =
+            withdrawal_processor.prove_end(&chained_withdrawal_proof, aggregator)?;
 
-        let inner_wrapper_proof = inner_wrapper_circuit.prove(&wrapped_withdrawal_proof)?;
+        // public inputs check
+        let withdrawal = withdrawal_witness.to_withdrawal();
+        let mut hash = Bytes32::default();
+        hash = hash_with_prev_hash(&withdrawal.to_u32_vec(), hash);
+        let expected_end_withdrawal_pis = ChainEndProofPublicInputs {
+            last_hash: hash,
+            aggregator,
+        };
+        let pis_hash = expected_end_withdrawal_pis.hash();
+        let pis_hash_vec = pis_hash.to_u64_vec();
+        assert_eq!(
+            pis_hash_vec,
+            end_withdrawal_proof.public_inputs.to_u64_vec()
+        );
+
+        let inner_wrapper_proof = inner_wrapper_circuit.prove(&end_withdrawal_proof)?;
         let final_proof = final_circuit.prove(&inner_wrapper_proof)?;
 
         println!(

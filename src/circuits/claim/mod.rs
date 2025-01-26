@@ -19,8 +19,17 @@ mod tests {
             signature::key_set::KeySet,
             witness::{claim_witness::ClaimWitness, deposit_time_witness::DepositTimeWitness},
         },
-        ethereum_types::{address::Address, u256::U256, u32limb_trait::U32LimbTrait},
-        utils::{hash_chain::hash_chain_processor::HashChainProcessor, wrapper::WrapperCircuit},
+        ethereum_types::{
+            address::Address, bytes32::Bytes32, u256::U256, u32limb_trait::U32LimbTrait,
+        },
+        utils::{
+            conversion::ToU64 as _,
+            hash_chain::{
+                chain_end_circuit::ChainEndProofPublicInputs,
+                hash_chain_processor::HashChainProcessor, hash_with_prev_hash,
+            },
+            wrapper::WrapperCircuit,
+        },
         wrapper_config::plonky2_config::PoseidonBN128GoldilocksConfig,
     };
     use plonky2::{
@@ -92,9 +101,22 @@ mod tests {
             .prove_chain(&single_claim_proof, &None)
             .unwrap();
 
+        let aggregator = Address::default();
         let end_claim_proof = claim_processor
-            .prove_end(&cyclic_claim_proof, recipient)
+            .prove_end(&cyclic_claim_proof, aggregator)
             .unwrap();
+
+        // public inputs check
+        let claim = claim_witness.to_claim();
+        let mut hash = Bytes32::default();
+        hash = hash_with_prev_hash(&claim.to_u32_vec(), hash);
+        let expected_end_withdrawal_pis = ChainEndProofPublicInputs {
+            last_hash: hash,
+            aggregator,
+        };
+        let pis_hash = expected_end_withdrawal_pis.hash();
+        let pis_hash_vec = pis_hash.to_u64_vec();
+        assert_eq!(pis_hash_vec, end_claim_proof.public_inputs.to_u64_vec());
 
         let inner_wrapper_circuit = WrapperCircuit::<F, C, C, D>::new(
             &claim_processor.chain_end_circuit.data.verifier_data(),
