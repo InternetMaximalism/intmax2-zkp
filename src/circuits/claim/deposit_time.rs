@@ -181,6 +181,10 @@ impl DepositTimeValue {
         deposit_salt: Salt,
         pubkey: U256,
     ) -> anyhow::Result<Self> {
+        if !deposit.is_eligible {
+            return Err(anyhow::anyhow!("deposit is not eligible for mining"));
+        }
+
         // deposit non-inclusion proof of prev_deposit_merkle_proof
         prev_deposit_merkle_proof
             .verify(
@@ -261,6 +265,8 @@ impl DepositTimeTarget {
         }
         let deposit_salt = SaltTarget::new(builder);
         let pubkey = U256Target::new(builder, is_checked);
+        
+        builder.assert_one(deposit.is_eligible.target);
 
         let empty_deposit = DepositTarget::empty_leaf(builder);
         prev_deposit_merkle_proof.verify::<F, C, D>(
