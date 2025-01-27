@@ -17,8 +17,16 @@ use crate::{
     utils::poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget},
 };
 
+#[cfg(feature = "faster-mining")]
+pub const LOCK_TIME_MIN: u32 = 120; // 2 minutes
+#[cfg(feature = "faster-mining")]
+pub const LOCK_TIME_MAX: u32 = 300; // 5 minutes
+
+#[cfg(not(feature = "faster-mining"))]
 pub const LOCK_TIME_MIN: u32 = 172800; // 2 days
+#[cfg(not(feature = "faster-mining"))]
 pub const LOCK_TIME_MAX: u32 = 432000; // 5 days
+
 pub const LOCK_TIME_DELTA: u32 = LOCK_TIME_MAX - LOCK_TIME_MIN;
 
 // lock time is determined by the following formula:
