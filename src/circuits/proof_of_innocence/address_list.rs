@@ -1,7 +1,7 @@
 use plonky2::{
     field::extension::Extendable,
     hash::hash_types::RichField,
-    iop::witness::WitnessWrite,
+    iop::{target::BoolTarget, witness::WitnessWrite},
     plonk::{
         circuit_builder::CircuitBuilder,
         config::{AlgebraicHasher, GenericConfig},
@@ -51,6 +51,10 @@ impl AddressMembershipProof {
         let generic_address = GenericAddress::from_address(address);
         self.0.verify(generic_address.data, root)
     }
+
+    pub fn is_included(&self) -> bool {
+        self.0.is_included
+    }
 }
 
 impl AddressMembershipProofTarget {
@@ -88,5 +92,9 @@ impl AddressMembershipProofTarget {
         let generic_address = GenericAddressTarget::from_address(builder, address);
         self.0
             .verify::<F, C, D>(builder, generic_address.data, root);
+    }
+
+    pub fn is_included(&self) -> BoolTarget {
+        self.0.is_included
     }
 }
