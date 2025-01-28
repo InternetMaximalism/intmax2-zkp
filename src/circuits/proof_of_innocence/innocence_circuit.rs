@@ -130,7 +130,7 @@ where
     inner_target: InnocenceInnerTarget,
     prev_proof: ProofWithPublicInputsTarget<D>,
     verifier_data_target: VerifierCircuitTarget,
-    data: CircuitData<F, C, D>,
+    pub data: CircuitData<F, C, D>,
 }
 
 impl<F, C, const D: usize> InnocenceCircuit<F, C, D>

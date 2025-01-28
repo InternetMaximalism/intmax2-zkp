@@ -1,7 +1,10 @@
 use plonky2::{
     field::{extension::Extendable, types::PrimeField64},
     hash::hash_types::RichField,
-    iop::{target::{BoolTarget, Target}, witness::{PartialWitness, WitnessWrite as _}},
+    iop::{
+        target::{BoolTarget, Target},
+        witness::{PartialWitness, WitnessWrite as _},
+    },
     plonk::{
         circuit_builder::CircuitBuilder,
         circuit_data::{CircuitConfig, CircuitData, VerifierCircuitData},
@@ -162,5 +165,9 @@ where
         pw.set_proof_with_pis_target(&self.innocence_proof, innocence_proof);
         self.private_state.set_witness(&mut pw, &private_state);
         self.data.prove(pw)
+    }
+
+    pub fn verify(&self, proof: &ProofWithPublicInputs<F, C, D>) -> anyhow::Result<()> {
+        self.data.verify(proof.clone())
     }
 }
