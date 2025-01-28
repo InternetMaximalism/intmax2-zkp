@@ -45,6 +45,7 @@ impl NullifierTree {
         self.0
             .leaves()
             .iter()
+            .skip(1) // ignore the default leaf
             .map(|l| Bytes32::from_u32_slice(&l.key.to_u32_vec()))
             .collect()
     }
