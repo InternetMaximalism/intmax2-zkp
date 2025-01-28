@@ -172,7 +172,7 @@ impl InnocenceInnerTarget {
 }
 
 #[cfg(test)]
-mod a {
+mod tests {
     use plonky2::{
         field::goldilocks_field::GoldilocksField,
         iop::witness::PartialWitness,

@@ -1,4 +1,3 @@
-use hashbrown::HashMap;
 use plonky2::{
     field::{extension::Extendable, types::PrimeField64},
     gates::noop::NoopGate,
@@ -19,8 +18,12 @@ use plonky2::{
 use crate::{
     common::trees::nullifier_tree::NullifierTree,
     constants::CYCLIC_CIRCUIT_PADDING_DEGREE,
+    ethereum_types::{
+        u256::{U256Target, U256},
+        u32limb_trait::U32LimbTargetTrait,
+    },
     utils::{
-        conversion::ToU64,
+        conversion::{ToField as _, ToU64},
         cyclic::vd_vec_len,
         poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget, POSEIDON_HASH_OUT_LEN},
     },
@@ -208,8 +211,22 @@ where
         pw.set_verifier_data_target(&self.verifier_data_target, &self.data.verifier_only);
         self.inner_target.set_witness(&mut pw, inner_value);
         if prev_proof.is_none() {
-            let dummy_proof =
-                cyclic_base_proof(&self.data.common, &self.data.verifier_only, HashMap::new());
+            let initial_pis = InnocencePublicInputs {
+                use_allow_list: inner_value.use_allow_list,
+                allow_list_tree_root: inner_value.allow_list_tree_root,
+                deny_list_tree_root: inner_value.deny_list_tree_root,
+                nullifier_tree_root: NullifierTree::new().get_root(),
+            };
+            let dummy_proof = cyclic_base_proof(
+                &self.data.common,
+                &self.data.verifier_only,
+                initial_pis
+                    .to_u64_vec()
+                    .to_field_vec::<F>()
+                    .into_iter()
+                    .enumerate()
+                    .collect(),
+            );
             pw.set_bool_target(self.is_first_step, true);
             pw.set_proof_with_pis_target(&self.prev_proof, &dummy_proof);
         } else {
@@ -247,10 +264,71 @@ where
         circuit_digest: builder.add_virtual_hash(),
     };
     builder.verify_proof::<C>(&proof, &verifier_data, &data.common);
-    while builder.num_gates() < 1 << CYCLIC_CIRCUIT_PADDING_DEGREE {
+    while builder.num_gates() < 1 << CYCLIC_CIRCUIT_PADDING_DEGREE - 1 {
         builder.add_gate(NoopGate, vec![]);
     }
+    let zero = U256Target::zero::<F, D, U256>(&mut builder);
+    let one = U256Target::constant::<F, D, U256>(&mut builder, 1.into());
+    zero.is_le(&mut builder, &one); // to add comparison gate
     let mut common = builder.build::<C>().common;
     common.num_public_inputs = INNOCENCE_PUBLIC_INPUTS_LEN + vd_vec_len(&common.config);
     common
+}
+
+#[cfg(test)]
+mod tests {
+    use plonky2::{
+        field::goldilocks_field::GoldilocksField, plonk::config::PoseidonGoldilocksConfig,
+    };
+
+    use crate::{
+        circuits::proof_of_innocence::address_list::AddressListTree,
+        common::{deposit::Deposit, trees::nullifier_tree::NullifierTree},
+        ethereum_types::{address::Address, bytes32::Bytes32, u32limb_trait::U32LimbTrait},
+    };
+
+    use super::{InnocenceCircuit, InnocenceInnerValue};
+
+    type F = GoldilocksField;
+    type C = PoseidonGoldilocksConfig;
+    const D: usize = 2;
+
+    #[test]
+    fn test_innocence_circuit() {
+        let mut rng = rand::thread_rng();
+        let depositor = Address::rand(&mut rng);
+
+        let allow_list_tree = AddressListTree::new(&[depositor]).unwrap();
+        let deny_list_tree = AddressListTree::new(&[]).unwrap();
+        let mut nullifier_tree = NullifierTree::new();
+        let prev_nullifier_tree_root = nullifier_tree.get_root();
+
+        let deposit = Deposit {
+            depositor,
+            pubkey_salt_hash: Bytes32::rand(&mut rng),
+            amount: 100.into(),
+            token_index: 0,
+            is_eligible: true,
+        };
+        let nullifier_proof = nullifier_tree
+            .prove_and_insert(deposit.poseidon_hash().into())
+            .unwrap();
+        let allow_list_membership_proof = allow_list_tree.prove_membership(depositor);
+        let deny_list_membership_proof = deny_list_tree.prove_membership(depositor);
+
+        let value = InnocenceInnerValue::new(
+            true,
+            allow_list_tree.get_root(),
+            deny_list_tree.get_root(),
+            prev_nullifier_tree_root,
+            deposit,
+            nullifier_proof,
+            allow_list_membership_proof,
+            deny_list_membership_proof,
+        )
+        .unwrap();
+
+        let circuit = InnocenceCircuit::<F, C, D>::new();
+        let _proof = circuit.prove(&value, &None).unwrap();
+    }
 }
