@@ -58,7 +58,7 @@ impl InnocenceInnerValue {
             .map_err(|e| {
                 anyhow::anyhow!("deny list membership proof verification failed: {}", e)
             })?;
-        if !deny_list_membership_proof.is_included() {
+        if deny_list_membership_proof.is_included() {
             return Err(anyhow::anyhow!("depositor is in the deny list"));
         }
         // prove transition of nullifier root
@@ -168,5 +168,74 @@ impl InnocenceInnerTarget {
             .set_witness(witness, &value.allow_list_membership_proof);
         self.deny_list_membership_proof
             .set_witness(witness, &value.deny_list_membership_proof);
+    }
+}
+
+#[cfg(test)]
+mod a {
+    use plonky2::{
+        field::goldilocks_field::GoldilocksField,
+        iop::witness::PartialWitness,
+        plonk::{
+            circuit_builder::CircuitBuilder, circuit_data::CircuitConfig,
+            config::PoseidonGoldilocksConfig,
+        },
+    };
+
+    use crate::{
+        circuits::proof_of_innocence::address_list::AddressListTree,
+        common::{deposit::Deposit, trees::nullifier_tree::NullifierTree},
+        ethereum_types::{address::Address, bytes32::Bytes32, u32limb_trait::U32LimbTrait},
+    };
+
+    use super::{InnocenceInnerTarget, InnocenceInnerValue};
+
+    type F = GoldilocksField;
+    type C = PoseidonGoldilocksConfig;
+    const D: usize = 2;
+
+    #[test]
+    fn test_innocence_inner_target() {
+        let mut rng = rand::thread_rng();
+        let depositor = Address::rand(&mut rng);
+
+        let allow_list_tree = AddressListTree::new(&[depositor]).unwrap();
+        let deny_list_tree = AddressListTree::new(&[]).unwrap();
+        let mut nullifier_tree = NullifierTree::new();
+        let prev_nullifier_tree_root = nullifier_tree.get_root();
+
+        let deposit = Deposit {
+            depositor,
+            pubkey_salt_hash: Bytes32::rand(&mut rng),
+            amount: 100.into(),
+            token_index: 0,
+            is_eligible: true,
+        };
+        let nullifier_proof = nullifier_tree
+            .prove_and_insert(deposit.poseidon_hash().into())
+            .unwrap();
+        let allow_list_membership_proof = allow_list_tree.prove_membership(depositor);
+        let deny_list_membership_proof = deny_list_tree.prove_membership(depositor);
+
+        let value = InnocenceInnerValue::new(
+            true,
+            allow_list_tree.get_root(),
+            deny_list_tree.get_root(),
+            prev_nullifier_tree_root,
+            deposit,
+            nullifier_proof,
+            allow_list_membership_proof,
+            deny_list_membership_proof,
+        )
+        .unwrap();
+
+        let mut builder = CircuitBuilder::new(CircuitConfig::default());
+        let target = InnocenceInnerTarget::new::<F, C, D>(&mut builder, true);
+        let data = builder.build::<C>();
+
+        let mut pw = PartialWitness::new();
+        target.set_witness(&mut pw, &value);
+        let proof = data.prove(pw).unwrap();
+        data.verify(proof).unwrap();
     }
 }

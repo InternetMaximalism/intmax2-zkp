@@ -31,9 +31,9 @@ pub struct AddressMembershipProof(MembershipProof);
 pub struct AddressMembershipProofTarget(MembershipProofTarget);
 
 impl AddressListTree {
-    pub fn new(deny_list: &[Address]) -> anyhow::Result<Self> {
+    pub fn new(address_list: &[Address]) -> anyhow::Result<Self> {
         let mut tree = IndexedMerkleTree::new(ADDRESS_LIST_TREE_HEIGHT);
-        for address in deny_list {
+        for address in address_list {
             let generic_address = GenericAddress::from_address(*address);
             tree.insert(generic_address.data, 0)?;
         }
