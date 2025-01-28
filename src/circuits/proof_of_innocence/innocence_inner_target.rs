@@ -153,18 +153,20 @@ impl InnocenceInnerTarget {
         value: &InnocenceInnerValue,
     ) {
         witness.set_bool_target(self.use_allow_list, value.use_allow_list);
-        self.allow_list_tree_root.set_witness(witness, value.allow_list_tree_root);
-        self.deny_list_tree_root.set_witness(witness, value.deny_list_tree_root);
+        self.allow_list_tree_root
+            .set_witness(witness, value.allow_list_tree_root);
+        self.deny_list_tree_root
+            .set_witness(witness, value.deny_list_tree_root);
         self.prev_nullifier_tree_root
             .set_witness(witness, value.prev_nullifier_tree_root);
         self.new_nullifier_tree_root
             .set_witness(witness, value.new_nullifier_tree_root);
         self.deposit.set_witness(witness, &value.deposit);
-        self.nullifier_proof.set_witness(witness, &value.nullifier_proof);
+        self.nullifier_proof
+            .set_witness(witness, &value.nullifier_proof);
         self.allow_list_membership_proof
             .set_witness(witness, &value.allow_list_membership_proof);
         self.deny_list_membership_proof
             .set_witness(witness, &value.deny_list_membership_proof);
-        
     }
 }
