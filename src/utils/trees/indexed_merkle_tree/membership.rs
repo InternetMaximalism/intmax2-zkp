@@ -1,6 +1,6 @@
 use anyhow::{ensure, Result};
 use plonky2::{
-    field::extension::Extendable,
+    field::{extension::Extendable, types::Field},
     hash::hash_types::RichField,
     iop::{
         target::{BoolTarget, Target},
@@ -128,7 +128,7 @@ impl MembershipProofTarget {
         }
     }
 
-    pub fn set_witness<F: RichField, W: WitnessWrite<F>>(
+    pub fn set_witness<F: Field, W: WitnessWrite<F>>(
         &self,
         witness: &mut W,
         value: &MembershipProof,

@@ -1,5 +1,5 @@
 use plonky2::{
-    field::extension::Extendable,
+    field::{extension::Extendable, types::Field},
     hash::hash_types::RichField,
     iop::{target::BoolTarget, witness::WitnessWrite},
     plonk::{
@@ -21,8 +21,13 @@ use crate::{
     },
 };
 
+#[derive(Debug, Clone)]
 pub struct AddressListTree(IndexedMerkleTree);
+
+#[derive(Debug, Clone)]
 pub struct AddressMembershipProof(MembershipProof);
+
+#[derive(Debug, Clone)]
 pub struct AddressMembershipProofTarget(MembershipProofTarget);
 
 impl AddressListTree {
@@ -69,7 +74,7 @@ impl AddressMembershipProofTarget {
         ))
     }
 
-    pub fn set_witness<F: RichField, W: WitnessWrite<F>>(
+    pub fn set_witness<F: Field, W: WitnessWrite<F>>(
         &self,
         witness: &mut W,
         value: &AddressMembershipProof,
