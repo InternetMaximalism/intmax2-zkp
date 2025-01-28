@@ -173,3 +173,76 @@ where
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+
+    use plonky2::{
+        field::goldilocks_field::GoldilocksField, plonk::config::PoseidonGoldilocksConfig,
+    };
+    use rand::seq::SliceRandom;
+
+    use crate::{
+        common::{
+            deposit::Deposit,
+            private_state::FullPrivateState,
+            salt::Salt,
+            trees::{asset_tree::AssetTree, nullifier_tree::NullifierTree},
+        },
+        constants::ASSET_TREE_HEIGHT,
+        ethereum_types::{address::Address, u32limb_trait::U32LimbTrait},
+        utils::poseidon_hash_out::PoseidonHashOut,
+    };
+
+    use super::InnocenceProcessor;
+
+    type F = GoldilocksField;
+    type C = PoseidonGoldilocksConfig;
+    const D: usize = 2;
+
+    #[test]
+    fn test_innocence_processor() {
+        let mut rng = rand::thread_rng();
+        let deposits = [(); 10].map(|_| Deposit::rand(&mut rng));
+        let mut allow_list = deposits
+            .iter()
+            .map(|d| d.depositor)
+            .chain([(); 10].map(|_| Address::rand(&mut rng))) // add some random addresses
+            .collect::<Vec<_>>();
+        allow_list.shuffle(&mut rng);
+        let deny_list = [(); 5].map(|_| Address::rand(&mut rng)); // some random addresses
+
+        let mut nullifier_tree = NullifierTree::new();
+        for deposit in &deposits {
+            nullifier_tree
+                .prove_and_insert(deposit.poseidon_hash().into())
+                .unwrap();
+        }
+        let full_private_state = FullPrivateState {
+            asset_tree: AssetTree::new(ASSET_TREE_HEIGHT),
+            nullifier_tree,
+            prev_private_commitment: PoseidonHashOut::rand(&mut rng),
+            nonce: 0,
+            salt: Salt::rand(&mut rng),
+        };
+
+        let mut suffled_deposits = deposits.to_vec();
+        suffled_deposits.shuffle(&mut rng);
+
+        let processor = InnocenceProcessor::<F, C, D>::new();
+        let proof = processor
+            .prove(
+                Some(&allow_list),
+                &deny_list,
+                &full_private_state,
+                &suffled_deposits,
+            )
+            .unwrap();
+
+        let private_commitment = full_private_state.to_private_state().commitment();
+
+        processor
+            .verify(Some(&allow_list), &deny_list, private_commitment, &proof)
+            .unwrap();
+    }
+}
