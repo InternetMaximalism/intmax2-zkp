@@ -123,6 +123,19 @@ impl GenericAddressTarget {
         }
     }
 
+    pub fn from_address<F: RichField + Extendable<D>, const D: usize>(
+        builder: &mut CircuitBuilder<F, D>,
+        address: AddressTarget,
+    ) -> Self {
+        let mut limbs = address.to_vec();
+        let zero = builder.zero();
+        limbs.resize(U256_LEN, zero);
+        Self {
+            is_pubkey: builder._false(),
+            data: U256Target::from_slice(&limbs),
+        }
+    }
+
     pub fn to_address<F: RichField + Extendable<D>, const D: usize>(
         &self,
         builder: &mut CircuitBuilder<F, D>,

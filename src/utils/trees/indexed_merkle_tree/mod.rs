@@ -94,6 +94,10 @@ impl IndexedMerkleTree {
         Ok(())
     }
 
+    pub fn leaves(&self) -> Vec<IndexedMerkleLeaf> {
+        self.0.leaves()
+    }
+
     pub fn len(&self) -> usize {
         self.0.len()
     }
