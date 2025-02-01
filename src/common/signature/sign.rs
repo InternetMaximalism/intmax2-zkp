@@ -1,11 +1,13 @@
+use std::vec;
+
 use crate::ethereum_types::{
     bytes32::{Bytes32, Bytes32Target},
     u256::{U256Target, U256},
     u32limb_trait::{U32LimbTargetTrait as _, U32LimbTrait as _},
     u64::{U64Target, U64},
 };
-use ark_bn254::{Fr, G1Affine, G2Affine};
-use ark_ec::AffineRepr;
+use ark_bn254::{Bn254, Fr, G1Affine, G1Projective, G2Affine};
+use ark_ec::{pairing::Pairing, AffineRepr};
 use num::{BigUint, One, Zero as _};
 use plonky2::{
     field::{extension::Extendable, goldilocks_field::GoldilocksField, types::Field as _},
@@ -21,12 +23,137 @@ use plonky2::{
 };
 use plonky2_bn254::{
     curves::g2::G2Target,
-    fields::biguint::{BigUintTarget, CircuitBuilderBiguint},
+    fields::{
+        biguint::{BigUintTarget, CircuitBuilderBiguint},
+        recover::RecoverFromX,
+    },
     utils::hash_to_g2::HashToG2 as _,
 };
+use plonky2_keccak::utils::solidity_keccak256;
 use plonky2_u32::gadgets::arithmetic_u32::U32Target;
 
 use super::flatten::FlatG2Target;
+
+fn check_pairing(g1s: Vec<G1Affine>, g2s: Vec<G2Affine>) -> bool {
+    Bn254::multi_pairing(g1s, g2s).is_zero()
+}
+
+// 10*1 padding
+fn pad_10star1(input: Vec<u8>) -> Vec<u8> {
+    const WINDOW_SIZE: usize = 4;
+
+    let mut padded = input.clone();
+    padded.push(0b10000000);
+    while padded.len() % WINDOW_SIZE != WINDOW_SIZE - 1 {
+        padded.push(0);
+    }
+    padded.push(1);
+
+    padded
+}
+
+fn sign_u32_limbs(privkey: Fr, message: &[u32]) -> G2Affine {
+    let elements = message
+        .iter()
+        .map(|x| GoldilocksField::from_canonical_u32(*x))
+        .collect::<Vec<_>>();
+    let message_g2 = G2Target::<GoldilocksField, 2>::hash_to_g2(&elements);
+    let signature: G2Affine = (message_g2 * privkey).into();
+
+    signature
+}
+
+fn verify_u32_limbs(signature: G2Affine, pubkey: U256, message: &[u32]) -> anyhow::Result<()> {
+    let elements = message
+        .iter()
+        .map(|x| GoldilocksField::from_canonical_u32(*x))
+        .collect::<Vec<_>>();
+    let message_g2 = G2Target::<GoldilocksField, 2>::hash_to_g2(&elements);
+
+    let pubkey_g1 = G1Affine::recover_from_x(pubkey.into());
+    let g1_generator_inv = -G1Affine::generator();
+    let signature_g2 = G2Affine::from(signature);
+    let g1s = vec![g1_generator_inv, pubkey_g1];
+    let g2s = vec![signature_g2, message_g2];
+    if !check_pairing(g1s, g2s) {
+        anyhow::bail!("Invalid signature");
+    }
+
+    Ok(())
+}
+
+pub fn sign_message(privkey: Fr, message: &[u8]) -> G2Affine {
+    let padded_message = pad_10star1(message.to_vec());
+    debug_assert!(padded_message.len() % 4 == 0);
+    let limbs = padded_message
+        .chunks(4)
+        .map(|c| u32::from_be_bytes(c.try_into().unwrap()))
+        .collect::<Vec<_>>();
+
+    sign_u32_limbs(privkey, &limbs)
+}
+
+pub fn verify_signature(signature: G2Affine, pubkey: U256, message: &[u8]) -> anyhow::Result<()> {
+    let padded_message = pad_10star1(message.to_vec());
+    debug_assert!(padded_message.len() % 4 == 0);
+    let limbs = padded_message
+        .chunks(4)
+        .map(|c| u32::from_be_bytes(c.try_into().unwrap()))
+        .collect::<Vec<_>>();
+
+    verify_u32_limbs(signature, pubkey, &limbs)
+}
+
+pub fn get_pubkey_hash(pubkeys: &[U256]) -> Bytes32 {
+    let pubkey_flattened = pubkeys
+        .iter()
+        .flat_map(|x| x.to_u32_vec())
+        .collect::<Vec<_>>();
+    Bytes32::from_u32_slice(&solidity_keccak256(&pubkey_flattened))
+}
+
+pub fn weight_to_signature(signature: G2Affine, pubkey: U256, signers: Vec<U256>) -> G2Affine {
+    let pubkey = G1Affine::recover_from_x(pubkey.into());
+    let pubkey_x: U256 = pubkey.x.into();
+    let pubkey_hash = get_pubkey_hash(&signers);
+    let weight = hash_to_weight(pubkey_x, pubkey_hash);
+
+    (signature * Fr::from(BigUint::from(weight))).into()
+}
+
+pub fn sign_message_with_signers(privkey: Fr, message: &[u8], signers: Vec<U256>) -> G2Affine {
+    let signature: G2Affine = sign_message(privkey, message);
+    let pubkey: G1Affine = (G1Affine::generator() * privkey).into();
+    let pubkey_x: U256 = pubkey.x.into();
+
+    weight_to_signature(signature, pubkey_x, signers)
+}
+
+pub fn calc_aggregated_pubkey(signers: &[U256]) -> U256 {
+    let pubkey_hash = get_pubkey_hash(signers);
+    let mut aggregated_pubkey = G1Projective::zero();
+    for signer in signers {
+        let signer_g1 = G1Affine::recover_from_x((*signer).into());
+        let signer_x: U256 = signer_g1.x.into();
+        let weight = hash_to_weight(signer_x, pubkey_hash);
+        let weight_pubkey = signer_g1 * Fr::from(BigUint::from(weight));
+        aggregated_pubkey += weight_pubkey;
+    }
+
+    let pubkey: G1Affine = aggregated_pubkey.into();
+
+    U256::from(pubkey.x)
+}
+
+pub fn verify_signature_with_signers(
+    signature: G2Affine,
+    message: &[u8],
+    signers: Vec<U256>,
+) -> anyhow::Result<()> {
+    let aggregated_pubkey = calc_aggregated_pubkey(&signers);
+
+    verify_signature(signature, aggregated_pubkey, message)
+}
 
 pub fn sign_to_tx_root_and_expiry(
     privkey: Fr,
@@ -152,8 +279,9 @@ fn target_slice_to_biguint_target<F: RichField + Extendable<D>, const D: usize>(
 
 #[cfg(test)]
 mod tests {
-    use ark_bn254::G1Affine;
+    use ark_bn254::{G1Affine, G2Affine, G2Projective};
     use ark_ff::UniformRand;
+    use num::Zero as _;
     use plonky2::{
         field::goldilocks_field::GoldilocksField,
         iop::witness::PartialWitness,
@@ -164,10 +292,20 @@ mod tests {
     };
 
     use crate::{
-        common::signature::utils::get_pubkey_hash,
+        common::signature::{
+            flatten::FlatG2,
+            key_set::KeySet,
+            sign::{
+                sign_message, sign_message_with_signers, sign_u32_limbs, verify_signature,
+                verify_signature_with_signers, verify_u32_limbs, weight_to_signature,
+            },
+            utils::get_pubkey_hash,
+        },
         constants::NUM_SENDERS_IN_BLOCK,
         ethereum_types::{
-            bytes32::Bytes32Target, u256::U256Target, u32limb_trait::U32LimbTargetTrait,
+            bytes32::Bytes32Target,
+            u256::{U256Target, U256},
+            u32limb_trait::U32LimbTargetTrait,
         },
     };
 
@@ -197,4 +335,117 @@ mod tests {
         let proof = circuit.prove(pw).unwrap();
         assert!(circuit.verify(proof).is_ok());
     }
+
+    #[test]
+    fn test_verify_signature_to_u32_limbs() {
+        let rng = &mut rand::thread_rng();
+        let key = KeySet::rand(rng);
+        let message = [1, 2, 3, 4];
+        let signature = sign_u32_limbs(key.privkey, &message);
+        assert!(verify_u32_limbs(signature.into(), key.pubkey, &message).is_ok());
+    }
+
+    #[test]
+    fn test_verify_signature() {
+        let rng = &mut rand::thread_rng();
+        let key = KeySet::rand(rng);
+        let message = b"hello world";
+        let signature = sign_message(key.privkey, message);
+        assert!(verify_signature(signature.into(), key.pubkey, message).is_ok());
+    }
+
+    // TODO: fail sometimes
+    #[test]
+    fn test_verify_signature_with_signers() {
+        let rng = &mut rand::thread_rng();
+        let keys = (0..1).map(|_| KeySet::rand(rng)).collect::<Vec<_>>();
+        let signers = keys.iter().map(|key| key.pubkey).collect::<Vec<_>>();
+        let message = b"hello world";
+        let mut signatures = vec![];
+        for key in keys.iter() {
+            let signature = sign_message_with_signers(key.privkey, message, signers.clone());
+            signatures.push(signature);
+        }
+        let aggregated_signature = signatures.iter().zip(keys.iter()).fold(
+            G2Projective::zero(),
+            |acc, (signature, key)| {
+                let pubkey_x: U256 = key.pubkey_g1.x.into();
+
+                let x = weight_to_signature(*signature, pubkey_x, signers.clone());
+
+                acc + x
+            },
+        );
+        for signature in signatures.iter() {
+            println!("{:?}", FlatG2::from(G2Affine::from(*signature)));
+        }
+        println!("{:?}", FlatG2::from(G2Affine::from(aggregated_signature)));
+        for signer in signers.iter() {
+            println!("{:?}", signer);
+        }
+        let aggregated_pubkey = super::calc_aggregated_pubkey(&signers);
+        println!("{:?}", aggregated_pubkey);
+
+        let success = verify_signature_with_signers(aggregated_signature.into(), message, signers);
+        println!("{:?}", success);
+        assert!(success.is_ok());
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_fail_to_verify_signature_with_signers() {
+        let rng = &mut rand::thread_rng();
+        let keys = (0..3).map(|_| KeySet::rand(rng)).collect::<Vec<_>>();
+        let signers = keys.iter().map(|key| key.pubkey).collect::<Vec<_>>();
+        let message = b"hello world";
+        let mut signatures = vec![];
+        for key in keys.iter() {
+            let signature = sign_message_with_signers(key.privkey, message, signers.clone());
+            signatures.push(signature);
+        }
+        let aggregated_signature = signatures
+            .iter()
+            .fold(G2Projective::zero(), |acc, x| acc + x);
+
+        let wrong_signers = [signers, vec![keys[0].pubkey]].concat();
+        verify_signature_with_signers(aggregated_signature.into(), message, wrong_signers).unwrap();
+    }
+
+    // #[test]
+    // fn test_compatible_with_sign_to_tx() {
+    //     let tx_tree_root =
+    //         Bytes32::from_hex("
+    // 0xdbc010e3595d32a42114913fd00fed0d21ed468acc64e88d42081a5852a6bdef")
+    // .unwrap();     let expiry = U64::from(1);
+    //     let elements = tx_tree_root
+    //         .to_u32_vec()
+    //         .iter()
+    //         .chain(expiry.to_u32_vec().iter())
+    //         .flat_map(|x| x.to_be_bytes())
+    //         .collect::<Vec<_>>();
+
+    //     let rng = &mut rand::thread_rng();
+    //     let keys = (0..3).map(|_| KeySet::rand(rng)).collect::<Vec<_>>();
+    //     let signers = keys.iter().map(|key| key.pubkey).collect::<Vec<_>>();
+    //     let mut signatures = vec![];
+    //     for key in keys.iter() {
+    //         let signature = sign_to_tx_root_and_expiry(
+    //             key.privkey,
+    //             tx_tree_root,
+    //             expiry.into(),
+    //             get_pubkey_hash(&signers),
+    //         );
+    //         println!("{:?}", FlatG2::from(signature));
+    //         let signature2 = sign_message_with_signers(key.privkey, &elements, signers.clone());
+    //         println!("{:?}", FlatG2::from(signature2));
+
+    //         signatures.push(signature);
+    //     }
+    //     let aggregated_signature = signatures
+    //         .iter()
+    //         .fold(G2Projective::zero(), |acc, x| acc + x);
+    //     assert!(
+    //         verify_signature_with_signers(aggregated_signature.into(), &elements,
+    // signers).is_ok()     );
+    // }
 }
