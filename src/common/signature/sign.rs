@@ -50,7 +50,7 @@ fn pad_10star1(input: &[u8]) -> Vec<u8> {
     padded
 }
 
-fn sign_u32_limbs(privkey: Fr, message: &[u32]) -> G2Affine {
+fn sign_message_no_pad(privkey: Fr, message: &[u32]) -> G2Affine {
     let elements = message
         .iter()
         .map(|x| GoldilocksField::from_canonical_u32(*x))
@@ -61,7 +61,11 @@ fn sign_u32_limbs(privkey: Fr, message: &[u32]) -> G2Affine {
     signature
 }
 
-fn verify_u32_limbs(signature_g2: G2Affine, pubkey: U256, message: &[u32]) -> anyhow::Result<()> {
+fn verify_signature_no_pad(
+    signature_g2: G2Affine,
+    pubkey: U256,
+    message: &[u32],
+) -> anyhow::Result<()> {
     let elements = message
         .iter()
         .map(|x| GoldilocksField::from_canonical_u32(*x))
@@ -85,7 +89,7 @@ pub fn sign_message(privkey: Fr, message: &[u8]) -> G2Affine {
         .map(|c| u32::from_be_bytes(c.try_into().unwrap()))
         .collect::<Vec<_>>();
 
-    sign_u32_limbs(privkey, &limbs)
+    sign_message_no_pad(privkey, &limbs)
 }
 
 pub fn verify_signature(signature: G2Affine, pubkey: U256, message: &[u8]) -> anyhow::Result<()> {
@@ -96,7 +100,7 @@ pub fn verify_signature(signature: G2Affine, pubkey: U256, message: &[u8]) -> an
         .map(|c| u32::from_be_bytes(c.try_into().unwrap()))
         .collect::<Vec<_>>();
 
-    verify_u32_limbs(signature, pubkey, &limbs)
+    verify_signature_no_pad(signature, pubkey, &limbs)
 }
 
 pub fn get_pubkey_hash(pubkeys: &[U256]) -> Bytes32 {
@@ -291,8 +295,8 @@ mod tests {
             flatten::FlatG2,
             key_set::KeySet,
             sign::{
-                sign_message, sign_message_with_signers, sign_u32_limbs, verify_signature,
-                verify_signature_with_signers, verify_u32_limbs, weight_to_signature,
+                sign_message, sign_message_no_pad, sign_message_with_signers, verify_signature,
+                verify_signature_no_pad, verify_signature_with_signers, weight_to_signature,
             },
             utils::get_pubkey_hash,
         },
@@ -336,8 +340,8 @@ mod tests {
         let rng = &mut rand::thread_rng();
         let key = KeySet::rand(rng);
         let message = [1, 2, 3, 4];
-        let signature = sign_u32_limbs(key.privkey, &message);
-        assert!(verify_u32_limbs(signature.into(), key.pubkey, &message).is_ok());
+        let signature = sign_message_no_pad(key.privkey, &message);
+        assert!(verify_signature_no_pad(signature.into(), key.pubkey, &message).is_ok());
     }
 
     #[test]
