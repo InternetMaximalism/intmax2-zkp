@@ -1,5 +1,3 @@
-use std::vec;
-
 use crate::ethereum_types::{
     bytes32::{Bytes32, Bytes32Target},
     u256::{U256Target, U256},
@@ -34,15 +32,15 @@ use plonky2_u32::gadgets::arithmetic_u32::U32Target;
 
 use super::flatten::FlatG2Target;
 
-fn check_pairing(g1s: Vec<G1Affine>, g2s: Vec<G2Affine>) -> bool {
+fn check_pairing(g1s: &[G1Affine], g2s: &[G2Affine]) -> bool {
     Bn254::multi_pairing(g1s, g2s).is_zero()
 }
 
 // 10*1 padding
-fn pad_10star1(input: Vec<u8>) -> Vec<u8> {
+fn pad_10star1(input: &[u8]) -> Vec<u8> {
     const WINDOW_SIZE: usize = 4;
 
-    let mut padded = input.clone();
+    let mut padded = input.to_vec();
     padded.push(0b10000000);
     while padded.len() % WINDOW_SIZE != WINDOW_SIZE - 1 {
         padded.push(0);
@@ -63,7 +61,7 @@ fn sign_u32_limbs(privkey: Fr, message: &[u32]) -> G2Affine {
     signature
 }
 
-fn verify_u32_limbs(signature: G2Affine, pubkey: U256, message: &[u32]) -> anyhow::Result<()> {
+fn verify_u32_limbs(signature_g2: G2Affine, pubkey: U256, message: &[u32]) -> anyhow::Result<()> {
     let elements = message
         .iter()
         .map(|x| GoldilocksField::from_canonical_u32(*x))
@@ -72,10 +70,7 @@ fn verify_u32_limbs(signature: G2Affine, pubkey: U256, message: &[u32]) -> anyho
 
     let pubkey_g1 = G1Affine::recover_from_x(pubkey.into());
     let g1_generator_inv = -G1Affine::generator();
-    let signature_g2 = G2Affine::from(signature);
-    let g1s = vec![g1_generator_inv, pubkey_g1];
-    let g2s = vec![signature_g2, message_g2];
-    if !check_pairing(g1s, g2s) {
+    if !check_pairing(&[g1_generator_inv, pubkey_g1], &[signature_g2, message_g2]) {
         anyhow::bail!("Invalid signature");
     }
 
@@ -83,7 +78,7 @@ fn verify_u32_limbs(signature: G2Affine, pubkey: U256, message: &[u32]) -> anyho
 }
 
 pub fn sign_message(privkey: Fr, message: &[u8]) -> G2Affine {
-    let padded_message = pad_10star1(message.to_vec());
+    let padded_message = pad_10star1(message);
     debug_assert!(padded_message.len() % 4 == 0);
     let limbs = padded_message
         .chunks(4)
@@ -94,7 +89,7 @@ pub fn sign_message(privkey: Fr, message: &[u8]) -> G2Affine {
 }
 
 pub fn verify_signature(signature: G2Affine, pubkey: U256, message: &[u8]) -> anyhow::Result<()> {
-    let padded_message = pad_10star1(message.to_vec());
+    let padded_message = pad_10star1(message);
     debug_assert!(padded_message.len() % 4 == 0);
     let limbs = padded_message
         .chunks(4)
@@ -410,42 +405,4 @@ mod tests {
         let wrong_signers = [signers, vec![keys[0].pubkey]].concat();
         verify_signature_with_signers(aggregated_signature.into(), message, wrong_signers).unwrap();
     }
-
-    // #[test]
-    // fn test_compatible_with_sign_to_tx() {
-    //     let tx_tree_root =
-    //         Bytes32::from_hex("
-    // 0xdbc010e3595d32a42114913fd00fed0d21ed468acc64e88d42081a5852a6bdef")
-    // .unwrap();     let expiry = U64::from(1);
-    //     let elements = tx_tree_root
-    //         .to_u32_vec()
-    //         .iter()
-    //         .chain(expiry.to_u32_vec().iter())
-    //         .flat_map(|x| x.to_be_bytes())
-    //         .collect::<Vec<_>>();
-
-    //     let rng = &mut rand::thread_rng();
-    //     let keys = (0..3).map(|_| KeySet::rand(rng)).collect::<Vec<_>>();
-    //     let signers = keys.iter().map(|key| key.pubkey).collect::<Vec<_>>();
-    //     let mut signatures = vec![];
-    //     for key in keys.iter() {
-    //         let signature = sign_to_tx_root_and_expiry(
-    //             key.privkey,
-    //             tx_tree_root,
-    //             expiry.into(),
-    //             get_pubkey_hash(&signers),
-    //         );
-    //         println!("{:?}", FlatG2::from(signature));
-    //         let signature2 = sign_message_with_signers(key.privkey, &elements, signers.clone());
-    //         println!("{:?}", FlatG2::from(signature2));
-
-    //         signatures.push(signature);
-    //     }
-    //     let aggregated_signature = signatures
-    //         .iter()
-    //         .fold(G2Projective::zero(), |acc, x| acc + x);
-    //     assert!(
-    //         verify_signature_with_signers(aggregated_signature.into(), &elements,
-    // signers).is_ok()     );
-    // }
 }
