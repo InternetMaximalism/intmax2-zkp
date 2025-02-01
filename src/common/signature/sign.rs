@@ -4,7 +4,7 @@ use crate::ethereum_types::{
     u32limb_trait::{U32LimbTargetTrait as _, U32LimbTrait as _},
     u64::{U64Target, U64},
 };
-use ark_bn254::{Bn254, Fr, G1Affine, G1Projective, G2Affine};
+use ark_bn254::{Bn254, Fr, G1Affine, G1Projective, G2Affine, G2Projective};
 use ark_ec::{pairing::Pairing, AffineRepr};
 use num::{BigUint, One, Zero as _};
 use plonky2::{
@@ -24,6 +24,7 @@ use plonky2_bn254::{
     fields::{
         biguint::{BigUintTarget, CircuitBuilderBiguint},
         recover::RecoverFromX,
+        sgn::Sgn,
     },
     utils::hash_to_g2::HashToG2 as _,
 };
@@ -111,13 +112,15 @@ pub fn get_pubkey_hash(pubkeys: &[U256]) -> Bytes32 {
     Bytes32::from_u32_slice(&solidity_keccak256(&pubkey_flattened))
 }
 
+/// NOTE: This weight differs from the one used when aggregating transactions.
+///  Depending on the value of the aggregated public key, the sign of the weight may be inverted.
 pub fn weight_to_signature(signature: G2Affine, pubkey: U256, signers: Vec<U256>) -> G2Affine {
-    let pubkey = G1Affine::recover_from_x(pubkey.into());
-    let pubkey_x: U256 = pubkey.x.into();
     let pubkey_hash = get_pubkey_hash(&signers);
-    let weight = hash_to_weight(pubkey_x, pubkey_hash);
+    let weight = hash_to_weight(pubkey, pubkey_hash);
+    let (_, y_parity) = calc_aggregated_pubkey(&signers);
+    let y_parity_fr = if y_parity { -Fr::one() } else { Fr::one() };
 
-    (signature * Fr::from(BigUint::from(weight))).into()
+    (signature * y_parity_fr * Fr::from(BigUint::from(weight))).into()
 }
 
 pub fn sign_message_with_signers(privkey: Fr, message: &[u8], signers: Vec<U256>) -> G2Affine {
@@ -128,30 +131,41 @@ pub fn sign_message_with_signers(privkey: Fr, message: &[u8], signers: Vec<U256>
     weight_to_signature(signature, pubkey_x, signers)
 }
 
-pub fn calc_aggregated_pubkey(signers: &[U256]) -> U256 {
+pub fn calc_aggregated_pubkey(signers: &[U256]) -> (U256, bool) {
     let pubkey_hash = get_pubkey_hash(signers);
     let mut aggregated_pubkey = G1Projective::zero();
     for signer in signers {
+        let weight = hash_to_weight(*signer, pubkey_hash);
         let signer_g1 = G1Affine::recover_from_x((*signer).into());
-        let signer_x: U256 = signer_g1.x.into();
-        let weight = hash_to_weight(signer_x, pubkey_hash);
         let weight_pubkey = signer_g1 * Fr::from(BigUint::from(weight));
         aggregated_pubkey += weight_pubkey;
     }
 
+    if aggregated_pubkey.is_zero() {
+        panic!("Invalid aggregated pubkey");
+    }
+
     let pubkey: G1Affine = aggregated_pubkey.into();
 
-    U256::from(pubkey.x)
+    (U256::from(pubkey.x), pubkey.y.sgn())
+}
+
+pub fn aggregate_signature(signatures: &[G2Affine]) -> G2Affine {
+    let aggregated_signature = signatures
+        .iter()
+        .fold(G2Projective::zero(), |acc, x| acc + x);
+
+    G2Affine::from(aggregated_signature)
 }
 
 pub fn verify_signature_with_signers(
-    signature: G2Affine,
+    aggregated_signature: G2Affine,
     message: &[u8],
     signers: Vec<U256>,
 ) -> anyhow::Result<()> {
-    let aggregated_pubkey = calc_aggregated_pubkey(&signers);
+    let (aggregated_pubkey, _) = calc_aggregated_pubkey(&signers);
 
-    verify_signature(signature, aggregated_pubkey, message)
+    verify_signature(aggregated_signature, aggregated_pubkey, message)
 }
 
 pub fn sign_to_tx_root_and_expiry(
@@ -278,7 +292,7 @@ fn target_slice_to_biguint_target<F: RichField + Extendable<D>, const D: usize>(
 
 #[cfg(test)]
 mod tests {
-    use ark_bn254::{G1Affine, G2Affine, G2Projective};
+    use ark_bn254::{G1Affine, G2Projective};
     use ark_ff::UniformRand;
     use num::Zero as _;
     use plonky2::{
@@ -292,19 +306,16 @@ mod tests {
 
     use crate::{
         common::signature::{
-            flatten::FlatG2,
             key_set::KeySet,
             sign::{
-                sign_message, sign_message_no_pad, sign_message_with_signers, verify_signature,
-                verify_signature_no_pad, verify_signature_with_signers, weight_to_signature,
+                aggregate_signature, sign_message, sign_message_no_pad, sign_message_with_signers,
+                verify_signature, verify_signature_no_pad, verify_signature_with_signers,
             },
             utils::get_pubkey_hash,
         },
         constants::NUM_SENDERS_IN_BLOCK,
         ethereum_types::{
-            bytes32::Bytes32Target,
-            u256::{U256Target, U256},
-            u32limb_trait::U32LimbTargetTrait,
+            bytes32::Bytes32Target, u256::U256Target, u32limb_trait::U32LimbTargetTrait,
         },
     };
 
@@ -353,40 +364,20 @@ mod tests {
         assert!(verify_signature(signature.into(), key.pubkey, message).is_ok());
     }
 
-    // TODO: fail sometimes
     #[test]
     fn test_verify_signature_with_signers() {
         let rng = &mut rand::thread_rng();
-        let keys = (0..1).map(|_| KeySet::rand(rng)).collect::<Vec<_>>();
+        let keys = (0..8).map(|_| KeySet::rand(rng)).collect::<Vec<_>>();
         let signers = keys.iter().map(|key| key.pubkey).collect::<Vec<_>>();
         let message = b"hello world";
         let mut signatures = vec![];
         for key in keys.iter() {
-            let signature = sign_message_with_signers(key.privkey, message, signers.clone());
-            signatures.push(signature);
+            let weight_signature = sign_message_with_signers(key.privkey, message, signers.clone()); // M * priv * weight
+            signatures.push(weight_signature);
         }
-        let aggregated_signature = signatures.iter().zip(keys.iter()).fold(
-            G2Projective::zero(),
-            |acc, (signature, key)| {
-                let pubkey_x: U256 = key.pubkey_g1.x.into();
-
-                let x = weight_to_signature(*signature, pubkey_x, signers.clone());
-
-                acc + x
-            },
-        );
-        for signature in signatures.iter() {
-            println!("{:?}", FlatG2::from(G2Affine::from(*signature)));
-        }
-        println!("{:?}", FlatG2::from(G2Affine::from(aggregated_signature)));
-        for signer in signers.iter() {
-            println!("{:?}", signer);
-        }
-        let aggregated_pubkey = super::calc_aggregated_pubkey(&signers);
-        println!("{:?}", aggregated_pubkey);
+        let aggregated_signature = aggregate_signature(&signatures);
 
         let success = verify_signature_with_signers(aggregated_signature.into(), message, signers);
-        println!("{:?}", success);
         assert!(success.is_ok());
     }
 
