@@ -57,7 +57,7 @@ where
         let hash = Bytes32Target::from_slice(&inner_proof.public_inputs[BYTES32_LEN..]);
         builder.register_public_inputs(&hash.to_vec());
 
-        let common_data = common_data_for_circuit::<F, C, D>();
+        let common_data = common_data_for_hash_chain_circuit::<F, C, D>();
         let verifier_data_target = builder.add_verifier_data_public_inputs();
 
         let prev_proof = builder.add_virtual_proof_with_pis(&common_data);
@@ -108,7 +108,7 @@ where
 }
 
 // Generates `CommonCircuitData` for the cyclic circuit
-fn common_data_for_circuit<
+fn common_data_for_hash_chain_circuit<
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
     const D: usize,

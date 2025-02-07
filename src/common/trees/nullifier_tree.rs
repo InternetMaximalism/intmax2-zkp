@@ -41,6 +41,15 @@ impl NullifierTree {
         self.0.get_root()
     }
 
+    pub fn nullifiers(&self) -> Vec<Bytes32> {
+        self.0
+            .leaves()
+            .iter()
+            .skip(1) // ignore the default leaf
+            .map(|l| Bytes32::from_u32_slice(&l.key.to_u32_vec()))
+            .collect()
+    }
+
     pub fn prove_and_insert(&mut self, nullifier: Bytes32) -> Result<NullifierInsertionProof> {
         let proof = self
             .0
