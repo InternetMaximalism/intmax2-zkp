@@ -67,7 +67,8 @@ impl BlockProposal {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct SenderWithSignature {
     pub sender: U256,
     pub signature: Option<FlatG2>,
@@ -133,7 +134,8 @@ pub fn construct_signature(
 }
 
 // User signature to pass to the block builder
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct UserSignature {
     pub pubkey: U256,
     pub signature: FlatG2,

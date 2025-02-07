@@ -29,7 +29,7 @@ pub struct IndexedMerkleLeaf {
     pub next_index: u64,
     pub key: U256,
     pub next_key: U256,
-    pub value: u64, // last block number for accout tree or just zero for nullifier
+    pub value: u64, // last block number for account tree or just zero for nullifier
 }
 
 impl IndexedMerkleLeaf {
