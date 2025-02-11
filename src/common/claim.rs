@@ -22,7 +22,7 @@ use super::block::Block;
 pub const CLAIM_LEN: usize = ADDRESS_LEN + U256_LEN + BYTES32_LEN + BYTES32_LEN + 1;
 
 /// A withdrawal that is processed in the withdrawal contract.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Claim {
     pub recipient: Address,  // The recipient of the claim

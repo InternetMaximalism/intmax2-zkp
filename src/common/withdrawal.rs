@@ -28,7 +28,7 @@ use super::{
 pub const WITHDRAWAL_LEN: usize = ADDRESS_LEN + 1 + U256_LEN + BYTES32_LEN + BYTES32_LEN + 1;
 
 /// A withdrawal that is processed in the withdrawal contract.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Withdrawal {
     pub recipient: Address,  // The recipient of the withdrawal
