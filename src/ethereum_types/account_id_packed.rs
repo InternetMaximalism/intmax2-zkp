@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 use super::{
     bytes32::{Bytes32, Bytes32Target},
     u32limb_trait::{U32LimbTargetTrait, U32LimbTrait},
@@ -40,6 +42,14 @@ impl core::fmt::Debug for AccountIdPacked {
 impl core::fmt::Display for AccountIdPacked {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         core::fmt::Debug::fmt(&self, f)
+    }
+}
+
+impl FromStr for AccountIdPacked {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Self::from_hex(s).map_err(|e| anyhow::anyhow!("Failed to parse AccountIdPacked: {}", e))
     }
 }
 
