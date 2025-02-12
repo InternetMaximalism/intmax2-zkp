@@ -16,7 +16,7 @@ use crate::{
         format_validation::{FormatValidationCircuit, FormatValidationValue},
         main_validation::{MainValidationCircuit, MainValidationValue},
     },
-    common::witness::block_witness::BlockWitness,
+    common::{signature::sign::get_pubkey_hash, witness::block_witness::BlockWitness},
 };
 
 #[derive(Debug)]
@@ -60,6 +60,12 @@ where
     }
 
     pub fn prove(&self, block_witness: &BlockWitness) -> Result<ProofWithPublicInputs<F, C, D>> {
+        let mut result = true;
+        if !block_witness.signature.is_registration_block {
+            let pubkey_hash = get_pubkey_hash(&block_witness.pubkeys);
+            let is_pubkey_eq = block_witness.signature.pubkey_hash == pubkey_hash;
+            result = result && is_pubkey_eq;
+        }
         let sender_leaves = block_witness.get_sender_tree().leaves();
         let (account_exclusion_proof, account_inclusion_proof) =
             if block_witness.signature.is_registration_block {
@@ -74,6 +80,7 @@ where
                 let account_exclusion_proof = self
                     .account_exclusion_circuit
                     .prove(&account_exclusion_value)?;
+                result = result && account_exclusion_value.is_valid;
                 (Some(account_exclusion_proof), None)
             } else {
                 let value = AccountInclusionValue::new(
@@ -89,17 +96,19 @@ where
                     block_witness.pubkeys.clone(),
                 );
                 let account_inclusion_proof = self.account_inclusion_circuit.prove(&value)?;
+                result = result && value.is_valid;
                 (None, Some(account_inclusion_proof))
             };
         let format_validation_value = FormatValidationValue::new(
             block_witness.pubkeys.clone(),
             block_witness.signature.clone(),
         );
+        result = result && format_validation_value.is_valid;
         let format_validation_proof = self
             .format_validation_circuit
             .prove(&format_validation_value)
             .unwrap();
-        let aggregation_proof = if format_validation_value.is_valid {
+        let aggregation_proof = if result {
             let aggregation_value = AggregationValue::new(
                 block_witness.pubkeys.clone(),
                 block_witness.signature.clone(),
