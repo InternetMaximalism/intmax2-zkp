@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 use anyhow::ensure;
 use num::{BigUint, Zero as _};
 use plonky2::iop::target::Target;
@@ -28,6 +30,14 @@ impl core::fmt::Debug for Bytes16 {
 impl core::fmt::Display for Bytes16 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         core::fmt::Debug::fmt(&self, f)
+    }
+}
+
+impl FromStr for Bytes16 {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Self::from_hex(s).map_err(|e| anyhow::anyhow!("Failed to parse Bytes16: {}", e))
     }
 }
 

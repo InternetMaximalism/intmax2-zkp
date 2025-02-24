@@ -1,4 +1,4 @@
-use std::fmt::Debug;
+use std::{fmt::Debug, str::FromStr};
 
 use plonky2::iop::target::Target;
 use serde::{Deserialize, Serialize};
@@ -31,6 +31,14 @@ impl core::fmt::Debug for Bytes32 {
 impl core::fmt::Display for Bytes32 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         core::fmt::Debug::fmt(&self, f)
+    }
+}
+
+impl FromStr for Bytes32 {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Self::from_hex(s).map_err(|e| anyhow::anyhow!("Failed to parse Bytes32: {}", e))
     }
 }
 

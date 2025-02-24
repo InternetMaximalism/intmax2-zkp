@@ -4,6 +4,7 @@ pub mod membership;
 pub mod update;
 
 use anyhow::{anyhow, ensure};
+use serde::{Deserialize, Serialize};
 
 use crate::{
     ethereum_types::u256::U256,
@@ -17,7 +18,7 @@ use crate::{
 use anyhow::Result;
 use leaf::{IndexedMerkleLeaf, IndexedMerkleLeafTarget};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IndexedMerkleTree(IncrementalMerkleTree<IndexedMerkleLeaf>);
 pub type IndexedMerkleProof = IncrementalMerkleProof<IndexedMerkleLeaf>;
 pub type IndexedMerkleProofTarget = IncrementalMerkleProofTarget<IndexedMerkleLeafTarget>;
@@ -33,15 +34,15 @@ impl IndexedMerkleTree {
         self.0.get_root()
     }
 
-    pub fn get_leaf(&self, index: usize) -> IndexedMerkleLeaf {
+    pub fn get_leaf(&self, index: u64) -> IndexedMerkleLeaf {
         self.0.get_leaf(index)
     }
 
-    pub fn prove(&self, index: usize) -> IndexedMerkleProof {
+    pub fn prove(&self, index: u64) -> IndexedMerkleProof {
         self.0.prove(index)
     }
 
-    pub(crate) fn low_index(&self, key: U256) -> Result<usize> {
+    pub(crate) fn low_index(&self, key: U256) -> Result<u64> {
         let low_leaf_candidates = self
             .0
             .leaves()
@@ -52,15 +53,15 @@ impl IndexedMerkleTree {
             })
             .collect::<Vec<_>>();
         ensure!(0 < low_leaf_candidates.len(), "key already exists");
-        assert!(
+        ensure!(
             low_leaf_candidates.len() == 1,
-            "low_index; too many candidates"
+            "low_index: too many candidates"
         );
         let (low_leaf_index, _) = low_leaf_candidates[0];
-        Ok(low_leaf_index)
+        Ok(low_leaf_index as u64)
     }
 
-    pub(crate) fn index(&self, key: U256) -> Option<usize> {
+    pub fn index(&self, key: U256) -> Option<u64> {
         let leaf_candidates = self
             .0
             .leaves()
@@ -73,13 +74,13 @@ impl IndexedMerkleTree {
         }
         assert!(
             leaf_candidates.len() == 1,
-            "find_index; too many candidates"
+            "find_index: too many candidates"
         );
         let (leaf_index, _) = leaf_candidates[0];
-        Some(leaf_index)
+        Some(leaf_index as u64)
     }
 
-    pub fn key(&self, index: usize) -> U256 {
+    pub fn key(&self, index: u64) -> U256 {
         self.0.get_leaf(index).key
     }
 
@@ -91,6 +92,10 @@ impl IndexedMerkleTree {
         leaf.value = value;
         self.0.update(index, leaf);
         Ok(())
+    }
+
+    pub fn leaves(&self) -> Vec<IndexedMerkleLeaf> {
+        self.0.leaves()
     }
 
     pub fn len(&self) -> usize {

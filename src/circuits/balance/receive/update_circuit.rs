@@ -1,3 +1,4 @@
+use anyhow::ensure;
 use plonky2::{
     field::extension::Extendable,
     hash::hash_types::RichField,
@@ -7,18 +8,15 @@ use plonky2::{
     },
     plonk::{
         circuit_builder::CircuitBuilder,
-        circuit_data::{CircuitConfig, CircuitData},
+        circuit_data::{CircuitConfig, CircuitData, VerifierCircuitData},
         config::{AlgebraicHasher, GenericConfig},
         proof::{ProofWithPublicInputs, ProofWithPublicInputsTarget},
     },
 };
 
 use crate::{
-    circuits::validity::{
-        validity_circuit::ValidityCircuit,
-        validity_pis::{
-            ValidityPublicInputs, ValidityPublicInputsTarget, VALIDITY_PUBLIC_INPUTS_LEN,
-        },
+    circuits::validity::validity_pis::{
+        ValidityPublicInputs, ValidityPublicInputsTarget, VALIDITY_PUBLIC_INPUTS_LEN,
     },
     common::{
         public_state::{PublicState, PublicStateTarget, PUBLIC_STATE_LEN},
@@ -32,7 +30,7 @@ use crate::{
         u256::{U256Target, U256, U256_LEN},
         u32limb_trait::{U32LimbTargetTrait, U32LimbTrait},
     },
-    utils::{dummy::DummyProof, recursively_verifiable::RecursivelyVerifiable},
+    utils::{dummy::DummyProof, recursively_verifiable::add_proof_target_and_verify_cyclic},
 };
 
 pub const UPDATE_PUBLIC_INPUTS_LEN: usize = U256_LEN + PUBLIC_STATE_LEN * 2;
@@ -53,7 +51,7 @@ pub struct UpdatePublicInputsTarget {
 
 impl UpdatePublicInputs {
     pub fn to_u64_vec(&self) -> Vec<u64> {
-        let vec = vec![
+        let vec = [
             self.pubkey.to_u64_vec(),
             self.prev_public_state.to_u64_vec(),
             self.new_public_state.to_u64_vec(),
@@ -79,7 +77,7 @@ impl UpdatePublicInputs {
 
 impl UpdatePublicInputsTarget {
     pub fn to_vec(&self) -> Vec<Target> {
-        let vec = vec![
+        let vec =[
             self.pubkey.to_vec(),
             self.prev_public_state.to_vec(),
             self.new_public_state.to_vec(),
@@ -125,37 +123,40 @@ where
     <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
 {
     pub fn new(
-        validity_circuit: &ValidityCircuit<F, C, D>,
+        validity_vd: &VerifierCircuitData<F, C, D>,
         pubkey: U256,
         validity_proof: &ProofWithPublicInputs<F, C, D>,
         prev_public_state: &PublicState,
         block_merkle_proof: &BlockHashMerkleProof,
         account_membership_proof: &AccountMembershipProof,
-    ) -> Self {
-        validity_circuit
-            .verify(validity_proof)
-            .expect("validity proof is invalid");
+    ) -> anyhow::Result<Self> {
+        validity_vd
+            .verify(validity_proof.clone())
+            .map_err(|e| anyhow::anyhow!("validity proof is invalid: {:?}", e))?;
         let validity_pis = ValidityPublicInputs::from_pis(&validity_proof.public_inputs);
         block_merkle_proof
             .verify(
                 &prev_public_state.block_hash,
-                prev_public_state.block_number as usize,
+                prev_public_state.block_number as u64,
                 validity_pis.public_state.block_tree_root,
             )
-            .expect("block merkle proof is invalid");
+            .map_err(|e| anyhow::anyhow!("block merkle proof is invalid: {:?}", e))?;
         account_membership_proof
             .verify(pubkey, validity_pis.public_state.account_tree_root)
-            .expect("account membership proof is invalid");
+            .map_err(|e| anyhow::anyhow!("account membership proof is invalid: {:?}", e))?;
         let last_block_number = account_membership_proof.get_value() as u32;
-        assert!(last_block_number <= prev_public_state.block_number); // there is no send tx till the last block
-        Self {
+        ensure!(
+            last_block_number <= prev_public_state.block_number,
+            "last block number is invalid"
+        ); // there is no send tx till the last block
+        Ok(Self {
             pubkey,
             prev_public_state: prev_public_state.clone(),
             new_public_state: validity_pis.public_state.clone(),
             validity_proof: validity_proof.clone(),
             block_merkle_proof: block_merkle_proof.clone(),
             account_membership_proof: account_membership_proof.clone(),
-        }
+        })
     }
 }
 
@@ -171,7 +172,7 @@ pub struct UpdateTarget<const D: usize> {
 
 impl<const D: usize> UpdateTarget<D> {
     pub fn new<F: RichField + Extendable<D>, C: GenericConfig<D, F = F> + 'static>(
-        validity_circuit: &ValidityCircuit<F, C, D>,
+        validity_vd: &VerifierCircuitData<F, C, D>,
         builder: &mut CircuitBuilder<F, D>,
         is_checked: bool,
     ) -> Self
@@ -181,7 +182,7 @@ impl<const D: usize> UpdateTarget<D> {
         let pubkey = U256Target::new(builder, is_checked);
         let block_merkle_proof = BlockHashMerkleProofTarget::new(builder, BLOCK_HASH_TREE_HEIGHT);
         let prev_public_state = PublicStateTarget::new(builder, is_checked);
-        let validity_proof = validity_circuit.add_proof_target_and_verify(builder);
+        let validity_proof = add_proof_target_and_verify_cyclic(validity_vd, builder);
         let account_membership_proof =
             AccountMembershipProofTarget::new(builder, ACCOUNT_TREE_HEIGHT, is_checked);
         let validity_pis = ValidityPublicInputsTarget::from_slice(
@@ -199,7 +200,7 @@ impl<const D: usize> UpdateTarget<D> {
             validity_pis.public_state.account_tree_root,
         );
         let last_block_number = account_membership_proof.get_value(builder);
-        // assert last_block_number <= validity_pis.public_state.block_number
+        // assert last_block_number <= prev_public_state.block_number
         let diff = builder.sub(prev_public_state.block_number, last_block_number);
         builder.range_check(diff, 32);
         Self {
@@ -252,7 +253,7 @@ where
     C: GenericConfig<D, F = F> + 'static,
     C::Hasher: AlgebraicHasher<F>,
 {
-    pub fn new(validity_circuit: &ValidityCircuit<F, C, D>) -> Self {
+    pub fn new(validity_circuit: &VerifierCircuitData<F, C, D>) -> Self {
         let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::default());
         let target = UpdateTarget::new::<F, C>(validity_circuit, &mut builder, true);
         let pis = UpdatePublicInputsTarget {
@@ -277,16 +278,5 @@ where
         let mut pw = PartialWitness::<F>::new();
         self.target.set_witness(&mut pw, value);
         self.data.prove(pw)
-    }
-}
-
-impl<F, C, const D: usize> RecursivelyVerifiable<F, C, D> for UpdateCircuit<F, C, D>
-where
-    F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F> + 'static,
-    C::Hasher: AlgebraicHasher<F>,
-{
-    fn circuit_data(&self) -> &CircuitData<F, C, D> {
-        &self.data
     }
 }

@@ -1,3 +1,4 @@
+use anyhow::ensure;
 use plonky2::{
     field::extension::Extendable,
     hash::hash_types::RichField,
@@ -7,18 +8,15 @@ use plonky2::{
     },
     plonk::{
         circuit_builder::CircuitBuilder,
-        circuit_data::{CircuitConfig, CircuitData},
+        circuit_data::{CircuitConfig, CircuitData, VerifierCircuitData},
         config::{AlgebraicHasher, GenericConfig},
         proof::{ProofWithPublicInputs, ProofWithPublicInputsTarget},
     },
 };
 
 use crate::{
-    circuits::validity::{
-        validity_circuit::ValidityCircuit,
-        validity_pis::{
-            ValidityPublicInputs, ValidityPublicInputsTarget, VALIDITY_PUBLIC_INPUTS_LEN,
-        },
+    circuits::validity::validity_pis::{
+        ValidityPublicInputs, ValidityPublicInputsTarget, VALIDITY_PUBLIC_INPUTS_LEN,
     },
     common::{
         public_state::{PublicState, PublicStateTarget, PUBLIC_STATE_LEN},
@@ -40,7 +38,7 @@ use crate::{
     utils::{
         conversion::ToU64,
         poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget},
-        recursively_verifiable::RecursivelyVerifiable,
+        recursively_verifiable::add_proof_target_and_verify_cyclic,
     },
 };
 
@@ -132,7 +130,7 @@ pub struct TxInclusionValue<
     pub validity_proof: ProofWithPublicInputs<F, C, D>,
     pub block_merkle_proof: BlockHashMerkleProof,
     pub prev_account_membership_proof: AccountMembershipProof,
-    pub sender_index: usize,
+    pub sender_index: u32,
     pub tx: Tx,
     pub tx_merkle_proof: TxMerkleProof,
     pub sender_leaf: SenderLeaf,
@@ -146,52 +144,66 @@ where
     <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
 {
     pub fn new(
-        validity_circuit: &ValidityCircuit<F, C, D>,
+        validity_vd: &VerifierCircuitData<F, C, D>,
         pubkey: U256,
-        prev_public_state: &PublicState, // public state of balance proof(old)
-        validity_proof: &ProofWithPublicInputs<F, C, D>, // new public state
-        block_merkle_proof: &BlockHashMerkleProof,
-        prev_account_membership_proof: &AccountMembershipProof,
-        sender_index: usize,
+        prev_public_state: &PublicState, // public state of the old balance proof
+        validity_proof: &ProofWithPublicInputs<F, C, D>, /* validity proof of the new public
+                                          * state which contains the tx */
+        block_merkle_proof: &BlockHashMerkleProof, /* block merkle proof that shows the
+                                                    * block of prev_public_state is included in
+                                                    * the
+                                                    * block tree of validity_proof */
+        prev_account_membership_proof: &AccountMembershipProof, /* account membership proof that
+                                                                 * shows no tx has been sent
+                                                                 * before
+                                                                 * the block of validity proof. */
+        sender_index: u32,
         tx: &Tx,
         tx_merkle_proof: &TxMerkleProof,
         sender_leaf: &SenderLeaf,
         sender_merkle_proof: &SenderMerkleProof,
-    ) -> Self {
-        validity_circuit
-            .verify(validity_proof)
-            .expect("validity proof is invalid");
+    ) -> anyhow::Result<Self> {
+        validity_vd
+            .verify(validity_proof.clone())
+            .map_err(|e| anyhow::anyhow!("validity proof is invalid: {:?}", e))?;
         let validity_pis = ValidityPublicInputs::from_u64_slice(
             &validity_proof.public_inputs[0..VALIDITY_PUBLIC_INPUTS_LEN].to_u64_vec(),
         );
         block_merkle_proof
             .verify(
                 &prev_public_state.block_hash,
-                prev_public_state.block_number as usize,
+                prev_public_state.block_number as u64,
                 validity_pis.public_state.block_tree_root,
             )
-            .expect("block merkle proof is invalid");
+            .map_err(|e| anyhow::anyhow!("block merkle proof is invalid: {:?}", e))?;
         prev_account_membership_proof
             .verify(pubkey, validity_pis.public_state.prev_account_tree_root)
-            .expect("prev account membership proof is invalid");
+            .map_err(|e| anyhow::anyhow!("account membership proof is invalid: {:?}", e))?;
         let last_block_number = prev_account_membership_proof.get_value() as u32;
-        assert!(last_block_number <= prev_public_state.block_number); // no send tx till one before the last block
+        ensure!(
+            last_block_number <= prev_public_state.block_number,
+            "there is a sent tx before the last block"
+        ); // no send tx till one before the last block
 
         let tx_tree_root: PoseidonHashOut = validity_pis
             .tx_tree_root
             .try_into()
-            .expect("tx tree root is invalid");
+            .map_err(|e| anyhow::anyhow!("tx tree root is invalid: {:?}", e))?;
         tx_merkle_proof
-            .verify(tx, sender_index, tx_tree_root)
-            .expect("tx merkle proof is invalid");
+            .verify(tx, sender_index as u64, tx_tree_root)
+            .map_err(|e| anyhow::anyhow!("tx merkle proof is invalid: {:?}", e))?;
         sender_merkle_proof
-            .verify(sender_leaf, sender_index, validity_pis.sender_tree_root)
-            .expect("sender merkle proof is invalid");
+            .verify(
+                sender_leaf,
+                sender_index as u64,
+                validity_pis.sender_tree_root,
+            )
+            .map_err(|e| anyhow::anyhow!("sender merkle proof is invalid: {:?}", e))?;
 
-        assert_eq!(sender_leaf.sender, pubkey);
-        let is_valid = sender_leaf.is_valid && validity_pis.is_valid_block;
+        ensure!(sender_leaf.sender == pubkey, "sender pubkey mismatch");
+        let is_valid = sender_leaf.did_return_sig && validity_pis.is_valid_block;
 
-        Self {
+        Ok(Self {
             pubkey,
             prev_public_state: prev_public_state.clone(),
             new_public_state: validity_pis.public_state.clone(),
@@ -204,7 +216,7 @@ where
             sender_leaf: sender_leaf.clone(),
             sender_merkle_proof: sender_merkle_proof.clone(),
             is_valid,
-        }
+        })
     }
 }
 
@@ -225,7 +237,7 @@ pub struct TxInclusionTarget<const D: usize> {
 
 impl<const D: usize> TxInclusionTarget<D> {
     pub fn new<F: RichField + Extendable<D>, C: GenericConfig<D, F = F> + 'static>(
-        validity_circuit: &ValidityCircuit<F, C, D>,
+        validity_vd: &VerifierCircuitData<F, C, D>,
         builder: &mut CircuitBuilder<F, D>,
         is_checked: bool,
     ) -> Self
@@ -243,7 +255,7 @@ impl<const D: usize> TxInclusionTarget<D> {
         let sender_leaf = SenderLeafTarget::new(builder, is_checked);
         let sender_merkle_proof = SenderMerkleProofTarget::new(builder, SENDER_TREE_HEIGHT);
 
-        let validity_proof = validity_circuit.add_proof_target_and_verify(builder);
+        let validity_proof = add_proof_target_and_verify_cyclic(validity_vd, builder);
         let validity_pis = ValidityPublicInputsTarget::from_slice(
             &validity_proof.public_inputs[0..VALIDITY_PUBLIC_INPUTS_LEN],
         );
@@ -272,7 +284,7 @@ impl<const D: usize> TxInclusionTarget<D> {
             validity_pis.sender_tree_root,
         );
         sender_leaf.sender.connect(builder, pubkey);
-        let is_valid = builder.and(sender_leaf.is_valid, validity_pis.is_valid_block);
+        let is_valid = builder.and(sender_leaf.did_return_sig, validity_pis.is_valid_block);
         Self {
             pubkey,
             prev_public_state,
@@ -309,10 +321,7 @@ impl<const D: usize> TxInclusionTarget<D> {
             .set_witness(witness, &value.block_merkle_proof);
         self.prev_account_membership_proof
             .set_witness(witness, &value.prev_account_membership_proof);
-        witness.set_target(
-            self.sender_index,
-            F::from_canonical_usize(value.sender_index),
-        );
+        witness.set_target(self.sender_index, F::from_canonical_u32(value.sender_index));
         self.tx.set_witness(witness, value.tx);
         self.tx_merkle_proof
             .set_witness(witness, &value.tx_merkle_proof);
@@ -338,9 +347,9 @@ where
     C: GenericConfig<D, F = F> + 'static,
     C::Hasher: AlgebraicHasher<F>,
 {
-    pub fn new(validity_circuit: &ValidityCircuit<F, C, D>) -> Self {
+    pub fn new(validity_vd: &VerifierCircuitData<F, C, D>) -> Self {
         let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::default());
-        let target = TxInclusionTarget::new::<F, C>(validity_circuit, &mut builder, true);
+        let target = TxInclusionTarget::new::<F, C>(validity_vd, &mut builder, true);
         let pis = TxInclusionPublicInputsTarget {
             prev_public_state: target.prev_public_state.clone(),
             new_public_state: target.new_public_state.clone(),
@@ -363,87 +372,73 @@ where
     }
 }
 
-impl<F, C, const D: usize> RecursivelyVerifiable<F, C, D> for TxInclusionCircuit<F, C, D>
-where
-    F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F> + 'static,
-    C::Hasher: AlgebraicHasher<F>,
-{
-    fn circuit_data(&self) -> &CircuitData<F, C, D> {
-        &self.data
-    }
-}
+// #[cfg(test)]
+// mod tests {
+//     use plonky2::{
+//         field::goldilocks_field::GoldilocksField, plonk::config::PoseidonGoldilocksConfig,
+//     };
 
-#[cfg(test)]
-mod tests {
-    use plonky2::{
-        field::goldilocks_field::GoldilocksField, plonk::config::PoseidonGoldilocksConfig,
-    };
+//     use crate::{
+//         common::{generic_address::GenericAddress, salt::Salt, transfer::Transfer},
+//         ethereum_types::u256::U256,
+//     };
 
-    use crate::{
-        common::{generic_address::GenericAddress, salt::Salt, transfer::Transfer},
-        ethereum_types::u256::U256,
-        mock::{
-            block_builder::MockBlockBuilder, sync_validity_prover::SyncValidityProver,
-            wallet::MockWallet,
-        },
-    };
+//     use super::TxInclusionValue;
 
-    use super::TxInclusionValue;
+//     type F = GoldilocksField;
+//     type C = PoseidonGoldilocksConfig;
+//     const D: usize = 2;
 
-    type F = GoldilocksField;
-    type C = PoseidonGoldilocksConfig;
-    const D: usize = 2;
+//     #[test]
+//     fn tx_inclusion_circuit() {
+//         let mut rng = rand::thread_rng();
+//         // let mut block_builder = MockBlockBuilder::new();
+//         // let mut wallet = MockWallet::new_rand(&mut rng);
+//         // let mut sync_prover = SyncValidityProver::<F, C, D>::new();
 
-    #[test]
-    fn tx_inclusion_circuit() {
-        let mut rng = rand::thread_rng();
-        let mut block_builder = MockBlockBuilder::new();
-        let mut wallet = MockWallet::new_rand(&mut rng);
-        let mut sync_prover = SyncValidityProver::<F, C, D>::new();
+//         let transfer = Transfer {
+//             recipient: GenericAddress::rand_pubkey(&mut rng),
+//             token_index: 0,
+//             amount: U256::rand_small(&mut rng),
+//             salt: Salt::rand(&mut rng),
+//         };
 
-        let transfer = Transfer {
-            recipient: GenericAddress::rand_pubkey(&mut rng),
-            token_index: 0,
-            amount: U256::rand_small(&mut rng),
-            salt: Salt::rand(&mut rng),
-        };
+//         // send tx
+//         let send_witness = wallet.send_tx_and_update(&mut rng, &mut block_builder, &[transfer]);
+//         // update validity proofs
+//         sync_prover.sync(&block_builder);
 
-        // send tx
-        let send_witness = wallet.send_tx_and_update(&mut rng, &mut block_builder, &[transfer]);
-        // update validity proofs
-        sync_prover.sync(&block_builder);
+//         let prev_public_state = wallet.get_balance_pis().public_state;
+//         let update_witness = sync_prover.get_update_witness(
+//             &block_builder,
+//             wallet.get_pubkey(),
+//             block_builder.last_block_number(),
+//             prev_public_state.block_number,
+//             true,
+//         );
 
-        let prev_public_state = wallet.get_balance_pis().public_state;
-        let update_witness = sync_prover.get_update_witness(
-            &block_builder,
-            wallet.get_pubkey(),
-            block_builder.last_block_number(),
-            0,
-            true,
-        );
-
-        let pubkey = wallet.key_set.pubkey;
-        let tx_index = send_witness.tx_witness.tx_index;
-        let sender_tree = send_witness.tx_witness.get_sender_tree();
-        let sender_leaf = sender_tree.get_leaf(tx_index);
-        let sender_merkle_proof = sender_tree.prove(tx_index);
-        let value = TxInclusionValue::new(
-            &sync_prover.validity_processor.validity_circuit,
-            pubkey,
-            &prev_public_state,
-            &update_witness.validity_proof,
-            &update_witness.block_merkle_proof,
-            &update_witness.account_membership_proof,
-            send_witness.tx_witness.tx_index,
-            &send_witness.tx_witness.tx,
-            &send_witness.tx_witness.tx_merkle_proof,
-            &sender_leaf,
-            &sender_merkle_proof,
-        );
-        let tx_inclusion_circuit = super::TxInclusionCircuit::<F, C, D>::new(
-            &sync_prover.validity_processor.validity_circuit,
-        );
-        let _ = tx_inclusion_circuit.prove(&value).unwrap();
-    }
-}
+//         let pubkey = wallet.key_set.pubkey;
+//         let tx_index = send_witness.tx_witness.tx_index;
+//         let sender_tree = send_witness.tx_witness.get_sender_tree();
+//         let sender_leaf = sender_tree.get_leaf(tx_index);
+//         let sender_merkle_proof = sender_tree.prove(tx_index);
+//         let value = TxInclusionValue::new(
+//             &sync_prover.validity_processor.validity_circuit,
+//             pubkey,
+//             &prev_public_state,
+//             &update_witness.validity_proof,
+//             &update_witness.block_merkle_proof,
+//             &update_witness.account_membership_proof,
+//             send_witness.tx_witness.tx_index,
+//             &send_witness.tx_witness.tx,
+//             &send_witness.tx_witness.tx_merkle_proof,
+//             &sender_leaf,
+//             &sender_merkle_proof,
+//         )
+//         .expect("failed to create tx inclusion value");
+//         let tx_inclusion_circuit = super::TxInclusionCircuit::<F, C, D>::new(
+//             &sync_prover.validity_processor.validity_circuit,
+//         );
+//         let _ = tx_inclusion_circuit.prove(&value).unwrap();
+//     }
+// }

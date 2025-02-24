@@ -21,10 +21,7 @@ use crate::{
         u256::{U256Target, U256},
         u32limb_trait::U32LimbTargetTrait,
     },
-    utils::{
-        poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget},
-        recursively_verifiable::RecursivelyVerifiable,
-    },
+    utils::poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget},
 };
 
 use super::utils::get_pubkey_commitment;
@@ -199,16 +196,5 @@ where
         let mut pw = PartialWitness::<F>::new();
         self.target.set_witness(&mut pw, value);
         self.data.prove(pw)
-    }
-}
-
-impl<F, C, const D: usize> RecursivelyVerifiable<F, C, D> for FormatValidationCircuit<F, C, D>
-where
-    F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F> + 'static,
-    C::Hasher: AlgebraicHasher<F>,
-{
-    fn circuit_data(&self) -> &CircuitData<F, C, D> {
-        &self.data
     }
 }

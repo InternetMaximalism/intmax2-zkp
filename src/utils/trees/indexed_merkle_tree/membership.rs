@@ -1,6 +1,6 @@
 use anyhow::{ensure, Result};
 use plonky2::{
-    field::extension::Extendable,
+    field::{extension::Extendable, types::Field},
     hash::hash_types::RichField,
     iop::{
         target::{BoolTarget, Target},
@@ -36,7 +36,7 @@ use super::{
 pub struct MembershipProof {
     pub is_included: bool,
     pub leaf_proof: IndexedMerkleProof,
-    pub leaf_index: usize,
+    pub leaf_index: u64,
     pub leaf: IndexedMerkleLeaf,
 }
 
@@ -123,19 +123,19 @@ impl MembershipProofTarget {
         Self {
             is_included: builder.constant_bool(value.is_included),
             leaf_proof: IndexedMerkleProofTarget::constant(builder, &value.leaf_proof),
-            leaf_index: builder.constant(F::from_canonical_usize(value.leaf_index)),
+            leaf_index: builder.constant(F::from_canonical_u64(value.leaf_index)),
             leaf: IndexedMerkleLeafTarget::constant(builder, &value.leaf),
         }
     }
 
-    pub fn set_witness<F: RichField, W: WitnessWrite<F>>(
+    pub fn set_witness<F: Field, W: WitnessWrite<F>>(
         &self,
         witness: &mut W,
         value: &MembershipProof,
     ) {
         witness.set_bool_target(self.is_included, value.is_included);
         self.leaf_proof.set_witness(witness, &value.leaf_proof);
-        witness.set_target(self.leaf_index, F::from_canonical_usize(value.leaf_index));
+        witness.set_target(self.leaf_index, F::from_canonical_u64(value.leaf_index));
         self.leaf.set_witness(witness, &value.leaf);
     }
 
@@ -162,9 +162,12 @@ impl MembershipProofTarget {
         // exclusion case
         let is_exclusion = builder.not(self.is_included);
         let key_lt = self.leaf.key.is_lt(builder, &key);
+        let next_key_gt = key.is_lt(builder, &self.leaf.next_key);
         let is_next_key_zero = self.leaf.next_key.is_zero::<F, D, U256>(builder);
-        let is_key_lt_or_next_key_zero = builder.or(key_lt, is_next_key_zero);
-        builder.conditional_assert_true(is_exclusion, is_key_lt_or_next_key_zero);
+        let is_next_key_gt_or_next_key_zero = builder.or(next_key_gt, is_next_key_zero);
+        let is_key_lt_and_next_key_gt_or_next_key_zero =
+            builder.and(key_lt, is_next_key_gt_or_next_key_zero);
+        builder.conditional_assert_true(is_exclusion, is_key_lt_and_next_key_gt_or_next_key_zero);
     }
 
     pub fn get_value<F: RichField + Extendable<D>, const D: usize>(

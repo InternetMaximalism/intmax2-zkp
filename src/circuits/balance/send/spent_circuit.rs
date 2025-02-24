@@ -1,5 +1,9 @@
+use anyhow::ensure;
 use plonky2::{
-    field::{extension::Extendable, types::Field},
+    field::{
+        extension::Extendable,
+        types::{Field, PrimeField64},
+    },
     hash::hash_types::RichField,
     iop::{
         target::{BoolTarget, Target},
@@ -25,8 +29,8 @@ use crate::{
     constants::{ASSET_TREE_HEIGHT, NUM_TRANSFERS_IN_TX, TRANSFER_TREE_HEIGHT},
     ethereum_types::u32limb_trait::{U32LimbTargetTrait, U32LimbTrait as _},
     utils::{
+        conversion::ToU64,
         poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget, POSEIDON_HASH_OUT_LEN},
-        recursively_verifiable::RecursivelyVerifiable,
         trees::get_root::{get_merkle_root_from_leaves, get_merkle_root_from_leaves_circuit},
     },
 };
@@ -67,6 +71,13 @@ impl SpentPublicInputs {
             is_valid,
         }
     }
+
+    pub fn from_pis<F>(pis: &[F]) -> Self
+    where
+        F: PrimeField64,
+    {
+        Self::from_u64_slice(&pis.to_u64_vec())
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -80,7 +91,7 @@ pub struct SpentPublicInputsTarget {
 
 impl SpentPublicInputsTarget {
     pub fn to_vec(&self) -> Vec<Target> {
-        let vec = vec![
+        let vec = [
             self.prev_private_commitment.to_vec(),
             self.new_private_commitment.to_vec(),
             self.tx.to_vec(),
@@ -155,10 +166,19 @@ impl SpentValue {
         transfers: &[Transfer],
         asset_merkle_proofs: &[AssetMerkleProof],
         tx_nonce: u32,
-    ) -> Self {
-        assert_eq!(prev_balances.len(), NUM_TRANSFERS_IN_TX);
-        assert_eq!(transfers.len(), NUM_TRANSFERS_IN_TX);
-        assert_eq!(asset_merkle_proofs.len(), NUM_TRANSFERS_IN_TX);
+    ) -> anyhow::Result<Self> {
+        ensure!(
+            prev_balances.len() == NUM_TRANSFERS_IN_TX,
+            "invalid number of balances"
+        );
+        ensure!(
+            transfers.len() == NUM_TRANSFERS_IN_TX,
+            "invalid number of transfers"
+        );
+        ensure!(
+            asset_merkle_proofs.len() == NUM_TRANSFERS_IN_TX,
+            "invalid number of proofs"
+        );
         let mut insufficient_bits = vec![];
         let mut asset_tree_root = prev_private_state.asset_tree_root;
         for ((transfer, proof), prev_balance) in transfers
@@ -167,28 +187,29 @@ impl SpentValue {
             .zip(prev_balances.iter())
         {
             proof
-                .verify(prev_balance, transfer.token_index as usize, asset_tree_root)
-                .expect("asset merkle proof verification failed");
+                .verify(prev_balance, transfer.token_index as u64, asset_tree_root)
+                .map_err(|e| anyhow::anyhow!("asset merkle proof verification failed: {}", e))?;
             let new_balance = prev_balance.sub(transfer.amount);
-            asset_tree_root = proof.get_root(&new_balance, transfer.token_index as usize);
+            asset_tree_root = proof.get_root(&new_balance, transfer.token_index as u64);
             insufficient_bits.push(new_balance.is_insufficient);
         }
         let insufficient_flags = InsufficientFlags::from_bits_be(&insufficient_bits);
         let is_valid = tx_nonce == prev_private_state.nonce;
+        let prev_private_commitment = prev_private_state.commitment();
         let new_private_state = PrivateState {
             asset_tree_root,
+            prev_private_commitment,
             nonce: prev_private_state.nonce + 1,
             salt: new_private_state_salt,
             ..prev_private_state.clone()
         };
-        let prev_private_commitment = prev_private_state.commitment();
         let new_private_commitment = new_private_state.commitment();
         let transfer_root = get_merkle_root_from_leaves(TRANSFER_TREE_HEIGHT, &transfers);
         let tx = Tx {
             transfer_tree_root: transfer_root,
             nonce: tx_nonce,
         };
-        Self {
+        Ok(Self {
             prev_private_state: prev_private_state.clone(),
             new_private_state_salt,
             transfers: transfers.to_vec(),
@@ -199,7 +220,7 @@ impl SpentValue {
             tx,
             insufficient_flags,
             is_valid,
-        }
+        })
     }
 }
 
@@ -237,14 +258,15 @@ impl SpentTarget {
         }
         let insufficient_flags = InsufficientFlagsTarget::from_bits_be(builder, &insufficient_bits);
         let is_valid = builder.is_equal(prev_private_state.nonce, tx_nonce);
+        let prev_private_commitment = prev_private_state.commitment(builder);
         let one = builder.one();
         let new_private_state = PrivateStateTarget {
             asset_tree_root,
+            prev_private_commitment,
             nonce: builder.add(prev_private_state.nonce, one),
             salt: new_private_state_salt,
             ..prev_private_state
         };
-        let prev_private_commitment = prev_private_state.commitment(builder);
         let new_private_commitment = new_private_state.commitment(builder);
         let transfer_root = get_merkle_root_from_leaves_circuit::<F, C, D, _>(
             builder,
@@ -335,17 +357,6 @@ where
     }
 }
 
-impl<F, C, const D: usize> RecursivelyVerifiable<F, C, D> for SpentCircuit<F, C, D>
-where
-    F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F> + 'static,
-    C::Hasher: AlgebraicHasher<F>,
-{
-    fn circuit_data(&self) -> &CircuitData<F, C, D> {
-        &self.data
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use plonky2::{
@@ -378,7 +389,7 @@ mod tests {
             .map(|_| AssetLeaf::rand(&mut rng))
             .collect::<Vec<_>>();
         for (i, balance) in prev_balances.iter().enumerate() {
-            asset_tree.update(i, *balance);
+            asset_tree.update(i as u64, *balance);
         }
         let prev_private_state = PrivateState {
             asset_tree_root: asset_tree.get_root(),
@@ -397,10 +408,10 @@ mod tests {
         for (index, (transfer, prev_balance)) in
             transfers.iter().zip(prev_balances.iter()).enumerate()
         {
-            assert_eq!(*prev_balance, asset_tree.get_leaf(index));
-            let proof = asset_tree.prove(transfer.token_index as usize);
+            assert_eq!(*prev_balance, asset_tree.get_leaf(index as u64));
+            let proof = asset_tree.prove(transfer.token_index as u64);
             let new_balance = prev_balance.sub(transfer.amount);
-            asset_tree.update(transfer.token_index as usize, new_balance);
+            asset_tree.update(transfer.token_index as u64, new_balance);
             asset_merkle_proofs.push(proof);
         }
         let new_private_state_salt = Salt::rand(&mut rng);
@@ -411,7 +422,8 @@ mod tests {
             &transfers,
             &asset_merkle_proofs,
             prev_private_state.nonce,
-        );
+        )
+        .expect("failed to create spent value");
         assert!(value.is_valid);
         let circuit = SpentCircuit::<F, C, D>::new();
         let instant = std::time::Instant::now();

@@ -16,7 +16,7 @@ use crate::{
         format_validation::{FormatValidationCircuit, FormatValidationValue},
         main_validation::{MainValidationCircuit, MainValidationValue},
     },
-    common::witness::block_witness::BlockWitness,
+    common::{signature::sign::get_pubkey_hash, witness::block_witness::BlockWitness},
 };
 
 #[derive(Debug)]
@@ -44,10 +44,10 @@ where
         let aggregation_circuit = AggregationCircuit::new();
         let format_validation_circuit = FormatValidationCircuit::new();
         let main_validation_circuit = MainValidationCircuit::new(
-            &account_inclusion_circuit,
-            &account_exclusion_circuit,
-            &format_validation_circuit,
-            &aggregation_circuit,
+            &account_inclusion_circuit.data.verifier_data(),
+            &account_exclusion_circuit.data.verifier_data(),
+            &format_validation_circuit.data.verifier_data(),
+            &aggregation_circuit.data.verifier_data(),
         );
 
         Self {
@@ -60,6 +60,13 @@ where
     }
 
     pub fn prove(&self, block_witness: &BlockWitness) -> Result<ProofWithPublicInputs<F, C, D>> {
+        let mut result = true;
+        if !block_witness.signature.is_registration_block {
+            let pubkey_hash = get_pubkey_hash(&block_witness.pubkeys);
+            let is_pubkey_eq = block_witness.signature.pubkey_hash == pubkey_hash;
+            result = result && is_pubkey_eq;
+        }
+        let sender_leaves = block_witness.get_sender_tree().leaves();
         let (account_exclusion_proof, account_inclusion_proof) =
             if block_witness.signature.is_registration_block {
                 let account_exclusion_value = AccountExclusionValue::new(
@@ -68,11 +75,12 @@ where
                         .account_membership_proofs
                         .clone()
                         .expect("Account membership proofs are missing"),
-                    block_witness.pubkeys.clone(),
+                    sender_leaves,
                 );
                 let account_exclusion_proof = self
                     .account_exclusion_circuit
                     .prove(&account_exclusion_value)?;
+                result = result && account_exclusion_value.is_valid;
                 (Some(account_exclusion_proof), None)
             } else {
                 let value = AccountInclusionValue::new(
@@ -88,17 +96,19 @@ where
                     block_witness.pubkeys.clone(),
                 );
                 let account_inclusion_proof = self.account_inclusion_circuit.prove(&value)?;
+                result = result && value.is_valid;
                 (None, Some(account_inclusion_proof))
             };
         let format_validation_value = FormatValidationValue::new(
             block_witness.pubkeys.clone(),
             block_witness.signature.clone(),
         );
+        result = result && format_validation_value.is_valid;
         let format_validation_proof = self
             .format_validation_circuit
             .prove(&format_validation_value)
             .unwrap();
-        let aggregation_proof = if format_validation_value.is_valid {
+        let aggregation_proof = if result {
             let aggregation_value = AggregationValue::new(
                 block_witness.pubkeys.clone(),
                 block_witness.signature.clone(),
@@ -137,10 +147,25 @@ mod tests {
     use plonky2::{
         field::goldilocks_field::GoldilocksField, plonk::config::PoseidonGoldilocksConfig,
     };
+    use rand::Rng;
 
     use crate::{
-        circuits::validity::block_validation::processor::MainValidationProcessor,
-        mock::block_builder::MockBlockBuilder, utils::test_utils::tx::generate_random_tx_requests,
+        circuits::{
+            test_utils::witness_generator::{construct_validity_and_tx_witness, MockTxRequest},
+            validity::{
+                block_validation::processor::MainValidationProcessor,
+                validity_pis::ValidityPublicInputs,
+            },
+        },
+        common::{
+            signature::key_set::KeySet,
+            trees::{
+                account_tree::AccountTree, block_hash_tree::BlockHashTree,
+                deposit_tree::DepositTree,
+            },
+            tx::Tx,
+        },
+        constants::NUM_SENDERS_IN_BLOCK,
     };
 
     type F = GoldilocksField;
@@ -148,12 +173,31 @@ mod tests {
     type C = PoseidonGoldilocksConfig;
 
     #[test]
-    fn main_validation_processor() {
+    fn main_validation_processor() -> anyhow::Result<()> {
         let main_validation_processor = MainValidationProcessor::<F, C, D>::new();
         let mut rng = rand::thread_rng();
-        let mut block_builder = MockBlockBuilder::new();
-        let txs = generate_random_tx_requests(&mut rng);
-        let validity_witness = block_builder.post_block(true, txs);
+
+        let mut account_tree = AccountTree::initialize();
+        let mut block_tree = BlockHashTree::initialize();
+        let deposit_tree = DepositTree::initialize();
+
+        let prev_validity_pis = ValidityPublicInputs::genesis();
+        let tx_requests = (0..NUM_SENDERS_IN_BLOCK)
+            .map(|_| MockTxRequest {
+                tx: Tx::rand(&mut rng),
+                sender_key: KeySet::rand(&mut rng),
+                will_return_sig: rng.gen_bool(0.5),
+            })
+            .collect::<Vec<_>>();
+        let (validity_witness, _) = construct_validity_and_tx_witness(
+            prev_validity_pis,
+            &mut account_tree,
+            &mut block_tree,
+            &deposit_tree,
+            true,
+            &tx_requests,
+            0,
+        )?;
         let instant = std::time::Instant::now();
         let _main_validation_proof = main_validation_processor
             .prove(&validity_witness.block_witness)
@@ -162,5 +206,6 @@ mod tests {
             "main validation proof generation time: {:?}",
             instant.elapsed()
         );
+        Ok(())
     }
 }

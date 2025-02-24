@@ -1,3 +1,4 @@
+use anyhow::ensure;
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -13,23 +14,21 @@ use crate::{
         block::Block,
         signature::{utils::get_pubkey_hash, SignatureContent},
         trees::{
-            account_tree::{AccountMembershipProof, AccountMerkleProof, AccountTree},
+            account_tree::{
+                AccountMembershipProof, AccountMerkleProof, AccountRegistrationProof, AccountTree,
+            },
             block_hash_tree::BlockHashTree,
             sender_tree::{get_sender_leaves, get_sender_tree_root, SenderTree},
         },
     },
     constants::{ACCOUNT_TREE_HEIGHT, BLOCK_HASH_TREE_HEIGHT, SENDER_TREE_HEIGHT},
-    ethereum_types::{
-        account_id_packed::AccountIdPacked, bytes32::Bytes32, u256::U256,
-        u32limb_trait::U32LimbTrait,
-    },
-    utils::{
-        poseidon_hash_out::PoseidonHashOut,
-        trees::{incremental_merkle_tree::IncrementalMerkleProof, merkle_tree::MerkleProof},
-    },
+    ethereum_types::{account_id_packed::AccountIdPacked, u256::U256},
+    utils::poseidon_hash_out::PoseidonHashOut,
 };
 
-use super::validity_transition_witness::effective_bits;
+use super::{
+    validity_transition_witness::ValidityTransitionWitness, validity_witness::ValidityWitness,
+};
 
 /// A structure that holds all the information needed to verify a block
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -39,25 +38,11 @@ pub struct BlockWitness {
     pub signature: SignatureContent,
     pub pubkeys: Vec<U256>,
     pub prev_account_tree_root: PoseidonHashOut,
+    pub prev_next_account_id: u64,
     pub prev_block_tree_root: PoseidonHashOut,
     pub account_id_packed: Option<AccountIdPacked>, // in account id case
     pub account_merkle_proofs: Option<Vec<AccountMerkleProof>>, // in account id case
     pub account_membership_proofs: Option<Vec<AccountMembershipProof>>, // in pubkey case
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct CompressedBlockWitness {
-    pub block: Block,
-    pub signature: SignatureContent,
-    pub pubkeys: Vec<U256>,
-    pub prev_account_tree_root: PoseidonHashOut,
-    pub prev_block_tree_root: PoseidonHashOut,
-    pub account_id_packed: Option<AccountIdPacked>, // in account id case
-    pub significant_account_merkle_proofs: Option<Vec<AccountMerkleProof>>, // in account id case
-    pub significant_account_membership_proofs: Option<Vec<AccountMembershipProof>>, /* in pubkey
-                                                     * case */
-    pub common_account_merkle_proof: Vec<PoseidonHashOut>,
 }
 
 impl BlockWitness {
@@ -69,6 +54,7 @@ impl BlockWitness {
             signature: SignatureContent::default(),
             pubkeys: vec![],
             prev_account_tree_root: account_tree.get_root(),
+            prev_next_account_id: 2,
             prev_block_tree_root: block_hash_tree.get_root(),
             account_id_packed: None,
             account_merkle_proofs: None,
@@ -76,146 +62,21 @@ impl BlockWitness {
         }
     }
 
-    pub fn compress(&self, max_account_id: usize) -> CompressedBlockWitness {
-        let significant_height = effective_bits(max_account_id) as usize;
-
-        let mut common_account_merkle_proof = vec![];
-        let significant_account_merkle_proofs = if let Some(account_merkle_proofs) =
-            &self.account_merkle_proofs
-        {
-            common_account_merkle_proof =
-                account_merkle_proofs[0].merkle_proof.0.siblings[significant_height..].to_vec();
-            let significant_account_merkle_proofs = account_merkle_proofs
-                .iter()
-                .map(|proof| {
-                    for i in 0..ACCOUNT_TREE_HEIGHT - significant_height {
-                        assert_eq!(
-                            proof.merkle_proof.0.siblings[significant_height + i],
-                            common_account_merkle_proof[i]
-                        );
-                    }
-                    AccountMerkleProof {
-                        merkle_proof: IncrementalMerkleProof(MerkleProof {
-                            siblings: proof.merkle_proof.0.siblings[..significant_height].to_vec(),
-                        }),
-                        leaf: proof.leaf.clone(),
-                    }
-                })
-                .collect();
-            Some(significant_account_merkle_proofs)
-        } else {
-            None
-        };
-        let significant_account_membership_proofs = if let Some(account_membership_proofs) =
-            &self.account_membership_proofs
-        {
-            common_account_merkle_proof =
-                account_membership_proofs[0].leaf_proof.0.siblings[significant_height..].to_vec();
-            let significant_account_membership_proofs = account_membership_proofs
-                .iter()
-                .map(|proof| {
-                    for i in 0..ACCOUNT_TREE_HEIGHT - significant_height {
-                        assert_eq!(
-                            proof.leaf_proof.0.siblings[significant_height + i],
-                            common_account_merkle_proof[i]
-                        );
-                    }
-                    AccountMembershipProof {
-                        leaf_proof: IncrementalMerkleProof(MerkleProof {
-                            siblings: proof.leaf_proof.0.siblings[..significant_height].to_vec(),
-                        }),
-                        ..(proof.clone())
-                    }
-                })
-                .collect();
-            Some(significant_account_membership_proofs)
-        } else {
-            None
-        };
-
-        CompressedBlockWitness {
-            block: self.block.clone(),
-            signature: self.signature.clone(),
-            pubkeys: self.pubkeys.clone(),
-            prev_account_tree_root: self.prev_account_tree_root.clone(),
-            prev_block_tree_root: self.prev_block_tree_root.clone(),
-            account_id_packed: self.account_id_packed.clone(),
-            significant_account_merkle_proofs,
-            significant_account_membership_proofs,
-            common_account_merkle_proof,
-        }
-    }
-
-    pub fn decompress(compressed: &CompressedBlockWitness) -> Self {
-        let account_merkle_proofs = if let Some(significant_account_merkle_proofs) =
-            &compressed.significant_account_merkle_proofs
-        {
-            let common_account_merkle_proof = &compressed.common_account_merkle_proof;
-            let account_merkle_proofs = significant_account_merkle_proofs
-                .iter()
-                .map(|proof| AccountMerkleProof {
-                    merkle_proof: IncrementalMerkleProof(MerkleProof {
-                        siblings: [
-                            &proof.merkle_proof.0.siblings[..],
-                            &common_account_merkle_proof[..],
-                        ]
-                        .concat(),
-                    }),
-                    leaf: proof.leaf.clone(),
-                })
-                .collect();
-            Some(account_merkle_proofs)
-        } else {
-            None
-        };
-        let account_membership_proofs = if let Some(significant_account_membership_proofs) =
-            &compressed.significant_account_membership_proofs
-        {
-            let common_account_merkle_proof = &compressed.common_account_merkle_proof;
-            let account_membership_proofs = significant_account_membership_proofs
-                .iter()
-                .map(|proof| AccountMembershipProof {
-                    leaf_proof: IncrementalMerkleProof(MerkleProof {
-                        siblings: [
-                            &proof.leaf_proof.0.siblings[..],
-                            &common_account_merkle_proof[..],
-                        ]
-                        .concat(),
-                    }),
-                    ..(proof.clone())
-                })
-                .collect();
-            Some(account_membership_proofs)
-        } else {
-            None
-        };
-
-        Self {
-            block: compressed.block.clone(),
-            signature: compressed.signature.clone(),
-            pubkeys: compressed.pubkeys.clone(),
-            prev_account_tree_root: compressed.prev_account_tree_root.clone(),
-            prev_block_tree_root: compressed.prev_block_tree_root.clone(),
-            account_id_packed: compressed.account_id_packed.clone(),
-            account_merkle_proofs,
-            account_membership_proofs,
-        }
-    }
-
-    pub fn to_main_validation_pis(&self) -> MainValidationPublicInputs {
+    pub fn to_main_validation_pis(&self) -> anyhow::Result<MainValidationPublicInputs> {
         if self.block == Block::genesis() {
             let validity_pis = ValidityPublicInputs::genesis();
-            return MainValidationPublicInputs {
+            return Ok(MainValidationPublicInputs {
                 prev_block_hash: Block::genesis().prev_block_hash,
                 block_hash: validity_pis.public_state.block_hash,
                 deposit_tree_root: validity_pis.public_state.deposit_tree_root,
                 account_tree_root: validity_pis.public_state.account_tree_root,
                 tx_tree_root: validity_pis.tx_tree_root,
                 sender_tree_root: validity_pis.sender_tree_root,
+                timestamp: validity_pis.public_state.timestamp,
                 block_number: validity_pis.public_state.block_number,
                 is_registration_block: false, // genesis block is not a registration block
                 is_valid: validity_pis.is_valid_block,
-            };
+            });
         }
 
         let mut result = true;
@@ -223,12 +84,13 @@ impl BlockWitness {
         let signature = self.signature.clone();
         let pubkeys = self.pubkeys.clone();
         let account_tree_root = self.prev_account_tree_root;
+        let sender_leaves = get_sender_leaves(&pubkeys, signature.sender_flag);
 
         let pubkey_hash = get_pubkey_hash(&pubkeys);
         let is_registration_block = signature.is_registration_block;
         let is_pubkey_eq = signature.pubkey_hash == pubkey_hash;
         if is_registration_block {
-            assert!(is_pubkey_eq, "pubkey hash mismatch");
+            ensure!(is_pubkey_eq, "pubkey hash mismatch");
         } else {
             result = result && is_pubkey_eq;
         }
@@ -236,16 +98,24 @@ impl BlockWitness {
             // Account exclusion verification
             let account_exclusion_value = AccountExclusionValue::new(
                 account_tree_root,
-                self.account_membership_proofs.clone().unwrap(),
-                pubkeys.clone(),
+                self.account_membership_proofs
+                    .clone()
+                    .ok_or(anyhow::anyhow!(
+                        "account_membership_proofs is None in registration block"
+                    ))?,
+                sender_leaves,
             );
             result = result && account_exclusion_value.is_valid;
         } else {
             // Account inclusion verification
             let account_inclusion_value = AccountInclusionValue::new(
                 account_tree_root,
-                self.account_id_packed.unwrap(),
-                self.account_merkle_proofs.clone().unwrap(),
+                self.account_id_packed.clone().ok_or(anyhow::anyhow!(
+                    "account_id_packed is None in non-registration block"
+                ))?,
+                self.account_merkle_proofs.clone().ok_or(anyhow::anyhow!(
+                    "account_merkle_proofs is None in non-registration block"
+                ))?,
                 pubkeys.clone(),
             );
             result = result && account_inclusion_value.is_valid;
@@ -266,17 +136,105 @@ impl BlockWitness {
         let sender_tree_root = get_sender_tree_root(&pubkeys, signature.sender_flag);
 
         let tx_tree_root = signature.tx_tree_root;
-        MainValidationPublicInputs {
+        Ok(MainValidationPublicInputs {
             prev_block_hash,
             block_hash,
             deposit_tree_root: block.deposit_tree_root,
             account_tree_root,
             tx_tree_root,
             sender_tree_root,
+            timestamp: block.timestamp,
             block_number: block.block_number,
             is_registration_block,
             is_valid: result,
-        }
+        })
+    }
+
+    pub fn to_validity_witness(
+        &self,
+        account_tree: &AccountTree,
+        block_tree: &BlockHashTree,
+    ) -> anyhow::Result<ValidityWitness> {
+        let mut account_tree = account_tree.clone();
+        let mut block_tree = block_tree.clone();
+        self.update_trees(&mut account_tree, &mut block_tree)
+    }
+
+    pub fn update_trees(
+        &self,
+        account_tree: &mut AccountTree,
+        block_tree: &mut BlockHashTree,
+    ) -> anyhow::Result<ValidityWitness> {
+        let block_pis = self.to_main_validation_pis().map_err(|e| {
+            anyhow::anyhow!("failed to convert to main validation public inputs: {}", e)
+        })?;
+        ensure!(
+            block_pis.block_number == block_tree.len() as u32,
+            "block number mismatch"
+        );
+
+        // Update block tree
+        let block_merkle_proof = block_tree.prove(self.block.block_number as u64);
+        block_tree.push(self.block.hash());
+
+        // Update account tree
+        let sender_leaves = get_sender_leaves(&self.pubkeys, self.signature.sender_flag);
+        let account_registration_proofs = {
+            if block_pis.is_valid && block_pis.is_registration_block {
+                let mut account_registration_proofs = Vec::new();
+                for sender_leaf in &sender_leaves {
+                    let is_dummy_pubkey = sender_leaf.sender.is_dummy_pubkey();
+                    let will_update = sender_leaf.did_return_sig && !is_dummy_pubkey;
+                    let proof = if will_update {
+                        account_tree
+                            .prove_and_insert(sender_leaf.sender, block_pis.block_number as u64)
+                            .map_err(|e| {
+                                anyhow::anyhow!("failed to prove and insert account_tree: {}", e)
+                            })?
+                    } else {
+                        AccountRegistrationProof::dummy(ACCOUNT_TREE_HEIGHT)
+                    };
+                    account_registration_proofs.push(proof);
+                }
+                Some(account_registration_proofs)
+            } else {
+                None
+            }
+        };
+
+        let account_update_proofs = {
+            if block_pis.is_valid && (!block_pis.is_registration_block) {
+                let mut account_update_proofs = Vec::new();
+                let block_number = block_pis.block_number;
+                for sender_leaf in sender_leaves.iter() {
+                    let account_id = account_tree.index(sender_leaf.sender).unwrap();
+                    let prev_leaf = account_tree.get_leaf(account_id);
+                    let prev_last_block_number = prev_leaf.value as u32;
+                    let last_block_number = if sender_leaf.did_return_sig {
+                        block_number
+                    } else {
+                        prev_last_block_number
+                    };
+                    let proof =
+                        account_tree.prove_and_update(sender_leaf.sender, last_block_number as u64);
+                    account_update_proofs.push(proof);
+                }
+                Some(account_update_proofs)
+            } else {
+                None
+            }
+        };
+
+        let validity_transition_witness = ValidityTransitionWitness {
+            sender_leaves,
+            block_merkle_proof,
+            account_registration_proofs,
+            account_update_proofs,
+        };
+        Ok(ValidityWitness {
+            validity_transition_witness,
+            block_witness: self.clone(),
+        })
     }
 
     pub fn get_sender_tree(&self) -> SenderTree {
@@ -290,59 +248,5 @@ impl BlockWitness {
             get_sender_tree_root(&self.pubkeys, self.signature.sender_flag)
         );
         sender_tree
-    }
-}
-
-// A subset of `BlockWitness` that only contains the information to be submitted to the
-// contract
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct FullBlock {
-    pub block: Block,
-    pub signature: SignatureContent,
-    pub pubkeys: Option<Vec<U256>>,  // pubkeys trimmed dummy pubkey
-    pub account_ids: Option<String>, // hex representation of account_ids trimmed dummy account ids
-    pub block_hash: Bytes32,
-}
-
-impl BlockWitness {
-    pub fn to_full_block(&self) -> FullBlock {
-        let pubkeys = if self.signature.is_registration_block {
-            let pubkey_trimmed_dummy = self
-                .pubkeys
-                .iter()
-                .filter(|p| !p.is_dummy_pubkey())
-                .cloned()
-                .collect::<Vec<_>>();
-            Some(pubkey_trimmed_dummy)
-        } else {
-            None
-        };
-        let account_ids = if self.account_id_packed.is_some() {
-            let account_id_packed = self.account_id_packed.unwrap();
-            let dummy_account_id_start_at = account_id_packed
-                .unpack()
-                .iter()
-                .position(|account_id| *account_id == 1);
-            if dummy_account_id_start_at.is_none() {
-                Some(account_id_packed.to_hex()) // account ids are full
-            } else {
-                let hex = account_id_packed.to_hex();
-                let start_index = dummy_account_id_start_at.unwrap();
-                //  a little dirty implementation to slice until 5bytes * start_index = 10hex
-                // *start_index
-                Some(hex[..2 + 10 * start_index].to_string())
-            }
-        } else {
-            None
-        };
-
-        FullBlock {
-            block: self.block.clone(),
-            signature: self.signature.clone(),
-            pubkeys,
-            account_ids,
-            block_hash: self.block.hash(),
-        }
     }
 }

@@ -8,16 +8,25 @@ use plonky2::{
     },
 };
 use plonky2_keccak::{builder::BuilderKeccak256 as _, utils::solidity_keccak256};
+use serde::{de::DeserializeOwned, Serialize};
 
 use super::poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget};
 use crate::ethereum_types::{
     bytes32::{Bytes32, Bytes32Target},
     u32limb_trait::{U32LimbTargetTrait as _, U32LimbTrait as _},
 };
-use core::fmt::Debug;
+use core::{fmt::Debug, hash::Hash};
 
 pub trait LeafableHasher: Debug + Clone {
-    type HashOut: Clone + Copy + Debug + Default + PartialEq;
+    type HashOut: Clone
+        + Copy
+        + Debug
+        + Default
+        + PartialEq
+        + Eq
+        + Hash
+        + Serialize
+        + DeserializeOwned;
     type HashOutTarget: Clone + Debug;
 
     fn two_to_one(left: Self::HashOut, right: Self::HashOut) -> Self::HashOut;
@@ -172,7 +181,7 @@ impl LeafableHasher for KeccakLeafableHasher {
     type HashOutTarget = Bytes32Target;
 
     fn two_to_one(left: Self::HashOut, right: Self::HashOut) -> Self::HashOut {
-        let inputs = vec![left.to_u32_vec(), right.to_u32_vec()].concat();
+        let inputs = [left.to_u32_vec(), right.to_u32_vec()].concat();
         Bytes32::from_u32_slice(&solidity_keccak256(&inputs))
     }
 
@@ -205,7 +214,7 @@ impl LeafableHasher for KeccakLeafableHasher {
     where
         <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
     {
-        let input = vec![left.to_vec(), right.to_vec()].concat();
+        let input = [left.to_vec(), right.to_vec()].concat();
         Bytes32Target::from_slice(&builder.keccak256::<C>(&input))
     }
 
@@ -230,7 +239,7 @@ impl LeafableHasher for KeccakLeafableHasher {
     fn hash_out_target<F: RichField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
     ) -> Self::HashOutTarget {
-        Bytes32Target::new(builder, false)
+        Bytes32Target::new(builder, true)
     }
 
     fn constant_hash_out_target<F: RichField + Extendable<D>, const D: usize>(

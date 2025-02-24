@@ -23,7 +23,12 @@ pub struct KeySet {
 
 impl KeySet {
     pub fn rand<R: Rng>(rng: &mut R) -> Self {
-        let mut privkey = Fr::rand(rng);
+        let provisional_privkey = Fr::rand(rng);
+        Self::generate_from_provisional(provisional_privkey)
+    }
+
+    pub fn generate_from_provisional(provisional_privkey: Fr) -> Self {
+        let mut privkey = provisional_privkey;
         let mut pubkey_g1: G1Affine = (G1Affine::generator() * privkey.clone()).into();
         // y.sgn() should be false
         if pubkey_g1.y.sgn() {

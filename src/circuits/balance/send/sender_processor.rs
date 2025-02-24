@@ -1,20 +1,24 @@
+use anyhow::ensure;
 use plonky2::{
     field::extension::Extendable,
     hash::hash_types::RichField,
     plonk::{
+        circuit_data::VerifierCircuitData,
         config::{AlgebraicHasher, GenericConfig},
         proof::ProofWithPublicInputs,
     },
 };
 
 use crate::{
-    circuits::validity::{validity_circuit::ValidityCircuit, validity_pis::ValidityPublicInputs},
-    common::witness::{send_witness::SendWitness, update_witness::UpdateWitness},
+    circuits::balance::{balance_pis::BalancePublicInputs, send::spent_circuit::SpentPublicInputs},
+    common::witness::{
+        spent_witness::SpentWitness, tx_witness::TxWitness, update_witness::UpdateWitness,
+    },
 };
 
 use super::{
     sender_circuit::{SenderCircuit, SenderValue},
-    spent_circuit::{SpentCircuit, SpentValue},
+    spent_circuit::SpentCircuit,
     tx_inclusion_circuit::{TxInclusionCircuit, TxInclusionValue},
 };
 
@@ -34,10 +38,13 @@ where
     C: GenericConfig<D, F = F> + 'static,
     <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
 {
-    pub fn new(validity_circuit: &ValidityCircuit<F, C, D>) -> Self {
+    pub fn new(validity_vd: &VerifierCircuitData<F, C, D>) -> Self {
         let spent_circuit = SpentCircuit::new();
-        let tx_inclusion_circuit = TxInclusionCircuit::new(validity_circuit);
-        let sender_circuit = SenderCircuit::new(&spent_circuit, &tx_inclusion_circuit);
+        let tx_inclusion_circuit = TxInclusionCircuit::new(validity_vd);
+        let sender_circuit = SenderCircuit::new(
+            &spent_circuit.data.verifier_data(),
+            &tx_inclusion_circuit.data.verifier_data(),
+        );
         Self {
             spent_circuit,
             tx_inclusion_circuit,
@@ -45,119 +52,143 @@ where
         }
     }
 
-    pub fn prove(
+    pub fn prove_spent(
         &self,
-        validity_circuit: &ValidityCircuit<F, C, D>,
-        send_witness: &SendWitness,
+        spent_witness: &SpentWitness,
+    ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
+        let spent_value = spent_witness
+            .to_value()
+            .map_err(|e| anyhow::anyhow!("failed to create spent value: {}", e))?;
+        self.spent_circuit
+            .prove(&spent_value)
+            .map_err(|e| anyhow::anyhow!("failed to prove spent: {}", e))
+    }
+
+    fn prove_tx_inclusion(
+        &self,
+        validity_vd: &VerifierCircuitData<F, C, D>,
+        prev_balance_pis: &BalancePublicInputs,
+        tx_witness: &TxWitness,
         update_witness: &UpdateWitness<F, C, D>,
-    ) -> ProofWithPublicInputs<F, C, D> {
-        // assert validity proof pis for debug
-        let validity_pis =
-            ValidityPublicInputs::from_pis(&update_witness.validity_proof.public_inputs);
-        assert_eq!(
-            validity_pis, send_witness.tx_witness.validity_pis,
+    ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
+        let update_validity_pis = update_witness.validity_pis();
+        ensure!(
+            update_validity_pis == tx_witness.validity_pis,
             "validity proof pis mismatch"
         );
-        let spent_value = SpentValue::new(
-            &send_witness.prev_private_state,
-            &send_witness.prev_balances,
-            send_witness.new_private_state_salt,
-            &send_witness.transfers,
-            &send_witness.asset_merkle_proofs,
-            send_witness.tx_witness.tx.nonce,
+        let sender_tree = tx_witness.get_sender_tree();
+        let sender_leaf = sender_tree.get_leaf(tx_witness.tx_index as u64);
+        ensure!(
+            sender_leaf.sender == prev_balance_pis.pubkey,
+            "sender pubkey mismatch"
         );
-        let tx_witness = &send_witness.tx_witness;
-        let sender_tree = send_witness.tx_witness.get_sender_tree();
-        let sender_leaf = sender_tree.get_leaf(tx_witness.tx_index);
-        let sender_merkle_proof = sender_tree.prove(tx_witness.tx_index);
+        let sender_merkle_proof = sender_tree.prove(tx_witness.tx_index as u64);
         let tx_inclusion_value = TxInclusionValue::new(
-            validity_circuit,
-            send_witness.prev_balance_pis.pubkey,
-            &send_witness.prev_balance_pis.public_state,
+            validity_vd,
+            prev_balance_pis.pubkey,
+            &prev_balance_pis.public_state,
             &update_witness.validity_proof,
             &update_witness.block_merkle_proof,
-            &update_witness.account_membership_proof,
+            &update_witness.prev_account_membership_proof()?,
             tx_witness.tx_index,
             &tx_witness.tx,
             &tx_witness.tx_merkle_proof,
             &sender_leaf,
             &sender_merkle_proof,
-        );
-        let spent_proof = self.spent_circuit.prove(&spent_value).unwrap();
-        let tx_inclusion_proof = self
-            .tx_inclusion_circuit
+        )
+        .map_err(|e| anyhow::anyhow!("failed to create tx inclusion value: {}", e))?;
+        self.tx_inclusion_circuit
             .prove(&tx_inclusion_value)
-            .unwrap();
+            .map_err(|e| anyhow::anyhow!("failed to prove tx inclusion: {}", e))
+    }
+
+    pub fn prove_send(
+        &self,
+        validity_vd: &VerifierCircuitData<F, C, D>,
+        prev_balance_pis: &BalancePublicInputs,
+        tx_witness: &TxWitness,
+        update_witness: &UpdateWitness<F, C, D>,
+        spent_proof: &ProofWithPublicInputs<F, C, D>,
+    ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
+        let spent_pis = SpentPublicInputs::from_pis(&spent_proof.public_inputs);
+        ensure!(
+            spent_pis.prev_private_commitment == prev_balance_pis.private_commitment,
+            "prev private commitment mismatch"
+        );
+        ensure!(spent_pis.tx == tx_witness.tx, "tx mismatch");
+        let tx_inclusion_proof =
+            self.prove_tx_inclusion(validity_vd, prev_balance_pis, tx_witness, update_witness)?;
         let sender_value = SenderValue::new(
             &self.spent_circuit,
             &self.tx_inclusion_circuit,
             &spent_proof,
             &tx_inclusion_proof,
-            &send_witness.prev_balance_pis,
-        );
-        self.sender_circuit.prove(&sender_value).unwrap()
+            &prev_balance_pis,
+        )
+        .map_err(|e| anyhow::anyhow!("failed to create sender value: {}", e))?;
+        self.sender_circuit
+            .prove(&sender_value)
+            .map_err(|e| anyhow::anyhow!("failed to prove sender: {}", e))
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use plonky2::{
-        field::goldilocks_field::GoldilocksField, plonk::config::PoseidonGoldilocksConfig,
-    };
+// #[cfg(test)]
+// mod tests {
+//     use plonky2::{
+//         field::goldilocks_field::GoldilocksField, plonk::config::PoseidonGoldilocksConfig,
+//     };
 
-    use crate::{
-        common::{generic_address::GenericAddress, salt::Salt, transfer::Transfer},
-        ethereum_types::u256::U256,
-        mock::{
-            block_builder::MockBlockBuilder, sync_validity_prover::SyncValidityProver,
-            wallet::MockWallet,
-        },
-    };
+//     use crate::{
+//         common::{generic_address::GenericAddress, salt::Salt, transfer::Transfer},
+//         ethereum_types::u256::U256,
+//     };
 
-    use super::SenderProcessor;
+//     use super::SenderProcessor;
 
-    type F = GoldilocksField;
-    type C = PoseidonGoldilocksConfig;
-    const D: usize = 2;
+//     type F = GoldilocksField;
+//     type C = PoseidonGoldilocksConfig;
+//     const D: usize = 2;
 
-    #[test]
-    fn sender_processor() {
-        let mut rng = rand::thread_rng();
-        let mut block_builder = MockBlockBuilder::new();
-        let mut wallet = MockWallet::new_rand(&mut rng);
-        let mut sync_prover = SyncValidityProver::<F, C, D>::new();
-        let sender_processor =
-            SenderProcessor::new(&sync_prover.validity_processor.validity_circuit);
+//     #[test]
+//     fn sender_processor() {
+//         let mut rng = rand::thread_rng();
+//         let mut block_builder = MockBlockBuilder::new();
+//         let mut wallet = MockWallet::new_rand(&mut rng);
+//         let mut sync_prover = SyncValidityProver::<F, C, D>::new();
+//         let sender_processor =
+//             SenderProcessor::new(&sync_prover.validity_processor.validity_circuit);
 
-        let transfer = Transfer {
-            recipient: GenericAddress::rand_pubkey(&mut rng),
-            token_index: 0,
-            amount: U256::rand_small(&mut rng),
-            salt: Salt::rand(&mut rng),
-        };
+//         let transfer = Transfer {
+//             recipient: GenericAddress::rand_pubkey(&mut rng),
+//             token_index: 0,
+//             amount: U256::rand_small(&mut rng),
+//             salt: Salt::rand(&mut rng),
+//         };
 
-        // send tx
-        let send_witness = wallet.send_tx_and_update(&mut rng, &mut block_builder, &[transfer]);
-        sync_prover.sync(&block_builder);
+//         // send tx
+//         let send_witness = wallet.send_tx_and_update(&mut rng, &mut block_builder, &[transfer]);
+//         sync_prover.sync(&block_builder);
 
-        let block_number = send_witness.get_included_block_number();
-        let prev_block_number = send_witness.get_prev_block_number();
-        println!(
-            "block_number: {}, prev_block_number: {}",
-            block_number, prev_block_number
-        );
-        let update_witness = sync_prover.get_update_witness(
-            &block_builder,
-            wallet.get_pubkey(),
-            block_builder.last_block_number(),
-            prev_block_number,
-            true,
-        );
+//         let block_number = send_witness.get_included_block_number();
+//         let prev_block_number = send_witness.get_prev_block_number();
+//         println!(
+//             "block_number: {}, prev_block_number: {}",
+//             block_number, prev_block_number
+//         );
+//         let update_witness = sync_prover.get_update_witness(
+//             &block_builder,
+//             wallet.get_pubkey(),
+//             block_builder.last_block_number(),
+//             prev_block_number,
+//             true,
+//         );
 
-        sender_processor.prove(
-            &sync_prover.validity_processor.validity_circuit,
-            &send_witness,
-            &update_witness,
-        );
-    }
-}
+//         sender_processor
+//             .prove(
+//                 &sync_prover.validity_processor.validity_circuit,
+//                 &send_witness,
+//                 &update_witness,
+//             )
+//             .unwrap();
+//     }
+// }

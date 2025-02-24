@@ -6,10 +6,10 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-plonky2 = { git="https://github.com/InternetMaximalism/polygon-plonky2.git", branch="intmax2-dev"}
-plonky2_u32={git="https://github.com/InternetMaximalism/plonky2-u32.git", branch="intmax2-dev"}
-plonky2_keccak={ git="https://github.com/InternetMaximalism/plonky2_keccak"}
-plonky2_bn254={ git="https://github.com/InternetMaximalism/plonky2_bn254"}
+plonky2 = { git = "https://github.com/InternetMaximalism/polygon-plonky2.git", branch = "intmax2-dev" }
+plonky2_u32 = { git = "https://github.com/InternetMaximalism/plonky2-u32.git", branch = "intmax2-dev" }
+plonky2_keccak = { git = "https://github.com/InternetMaximalism/plonky2_keccak" }
+plonky2_bn254 = { git = "https://github.com/InternetMaximalism/plonky2_bn254", branch = "audit" }
 hex = "0.4.3"
 rand = "0.8.5"
 anyhow = "1.0.82"
@@ -27,9 +27,13 @@ num-traits = "0.2.19"
 serde_json = "1.0.117"
 ff = { package = "ff", version = "0.13", features = ["derive"] }
 lazy_static = "1.5.0"
+uuid = { version = "1.4", features = ["v4", "serde"] }
+bincode = "1.3.3"
+env_logger = "0.11.5"
+chrono = "0.4.38"
 
 [features]
 default = []
 dummy_validity_proof = []
 skip_insufficient_check = []
-
+faster-mining = []

@@ -19,7 +19,7 @@ pub struct TxWitness {
     pub validity_pis: ValidityPublicInputs,
     pub sender_leaves: Vec<SenderLeaf>,
     pub tx: Tx,
-    pub tx_index: usize,
+    pub tx_index: u32,
     pub tx_merkle_proof: TxMerkleProof,
 }
 

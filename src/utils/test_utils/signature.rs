@@ -1,7 +1,9 @@
 use crate::{
     common::signature::{
         key_set::KeySet,
-        sign::{hash_to_weight, sign_to_tx_root},
+        sign::{
+            hash_to_weight, sign_to_tx_root_and_expiry, tx_tree_root_and_expiry_to_message_point,
+        },
         utils::get_pubkey_hash,
         SignatureContent,
     },
@@ -11,12 +13,11 @@ use crate::{
 use ark_bn254::{Bn254, Fr, G1Affine, G2Affine};
 use ark_ec::{pairing::Pairing, AffineRepr as _};
 use num::BigUint;
-use plonky2::field::{goldilocks_field::GoldilocksField, types::Field as _};
-use plonky2_bn254::{curves::g2::G2Target, utils::hash_to_g2::HashToG2 as _};
 use rand::Rng;
 
 impl SignatureContent {
-    pub(crate) fn rand<R: Rng>(rng: &mut R) -> (Vec<KeySet>, Self) {
+    pub fn rand<R: Rng>(rng: &mut R) -> (Vec<KeySet>, Self) {
+        let expiry = 0;
         let mut key_sets = (0..NUM_SENDERS_IN_BLOCK)
             .map(|_| KeySet::rand(rng))
             .collect::<Vec<_>>();
@@ -48,7 +49,9 @@ impl SignatureContent {
             });
         let agg_signature = key_sets
             .iter()
-            .map(|keyset| sign_to_tx_root(keyset.privkey, tx_tree_root, pubkey_hash))
+            .map(|keyset| {
+                sign_to_tx_root_and_expiry(keyset.privkey, tx_tree_root, expiry, pubkey_hash)
+            })
             .zip(sender_flag_bits.into_iter())
             .fold(
                 G2Affine::zero(),
@@ -61,18 +64,14 @@ impl SignatureContent {
                 },
             );
         // message point
-        let tx_tree_root_f = tx_tree_root
-            .to_u32_vec()
-            .iter()
-            .map(|x| GoldilocksField::from_canonical_u32(*x))
-            .collect::<Vec<_>>();
-        let message_point = G2Target::<GoldilocksField, 2>::hash_to_g2(&tx_tree_root_f);
+        let message_point = tx_tree_root_and_expiry_to_message_point(tx_tree_root, expiry.into());
         assert!(
             Bn254::pairing(agg_pubkey, message_point)
                 == Bn254::pairing(G1Affine::generator(), agg_signature)
         );
         let signature = Self {
             tx_tree_root,
+            expiry: expiry.into(),
             is_registration_block,
             sender_flag,
             pubkey_hash,

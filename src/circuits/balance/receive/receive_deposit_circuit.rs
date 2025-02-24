@@ -14,9 +14,9 @@ use crate::{
     utils::{
         dummy::DummyProof,
         poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget, POSEIDON_HASH_OUT_LEN},
-        recursively_verifiable::RecursivelyVerifiable,
     },
 };
+use anyhow::ensure;
 use plonky2::{
     field::{extension::Extendable, types::Field},
     gates::constant::ConstantGate,
@@ -114,7 +114,7 @@ impl ReceiveDepositPublicInputsTarget {
 pub struct ReceiveDepositValue {
     pub pubkey: U256,
     pub deposit_salt: Salt,
-    pub deposit_index: usize,
+    pub deposit_index: u32,
     pub deposit: Deposit,
     pub deposit_merkle_proof: DepositMerkleProof,
     pub public_state: PublicState,
@@ -127,28 +127,44 @@ impl ReceiveDepositValue {
     pub fn new(
         pubkey: U256,
         deposit_salt: Salt,
-        deposit_index: usize,
+        deposit_index: u32,
         deposit: &Deposit,
         deposit_merkle_proof: &DepositMerkleProof,
         public_state: &PublicState,
         private_state_transition: &PrivateStateTransitionValue,
-    ) -> Self {
+    ) -> anyhow::Result<Self> {
         // verify deposit inclusion
         let pubkey_salt_hash = get_pubkey_salt_hash(pubkey, deposit_salt);
-        assert_eq!(pubkey_salt_hash, deposit.pubkey_salt_hash);
+        ensure!(
+            pubkey_salt_hash == deposit.pubkey_salt_hash,
+            "Invalid pubkey salt hash"
+        );
         deposit_merkle_proof
-            .verify(&deposit, deposit_index, public_state.deposit_tree_root)
-            .expect("Invalid deposit merkle proof");
+            .verify(
+                &deposit,
+                deposit_index as u64,
+                public_state.deposit_tree_root,
+            )
+            .map_err(|e| anyhow::anyhow!("Invalid deposit merkle proof: {}", e))?;
 
         let nullifier: Bytes32 = deposit.poseidon_hash().into();
-        assert_eq!(deposit.token_index, private_state_transition.token_index);
-        assert_eq!(deposit.amount, private_state_transition.amount);
-        assert_eq!(nullifier, private_state_transition.nullifier);
+        ensure!(
+            deposit.token_index == private_state_transition.token_index,
+            "Invalid token index"
+        );
+        ensure!(
+            deposit.amount == private_state_transition.amount,
+            "Invalid amount"
+        );
+        ensure!(
+            nullifier == private_state_transition.nullifier,
+            "Invalid nullifier"
+        );
 
         let prev_private_commitment = private_state_transition.prev_private_state.commitment();
         let new_private_commitment = private_state_transition.new_private_state.commitment();
 
-        ReceiveDepositValue {
+        Ok(ReceiveDepositValue {
             pubkey,
             deposit_salt,
             deposit_index,
@@ -158,11 +174,11 @@ impl ReceiveDepositValue {
             private_state_transition: private_state_transition.clone(),
             prev_private_commitment,
             new_private_commitment,
-        }
+        })
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone)]
 pub struct ReceiveDepositTarget {
     pub pubkey: U256Target,
     pub deposit_salt: SaltTarget,
@@ -238,7 +254,7 @@ impl ReceiveDepositTarget {
         self.deposit_salt.set_witness(witness, value.deposit_salt);
         witness.set_target(
             self.deposit_index,
-            F::from_canonical_usize(value.deposit_index),
+            F::from_canonical_u32(value.deposit_index),
         );
         self.deposit.set_witness(witness, &value.deposit);
         self.deposit_merkle_proof
@@ -300,16 +316,5 @@ where
         let mut pw = PartialWitness::<F>::new();
         self.target.set_witness(&mut pw, value);
         self.data.prove(pw)
-    }
-}
-
-impl<F, C, const D: usize> RecursivelyVerifiable<F, C, D> for ReceiveDepositCircuit<F, C, D>
-where
-    F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F> + 'static,
-    C::Hasher: AlgebraicHasher<F>,
-{
-    fn circuit_data(&self) -> &CircuitData<F, C, D> {
-        &self.data
     }
 }

@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 use anyhow::ensure;
 use ark_bn254::Fq;
 use ark_std::iterable::Iterable;
@@ -43,6 +45,15 @@ impl core::fmt::Debug for U256 {
 impl core::fmt::Display for U256 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         core::fmt::Debug::fmt(&self, f)
+    }
+}
+
+impl FromStr for U256 {
+    type Err = anyhow::Error;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let b = BigUint::from_str_radix(s, 10).map_err(anyhow::Error::msg)?;
+        let u: U256 = b.try_into()?;
+        Ok(u)
     }
 }
 

@@ -31,11 +31,12 @@ use crate::{
         bytes32::{Bytes32, Bytes32Target, BYTES32_LEN},
         u256::{U256, U256_LEN},
         u32limb_trait::{U32LimbTargetTrait, U32LimbTrait},
+        u64::{U64Target, U64, U64_LEN},
     },
     utils::poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget},
 };
 
-pub const SIGNATURE_LEN: usize = 1 + BYTES16_LEN + 3 * BYTES32_LEN + 10 * U256_LEN;
+pub const SIGNATURE_LEN: usize = 1 + BYTES16_LEN + U64_LEN + 3 * BYTES32_LEN + 10 * U256_LEN;
 
 /// The signature that is verified by the contract. It is already guaranteed by
 /// the contract that e(`agg_pubkey`, message_point) = e(`agg_signature`, G2)
@@ -45,6 +46,7 @@ pub const SIGNATURE_LEN: usize = 1 + BYTES16_LEN + 3 * BYTES32_LEN + 10 * U256_L
 pub struct SignatureContent {
     pub is_registration_block: bool,
     pub tx_tree_root: Bytes32,
+    pub expiry: U64,
     pub sender_flag: Bytes16,
     pub pubkey_hash: Bytes32,
     pub account_id_hash: Bytes32,
@@ -57,6 +59,7 @@ pub struct SignatureContent {
 pub struct SignatureContentTarget {
     pub is_registration_block: BoolTarget,
     pub tx_tree_root: Bytes32Target,
+    pub expiry: U64Target,
     pub sender_flag: Bytes16Target,
     pub pubkey_hash: Bytes32Target,
     pub account_id_hash: Bytes32Target,
@@ -70,6 +73,7 @@ impl SignatureContent {
         let limbs = vec![
             vec![self.is_registration_block as u32],
             self.tx_tree_root.to_u32_vec(),
+            self.expiry.to_u32_vec(),
             self.sender_flag.to_u32_vec(),
             self.pubkey_hash.to_u32_vec(),
             self.account_id_hash.to_u32_vec(),
@@ -95,6 +99,7 @@ impl SignatureContentTarget {
         let vec = vec![
             vec![self.is_registration_block.target],
             self.tx_tree_root.to_vec(),
+            self.expiry.to_vec(),
             self.sender_flag.to_vec(),
             self.pubkey_hash.to_vec(),
             self.account_id_hash.to_vec(),
@@ -116,8 +121,9 @@ impl SignatureContentTarget {
             builder.assert_bool(is_registration_block);
         }
         Self {
-            tx_tree_root: Bytes32Target::new(builder, is_checked),
             is_registration_block,
+            tx_tree_root: Bytes32Target::new(builder, is_checked),
+            expiry: U64Target::new(builder, is_checked),
             sender_flag: Bytes16Target::new(builder, is_checked),
             pubkey_hash: Bytes32Target::new(builder, is_checked),
             account_id_hash: Bytes32Target::new(builder, is_checked),
@@ -132,8 +138,9 @@ impl SignatureContentTarget {
         value: &SignatureContent,
     ) -> Self {
         Self {
-            tx_tree_root: Bytes32Target::constant(builder, value.tx_tree_root),
             is_registration_block: builder.constant_bool(value.is_registration_block),
+            tx_tree_root: Bytes32Target::constant(builder, value.tx_tree_root),
+            expiry: U64Target::constant(builder, value.expiry),
             sender_flag: Bytes16Target::constant(builder, value.sender_flag),
             pubkey_hash: Bytes32Target::constant(builder, value.pubkey_hash),
             account_id_hash: Bytes32Target::constant(builder, value.account_id_hash),
@@ -148,8 +155,9 @@ impl SignatureContentTarget {
         witness: &mut W,
         value: &SignatureContent,
     ) {
-        self.tx_tree_root.set_witness(witness, value.tx_tree_root);
         witness.set_bool_target(self.is_registration_block, value.is_registration_block);
+        self.tx_tree_root.set_witness(witness, value.tx_tree_root);
+        self.expiry.set_witness(witness, value.expiry);
         self.sender_flag.set_witness(witness, value.sender_flag);
         self.pubkey_hash.set_witness(witness, value.pubkey_hash);
         self.account_id_hash

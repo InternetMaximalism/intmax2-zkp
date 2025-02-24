@@ -37,14 +37,11 @@ use crate::{
         conversion::ToField as _,
         cyclic::vd_vec_len,
         poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget},
-        recursively_verifiable::RecursivelyVerifiable as _,
+        recursively_verifiable::add_proof_target_and_verify,
     },
 };
 
-use super::{
-    balance_pis::{BalancePublicInputs, BALANCE_PUBLIC_INPUTS_LEN},
-    transition::transition_circuit::BalanceTransitionCircuit,
-};
+use super::balance_pis::{BalancePublicInputs, BALANCE_PUBLIC_INPUTS_LEN};
 
 use crate::utils::cyclic::vd_from_pis_slice_target;
 
@@ -68,12 +65,13 @@ where
     C: GenericConfig<D, F = F> + 'static,
     C::Hasher: AlgebraicHasher<F>,
 {
-    pub fn new(balance_transition_circuit: &BalanceTransitionCircuit<F, C, D>) -> Self {
+    pub fn new(balance_transition_verifier_data: &VerifierCircuitData<F, C, D>) -> Self {
         let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::default());
         let is_first_step = builder.add_virtual_bool_target_safe();
         let is_not_first_step = builder.not(is_first_step);
 
-        let transition_proof = balance_transition_circuit.add_proof_target_and_verify(&mut builder);
+        let transition_proof =
+            add_proof_target_and_verify(balance_transition_verifier_data, &mut builder);
 
         let prev_pis_ = BalancePublicInputsTarget::from_slice(
             &transition_proof.public_inputs[0..BALANCE_PUBLIC_INPUTS_LEN],
@@ -84,7 +82,7 @@ where
         );
         let inner_balance_vd = vd_from_pis_slice_target(
             &transition_proof.public_inputs,
-            &balance_transition_circuit.data.common.config,
+            &balance_transition_verifier_data.common.config,
         )
         .expect("Failed to parse inner balance vd");
         builder.register_public_inputs(&new_pis.to_vec());
@@ -110,7 +108,7 @@ where
             PoseidonHashOutTarget::constant(&mut builder, PrivateState::new().commitment());
         let initial_last_tx_hash =
             PoseidonHashOutTarget::constant(&mut builder, PoseidonHashOut::default());
-        let intitial_public_state =
+        let initial_public_state =
             PublicStateTarget::constant(&mut builder, &PublicState::genesis());
         let initial_last_tx_insufficient_flags =
             InsufficientFlagsTarget::constant(&mut builder, InsufficientFlags::default());
@@ -120,7 +118,7 @@ where
             private_commitment: initial_private_commitment,
             last_tx_hash: initial_last_tx_hash,
             last_tx_insufficient_flags: initial_last_tx_insufficient_flags,
-            public_state: intitial_public_state,
+            public_state: initial_public_state,
         };
         prev_pis.conditional_assert_eq(&mut builder, &initial_balance_pis, is_first_step);
 
@@ -190,23 +188,6 @@ where
     pub fn verify(&self, proof: &ProofWithPublicInputs<F, C, D>) -> Result<()> {
         check_cyclic_proof_verifier_data(&proof, &self.data.verifier_only, &self.data.common)?;
         self.data.verify(proof.clone())
-    }
-
-    pub fn add_proof_target_and_verify(
-        &self,
-        builder: &mut CircuitBuilder<F, D>,
-    ) -> ProofWithPublicInputsTarget<D> {
-        let proof = builder.add_virtual_proof_with_pis(&self.data.common);
-        let vd_target = builder.constant_verifier_data(&self.data.verifier_only);
-        let inner_vd_target =
-            vd_from_pis_slice_target(&proof.public_inputs, &self.data.common.config).unwrap();
-        builder.connect_hashes(vd_target.circuit_digest, inner_vd_target.circuit_digest);
-        builder.connect_merkle_caps(
-            &vd_target.constants_sigmas_cap,
-            &inner_vd_target.constants_sigmas_cap,
-        );
-        builder.verify_proof::<C>(&proof, &vd_target, &self.data.common);
-        proof
     }
 }
 

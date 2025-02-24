@@ -47,7 +47,7 @@ impl AccountTree {
         tree
     }
 
-    pub fn prove_inclusion(&self, account_id: usize) -> AccountMerkleProof {
+    pub fn prove_inclusion(&self, account_id: u64) -> AccountMerkleProof {
         let leaf = self.get_leaf(account_id);
         let merkle_proof = self.prove(account_id);
         AccountMerkleProof { merkle_proof, leaf }
@@ -65,7 +65,7 @@ pub struct AccountMerkleProof {
 impl AccountMerkleProof {
     /// id is already registered. Account id range check is assumed already
     /// done.
-    pub fn verify(&self, root: PoseidonHashOut, account_id: usize, pubkey: U256) -> bool {
+    pub fn verify(&self, root: PoseidonHashOut, account_id: u64, pubkey: U256) -> bool {
         let mut result = true;
         let is_not_pubkey_zero = pubkey != U256::default();
         result = result && is_not_pubkey_zero;

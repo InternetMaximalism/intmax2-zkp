@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{ensure, Result};
 use plonky2::{
     field::extension::Extendable,
     hash::hash_types::RichField,
@@ -14,7 +14,6 @@ use plonky2::{
 use crate::{
     circuits::validity::validity_pis::{ValidityPublicInputs, ValidityPublicInputsTarget},
     common::witness::validity_witness::ValidityWitness,
-    utils::recursively_verifiable::RecursivelyVerifiable,
 };
 
 #[derive(Debug)]
@@ -39,7 +38,7 @@ where
         let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::default());
         let prev_pis = ValidityPublicInputsTarget::new(&mut builder, false);
         let new_pis = ValidityPublicInputsTarget::new(&mut builder, false);
-        let concat_pis = vec![prev_pis.to_vec(), new_pis.to_vec()].concat();
+        let concat_pis = [prev_pis.to_vec(), new_pis.to_vec()].concat();
         builder.register_public_inputs(&concat_pis);
         let data = builder.build::<C>();
         Self {
@@ -61,32 +60,30 @@ where
         prev_pis: &ValidityPublicInputs,
         validity_witness: &ValidityWitness,
     ) -> Result<ProofWithPublicInputs<F, C, D>> {
-        let new_pis = validity_witness.to_validity_pis();
+        let new_pis = validity_witness.to_validity_pis().map_err(|e| {
+            anyhow::anyhow!(
+                "Failed to convert validity witness to validity public inputs: {}",
+                e
+            )
+        })?;
 
         // assertion
-        assert_eq!(
-            prev_pis.public_state.account_tree_root,
-            validity_witness.block_witness.prev_account_tree_root
+        ensure!(
+            prev_pis.public_state.account_tree_root
+                == validity_witness.block_witness.prev_account_tree_root,
+            "Account tree root mismatch"
         );
-        assert_eq!(
-            prev_pis.public_state.block_tree_root,
-            validity_witness.block_witness.prev_block_tree_root
+        ensure!(
+            prev_pis.public_state.block_tree_root
+                == validity_witness.block_witness.prev_block_tree_root,
+            "Block tree root mismatch"
         );
 
         let mut pw = PartialWitness::<F>::new();
         self.prev_pis.set_witness(&mut pw, &prev_pis);
         self.new_pis.set_witness(&mut pw, &new_pis);
-        self.data.prove(pw)
-    }
-}
-
-impl<F, C, const D: usize> RecursivelyVerifiable<F, C, D> for DummyTransitionWrapperCircuit<F, C, D>
-where
-    F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F> + 'static,
-    C::Hasher: AlgebraicHasher<F>,
-{
-    fn circuit_data(&self) -> &CircuitData<F, C, D> {
-        &self.data
+        self.data
+            .prove(pw)
+            .map_err(|e| anyhow::anyhow!("Failed to prove: {}", e))
     }
 }

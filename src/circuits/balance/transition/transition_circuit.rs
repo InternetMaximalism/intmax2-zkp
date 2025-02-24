@@ -1,3 +1,4 @@
+use anyhow::ensure;
 use plonky2::{
     field::extension::Extendable,
     hash::hash_types::{HashOutTarget, RichField},
@@ -8,7 +9,8 @@ use plonky2::{
     plonk::{
         circuit_builder::CircuitBuilder,
         circuit_data::{
-            CircuitConfig, CircuitData, VerifierCircuitTarget, VerifierOnlyCircuitData,
+            CircuitConfig, CircuitData, VerifierCircuitData, VerifierCircuitTarget,
+            VerifierOnlyCircuitData,
         },
         config::{AlgebraicHasher, GenericConfig},
         proof::{ProofWithPublicInputs, ProofWithPublicInputsTarget},
@@ -35,7 +37,7 @@ use crate::{
         conversion::ToU64,
         cyclic::conditionally_connect_vd,
         poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget},
-        recursively_verifiable::RecursivelyVerifiable,
+        recursively_verifiable::add_proof_target_and_conditionally_verify,
     },
 };
 
@@ -83,7 +85,7 @@ where
         sender_proof: Option<ProofWithPublicInputs<F, C, D>>,
         prev_balance_pis: BalancePublicInputs,
         balance_circuit_vd: VerifierOnlyCircuitData<C, D>,
-    ) -> Self {
+    ) -> anyhow::Result<Self> {
         let mut circuit_flags = [false; 4];
         circuit_flags[circuit_type as usize] = true;
 
@@ -91,25 +93,31 @@ where
             BalanceTransitionType::ReceiveTransfer => {
                 let receive_transfer_proof = receive_transfer_proof
                     .clone()
-                    .expect("receive_transfer_proof is None");
+                    .ok_or_else(|| anyhow::anyhow!("receive_transfer_proof is None"))?;
                 receive_transfer_circuit
                     .data
                     .verify(receive_transfer_proof.clone())
-                    .expect("receive_transfer_proof is invalid");
+                    .map_err(|e| anyhow::anyhow!("receive_transfer_proof is invalid: {}", e))?;
                 let pis = ReceiveTransferPublicInputs::<F, C, D>::from_slice(
                     config,
                     &receive_transfer_proof.public_inputs,
                 );
-                assert_eq!(
-                    pis.balance_circuit_vd, balance_circuit_vd,
+                ensure!(
+                    pis.balance_circuit_vd == balance_circuit_vd,
                     "balance_circuit_vd mismatch in receive_transfer_proof"
                 );
-                assert_eq!(
-                    pis.prev_private_commitment,
-                    prev_balance_pis.private_commitment,
+                ensure!(
+                    pis.prev_private_commitment == prev_balance_pis.private_commitment,
+                    "prev_private_commitment mismatch in receive_transfer_proof"
                 );
-                assert_eq!(pis.pubkey, prev_balance_pis.pubkey);
-                assert_eq!(pis.public_state, prev_balance_pis.public_state);
+                ensure!(
+                    pis.pubkey == prev_balance_pis.pubkey,
+                    "pubkey mismatch in receive_transfer_proof"
+                );
+                ensure!(
+                    pis.public_state == prev_balance_pis.public_state,
+                    "public_state mismatch in receive_transfer_proof"
+                );
                 BalancePublicInputs {
                     pubkey: pis.pubkey,
                     private_commitment: pis.new_private_commitment,
@@ -119,11 +127,11 @@ where
             BalanceTransitionType::ReceiveDeposit => {
                 let receive_deposit_proof = receive_deposit_proof
                     .clone()
-                    .expect("receive_deposit_proof is None");
+                    .ok_or_else(|| anyhow::anyhow!("receive_deposit_proof is None"))?;
                 receive_deposit_circuit
                     .data
                     .verify(receive_deposit_proof.clone())
-                    .expect("receive_deposit_proof is invalid");
+                    .map_err(|e| anyhow::anyhow!("receive_deposit_proof is invalid: {}", e))?;
                 let pis = ReceiveDepositPublicInputs::from_u64_slice(
                     &receive_deposit_proof
                         .public_inputs
@@ -131,12 +139,18 @@ where
                         .map(|x| x.to_canonical_u64())
                         .collect::<Vec<_>>(),
                 );
-                assert_eq!(
-                    pis.prev_private_commitment,
-                    prev_balance_pis.private_commitment,
+                ensure!(
+                    pis.prev_private_commitment == prev_balance_pis.private_commitment,
+                    "prev_private_commitment mismatch in receive_deposit_proof"
                 );
-                assert_eq!(pis.pubkey, prev_balance_pis.pubkey);
-                assert_eq!(pis.public_state, prev_balance_pis.public_state);
+                ensure!(
+                    pis.pubkey == prev_balance_pis.pubkey,
+                    "pubkey mismatch in receive_deposit_proof"
+                );
+                ensure!(
+                    pis.public_state == prev_balance_pis.public_state,
+                    "public_state mismatch in receive_deposit_proof"
+                );
                 BalancePublicInputs {
                     pubkey: pis.pubkey,
                     private_commitment: pis.new_private_commitment,
@@ -144,14 +158,19 @@ where
                 }
             }
             BalanceTransitionType::Update => {
-                let update_proof = update_proof.clone().expect("update_proof is None");
+                let update_proof = update_proof
+                    .clone()
+                    .ok_or_else(|| anyhow::anyhow!("update_proof is None"))?;
                 update_circuit
                     .data
                     .verify(update_proof.clone())
-                    .expect("update_proof is invalid");
+                    .map_err(|e| anyhow::anyhow!("update_proof is invalid: {}", e))?;
                 let pis =
                     UpdatePublicInputs::from_u64_slice(&update_proof.public_inputs.to_u64_vec());
-                assert_eq!(pis.prev_public_state, prev_balance_pis.public_state);
+                ensure!(
+                    pis.prev_public_state == prev_balance_pis.public_state,
+                    "prev_public_state mismatch in update_proof"
+                );
                 BalancePublicInputs {
                     public_state: pis.new_public_state,
                     ..prev_balance_pis
@@ -162,7 +181,7 @@ where
                 sender_circuit
                     .data
                     .verify(sender_proof.clone())
-                    .expect("sender_proof is invalid");
+                    .map_err(|e| anyhow::anyhow!("sender_proof is invalid: {}", e))?;
                 let pis = SenderPublicInputs::from_u64_slice(
                     &sender_proof
                         .public_inputs
@@ -170,14 +189,17 @@ where
                         .map(|x| x.to_canonical_u64())
                         .collect::<Vec<_>>(),
                 );
-                assert_eq!(pis.prev_balance_pis, prev_balance_pis);
+                ensure!(
+                    pis.prev_balance_pis == prev_balance_pis,
+                    "prev_balance_pis mismatch"
+                );
                 pis.new_balance_pis
             }
         };
 
         let new_balance_pis_commitment = new_balance_pis.commitment();
 
-        Self {
+        Ok(Self {
             circuit_type,
             circuit_flags,
             receive_transfer_proof,
@@ -188,7 +210,7 @@ where
             new_balance_pis,
             new_balance_pis_commitment,
             balance_circuit_vd,
-        }
+        })
     }
 }
 
@@ -208,10 +230,10 @@ pub struct BalanceTransitionTarget<const D: usize> {
 
 impl<const D: usize> BalanceTransitionTarget<D> {
     pub fn new<F: RichField + Extendable<D>, C: GenericConfig<D, F = F> + 'static>(
-        receive_transfer_circuit: &ReceiveTransferCircuit<F, C, D>,
-        receive_deposit_circuit: &ReceiveDepositCircuit<F, C, D>,
-        update_circuit: &UpdateCircuit<F, C, D>,
-        sender_circuit: &SenderCircuit<F, C, D>,
+        receive_transfer_vd: &VerifierCircuitData<F, C, D>,
+        receive_deposit_vd: &VerifierCircuitData<F, C, D>,
+        update_vd: &VerifierCircuitData<F, C, D>,
+        sender_vd: &VerifierCircuitData<F, C, D>,
         config: &CircuitConfig,
         builder: &mut CircuitBuilder<F, D>,
     ) -> Self
@@ -233,8 +255,11 @@ impl<const D: usize> BalanceTransitionTarget<D> {
         let balance_circuit_vd = builder.add_virtual_verifier_data(config.fri_config.cap_height);
         let prev_balance_pis = BalancePublicInputsTarget::new(builder, false);
 
-        let receive_transfer_proof = receive_transfer_circuit
-            .add_proof_target_and_conditionally_verify(builder, circuit_flags[0]);
+        let receive_transfer_proof = add_proof_target_and_conditionally_verify(
+            receive_transfer_vd,
+            builder,
+            circuit_flags[0],
+        );
         let new_balance_pis0 = {
             let condition = circuit_flags[0];
             let pis = ReceiveTransferPublicInputsTarget::from_slice(
@@ -265,8 +290,11 @@ impl<const D: usize> BalanceTransitionTarget<D> {
                 ..prev_balance_pis.clone()
             }
         };
-        let receive_deposit_proof = receive_deposit_circuit
-            .add_proof_target_and_conditionally_verify(builder, circuit_flags[1]);
+        let receive_deposit_proof = add_proof_target_and_conditionally_verify(
+            receive_deposit_vd,
+            builder,
+            circuit_flags[1],
+        );
         let new_balance_pis1 = {
             let condition = circuit_flags[1];
             let pis =
@@ -290,7 +318,7 @@ impl<const D: usize> BalanceTransitionTarget<D> {
             }
         };
         let update_proof =
-            update_circuit.add_proof_target_and_conditionally_verify(builder, circuit_flags[2]);
+            add_proof_target_and_conditionally_verify(update_vd, builder, circuit_flags[2]);
         let new_balance_pis2 = {
             let condition = circuit_flags[2];
             let pis = UpdatePublicInputsTarget::from_slice(&update_proof.public_inputs);
@@ -299,13 +327,17 @@ impl<const D: usize> BalanceTransitionTarget<D> {
                 &prev_balance_pis.public_state,
                 condition,
             );
+            prev_balance_pis
+                .pubkey
+                .conditional_assert_eq(builder, pis.pubkey, condition);
             BalancePublicInputsTarget {
+                pubkey: pis.pubkey,
                 public_state: pis.new_public_state,
                 ..prev_balance_pis.clone()
             }
         };
         let sender_proof =
-            sender_circuit.add_proof_target_and_conditionally_verify(builder, circuit_flags[3]);
+            add_proof_target_and_conditionally_verify(sender_vd, builder, circuit_flags[3]);
         let new_balance_pis3 = {
             let condition = circuit_flags[3];
             let pis = SenderPublicInputsTarget::from_slice(&sender_proof.public_inputs);
@@ -440,22 +472,22 @@ where
     C::Hasher: AlgebraicHasher<F>,
 {
     pub fn new(
-        receive_transfer_circuit: &ReceiveTransferCircuit<F, C, D>,
-        receive_deposit_circuit: &ReceiveDepositCircuit<F, C, D>,
-        update_circuit: &UpdateCircuit<F, C, D>,
-        sender_circuit: &SenderCircuit<F, C, D>,
+        receive_transfer_vd: &VerifierCircuitData<F, C, D>,
+        receive_deposit_vd: &VerifierCircuitData<F, C, D>,
+        update_vd: &VerifierCircuitData<F, C, D>,
+        sender_vd: &VerifierCircuitData<F, C, D>,
     ) -> Self {
         let config = CircuitConfig::standard_recursion_zk_config();
         let mut builder = CircuitBuilder::<F, D>::new(config.clone());
         let target = BalanceTransitionTarget::new::<F, C>(
-            receive_transfer_circuit,
-            receive_deposit_circuit,
-            update_circuit,
-            sender_circuit,
+            receive_transfer_vd,
+            receive_deposit_vd,
+            update_vd,
+            sender_vd,
             &config,
             &mut builder,
         );
-        let pis = vec![
+        let pis = [
             target.prev_balance_pis.to_vec(),
             target.new_balance_pis.to_vec(),
         ]
@@ -491,16 +523,5 @@ where
         );
         pw.set_verifier_data_target(&self.balance_circuit_vd, &value.balance_circuit_vd);
         self.data.prove(pw)
-    }
-}
-
-impl<F, C, const D: usize> RecursivelyVerifiable<F, C, D> for BalanceTransitionCircuit<F, C, D>
-where
-    F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F> + 'static,
-    C::Hasher: AlgebraicHasher<F>,
-{
-    fn circuit_data(&self) -> &CircuitData<F, C, D> {
-        &self.data
     }
 }

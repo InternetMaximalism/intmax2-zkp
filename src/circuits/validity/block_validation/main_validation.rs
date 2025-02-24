@@ -7,13 +7,16 @@ use crate::{
         bytes32::{Bytes32Target, BYTES32_LEN},
         u256::U256Target,
         u32limb_trait::U32LimbTrait as _,
+        u64::{U64Target, U64, U64_LEN},
     },
     utils::{
         conversion::ToU64,
         dummy::DummyProof,
         logic::BuilderLogic,
-        poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget},
-        recursively_verifiable::RecursivelyVerifiable,
+        poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget, POSEIDON_HASH_OUT_LEN},
+        recursively_verifiable::{
+            add_proof_target_and_conditionally_verify, add_proof_target_and_verify,
+        },
     },
 };
 use plonky2::{
@@ -25,7 +28,7 @@ use plonky2::{
     },
     plonk::{
         circuit_builder::CircuitBuilder,
-        circuit_data::{CircuitConfig, CircuitData},
+        circuit_data::{CircuitConfig, CircuitData, VerifierCircuitData},
         config::{AlgebraicHasher, GenericConfig},
         proof::{ProofWithPublicInputs, ProofWithPublicInputsTarget},
     },
@@ -55,7 +58,8 @@ use super::{
     utils::{get_pubkey_commitment, get_pubkey_commitment_circuit},
 };
 
-pub const MAIN_VALIDATION_PUBLIC_INPUT_LEN: usize = 4 * BYTES32_LEN + 2 * 4 + 3;
+pub const MAIN_VALIDATION_PUBLIC_INPUT_LEN: usize =
+    4 * BYTES32_LEN + 2 * POSEIDON_HASH_OUT_LEN + U64_LEN + 3;
 
 #[derive(Clone, Debug)]
 pub struct MainValidationPublicInputs {
@@ -65,6 +69,7 @@ pub struct MainValidationPublicInputs {
     pub account_tree_root: PoseidonHashOut,
     pub tx_tree_root: Bytes32,
     pub sender_tree_root: PoseidonHashOut,
+    pub timestamp: u64,
     pub block_number: u32,
     pub is_registration_block: bool,
     pub is_valid: bool,
@@ -78,6 +83,7 @@ pub struct MainValidationPublicInputsTarget {
     pub account_tree_root: PoseidonHashOutTarget,
     pub tx_tree_root: Bytes32Target,
     pub sender_tree_root: PoseidonHashOutTarget,
+    pub timestamp: U64Target,
     pub block_number: Target,
     pub is_registration_block: BoolTarget,
     pub is_valid: BoolTarget,
@@ -92,9 +98,10 @@ impl MainValidationPublicInputs {
         let account_tree_root = PoseidonHashOut::from_u64_slice(&input[24..28]);
         let tx_tree_root = Bytes32::from_u64_slice(&input[28..36]);
         let sender_tree_root = PoseidonHashOut::from_u64_slice(&input[36..40]);
-        let block_number = input[40] as u32;
-        let is_registration_block = input[41] == 1;
-        let is_valid = input[42] == 1;
+        let timestamp = U64::from_u64_slice(&input[40..42]).into();
+        let block_number = input[42];
+        let is_registration_block = input[43] == 1;
+        let is_valid = input[44] == 1;
         Self {
             prev_block_hash,
             block_hash,
@@ -102,7 +109,8 @@ impl MainValidationPublicInputs {
             account_tree_root,
             tx_tree_root,
             sender_tree_root,
-            block_number,
+            timestamp,
+            block_number: block_number as u32,
             is_registration_block,
             is_valid,
         }
@@ -129,6 +137,7 @@ impl MainValidationPublicInputsTarget {
             account_tree_root: PoseidonHashOutTarget::new(builder),
             tx_tree_root: Bytes32Target::new(builder, is_checked),
             sender_tree_root: PoseidonHashOutTarget::new(builder),
+            timestamp: U64Target::new(builder, is_checked),
             block_number,
             is_registration_block,
             is_valid,
@@ -145,6 +154,7 @@ impl MainValidationPublicInputsTarget {
             .chain(self.account_tree_root.elements.into_iter())
             .chain(self.tx_tree_root.to_vec().into_iter())
             .chain(self.sender_tree_root.elements.into_iter())
+            .chain(self.timestamp.to_vec().into_iter())
             .chain([
                 self.block_number,
                 self.is_registration_block.target,
@@ -163,9 +173,10 @@ impl MainValidationPublicInputsTarget {
         let account_tree_root = PoseidonHashOutTarget::from_slice(&input[24..28]);
         let tx_tree_root = Bytes32Target::from_slice(&input[28..36]);
         let sender_tree_root = PoseidonHashOutTarget::from_slice(&input[36..40]);
-        let block_number = input[40];
-        let is_registration_block = BoolTarget::new_unsafe(input[41]);
-        let is_valid = BoolTarget::new_unsafe(input[42]);
+        let timestamp = U64Target::from_slice(&input[40..42]);
+        let block_number = input[42];
+        let is_registration_block = BoolTarget::new_unsafe(input[43]);
+        let is_valid = BoolTarget::new_unsafe(input[44]);
         Self {
             prev_block_hash,
             block_hash,
@@ -173,10 +184,34 @@ impl MainValidationPublicInputsTarget {
             account_tree_root,
             tx_tree_root,
             sender_tree_root,
+            timestamp,
             block_number,
             is_registration_block,
             is_valid,
         }
+    }
+
+    pub fn connect<F: RichField + Extendable<D>, const D: usize>(
+        &self,
+        builder: &mut CircuitBuilder<F, D>,
+        other: &Self,
+    ) {
+        self.prev_block_hash.connect(builder, other.prev_block_hash);
+        self.block_hash.connect(builder, other.block_hash);
+        self.deposit_tree_root
+            .connect(builder, other.deposit_tree_root);
+        self.account_tree_root
+            .connect(builder, other.account_tree_root);
+        self.tx_tree_root.connect(builder, other.tx_tree_root);
+        self.sender_tree_root
+            .connect(builder, other.sender_tree_root);
+        self.timestamp.connect(builder, other.timestamp);
+        builder.connect(self.block_number, other.block_number);
+        builder.connect(
+            self.is_registration_block.target,
+            other.is_registration_block.target,
+        );
+        builder.connect(self.is_valid.target, other.is_valid.target);
     }
 
     pub fn set_witness<W: Witness<F>, F: Field>(
@@ -194,6 +229,7 @@ impl MainValidationPublicInputsTarget {
         self.tx_tree_root.set_witness(witness, value.tx_tree_root);
         self.sender_tree_root
             .set_witness(witness, value.sender_tree_root);
+        self.timestamp.set_witness(witness, U64::from(value.timestamp));
         witness.set_target(self.block_number, F::from_canonical_u32(value.block_number));
         witness.set_bool_target(self.is_registration_block, value.is_registration_block);
         witness.set_bool_target(self.is_valid, value.is_valid);
@@ -244,6 +280,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         let pubkey_hash = get_pubkey_hash(&pubkeys);
         let is_registration_block = signature.is_registration_block;
         let is_pubkey_eq = signature.pubkey_hash == pubkey_hash;
+
         if is_registration_block {
             // When pubkey is directly given, the constraint is that signature.pubkey_hash and
             // pubkey_hash match.
@@ -261,6 +298,8 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
             "signature hash mismatch"
         );
 
+        let sender_tree_root = get_sender_tree_root(&pubkeys, signature.sender_flag);
+
         if is_registration_block {
             // Account exclusion verification
             let account_exclusion_proof = account_exclusion_proof
@@ -274,8 +313,8 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
                 &account_exclusion_proof.public_inputs.to_u64_vec(),
             );
             assert_eq!(
-                pis.pubkey_commitment, pubkey_commitment,
-                "pubkey commitment mismatch"
+                pis.sender_tree_root, sender_tree_root,
+                "sender_tree_root mismatch"
             );
             assert_eq!(
                 pis.account_tree_root, account_tree_root,
@@ -361,7 +400,6 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         // block hash calculation
         let prev_block_hash = block.prev_block_hash;
         let block_hash = block.hash();
-        let sender_tree_root = get_sender_tree_root(&pubkeys, signature.sender_flag);
 
         Self {
             block,
@@ -404,10 +442,10 @@ pub struct MainValidationTarget<const D: usize> {
 
 impl<const D: usize> MainValidationTarget<D> {
     pub fn new<F: RichField + Extendable<D>, C: GenericConfig<D, F = F> + 'static>(
-        account_inclusion_circuit: &AccountInclusionCircuit<F, C, D>,
-        account_exclusion_circuit: &AccountExclusionCircuit<F, C, D>,
-        format_validation_circuit: &FormatValidationCircuit<F, C, D>,
-        aggregation_circuit: &AggregationCircuit<F, C, D>,
+        account_inclusion_vd: &VerifierCircuitData<F, C, D>,
+        account_exclusion_vd: &VerifierCircuitData<F, C, D>,
+        format_validation_vd: &VerifierCircuitData<F, C, D>,
+        aggregation_vd: &VerifierCircuitData<F, C, D>,
         builder: &mut CircuitBuilder<F, D>,
     ) -> Self
     where
@@ -419,6 +457,8 @@ impl<const D: usize> MainValidationTarget<D> {
         let pubkeys = (0..NUM_SENDERS_IN_BLOCK)
             .map(|_| U256Target::new(builder, true))
             .collect::<Vec<_>>();
+        let sender_tree_root =
+            get_sender_tree_root_circuit::<F, C, D>(builder, &pubkeys, signature.sender_flag);
         let pubkey_commitment = get_pubkey_commitment_circuit(builder, &pubkeys);
         let pubkey_hash = get_pubkey_hash_circuit::<F, C, D>(builder, &pubkeys);
         let account_tree_root = PoseidonHashOutTarget::new(builder);
@@ -436,13 +476,16 @@ impl<const D: usize> MainValidationTarget<D> {
         block.signature_hash.connect(builder, signature_hash);
 
         // Account exclusion verification
-        let account_exclusion_proof = account_exclusion_circuit
-            .add_proof_target_and_conditionally_verify(builder, is_registration_block);
+        let account_exclusion_proof = add_proof_target_and_conditionally_verify(
+            account_exclusion_vd,
+            builder,
+            is_registration_block,
+        );
         let account_exclusion_pis =
             AccountExclusionPublicInputsTarget::from_slice(&account_exclusion_proof.public_inputs);
         account_exclusion_pis
-            .pubkey_commitment
-            .conditional_assert_eq(builder, pubkey_commitment, is_registration_block);
+            .sender_tree_root
+            .conditional_assert_eq(builder, sender_tree_root, is_registration_block);
         account_exclusion_pis
             .account_tree_root
             .conditional_assert_eq(builder, account_tree_root, is_registration_block);
@@ -453,8 +496,11 @@ impl<const D: usize> MainValidationTarget<D> {
         );
 
         // Account inclusion verification
-        let account_inclusion_proof = account_inclusion_circuit
-            .add_proof_target_and_conditionally_verify(builder, is_not_registration_block);
+        let account_inclusion_proof = add_proof_target_and_conditionally_verify(
+            account_inclusion_vd,
+            builder,
+            is_not_registration_block,
+        );
         let account_inclusion_pis =
             AccountInclusionPublicInputsTarget::from_slice(&account_inclusion_proof.public_inputs);
         account_inclusion_pis
@@ -475,8 +521,7 @@ impl<const D: usize> MainValidationTarget<D> {
         );
 
         // Format validation
-        let format_validation_proof =
-            format_validation_circuit.add_proof_target_and_verify(builder);
+        let format_validation_proof = add_proof_target_and_verify(format_validation_vd, builder);
         let format_validation_pis =
             FormatValidationPublicInputsTarget::from_slice(&format_validation_proof.public_inputs);
         format_validation_pis
@@ -489,7 +534,7 @@ impl<const D: usize> MainValidationTarget<D> {
 
         // Perform aggregation verification only if all the above processes are verified.
         let aggregation_proof =
-            aggregation_circuit.add_proof_target_and_conditionally_verify(builder, result);
+            add_proof_target_and_conditionally_verify(aggregation_vd, builder, result);
         let aggregation_pis =
             AggregationPublicInputsTarget::from_slice(&aggregation_proof.public_inputs);
         aggregation_pis
@@ -504,8 +549,6 @@ impl<const D: usize> MainValidationTarget<D> {
 
         let prev_block_hash = block.prev_block_hash;
         let block_hash = block.hash::<F, C, D>(builder);
-        let sender_tree_root =
-            get_sender_tree_root_circuit::<F, C, D>(builder, &pubkeys, signature.sender_flag);
 
         Self {
             block,
@@ -593,17 +636,17 @@ where
     C::Hasher: AlgebraicHasher<F>,
 {
     pub fn new(
-        account_inclusion_circuit: &AccountInclusionCircuit<F, C, D>,
-        account_exclusion_circuit: &AccountExclusionCircuit<F, C, D>,
-        format_validation_circuit: &FormatValidationCircuit<F, C, D>,
-        aggregation_circuit: &AggregationCircuit<F, C, D>,
+        account_inclusion_vd: &VerifierCircuitData<F, C, D>,
+        account_exclusion_vd: &VerifierCircuitData<F, C, D>,
+        format_validation_vd: &VerifierCircuitData<F, C, D>,
+        aggregation_vd: &VerifierCircuitData<F, C, D>,
     ) -> Self {
         let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::default());
         let target = MainValidationTarget::new::<F, C>(
-            account_inclusion_circuit,
-            account_exclusion_circuit,
-            format_validation_circuit,
-            aggregation_circuit,
+            account_inclusion_vd,
+            account_exclusion_vd,
+            format_validation_vd,
+            aggregation_vd,
             &mut builder,
         );
         let pis = MainValidationPublicInputsTarget {
@@ -613,6 +656,7 @@ where
             account_tree_root: target.account_tree_root,
             tx_tree_root: target.signature.tx_tree_root,
             sender_tree_root: target.sender_tree_root,
+            timestamp: target.block.timestamp,
             block_number: target.block.block_number,
             is_registration_block: target.is_registration_block,
             is_valid: target.is_valid,
@@ -639,15 +683,5 @@ where
             value,
         );
         self.data.prove(pw)
-    }
-}
-
-impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F> + 'static, const D: usize>
-    RecursivelyVerifiable<F, C, D> for MainValidationCircuit<F, C, D>
-where
-    <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
-{
-    fn circuit_data(&self) -> &CircuitData<F, C, D> {
-        &self.data
     }
 }

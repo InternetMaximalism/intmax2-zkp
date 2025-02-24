@@ -1,7 +1,7 @@
 use ark_bn254::{Fq, G1Affine, G2Affine};
 use num::BigUint;
 use plonky2::{
-    field::{extension::Extendable, goldilocks_field::GoldilocksField, types::Field as _},
+    field::extension::Extendable,
     hash::hash_types::RichField,
     iop::target::BoolTarget,
     plonk::{
@@ -10,13 +10,18 @@ use plonky2::{
     },
 };
 use plonky2_bn254::{
-    curves::{g1::G1Target, g2::G2Target},
+    curves::g1::G1Target,
     fields::{fq::FqTarget, recover::RecoverFromX as _},
-    utils::hash_to_g2::HashToG2 as _,
 };
 
 use crate::{
-    common::signature::{flatten::FlatG2Target, pubkey_range_check},
+    common::signature::{
+        pubkey_range_check,
+        sign::{
+            tx_tree_root_and_expiry_to_message_point,
+            tx_tree_root_and_expiry_to_message_point_target,
+        },
+    },
     constants::NUM_SENDERS_IN_BLOCK,
     ethereum_types::{
         bytes16::Bytes16,
@@ -61,13 +66,8 @@ impl SignatureContent {
             result &= G1Affine::is_recoverable_from_x(pubkey_fq);
         }
         // message point check
-        let tx_tree_root = self
-            .tx_tree_root
-            .to_u32_vec()
-            .iter()
-            .map(|x| GoldilocksField::from_canonical_u32(*x))
-            .collect::<Vec<_>>();
-        let message_point_expected = G2Target::<GoldilocksField, 2>::hash_to_g2(&tx_tree_root);
+        let message_point_expected =
+            tx_tree_root_and_expiry_to_message_point(self.tx_tree_root, self.expiry);
         let message_point: G2Affine = self.message_point.clone().into();
         result &= message_point_expected == message_point;
         result
@@ -123,8 +123,11 @@ impl SignatureContentTarget {
             result = builder.and(result, is_recoverable);
         }
         // message point check
-        let message_point: FlatG2Target =
-            G2Target::<F, D>::hash_to_g2_circuit::<C>(builder, &self.tx_tree_root.to_vec()).into();
+        let message_point = tx_tree_root_and_expiry_to_message_point_target::<F, C, D>(
+            builder,
+            self.tx_tree_root.clone(),
+            self.expiry,
+        );
         let is_message_eq = message_point.is_equal(builder, &self.message_point);
         result = builder.and(result, is_message_eq);
         result

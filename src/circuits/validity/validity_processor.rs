@@ -3,6 +3,7 @@ use plonky2::{
     field::extension::Extendable,
     hash::hash_types::RichField,
     plonk::{
+        circuit_data::VerifierCircuitData,
         config::{AlgebraicHasher, GenericConfig},
         proof::ProofWithPublicInputs,
     },
@@ -41,13 +42,17 @@ where
         #[cfg(not(feature = "dummy_validity_proof"))]
         let transition_processor = TransitionProcessor::new();
         #[cfg(not(feature = "dummy_validity_proof"))]
-        let validity_circuit =
-            ValidityCircuit::new(&transition_processor.transition_wrapper_circuit);
+        let validity_circuit = ValidityCircuit::new(
+            &transition_processor
+                .transition_wrapper_circuit
+                .data
+                .verifier_data(),
+        );
 
         #[cfg(feature = "dummy_validity_proof")]
         let dummy_transition_circuit = DummyTransitionWrapperCircuit::new();
         #[cfg(feature = "dummy_validity_proof")]
-        let validity_circuit = ValidityCircuit::new(&dummy_transition_circuit);
+        let validity_circuit = ValidityCircuit::new(&dummy_transition_circuit.data.verifier_data());
         Self {
             #[cfg(not(feature = "dummy_validity_proof"))]
             transition_processor,
@@ -80,11 +85,15 @@ where
         #[cfg(not(feature = "dummy_validity_proof"))]
         let transition_proof = self
             .transition_processor
-            .prove(&prev_pis, &validity_witness)?;
+            .prove(&prev_pis, validity_witness)?;
         #[cfg(feature = "dummy_validity_proof")]
         let transition_proof = self
             .dummy_transition_circuit
             .prove(&prev_pis, &validity_witness)?;
-        self.validity_circuit.prove(&transition_proof, &prev_proof)
+        self.validity_circuit.prove(&transition_proof, prev_proof)
+    }
+
+    pub fn get_verifier_data(&self) -> VerifierCircuitData<F, C, D> {
+        self.validity_circuit.data.verifier_data()
     }
 }
