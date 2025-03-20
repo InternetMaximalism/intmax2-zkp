@@ -98,7 +98,7 @@ impl LeafableHasher for PoseidonLeafableHasher {
         let inputs = left
             .to_u64_vec()
             .into_iter()
-            .chain(right.to_u64_vec().into_iter())
+            .chain(right.to_u64_vec())
             .collect::<Vec<_>>();
         PoseidonHashOut::hash_inputs_u64(&inputs)
     }

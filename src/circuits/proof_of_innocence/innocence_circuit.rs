@@ -45,9 +45,9 @@ impl InnocencePublicInputs {
     pub fn to_u64_vec(&self) -> Vec<u64> {
         let vec = vec![self.use_allow_list as u64]
             .into_iter()
-            .chain(self.allow_list_tree_root.to_u64_vec().into_iter())
-            .chain(self.deny_list_tree_root.to_u64_vec().into_iter())
-            .chain(self.nullifier_tree_root.to_u64_vec().into_iter())
+            .chain(self.allow_list_tree_root.to_u64_vec())
+            .chain(self.deny_list_tree_root.to_u64_vec())
+            .chain(self.nullifier_tree_root.to_u64_vec())
             .collect::<Vec<_>>();
         assert_eq!(vec.len(), INNOCENCE_PUBLIC_INPUTS_LEN);
         vec
@@ -89,9 +89,9 @@ impl InnocencePublicInputsTarget {
     pub fn to_vec(&self) -> Vec<Target> {
         let vec = vec![self.use_allow_list.target]
             .into_iter()
-            .chain(self.allow_list_tree_root.to_vec().into_iter())
-            .chain(self.deny_list_tree_root.to_vec().into_iter())
-            .chain(self.nullifier_tree_root.to_vec().into_iter())
+            .chain(self.allow_list_tree_root.to_vec())
+            .chain(self.deny_list_tree_root.to_vec())
+            .chain(self.nullifier_tree_root.to_vec())
             .collect::<Vec<_>>();
         assert_eq!(vec.len(), INNOCENCE_PUBLIC_INPUTS_LEN);
         vec
@@ -131,6 +131,17 @@ where
     prev_proof: ProofWithPublicInputsTarget<D>,
     verifier_data_target: VerifierCircuitTarget,
     pub data: CircuitData<F, C, D>,
+}
+
+impl<F, C, const D: usize> Default for InnocenceCircuit<F, C, D>
+where
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F> + 'static,
+    C::Hasher: AlgebraicHasher<F>,
+ {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl<F, C, const D: usize> InnocenceCircuit<F, C, D>
@@ -264,7 +275,7 @@ where
         circuit_digest: builder.add_virtual_hash(),
     };
     builder.verify_proof::<C>(&proof, &verifier_data, &data.common);
-    while builder.num_gates() < 1 << CYCLIC_CIRCUIT_PADDING_DEGREE - 1 {
+    while builder.num_gates() < 1 << (CYCLIC_CIRCUIT_PADDING_DEGREE - 1) {
         builder.add_gate(NoopGate, vec![]);
     }
     let zero = U256Target::zero::<F, D, U256>(&mut builder);

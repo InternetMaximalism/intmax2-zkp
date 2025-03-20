@@ -31,6 +31,12 @@ pub struct MockContract {
                                                    * block_number) */
 }
 
+impl Default for MockContract {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl MockContract {
     pub fn new() -> Self {
         let full_blocks = vec![FullBlock::genesis()];

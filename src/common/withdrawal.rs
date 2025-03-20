@@ -195,6 +195,6 @@ pub fn get_withdrawal_nullifier_circuit<F: RichField + Extendable<D>, const D: u
     let transfer_commitment = transfer.commitment(builder);
     let input = [transfer_commitment.to_vec(), transfer.salt.to_vec()].concat();
     let input_hash = PoseidonHashOutTarget::hash_inputs(builder, &input);
-    let nullifier = Bytes32Target::from_hash_out(builder, input_hash);
-    nullifier
+    
+    Bytes32Target::from_hash_out(builder, input_hash)
 }

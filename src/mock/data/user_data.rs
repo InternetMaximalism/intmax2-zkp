@@ -61,8 +61,8 @@ impl UserData {
 
     pub fn encrypt(&self, _pubkey: U256) -> Vec<u8> {
         // this is a mock encryption
-        let bytes = self.to_bytes();
-        bytes
+        
+        self.to_bytes()
     }
 
     pub fn decrypt(bytes: &[u8], _key: KeySet) -> anyhow::Result<Self> {

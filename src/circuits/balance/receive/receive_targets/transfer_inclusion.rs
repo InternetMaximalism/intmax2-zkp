@@ -80,13 +80,13 @@ where
         ensure!(!_is_insufficient, "Transfer is insufficient");
         // check merkle proof
         transfer_merkle_proof
-            .verify(&transfer, transfer_index as u64, tx.transfer_tree_root)
+            .verify(transfer, transfer_index as u64, tx.transfer_tree_root)
             .map_err(|e| anyhow::anyhow!("Invalid transfer merkle proof: {}", e))?;
         Ok(Self {
-            transfer: transfer.clone(),
+            transfer: *transfer,
             transfer_index,
             transfer_merkle_proof: transfer_merkle_proof.clone(),
-            tx: tx.clone(),
+            tx: *tx,
             balance_proof: balance_proof.clone(),
             balance_circuit_vd,
             public_state: balance_pis.public_state.clone(),
@@ -119,12 +119,12 @@ impl<const D: usize> TransferInclusionTarget<D> {
         let transfer_merkle_proof = TransferMerkleProofTarget::new(builder, TRANSFER_TREE_HEIGHT);
         let tx = TxTarget::new(builder);
 
-        let balance_proof = builder.add_virtual_proof_with_pis(&balance_common_data);
+        let balance_proof = builder.add_virtual_proof_with_pis(balance_common_data);
         let balance_pis = BalancePublicInputsTarget::from_pis(&balance_proof.public_inputs);
         let balance_circuit_vd =
             vd_from_pis_slice_target(&balance_proof.public_inputs, &balance_common_data.config)
                 .expect("Failed to parse balance vd");
-        builder.verify_proof::<C>(&balance_proof, &balance_circuit_vd, &balance_common_data);
+        builder.verify_proof::<C>(&balance_proof, &balance_circuit_vd, balance_common_data);
 
         let tx_hash = tx.hash::<F, C, D>(builder);
         balance_pis.last_tx_hash.connect(builder, tx_hash);

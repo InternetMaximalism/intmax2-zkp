@@ -70,7 +70,8 @@ pub struct SignatureContentTarget {
 
 impl SignatureContent {
     pub fn to_u32_vec(&self) -> Vec<u32> {
-        let limbs = vec![
+        
+        vec![
             vec![self.is_registration_block as u32],
             self.tx_tree_root.to_u32_vec(),
             self.expiry.to_u32_vec(),
@@ -81,8 +82,7 @@ impl SignatureContent {
             self.agg_signature.to_u32_vec(),
             self.message_point.to_u32_vec(),
         ]
-        .concat();
-        limbs
+        .concat()
     }
 
     pub fn commitment(&self) -> PoseidonHashOut {

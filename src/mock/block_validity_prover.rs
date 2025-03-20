@@ -54,6 +54,17 @@ where
     tx_tree_roots: HashMap<Bytes32, u32>,     // tx tree root at each block
 }
 
+impl<F, C, const D: usize> Default for BlockValidityProver<F, C, D>
+where
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F> + 'static,
+    <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
+ {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<F, C, const D: usize> BlockValidityProver<F, C, D>
 where
     F: RichField + Extendable<D>,

@@ -71,7 +71,7 @@ pub fn construct_validity_and_tx_witness(
 
     let mut tx_tree = TxTree::new(TX_TREE_HEIGHT);
     for r in normalized_requests.iter() {
-        tx_tree.push(r.tx.clone());
+        tx_tree.push(r.tx);
     }
     let tx_tree_root: Bytes32 = tx_tree.get_root().into();
 
@@ -174,7 +174,7 @@ pub fn construct_validity_and_tx_witness(
         .map(|(tx, index, proof)| TxWitness {
             validity_pis: validity_pis.clone(),
             sender_leaves: sender_leaves.clone(),
-            tx: tx.clone(),
+            tx: *tx,
             tx_index: *index,
             tx_merkle_proof: proof.clone(),
         })
@@ -192,7 +192,7 @@ pub fn construct_spent_and_transfer_witness(
 
     let mut transfer_tree = TransferTree::new(TRANSFER_TREE_HEIGHT);
     for transfer in &transfers {
-        transfer_tree.push(transfer.clone());
+        transfer_tree.push(*transfer);
     }
     let tx = Tx {
         transfer_tree_root: transfer_tree.get_root(),
@@ -204,7 +204,7 @@ pub fn construct_spent_and_transfer_witness(
         let transfer_merkle_proof = transfer_tree.prove(index as u64);
         transfer_witnesses.push(TransferWitness {
             tx,
-            transfer: transfer.clone(),
+            transfer: *transfer,
             transfer_index: index as u32,
             transfer_merkle_proof,
         });

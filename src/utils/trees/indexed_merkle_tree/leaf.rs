@@ -35,7 +35,7 @@ pub struct IndexedMerkleLeaf {
 impl IndexedMerkleLeaf {
     pub fn to_u64_vec(&self) -> Vec<u64> {
         let mut res = vec![];
-        res.push(self.next_index as u64);
+        res.push(self.next_index);
         res.extend_from_slice(&self.key.to_u64_vec());
         res.extend_from_slice(&self.next_key.to_u64_vec());
         res.push(self.value);

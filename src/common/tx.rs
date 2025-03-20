@@ -35,7 +35,7 @@ impl Tx {
             .transfer_tree_root
             .to_u64_vec()
             .into_iter()
-            .chain(vec![self.nonce as u64].into_iter())
+            .chain(vec![self.nonce as u64])
             .collect::<Vec<_>>();
         assert_eq!(vec.len(), TX_LEN);
         vec

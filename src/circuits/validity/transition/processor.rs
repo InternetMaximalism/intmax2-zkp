@@ -37,6 +37,17 @@ where
     pub transition_wrapper_circuit: TransitionWrapperCircuit<F, C, D>,
 }
 
+impl<F, C, const D: usize> Default for TransitionProcessor<F, C, D>
+where
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F> + 'static,
+    <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
+ {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<F, C, const D: usize> TransitionProcessor<F, C, D>
 where
     F: RichField + Extendable<D>,
@@ -146,7 +157,7 @@ where
         let proof = self.transition_wrapper_circuit.prove(
             &main_validation_proof,
             &transition_value,
-            &prev_pis,
+            prev_pis,
             self.account_registration_circuit.dummy_proof.clone(),
             self.account_update_circuit.dummy_proof.clone(),
         )?;

@@ -36,10 +36,10 @@ impl<V: Leafable> MerkleTree<V> {
         // zero_hashes = reverse([H(zero_leaf), H(H(zero_leaf), H(zero_leaf)), ...])
         let mut zero_hashes = vec![];
         let mut h = empty_leaf_hash;
-        zero_hashes.push(h.clone());
+        zero_hashes.push(h);
         for _ in 0..height {
             h = <V::LeafableHasher as LeafableHasher>::two_to_one(h, h);
-            zero_hashes.push(h.clone());
+            zero_hashes.push(h);
         }
         zero_hashes.reverse();
 
@@ -59,22 +59,22 @@ impl<V: Leafable> MerkleTree<V> {
 
     pub(crate) fn get_node_hash(
         &self,
-        path: &Vec<bool>,
+        path: &[bool],
     ) -> <V::LeafableHasher as LeafableHasher>::HashOut {
         assert!(path.len() <= self.height);
         match self.node_hashes.get(path) {
-            Some(h) => h.clone(),
-            None => self.zero_hashes[path.len()].clone(),
+            Some(h) => *h,
+            None => self.zero_hashes[path.len()],
         }
     }
 
     pub(crate) fn get_root(&self) -> <V::LeafableHasher as LeafableHasher>::HashOut {
-        self.get_node_hash(&vec![])
+        self.get_node_hash(&[])
     }
 
-    fn get_sibling_hash(&self, path: &Vec<bool>) -> <V::LeafableHasher as LeafableHasher>::HashOut {
+    fn get_sibling_hash(&self, path: &[bool]) -> <V::LeafableHasher as LeafableHasher>::HashOut {
         assert!(!path.is_empty());
-        let mut path = path.clone();
+        let mut path = path.to_owned();
         let last = path.len() - 1;
         path[last] = !path[last];
         self.get_node_hash(&path)
@@ -91,7 +91,7 @@ impl<V: Leafable> MerkleTree<V> {
         path.reverse(); // path is big endian
 
         let mut h = leaf_hash;
-        self.node_hashes.insert(path.clone(), h.clone());
+        self.node_hashes.insert(path.clone(), h);
 
         while !path.is_empty() {
             let sibling = self.get_sibling_hash(&path);
@@ -100,7 +100,7 @@ impl<V: Leafable> MerkleTree<V> {
             } else {
                 <V::LeafableHasher as LeafableHasher>::two_to_one(h, sibling)
             };
-            self.node_hashes.insert(path.clone(), h.clone());
+            self.node_hashes.insert(path.clone(), h);
         }
     }
 

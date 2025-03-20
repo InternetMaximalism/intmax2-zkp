@@ -45,6 +45,12 @@ enum BlockBuilderStatus {
     Proposing,    // after constructed the block, accepting signatures
 }
 
+impl Default for BlockBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl BlockBuilder {
     pub fn new() -> Self {
         Self {
@@ -123,7 +129,7 @@ impl BlockBuilder {
 
         let mut tx_tree = TxTree::new(TX_TREE_HEIGHT);
         for (_, tx) in sorted_txs.iter() {
-            tx_tree.push(tx.clone());
+            tx_tree.push(*tx);
         }
         let tx_tree_root: Bytes32 = tx_tree.get_root().into();
         let expiry = 0; // dummy value
@@ -340,7 +346,7 @@ mod tests {
 
             // send tx request
             block_builder
-                .send_tx_request(&validity_prover, user.pubkey, tx.clone())
+                .send_tx_request(&validity_prover, user.pubkey, tx)
                 .unwrap();
 
             // Block builder constructs a block

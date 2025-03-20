@@ -171,6 +171,7 @@ pub struct DepositTimeValue {
 }
 
 impl DepositTimeValue {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         prev_block: &Block,
         block: &Block,
@@ -195,7 +196,7 @@ impl DepositTimeValue {
             .map_err(|e| anyhow::anyhow!("prev_deposit_merkle_proof.verify failed: {:?}", e))?;
         // deposit inclusion proof of deposit_merkle_proof
         deposit_merkle_proof
-            .verify(&deposit, deposit_index as u64, block.deposit_tree_root)
+            .verify(deposit, deposit_index as u64, block.deposit_tree_root)
             .map_err(|e| anyhow::anyhow!("deposit_merkle_proof.verify failed: {:?}", e))?;
         // ensure that prev_block is the parent of block
         if prev_block.hash() != block.prev_block_hash {
@@ -211,7 +212,7 @@ impl DepositTimeValue {
             ));
         }
 
-        let nullifier = get_mining_deposit_nullifier(&deposit, deposit_salt);
+        let nullifier = get_mining_deposit_nullifier(deposit, deposit_salt);
         let block_hash = block.hash();
         let determine_lock_time_value = DetermineLockTimeValue::new(block_hash, deposit_salt);
 
@@ -344,6 +345,17 @@ where
 {
     pub data: CircuitData<F, C, D>,
     pub target: DepositTimeTarget,
+}
+
+impl<F, C, const D: usize> Default for DepositTimeCircuit<F, C, D>
+where
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F> + 'static,
+    C::Hasher: AlgebraicHasher<F>,
+ {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl<F, C, const D: usize> DepositTimeCircuit<F, C, D>

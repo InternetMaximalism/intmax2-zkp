@@ -68,7 +68,7 @@ impl PublicState {
             self.block_tree_root.to_u64_vec(),
             self.prev_account_tree_root.to_u64_vec(),
             self.account_tree_root.to_u64_vec(),
-            vec![self.next_account_id as u64],
+            vec![self.next_account_id],
             self.deposit_tree_root.to_u64_vec(),
             self.block_hash.to_u64_vec(),
             U64::from(self.timestamp).to_u64_vec(),

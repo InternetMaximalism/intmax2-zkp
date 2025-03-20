@@ -204,7 +204,7 @@ impl SpentValue {
             ..prev_private_state.clone()
         };
         let new_private_commitment = new_private_state.commitment();
-        let transfer_root = get_merkle_root_from_leaves(TRANSFER_TREE_HEIGHT, &transfers);
+        let transfer_root = get_merkle_root_from_leaves(TRANSFER_TREE_HEIGHT, transfers);
         let tx = Tx {
             transfer_tree_root: transfer_root,
             nonce: tx_nonce,
@@ -326,6 +326,17 @@ where
 {
     pub data: CircuitData<F, C, D>,
     pub target: SpentTarget,
+}
+
+impl<F, C, const D: usize> Default for SpentCircuit<F, C, D>
+where
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F> + 'static,
+    C::Hasher: AlgebraicHasher<F>,
+ {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl<F, C, const D: usize> SpentCircuit<F, C, D>

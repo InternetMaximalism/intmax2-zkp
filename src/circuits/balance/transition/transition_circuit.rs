@@ -72,6 +72,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
 where
     <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
 {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         config: &CircuitConfig,
         circuit_type: BalanceTransitionType,

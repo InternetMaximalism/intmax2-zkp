@@ -110,7 +110,7 @@ impl BlockWitness {
             // Account inclusion verification
             let account_inclusion_value = AccountInclusionValue::new(
                 account_tree_root,
-                self.account_id_packed.clone().ok_or(anyhow::anyhow!(
+                self.account_id_packed.ok_or(anyhow::anyhow!(
                     "account_id_packed is None in non-registration block"
                 ))?,
                 self.account_merkle_proofs.clone().ok_or(anyhow::anyhow!(

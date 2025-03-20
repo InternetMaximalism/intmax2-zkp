@@ -60,7 +60,7 @@ pub trait U32LimbTrait<const NUM_LIMBS: usize>: Clone + Copy {
         for limb in self.to_u32_vec().iter() {
             result.extend_from_slice(&limb.to_be_bytes());
         }
-        result.try_into().unwrap()
+        result
     }
 
     fn to_bits_be(&self) -> Vec<bool> {
@@ -74,7 +74,7 @@ pub trait U32LimbTrait<const NUM_LIMBS: usize>: Clone + Copy {
         assert_eq!(bits.len(), 32 * NUM_LIMBS);
         let limbs = bits
             .chunks(32)
-            .map(|chunk| bits_be_to_u32(chunk))
+            .map(bits_be_to_u32)
             .collect::<Vec<_>>();
         Self::from_u32_slice(&limbs)
     }
@@ -205,7 +205,7 @@ pub trait U32LimbTargetTrait<const NUM_LIMBS: usize>: Clone + Copy {
         assert_eq!(bits.len(), 32 * NUM_LIMBS);
         let limbs = bits
             .chunks(32)
-            .map(|chunk| builder.le_sum(chunk.into_iter().rev()))
+            .map(|chunk| builder.le_sum(chunk.iter().rev()))
             .collect::<Vec<_>>();
         Self::from_slice(&limbs)
     }

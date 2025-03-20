@@ -134,8 +134,8 @@ where
 
     // Generate witness
     let transfer_witness = TransferWitness {
-        tx: transfer_data.tx_data.tx.clone(),
-        transfer: transfer_data.transfer.clone(),
+        tx: transfer_data.tx_data.tx,
+        transfer: transfer_data.transfer,
         transfer_index: transfer_data.transfer_index,
         transfer_merkle_proof: transfer_data.transfer_merkle_proof.clone(),
     };
@@ -215,7 +215,7 @@ where
     let tx_witness = TxWitness {
         validity_pis,
         sender_leaves,
-        tx: common_tx_data.tx.clone(),
+        tx: common_tx_data.tx,
         tx_index: common_tx_data.tx_index,
         tx_merkle_proof: common_tx_data.tx_merkle_proof.clone(),
     };
@@ -289,7 +289,7 @@ where
             &validity_prover.validity_processor().get_verifier_data(),
             pubkey,
             &update_witness,
-            &prev_balance_proof,
+            prev_balance_proof,
         )
         .map_err(|e| anyhow::anyhow!("prove_update failed: {:?}", e))?;
     Ok(balance_proof)

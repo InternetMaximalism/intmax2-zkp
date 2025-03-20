@@ -34,6 +34,16 @@ where
                                                   * encrypted_withdrawal_data */
 }
 
+impl<F, C, const D: usize> Default for StoreVaultServer<F, C, D>
+where
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+ {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<F, C, const D: usize> StoreVaultServer<F, C, D>
 where
     F: RichField + Extendable<D>,
@@ -65,7 +75,7 @@ where
         // todo: add proof verification & duplicate check
         self.balance_proofs
             .entry(pubkey)
-            .or_insert_with(HashMap::new)
+            .or_default()
             .entry(balance_pis.public_state.block_number)
             .or_insert_with(Vec::new)
             .push(proof);
@@ -184,7 +194,7 @@ impl EncryptedDataMap {
         };
         self.0
             .entry(pubkey)
-            .or_insert_with(Vec::new)
+            .or_default()
             .push((meta_data, encrypted_data));
     }
 

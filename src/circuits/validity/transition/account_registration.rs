@@ -75,7 +75,7 @@ impl AccountRegistrationValue {
                 )
                 .expect("Invalid account registration proof");
             if will_update {
-                assert_eq!(account_registration_proof.index as u64, next_account_id);
+                assert_eq!({ account_registration_proof.index }, next_account_id);
                 next_account_id += 1;
             }
         }
@@ -140,9 +140,9 @@ impl AccountRegistrationTarget {
             account_tree_root = account_registration_proof.conditional_get_new_root::<F, C, D>(
                 builder,
                 will_update,
-                sender_leaf.sender.clone(),
+                sender_leaf.sender,
                 block_number,
-                account_tree_root.clone(),
+                account_tree_root,
             );
             builder.conditional_assert_eq(
                 will_update.target,
@@ -225,12 +225,12 @@ where
         let mut builder = CircuitBuilder::<F, D>::new(config.clone());
         let target = AccountRegistrationTarget::new::<F, C, D>(&mut builder);
         let pis = AccountTransitionPublicInputsTarget {
-            prev_account_tree_root: target.prev_account_tree_root.clone(),
-            prev_next_account_id: target.prev_next_account_id.clone(),
-            new_account_tree_root: target.new_account_tree_root.clone(),
-            new_next_account_id: target.new_next_account_id.clone(),
-            sender_tree_root: target.sender_tree_root.clone(),
-            block_number: target.block_number.clone(),
+            prev_account_tree_root: target.prev_account_tree_root,
+            prev_next_account_id: target.prev_next_account_id,
+            new_account_tree_root: target.new_account_tree_root,
+            new_next_account_id: target.new_next_account_id,
+            sender_tree_root: target.sender_tree_root,
+            block_number: target.block_number,
         };
         builder.register_public_inputs(&pis.to_vec());
 

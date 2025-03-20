@@ -149,12 +149,12 @@ impl MainValidationPublicInputsTarget {
             .prev_block_hash
             .to_vec()
             .into_iter()
-            .chain(self.block_hash.to_vec().into_iter())
-            .chain(self.deposit_tree_root.to_vec().into_iter())
-            .chain(self.account_tree_root.elements.into_iter())
-            .chain(self.tx_tree_root.to_vec().into_iter())
-            .chain(self.sender_tree_root.elements.into_iter())
-            .chain(self.timestamp.to_vec().into_iter())
+            .chain(self.block_hash.to_vec())
+            .chain(self.deposit_tree_root.to_vec())
+            .chain(self.account_tree_root.elements)
+            .chain(self.tx_tree_root.to_vec())
+            .chain(self.sender_tree_root.elements)
+            .chain(self.timestamp.to_vec())
             .chain([
                 self.block_number,
                 self.is_registration_block.target,
@@ -262,6 +262,7 @@ pub struct MainValidationValue<
 impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     MainValidationValue<F, C, D>
 {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         account_inclusion_circuit: &AccountInclusionCircuit<F, C, D>,
         account_exclusion_circuit: &AccountExclusionCircuit<F, C, D>,
@@ -591,12 +592,12 @@ impl<const D: usize> MainValidationTarget<D> {
             .account_inclusion_proof
             .as_ref()
             .unwrap_or(&account_inclusion_proof_dummy.proof);
-        witness.set_proof_with_pis_target(&self.account_inclusion_proof, &account_inclusion_proof);
+        witness.set_proof_with_pis_target(&self.account_inclusion_proof, account_inclusion_proof);
         let account_exclusion_proof = value
             .account_exclusion_proof
             .as_ref()
             .unwrap_or(&account_exclusion_proof_dummy.proof);
-        witness.set_proof_with_pis_target(&self.account_exclusion_proof, &account_exclusion_proof);
+        witness.set_proof_with_pis_target(&self.account_exclusion_proof, account_exclusion_proof);
         witness.set_proof_with_pis_target(
             &self.format_validation_proof,
             &value.format_validation_proof,
@@ -605,7 +606,7 @@ impl<const D: usize> MainValidationTarget<D> {
             .aggregation_proof
             .as_ref()
             .unwrap_or(&aggregation_proof_dummy.proof);
-        witness.set_proof_with_pis_target(&self.aggregation_proof, &aggregation_proof);
+        witness.set_proof_with_pis_target(&self.aggregation_proof, aggregation_proof);
         self.signature_commitment
             .set_witness(witness, value.signature_commitment);
         self.pubkey_commitment

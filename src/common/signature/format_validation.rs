@@ -106,14 +106,14 @@ impl SignatureContentTarget {
             let is_pubkey_one = pubkey.is_one::<F, D, U256>(builder);
             let is_pubkey_order_valid = builder.or(is_pubkey_lt, is_pubkey_one);
             result = builder.and(result, is_pubkey_order_valid);
-            cur_pubkey = pubkey.clone();
+            cur_pubkey = *pubkey;
         }
 
         // pubkey range-check
         // it's enough to check only the first pubkey since the order is checked
         let pubkey_fq = pubkeys
-            .into_iter()
-            .map(|pk| pk.clone().into())
+            .iter()
+            .map(|pk| (*pk).into())
             .collect::<Vec<FqTarget<F, D>>>();
         let is_pubkey0_valid = pubkey_fq[0].is_valid(builder);
         result = builder.and(result, is_pubkey0_valid);
@@ -125,7 +125,7 @@ impl SignatureContentTarget {
         // message point check
         let message_point = tx_tree_root_and_expiry_to_message_point_target::<F, C, D>(
             builder,
-            self.tx_tree_root.clone(),
+            self.tx_tree_root,
             self.expiry,
         );
         let is_message_eq = message_point.is_equal(builder, &self.message_point);

@@ -53,7 +53,7 @@ impl ChainEndProofPublicInputs {
     pub fn from_u64_slice(slice: &[u64]) -> Self {
         assert_eq!(slice.len(), CHAIN_END_PROOF_PUBLIC_INPUTS_LEN);
         let inputs = slice
-            .into_iter()
+            .iter()
             .map(|&x| {
                 assert!(x <= u32::MAX as u64);
                 x as u32

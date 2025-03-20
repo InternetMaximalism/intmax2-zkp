@@ -41,6 +41,7 @@ pub struct PrivateStateTransitionValue {
 }
 
 impl PrivateStateTransitionValue {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         token_index: u32,
         amount: U256,
@@ -57,7 +58,7 @@ impl PrivateStateTransitionValue {
             .map_err(|e| anyhow::anyhow!("Invalid nullifier merkle proof: {}", e))?;
         asset_merkle_proof
             .verify(
-                &prev_asset_leaf,
+                prev_asset_leaf,
                 token_index as u64,
                 prev_private_state.asset_tree_root,
             )
@@ -78,7 +79,7 @@ impl PrivateStateTransitionValue {
             new_private_state_salt: new_salt,
             prev_private_state: prev_private_state.clone(),
             nullifier_proof: nullifier_proof.clone(),
-            prev_asset_leaf: prev_asset_leaf.clone(),
+            prev_asset_leaf: *prev_asset_leaf,
             asset_merkle_proof: asset_merkle_proof.clone(),
             new_private_state,
         })

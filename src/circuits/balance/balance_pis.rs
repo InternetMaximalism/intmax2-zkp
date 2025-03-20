@@ -57,13 +57,11 @@ impl BalancePublicInputs {
     }
 
     pub fn to_u64_vec(&self) -> Vec<u64> {
-        let vec = vec![
-            self.pubkey.to_u64_vec(),
+        let vec = [self.pubkey.to_u64_vec(),
             self.private_commitment.to_u64_vec(),
             self.last_tx_hash.to_u64_vec(),
             self.last_tx_insufficient_flags.to_u64_vec(),
-            self.public_state.to_u64_vec(),
-        ]
+            self.public_state.to_u64_vec()]
         .concat();
         assert_eq!(vec.len(), BALANCE_PUBLIC_INPUTS_LEN);
         vec
@@ -175,13 +173,11 @@ impl BalancePublicInputsTarget {
     }
 
     pub fn to_vec(&self) -> Vec<Target> {
-        let vec = vec![
-            self.pubkey.to_vec(),
+        let vec = [self.pubkey.to_vec(),
             self.private_commitment.to_vec(),
             self.last_tx_hash.to_vec(),
             self.last_tx_insufficient_flags.to_vec(),
-            self.public_state.to_vec(),
-        ]
+            self.public_state.to_vec()]
         .concat();
         assert_eq!(vec.len(), BALANCE_PUBLIC_INPUTS_LEN);
         vec

@@ -201,7 +201,7 @@ fn send_transfers(
 
     // block builder post block
     block_builder
-        .post_block(contract, &validity_prover)
+        .post_block(contract, validity_prover)
         .unwrap();
 }
 

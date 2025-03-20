@@ -62,7 +62,7 @@ impl FormatValidationPublicInputsTarget {
             .pubkey_commitment
             .elements
             .into_iter()
-            .chain(self.signature_commitment.elements.into_iter())
+            .chain(self.signature_commitment.elements)
             .chain([self.is_valid.target])
             .collect::<Vec<_>>();
         assert_eq!(vec.len(), FORMAT_VALIDATION_PUBLIC_INPUTS_LEN);
@@ -172,11 +172,9 @@ impl<F, C, const D: usize> FormatValidationCircuit<F, C, D>
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F> + 'static,
+    <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
 {
-    pub fn new() -> Self
-    where
-        <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
-    {
+    pub fn new() -> Self {
         let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::default());
         let target = FormatValidationTarget::new::<F, C, D>(&mut builder);
         let pis = FormatValidationPublicInputsTarget {
@@ -196,5 +194,16 @@ where
         let mut pw = PartialWitness::<F>::new();
         self.target.set_witness(&mut pw, value);
         self.data.prove(pw)
+    }
+}
+
+impl<F, C, const D: usize> Default for FormatValidationCircuit<F, C, D>
+where
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F> + 'static,
+    <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
+{
+    fn default() -> Self {
+        Self::new()
     }
 }

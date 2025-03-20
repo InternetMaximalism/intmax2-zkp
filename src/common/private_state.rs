@@ -46,6 +46,12 @@ pub struct FullPrivateState {
     pub salt: Salt,
 }
 
+impl Default for FullPrivateState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl FullPrivateState {
     pub fn new() -> Self {
         Self {
@@ -77,6 +83,12 @@ pub struct PrivateStateTarget {
     pub salt: SaltTarget,
 }
 
+impl Default for PrivateState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl PrivateState {
     pub fn new() -> Self {
         let asset_tree_root = AssetTree::new(ASSET_TREE_HEIGHT).get_root();
@@ -92,15 +104,15 @@ impl PrivateState {
     }
 
     pub fn to_u64_vec(&self) -> Vec<u64> {
-        let vec = [
+        
+        [
             self.asset_tree_root.to_u64_vec(),
             self.nullifier_tree_root.to_u64_vec(),
             self.prev_private_commitment.to_u64_vec(),
             vec![self.nonce as u64],
             self.salt.to_u64_vec(),
         ]
-        .concat();
-        vec
+        .concat()
     }
 
     pub fn commitment(&self) -> PoseidonHashOut {
@@ -110,15 +122,15 @@ impl PrivateState {
 
 impl PrivateStateTarget {
     pub fn to_vec(&self) -> Vec<Target> {
-        let vec = [
+        
+        [
             self.asset_tree_root.to_vec(),
             self.nullifier_tree_root.to_vec(),
             self.prev_private_commitment.to_vec(),
             vec![self.nonce],
             self.salt.to_vec(),
         ]
-        .concat();
-        vec
+        .concat()
     }
 
     pub fn commitment<F: RichField + Extendable<D>, const D: usize>(

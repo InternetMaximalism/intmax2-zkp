@@ -28,6 +28,17 @@ where
     pub new_pis: ValidityPublicInputsTarget,
 }
 
+impl<F, C, const D: usize> Default for DummyTransitionWrapperCircuit<F, C, D>
+where
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F> + 'static,
+    C::Hasher: AlgebraicHasher<F>,
+ {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<F, C, const D: usize> DummyTransitionWrapperCircuit<F, C, D>
 where
     F: RichField + Extendable<D>,
@@ -80,7 +91,7 @@ where
         );
 
         let mut pw = PartialWitness::<F>::new();
-        self.prev_pis.set_witness(&mut pw, &prev_pis);
+        self.prev_pis.set_witness(&mut pw, prev_pis);
         self.new_pis.set_witness(&mut pw, &new_pis);
         self.data
             .prove(pw)

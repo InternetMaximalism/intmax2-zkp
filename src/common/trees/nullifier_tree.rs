@@ -32,6 +32,12 @@ pub struct NullifierInsertionProof(IndexedInsertionProof);
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NullifierInsertionProofTarget(IndexedInsertionProofTarget);
 
+impl Default for NullifierTree {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl NullifierTree {
     pub fn new() -> Self {
         Self(IndexedMerkleTree::new(NULLIFIER_TREE_HEIGHT))

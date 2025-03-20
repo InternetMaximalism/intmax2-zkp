@@ -53,8 +53,8 @@ impl Transfer {
             .to_u64_vec()
             .into_iter()
             .chain([self.token_index as u64].iter().copied())
-            .chain(self.amount.to_u64_vec().into_iter())
-            .chain(self.salt.to_u64_vec().into_iter())
+            .chain(self.amount.to_u64_vec())
+            .chain(self.salt.to_u64_vec())
             .collect::<Vec<_>>();
         assert_eq!(vec.len(), TRANSFER_LEN);
         vec
@@ -99,8 +99,8 @@ impl TransferTarget {
             .to_vec()
             .into_iter()
             .chain([self.token_index].iter().copied())
-            .chain(self.amount.to_vec().into_iter())
-            .chain(self.salt.to_vec().into_iter())
+            .chain(self.amount.to_vec())
+            .chain(self.salt.to_vec())
             .collect::<Vec<_>>();
         assert_eq!(vec.len(), TRANSFER_LEN);
         vec

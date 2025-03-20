@@ -50,12 +50,10 @@ pub struct ReceiveDepositPublicInputs {
 
 impl ReceiveDepositPublicInputs {
     pub fn to_u64_vec(&self) -> Vec<u64> {
-        let vec = vec![
-            self.prev_private_commitment.to_u64_vec(),
+        let vec = [self.prev_private_commitment.to_u64_vec(),
             self.new_private_commitment.to_u64_vec(),
             self.pubkey.to_u64_vec(),
-            self.public_state.to_u64_vec(),
-        ]
+            self.public_state.to_u64_vec()]
         .concat();
         assert_eq!(vec.len(), RECEIVE_DEPOSIT_PUBLIC_INPUTS_LEN);
         vec
@@ -85,12 +83,10 @@ pub struct ReceiveDepositPublicInputsTarget {
 
 impl ReceiveDepositPublicInputsTarget {
     pub fn to_vec(&self) -> Vec<Target> {
-        let vec = vec![
-            self.prev_private_commitment.to_vec(),
+        let vec = [self.prev_private_commitment.to_vec(),
             self.new_private_commitment.to_vec(),
             self.pubkey.to_vec(),
-            self.public_state.to_vec(),
-        ]
+            self.public_state.to_vec()]
         .concat();
         assert_eq!(vec.len(), RECEIVE_DEPOSIT_PUBLIC_INPUTS_LEN);
         vec
@@ -141,7 +137,7 @@ impl ReceiveDepositValue {
         );
         deposit_merkle_proof
             .verify(
-                &deposit,
+                deposit,
                 deposit_index as u64,
                 public_state.deposit_tree_root,
             )
@@ -278,6 +274,17 @@ where
     pub data: CircuitData<F, C, D>,
     pub target: ReceiveDepositTarget,
     pub dummy_proof: DummyProof<F, C, D>,
+}
+
+impl<F, C, const D: usize> Default for ReceiveDepositCircuit<F, C, D>
+where
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F> + 'static,
+    C::Hasher: AlgebraicHasher<F>,
+ {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl<F, C, const D: usize> ReceiveDepositCircuit<F, C, D>

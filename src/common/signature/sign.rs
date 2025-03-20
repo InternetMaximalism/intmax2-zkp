@@ -188,7 +188,7 @@ pub fn hash_to_weight(my_pubkey: U256, pubkey_hash: Bytes32) -> U256 {
         .to_u32_vec()
         .into_iter()
         .chain(pubkey_hash.to_u32_vec())
-        .map(|x| F::from_canonical_u32(x))
+        .map(F::from_canonical_u32)
         .collect::<Vec<_>>();
     let mut challenger = Challenger::<F, PoseidonHash>::new();
     challenger.observe_elements(&flattened);
@@ -205,7 +205,6 @@ pub(crate) fn hash_to_weight_circuit<F: RichField + Extendable<D>, const D: usiz
         .to_vec()
         .into_iter()
         .chain(pubkey_hash.to_vec())
-        .map(|x| x)
         .collect::<Vec<_>>();
     let mut challenger = RecursiveChallenger::<F, PoseidonHash, D>::new(builder);
     challenger.observe_elements(&flattened);
@@ -229,8 +228,8 @@ pub fn tx_tree_root_and_expiry_to_message_point(tx_tree_root: Bytes32, expiry: U
         .chain(expiry.to_u32_vec().iter())
         .map(|x| GoldilocksField::from_canonical_u32(*x))
         .collect::<Vec<_>>();
-    let message_point = G2Target::<GoldilocksField, 2>::hash_to_g2(&elements);
-    message_point
+    
+    G2Target::<GoldilocksField, 2>::hash_to_g2(&elements)
 }
 
 pub fn tx_tree_root_and_expiry_to_message_point_target<
@@ -352,7 +351,7 @@ mod tests {
         let key = KeySet::rand(rng);
         let message = [1, 2, 3, 4];
         let signature = sign_message_no_pad(key.privkey, &message);
-        assert!(verify_signature_no_pad(signature.into(), key.pubkey, &message).is_ok());
+        assert!(verify_signature_no_pad(signature, key.pubkey, &message).is_ok());
     }
 
     #[test]
@@ -361,7 +360,7 @@ mod tests {
         let key = KeySet::rand(rng);
         let message = b"hello world";
         let signature = sign_message(key.privkey, message);
-        assert!(verify_signature(signature.into(), key.pubkey, message).is_ok());
+        assert!(verify_signature(signature, key.pubkey, message).is_ok());
     }
 
     #[test]
@@ -377,7 +376,7 @@ mod tests {
         }
         let aggregated_signature = aggregate_signature(&signatures);
 
-        let success = verify_signature_with_signers(aggregated_signature.into(), message, signers);
+        let success = verify_signature_with_signers(aggregated_signature, message, signers);
         assert!(success.is_ok());
     }
 

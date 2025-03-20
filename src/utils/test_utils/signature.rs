@@ -52,7 +52,7 @@ impl SignatureContent {
             .map(|keyset| {
                 sign_to_tx_root_and_expiry(keyset.privkey, tx_tree_root, expiry, pubkey_hash)
             })
-            .zip(sender_flag_bits.into_iter())
+            .zip(sender_flag_bits)
             .fold(
                 G2Affine::zero(),
                 |acc: G2Affine, (x, b)| {

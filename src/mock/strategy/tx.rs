@@ -49,16 +49,14 @@ where
                     let mut meta = meta;
                     meta.block_number = Some(block_number);
                     settled.push((meta, tx_data));
+                } else if meta.timestamp + tx_timeout < chrono::Utc::now().timestamp() as u64 {
+                    // timeout
+                    log::error!("Tx {} is timeouted", meta.uuid);
+                    rejected.push(meta);
                 } else {
-                    if meta.timestamp + tx_timeout < chrono::Utc::now().timestamp() as u64 {
-                        // timeout
-                        log::error!("Tx {} is timeouted", meta.uuid);
-                        rejected.push(meta);
-                    } else {
-                        // pending
-                        log::info!("Tx {} is pending", meta.uuid);
-                        pending.push(meta);
-                    }
+                    // pending
+                    log::info!("Tx {} is pending", meta.uuid);
+                    pending.push(meta);
                 }
             }
             Err(e) => {

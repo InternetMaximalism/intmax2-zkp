@@ -32,6 +32,17 @@ where
     pub main_validation_circuit: MainValidationCircuit<F, C, D>,
 }
 
+impl<F, C, const D: usize> Default for MainValidationProcessor<F, C, D>
+where
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F> + 'static,
+    <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
+ {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<F, C, const D: usize> MainValidationProcessor<F, C, D>
 where
     F: RichField + Extendable<D>,
@@ -87,7 +98,6 @@ where
                     block_witness.prev_account_tree_root,
                     block_witness
                         .account_id_packed
-                        .clone()
                         .expect("Account ID is missing"),
                     block_witness
                         .account_merkle_proofs

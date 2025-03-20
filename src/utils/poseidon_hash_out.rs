@@ -168,7 +168,7 @@ impl PoseidonHashOutTarget {
         let inputs = left
             .elements
             .into_iter()
-            .chain(right.elements.into_iter())
+            .chain(right.elements)
             .collect::<Vec<_>>();
         PoseidonHashOutTarget::hash_inputs(builder, &inputs)
     }

@@ -66,7 +66,7 @@ impl AggregationPublicInputsTarget {
             .pubkey_commitment
             .elements
             .into_iter()
-            .chain(self.signature_commitment.elements.into_iter())
+            .chain(self.signature_commitment.elements)
             .chain([self.is_valid.target])
             .collect::<Vec<_>>();
         assert_eq!(vec.len(), AGGREGATION_PUBLIC_INPUTS_LEN);
@@ -167,6 +167,17 @@ where
     pub data: CircuitData<F, C, D>,
     pub target: AggregationTarget,
     pub dummy_proof: DummyProof<F, C, D>,
+}
+
+impl<F, C, const D: usize> Default for AggregationCircuit<F, C, D>
+where
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F> + 'static,
+    C::Hasher: AlgebraicHasher<F>,
+ {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl<F, C, const D: usize> AggregationCircuit<F, C, D>

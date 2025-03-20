@@ -50,16 +50,14 @@ where
                     let mut meta = meta;
                     meta.block_number = Some(block_number);
                     settled.push((meta, transfer_data));
+                } else if meta.timestamp + tx_timeout < chrono::Utc::now().timestamp() as u64 {
+                    // timeout
+                    log::error!("Withdrawal {} is timeouted", meta.uuid);
+                    rejected.push(meta);
                 } else {
-                    if meta.timestamp + tx_timeout < chrono::Utc::now().timestamp() as u64 {
-                        // timeout
-                        log::error!("Withdrawal {} is timeouted", meta.uuid);
-                        rejected.push(meta);
-                    } else {
-                        // pending
-                        log::info!("Withdrawal {} is pending", meta.uuid);
-                        pending.push(meta);
-                    }
+                    // pending
+                    log::info!("Withdrawal {} is pending", meta.uuid);
+                    pending.push(meta);
                 }
             }
             Err(e) => {

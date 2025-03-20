@@ -62,7 +62,7 @@ impl AccountExclusionPublicInputsTarget {
             .account_tree_root
             .elements
             .into_iter()
-            .chain(self.sender_tree_root.elements.into_iter())
+            .chain(self.sender_tree_root.elements)
             .chain([self.is_valid.target])
             .collect::<Vec<_>>();
         assert_eq!(vec.len(), ACCOUNT_EXCLUSION_PUBLIC_INPUTS_LEN);
@@ -103,7 +103,7 @@ impl AccountExclusionValue {
             // Only valid if the signature is returned and not included in the tree, or if the
             // signature is not returned.
             let is_valid =
-                (!proof.is_included && sender_leaf.did_return_sig) || !sender_leaf.did_return_sig;
+                !proof.is_included || !sender_leaf.did_return_sig;
             result = result && is_valid;
         }
         let sender_tree_root = get_merkle_root_from_leaves(SENDER_TREE_HEIGHT, &sender_leaves);
@@ -200,6 +200,17 @@ where
     pub data: CircuitData<F, C, D>,
     pub target: AccountExclusionTarget,
     pub dummy_proof: DummyProof<F, C, D>,
+}
+
+impl<F, C, const D: usize> Default for AccountExclusionCircuit<F, C, D>
+where
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F> + 'static,
+    C::Hasher: AlgebraicHasher<F>,
+ {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl<F, C, const D: usize> AccountExclusionCircuit<F, C, D>

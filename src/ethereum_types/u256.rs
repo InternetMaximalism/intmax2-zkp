@@ -157,7 +157,7 @@ impl From<U256Target> for BigUintTarget {
             .to_vec()
             .into_iter()
             .rev()
-            .map(|x| U32Target(x))
+            .map(U32Target)
             .collect::<Vec<_>>();
         BigUintTarget { limbs }
     }
@@ -326,8 +326,8 @@ impl U256Target {
     ) -> BoolTarget {
         list_le_circuit(
             builder,
-            self.limbs.iter().rev().map(|t| t).collect(),
-            other.limbs.iter().rev().map(|t| t).collect(),
+            self.limbs.iter().rev().collect(),
+            other.limbs.iter().rev().collect(),
             32,
         )
     }

@@ -95,7 +95,7 @@ impl AccountIdPacked {
     pub fn pack(account_ids: &[u64]) -> Self {
         assert_eq!(account_ids.len(), NUM_SENDERS_IN_BLOCK);
         let account_id_bits = account_ids
-            .into_iter()
+            .iter()
             .flat_map(|&account_id| account_id_to_bits_be(account_id))
             .collect::<Vec<_>>();
         Self::from_bits_be(&account_id_bits)
@@ -144,11 +144,11 @@ impl AccountIdPacked {
             .collect::<Vec<_>>();
         let account_id_bits = trimmed_account_ids
             .into_iter()
-            .flat_map(|account_id| account_id_to_bits_be(account_id))
+            .flat_map(account_id_to_bits_be)
             .collect::<Vec<_>>();
         account_id_bits
             .chunks(8)
-            .map(|c| bits_be_to_u8(c))
+            .map(bits_be_to_u8)
             .collect()
     }
 

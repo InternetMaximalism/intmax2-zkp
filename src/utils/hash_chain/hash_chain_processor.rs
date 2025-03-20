@@ -40,7 +40,7 @@ where
     C::Hasher: AlgebraicHasher<F>,
 {
     pub fn new(single_vd: &VerifierCircuitData<F, C, D>) -> Self {
-        let inner_circuit = HashInnerCircuit::new(&single_vd);
+        let inner_circuit = HashInnerCircuit::new(single_vd);
         let cyclic_circuit = CyclicChainCircuit::new(&inner_circuit.data.verifier_data());
         let chain_end_circuit = ChainEndCircuit::new(&cyclic_circuit.data.verifier_data());
         Self {
