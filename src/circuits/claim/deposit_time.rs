@@ -265,7 +265,7 @@ impl DepositTimeTarget {
         }
         let deposit_salt = SaltTarget::new(builder);
         let pubkey = U256Target::new(builder, is_checked);
-        
+
         builder.assert_one(deposit.is_eligible.target);
 
         let empty_deposit = DepositTarget::empty_leaf(builder);

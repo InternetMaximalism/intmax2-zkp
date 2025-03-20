@@ -77,7 +77,7 @@ impl UpdatePublicInputs {
 
 impl UpdatePublicInputsTarget {
     pub fn to_vec(&self) -> Vec<Target> {
-        let vec =[
+        let vec = [
             self.pubkey.to_vec(),
             self.prev_public_state.to_vec(),
             self.new_public_state.to_vec(),

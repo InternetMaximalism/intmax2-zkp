@@ -229,7 +229,8 @@ impl MainValidationPublicInputsTarget {
         self.tx_tree_root.set_witness(witness, value.tx_tree_root);
         self.sender_tree_root
             .set_witness(witness, value.sender_tree_root);
-        self.timestamp.set_witness(witness, U64::from(value.timestamp));
+        self.timestamp
+            .set_witness(witness, U64::from(value.timestamp));
         witness.set_target(self.block_number, F::from_canonical_u32(value.block_number));
         witness.set_bool_target(self.is_registration_block, value.is_registration_block);
         witness.set_bool_target(self.is_valid, value.is_valid);

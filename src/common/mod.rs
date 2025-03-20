@@ -1,9 +1,9 @@
 pub mod block;
 pub mod block_builder;
+pub mod claim;
 pub mod deposit;
 pub mod generic_address;
 pub mod insufficient_flags;
-pub mod claim;
 pub mod private_state;
 pub mod public_state;
 pub mod salt;

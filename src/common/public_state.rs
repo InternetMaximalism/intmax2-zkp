@@ -250,7 +250,8 @@ impl PublicStateTarget {
         self.deposit_tree_root
             .set_witness(witness, value.deposit_tree_root);
         self.block_hash.set_witness(witness, value.block_hash);
-        self.timestamp.set_witness(witness, U64::from(value.timestamp));
+        self.timestamp
+            .set_witness(witness, U64::from(value.timestamp));
         witness.set_target(self.block_number, F::from_canonical_u32(value.block_number));
     }
 }
