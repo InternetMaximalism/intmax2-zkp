@@ -237,7 +237,7 @@ where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F> + 'static,
     C::Hasher: AlgebraicHasher<F>,
- {
+{
     fn default() -> Self {
         Self::new()
     }
@@ -293,7 +293,7 @@ mod tests {
     use crate::{
         common::{signature::key_set::KeySet, trees::account_tree::AccountTree},
         constants::NUM_SENDERS_IN_BLOCK,
-        ethereum_types::account_id::AccountIdPacked,
+        ethereum_types::account_id::{AccountId, AccountIdPacked},
     };
 
     use super::{AccountInclusionCircuit, AccountInclusionValue};
@@ -318,8 +318,8 @@ mod tests {
         let mut account_ids = Vec::new();
         let mut account_merkle_proofs = Vec::new();
         for pubkey in &pubkeys {
-            let account_id = tree.index(*pubkey).unwrap();
-            let proof = tree.prove_inclusion(account_id);
+            let account_id = AccountId(tree.index(*pubkey).unwrap());
+            let proof = tree.prove_inclusion(account_id.0);
             account_ids.push(account_id);
             account_merkle_proofs.push(proof);
         }

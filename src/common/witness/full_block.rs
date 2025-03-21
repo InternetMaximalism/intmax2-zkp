@@ -70,8 +70,8 @@ impl FullBlock {
                 let mut account_merkle_proofs = Vec::new();
                 let mut pubkeys = Vec::new();
                 for account_id in account_ids {
-                    let pubkey = account_tree.key(account_id);
-                    let proof = account_tree.prove_inclusion(account_id);
+                    let pubkey = account_tree.key(account_id.0);
+                    let proof = account_tree.prove_inclusion(account_id.0);
                     pubkeys.push(pubkey);
                     account_merkle_proofs.push(proof);
                 }

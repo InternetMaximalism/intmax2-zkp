@@ -27,7 +27,7 @@ use crate::{
         },
     },
     constants::{NUM_SENDERS_IN_BLOCK, NUM_TRANSFERS_IN_TX, TRANSFER_TREE_HEIGHT, TX_TREE_HEIGHT},
-    ethereum_types::{account_id::AccountIdPacked, bytes32::Bytes32, u256::U256},
+    ethereum_types::{account_id::{AccountId, AccountIdPacked}, bytes32::Bytes32, u256::U256},
 };
 
 type F = GoldilocksField;
@@ -105,7 +105,7 @@ pub fn construct_validity_and_tx_witness(
             let account_id = account_tree
                 .index(r.sender_key.pubkey)
                 .expect("account not found");
-            account_ids.push(account_id);
+            account_ids.push(AccountId(account_id));
         }
         Some(AccountIdPacked::pack(&account_ids))
     };

@@ -225,17 +225,6 @@ impl AccountIdPackedTarget {
     }
 }
 
-fn bits_be_to_u8(vec: &[bool]) -> u8 {
-    assert_eq!(vec.len(), 8);
-    let mut result = 0;
-    for (i, &bit) in vec.iter().enumerate() {
-        if bit {
-            result |= 1 << (7 - i);
-        }
-    }
-    result
-}
-
 #[cfg(test)]
 mod tests {
     use rand::Rng;

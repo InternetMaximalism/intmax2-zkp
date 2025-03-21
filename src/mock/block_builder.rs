@@ -6,7 +6,7 @@ use crate::{
         tx::Tx,
     },
     constants::{NUM_SENDERS_IN_BLOCK, TX_TREE_HEIGHT},
-    ethereum_types::{account_id::AccountIdPacked, bytes32::Bytes32, u256::U256},
+    ethereum_types::{account_id::{AccountId, AccountIdPacked}, bytes32::Bytes32, u256::U256},
 };
 use anyhow::ensure;
 use hashbrown::HashMap;
@@ -243,7 +243,7 @@ impl BlockBuilder {
                 let account_id = validity_prover
                     .get_account_id(*pubkey)
                     .ok_or(anyhow::anyhow!("account not found"))?;
-                account_ids.push(account_id);
+                account_ids.push(AccountId(account_id));
             }
             Some(AccountIdPacked::pack(&account_ids))
         };
