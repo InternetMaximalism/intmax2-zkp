@@ -12,42 +12,61 @@ use plonky2::{
 };
 use rand::Rng;
 
-// trait for types with u32 value limbs
+#[derive(Debug, thiserror::Error)]
+pub enum U32LimbError {
+    #[error("Invalid length: {0}")]
+    InvalidLength(usize),
+
+    #[error("Out of u32 range")]
+    OutOfU32Range,
+
+    #[error("Invalid hex")]
+    InvalidHex(#[from] hex::FromHexError),
+}
+
+pub type Result<T> = std::result::Result<T, U32LimbError>;
+
+/// Trait for types with u32 limbs
 pub trait U32LimbTrait<const NUM_LIMBS: usize>: Clone + Copy {
     fn to_u32_vec(&self) -> Vec<u32>;
 
-    fn from_u32_slice(limbs: &[u32]) -> Self;
+    fn from_u32_slice(limbs: &[u32]) -> Result<Self>;
 
     fn to_u64_vec(&self) -> Vec<u64> {
         self.to_u32_vec().iter().map(|x| *x as u64).collect()
     }
 
-    fn from_u64_slice(input: &[u64]) -> Self {
+    fn from_u64_slice(input: &[u64]) -> Result<Self> {
         let range_checked_input = input
             .iter()
             .map(|&x| {
-                assert!(x <= u32::MAX as u64);
-                x as u32
+                if x > u32::MAX as u64 {
+                    return Err(U32LimbError::OutOfU32Range);
+                }
+                Ok(x as u32)
             })
-            .collect::<Vec<_>>();
+            .collect::<Result<Vec<_>>>()?;
         Self::from_u32_slice(&range_checked_input)
     }
 
     fn zero() -> Self {
         let limbs = vec![0; NUM_LIMBS];
-        Self::from_u32_slice(&limbs)
+        Self::from_u32_slice(&limbs).unwrap()
     }
 
     fn one() -> Self {
         let mut limbs = vec![0; NUM_LIMBS];
         limbs[NUM_LIMBS - 1] = 1;
-        Self::from_u32_slice(&limbs)
+        Self::from_u32_slice(&limbs).unwrap()
     }
 
-    // Assuming that original order is big endian,
-    // returns big endian bytes
-    fn from_bytes_be(bytes: &[u8]) -> Self {
-        assert_eq!(bytes.len(), 4 * NUM_LIMBS);
+    fn from_bytes_be(bytes: &[u8]) -> Result<Self> {
+        if bytes.len() > 4 * NUM_LIMBS {
+            return Err(U32LimbError::InvalidLength(bytes.len()));
+        }
+        // pad with zeros
+        let mut padded_bytes = vec![0; 4 * NUM_LIMBS];
+        padded_bytes[4 * NUM_LIMBS - bytes.len()..].copy_from_slice(bytes);
         let limbs = bytes
             .chunks(4)
             .map(|c| u32::from_be_bytes(c.try_into().unwrap()))
@@ -70,17 +89,20 @@ pub trait U32LimbTrait<const NUM_LIMBS: usize>: Clone + Copy {
             .collect()
     }
 
-    fn from_bits_be(bits: &[bool]) -> Self {
-        assert_eq!(bits.len(), 32 * NUM_LIMBS);
+    fn from_bits_be(bits: &[bool]) -> Result<Self> {
+        if bits.len() > 32 * NUM_LIMBS {
+            return Err(U32LimbError::InvalidLength(bits.len()));
+        }
+        let mut padded_bits = vec![false; 32 * NUM_LIMBS];
+        padded_bits[32 * NUM_LIMBS - bits.len()..].copy_from_slice(bits);
         let limbs = bits.chunks(32).map(bits_be_to_u32).collect::<Vec<_>>();
         Self::from_u32_slice(&limbs)
     }
 
-    fn from_hex(hex: &str) -> anyhow::Result<Self> {
-        anyhow::ensure!(hex.starts_with("0x"));
-        let bytes = hex::decode(hex[2..].as_bytes())?;
-        anyhow::ensure!(bytes.len() == 4 * NUM_LIMBS, "invalid hex length");
-        Ok(Self::from_bytes_be(&bytes))
+    fn from_hex(hex_str: &str) -> Result<Self> {
+        let cleaned_str = hex_str.strip_prefix("0x").unwrap_or(hex_str);
+        let bytes = hex::decode(cleaned_str.as_bytes())?;
+        Ok(Self::from_bytes_be(&bytes)?)
     }
 
     fn to_hex(&self) -> String {
@@ -89,7 +111,7 @@ pub trait U32LimbTrait<const NUM_LIMBS: usize>: Clone + Copy {
 
     fn rand<R: Rng>(rng: &mut R) -> Self {
         let limbs = (0..NUM_LIMBS).map(|_| rng.gen()).collect::<Vec<_>>();
-        Self::from_u32_slice(&limbs)
+        Self::from_u32_slice(&limbs).unwrap()
     }
 }
 
@@ -99,7 +121,7 @@ pub trait U32LimbTargetTrait<const NUM_LIMBS: usize>: Clone + Copy {
 
     fn from_slice(limbs: &[Target]) -> Self;
 
-    fn _new_unchecked<F: RichField + Extendable<D>, const D: usize>(
+    fn _new_range_unchecked<F: RichField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
     ) -> Self {
         let limbs = (0..NUM_LIMBS)
@@ -108,22 +130,22 @@ pub trait U32LimbTargetTrait<const NUM_LIMBS: usize>: Clone + Copy {
         Self::from_slice(&limbs)
     }
 
-    fn _new_checked<F: RichField + Extendable<D>, const D: usize>(
+    fn _new_range_checked<F: RichField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
     ) -> Self {
-        let x = Self::_new_unchecked(builder);
+        let x = Self::_new_range_unchecked(builder);
         x.assert_u32(builder);
         x
     }
 
     fn new<F: RichField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
-        is_checked: bool,
+        range_check: bool,
     ) -> Self {
-        if is_checked {
-            Self::_new_checked(builder)
+        if range_check {
+            Self::_new_range_checked(builder)
         } else {
-            Self::_new_unchecked(builder)
+            Self::_new_range_unchecked(builder)
         }
     }
 
@@ -246,7 +268,10 @@ pub trait U32LimbTargetTrait<const NUM_LIMBS: usize>: Clone + Copy {
         }
     }
 
-    fn get_witness<F: PrimeField64, V: U32LimbTrait<NUM_LIMBS>>(&self, pw: &impl Witness<F>) -> V {
+    fn get_witness<F: PrimeField64, V: U32LimbTrait<NUM_LIMBS>>(
+        &self,
+        pw: &impl Witness<F>,
+    ) -> Result<V> {
         let mut limbs = vec![];
         for target in self.to_vec().iter() {
             let value = pw.get_target(*target);

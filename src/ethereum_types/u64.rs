@@ -198,7 +198,7 @@ impl std::ops::Add for U64 {
         }
 
         // Carry should be zero here.
-        assert_eq!(carry, 0, "U64 addition overflow occured");
+        assert_eq!(carry, 0, "U64 addition overflow occurred");
 
         result_limbs.reverse();
 
@@ -229,7 +229,7 @@ impl std::ops::Sub for U64 {
         }
 
         // Borrow should be zero here.
-        assert_eq!(borrow, 0, "U64 sub underflow occured");
+        assert_eq!(borrow, 0, "U64 sub underflow occurred");
 
         result_limbs.reverse();
 
