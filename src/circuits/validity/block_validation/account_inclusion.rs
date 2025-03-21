@@ -3,7 +3,7 @@ use crate::{
     common::trees::account_tree::{AccountMerkleProof, AccountMerkleProofTarget},
     constants::NUM_SENDERS_IN_BLOCK,
     ethereum_types::{
-        account_id_packed::{AccountIdPacked, AccountIdPackedTarget},
+        account_id::{AccountIdPacked, AccountIdPackedTarget},
         bytes32::{Bytes32, Bytes32Target, BYTES32_LEN},
         u256::{U256Target, U256},
         u32limb_trait::{U32LimbTargetTrait, U32LimbTrait},
@@ -293,7 +293,7 @@ mod tests {
     use crate::{
         common::{signature::key_set::KeySet, trees::account_tree::AccountTree},
         constants::NUM_SENDERS_IN_BLOCK,
-        ethereum_types::account_id_packed::AccountIdPacked,
+        ethereum_types::account_id::AccountIdPacked,
     };
 
     use super::{AccountInclusionCircuit, AccountInclusionValue};

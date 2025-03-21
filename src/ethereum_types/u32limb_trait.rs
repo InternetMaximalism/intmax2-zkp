@@ -72,16 +72,14 @@ pub trait U32LimbTrait<const NUM_LIMBS: usize>: Clone + Copy {
 
     fn from_bits_be(bits: &[bool]) -> Self {
         assert_eq!(bits.len(), 32 * NUM_LIMBS);
-        let limbs = bits
-            .chunks(32)
-            .map(bits_be_to_u32)
-            .collect::<Vec<_>>();
+        let limbs = bits.chunks(32).map(bits_be_to_u32).collect::<Vec<_>>();
         Self::from_u32_slice(&limbs)
     }
 
     fn from_hex(hex: &str) -> anyhow::Result<Self> {
         anyhow::ensure!(hex.starts_with("0x"));
         let bytes = hex::decode(hex[2..].as_bytes())?;
+        anyhow::ensure!(bytes.len() == 4 * NUM_LIMBS, "invalid hex length");
         Ok(Self::from_bytes_be(&bytes))
     }
 

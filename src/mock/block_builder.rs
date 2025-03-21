@@ -6,7 +6,7 @@ use crate::{
         tx::Tx,
     },
     constants::{NUM_SENDERS_IN_BLOCK, TX_TREE_HEIGHT},
-    ethereum_types::{account_id_packed::AccountIdPacked, bytes32::Bytes32, u256::U256},
+    ethereum_types::{account_id::AccountIdPacked, bytes32::Bytes32, u256::U256},
 };
 use anyhow::ensure;
 use hashbrown::HashMap;

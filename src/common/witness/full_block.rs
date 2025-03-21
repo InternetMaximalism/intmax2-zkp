@@ -9,7 +9,7 @@ use crate::{
         witness::block_witness::BlockWitness,
     },
     constants::NUM_SENDERS_IN_BLOCK,
-    ethereum_types::{account_id_packed::AccountIdPacked, u256::U256},
+    ethereum_types::{account_id::AccountIdPacked, u256::U256},
 };
 // A subset of `BlockWitness` that only contains the information to be submitted to the contract
 #[derive(Clone, Debug, Serialize, Deserialize)]

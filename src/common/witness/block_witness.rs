@@ -22,7 +22,7 @@ use crate::{
         },
     },
     constants::{ACCOUNT_TREE_HEIGHT, BLOCK_HASH_TREE_HEIGHT, SENDER_TREE_HEIGHT},
-    ethereum_types::{account_id_packed::AccountIdPacked, u256::U256},
+    ethereum_types::{account_id::AccountIdPacked, u256::U256},
     utils::poseidon_hash_out::PoseidonHashOut,
 };
 

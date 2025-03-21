@@ -17,7 +17,7 @@ use crate::{
     },
     constants::{DEPOSIT_TREE_HEIGHT, NUM_SENDERS_IN_BLOCK},
     ethereum_types::{
-        account_id_packed::AccountIdPacked, address::Address, bytes16::Bytes16, bytes32::Bytes32,
+        account_id::AccountIdPacked, address::Address, bytes16::Bytes16, bytes32::Bytes32,
         u256::U256, u64::U64,
     },
     utils::leafable::Leafable,

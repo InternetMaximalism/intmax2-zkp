@@ -27,7 +27,7 @@ use crate::{
         },
     },
     constants::{NUM_SENDERS_IN_BLOCK, NUM_TRANSFERS_IN_TX, TRANSFER_TREE_HEIGHT, TX_TREE_HEIGHT},
-    ethereum_types::{account_id_packed::AccountIdPacked, bytes32::Bytes32, u256::U256},
+    ethereum_types::{account_id::AccountIdPacked, bytes32::Bytes32, u256::U256},
 };
 
 type F = GoldilocksField;
