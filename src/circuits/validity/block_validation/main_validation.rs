@@ -92,13 +92,13 @@ pub struct MainValidationPublicInputsTarget {
 impl MainValidationPublicInputs {
     pub fn from_u64_slice(input: &[u64]) -> Self {
         assert_eq!(input.len(), MAIN_VALIDATION_PUBLIC_INPUT_LEN);
-        let prev_block_hash = Bytes32::from_u64_slice(&input[0..8]);
-        let block_hash = Bytes32::from_u64_slice(&input[8..16]);
-        let deposit_tree_root = Bytes32::from_u64_slice(&input[16..24]);
+        let prev_block_hash = Bytes32::from_u64_slice(&input[0..8]).unwrap();
+        let block_hash = Bytes32::from_u64_slice(&input[8..16]).unwrap();
+        let deposit_tree_root = Bytes32::from_u64_slice(&input[16..24]).unwrap();
         let account_tree_root = PoseidonHashOut::from_u64_slice(&input[24..28]);
-        let tx_tree_root = Bytes32::from_u64_slice(&input[28..36]);
+        let tx_tree_root = Bytes32::from_u64_slice(&input[28..36]).unwrap();
         let sender_tree_root = PoseidonHashOut::from_u64_slice(&input[36..40]);
-        let timestamp = U64::from_u64_slice(&input[40..42]).into();
+        let timestamp = U64::from_u64_slice(&input[40..42]).unwrap().into();
         let block_number = input[42];
         let is_registration_block = input[43] == 1;
         let is_valid = input[44] == 1;

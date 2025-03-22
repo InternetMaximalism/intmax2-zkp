@@ -85,9 +85,9 @@ impl PublicState {
         let prev_account_tree_root = PoseidonHashOut::from_u64_slice(&input[4..8]);
         let account_tree_root = PoseidonHashOut::from_u64_slice(&input[8..12]);
         let next_account_id = input[12];
-        let deposit_tree_root = Bytes32::from_u64_slice(&input[13..21]);
-        let block_hash = Bytes32::from_u64_slice(&input[21..29]);
-        let timestamp = U64::from_u64_slice(&input[29..31]).into();
+        let deposit_tree_root = Bytes32::from_u64_slice(&input[13..21]).unwrap();
+        let block_hash = Bytes32::from_u64_slice(&input[21..29]).unwrap();
+        let timestamp = U64::from_u64_slice(&input[29..31]).unwrap().into();
         let block_number = input[31] as u32;
         Self {
             block_tree_root,

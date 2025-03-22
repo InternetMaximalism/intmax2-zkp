@@ -65,20 +65,20 @@ impl DepositTimePublicInputs {
 
     pub fn from_u32_slice(inputs: &[u32]) -> Self {
         assert_eq!(inputs.len(), DEPOSIT_TIME_PUBLIC_INPUTS_LEN);
-        let pubkey = U256::from_u32_slice(&inputs[0..U256_LEN]);
-        let nullifier = Bytes32::from_u32_slice(&inputs[U256_LEN..U256_LEN + BYTES32_LEN]);
+        let pubkey = U256::from_u32_slice(&inputs[0..U256_LEN]).unwrap();
+        let nullifier = Bytes32::from_u32_slice(&inputs[U256_LEN..U256_LEN + BYTES32_LEN]).unwrap();
         let deposit_amount = U256::from_u32_slice(
             &inputs[U256_LEN + BYTES32_LEN..U256_LEN + BYTES32_LEN + U256_LEN],
-        );
+        ).unwrap();
         let lock_time = inputs[U256_LEN + BYTES32_LEN + U256_LEN];
         let block_timestamp = U64::from_u32_slice(
             &inputs[U256_LEN + BYTES32_LEN + U256_LEN + 1
                 ..U256_LEN + BYTES32_LEN + U256_LEN + 1 + U64_LEN],
-        );
+        ).unwrap();
         let block_hash = Bytes32::from_u32_slice(
             &inputs[U256_LEN + BYTES32_LEN + U256_LEN + 1 + U64_LEN
                 ..U256_LEN + BYTES32_LEN + U256_LEN + 1 + U64_LEN + BYTES32_LEN],
-        );
+        ).unwrap();
         let block_number = inputs[U256_LEN + BYTES32_LEN + U256_LEN + 1 + U64_LEN + BYTES32_LEN];
         Self {
             pubkey,

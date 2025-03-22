@@ -52,7 +52,7 @@ pub struct AccountInclusionPublicInputsTarget {
 impl AccountInclusionPublicInputs {
     pub fn from_u64_slice(input: &[u64]) -> Self {
         assert_eq!(input.len(), ACCOUNT_INCLUSION_PUBLIC_INPUTS_LEN);
-        let account_id_hash = Bytes32::from_u64_slice(&input[0..8]);
+        let account_id_hash = Bytes32::from_u64_slice(&input[0..8]).unwrap();
         let account_tree_root = PoseidonHashOut::from_u64_slice(&input[8..12]);
         let pubkey_commitment = PoseidonHashOut::from_u64_slice(&input[12..16]);
         let is_valid = input[16] == 1;

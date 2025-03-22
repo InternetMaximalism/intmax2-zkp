@@ -16,7 +16,7 @@ use crate::{
         format_validation::{FormatValidationCircuit, FormatValidationValue},
         main_validation::{MainValidationCircuit, MainValidationValue},
     },
-    common::{signature::sign::get_pubkey_hash, witness::block_witness::BlockWitness},
+    common::{signature::utils::get_pubkey_hash, witness::block_witness::BlockWitness},
 };
 
 #[derive(Debug)]

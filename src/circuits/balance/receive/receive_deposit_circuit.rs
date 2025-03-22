@@ -62,7 +62,7 @@ impl ReceiveDepositPublicInputs {
     pub fn from_u64_slice(input: &[u64]) -> Self {
         let prev_private_commitment = PoseidonHashOut::from_u64_slice(&input[0..4]);
         let new_private_commitment = PoseidonHashOut::from_u64_slice(&input[4..8]);
-        let pubkey = U256::from_u64_slice(&input[8..16]);
+        let pubkey = U256::from_u64_slice(&input[8..16]).unwrap();
         let public_state = PublicState::from_u64_slice(&input[16..16 + PUBLIC_STATE_LEN]);
         ReceiveDepositPublicInputs {
             prev_private_commitment,

@@ -61,7 +61,7 @@ impl SpentPublicInputs {
         let insufficient_flags = InsufficientFlags::from_u64_slice(
             &input[2 * POSEIDON_HASH_OUT_LEN + TX_LEN
                 ..2 * POSEIDON_HASH_OUT_LEN + TX_LEN + INSUFFICIENT_FLAGS_LEN],
-        );
+        ).unwrap();
         let is_valid = input[2 * POSEIDON_HASH_OUT_LEN + TX_LEN + INSUFFICIENT_FLAGS_LEN] == 1;
         Self {
             prev_private_commitment,
@@ -193,7 +193,7 @@ impl SpentValue {
             asset_tree_root = proof.get_root(&new_balance, transfer.token_index as u64);
             insufficient_bits.push(new_balance.is_insufficient);
         }
-        let insufficient_flags = InsufficientFlags::from_bits_be(&insufficient_bits);
+        let insufficient_flags = InsufficientFlags::from_bits_be(&insufficient_bits).unwrap();
         let is_valid = tx_nonce == prev_private_state.nonce;
         let prev_private_commitment = prev_private_state.commitment();
         let new_private_state = PrivateState {
