@@ -1,14 +1,11 @@
-use anyhow::ensure;
-use ark_bn254::Fq;
 use ark_std::iterable::Iterable;
-use num::{BigUint, Num as _, Zero};
 use plonky2::{
     field::extension::Extendable,
     hash::hash_types::RichField,
     iop::target::{BoolTarget, Target},
     plonk::circuit_builder::CircuitBuilder,
 };
-use plonky2_bn254::fields::{biguint::BigUintTarget, fq::FqTarget};
+use plonky2_bn254::fields::biguint::BigUintTarget;
 use plonky2_u32::gadgets::{
     arithmetic_u32::{CircuitBuilderU32, U32Target},
     multiple_comparison::list_le_circuit,
@@ -16,15 +13,30 @@ use plonky2_u32::gadgets::{
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 
-use super::u32limb_trait::{U32LimbTargetTrait, U32LimbTrait};
+use super::u32limb_trait::{self, U32LimbTargetTrait, U32LimbTrait};
 
 pub const U64_LEN: usize = 2;
 
-// A structure representing the uint64 type in Ethereum.
-// The value is stored in big endian format.
+/// A struct representing the uint64 type in Ethereum.
 #[derive(Clone, Copy, PartialEq, Eq, Default, Hash)]
 pub struct U64 {
     limbs: [u32; U64_LEN],
+}
+
+impl From<u64> for U64 {
+    fn from(value: u64) -> Self {
+        let hi = (value >> 32) as u32;
+        let lo = value as u32;
+        Self { limbs: [hi, lo] }
+    }
+}
+
+impl From<U64> for u64 {
+    fn from(value: U64) -> Self {
+        let hi = value.limbs[0] as u64;
+        let lo = value.limbs[1] as u64;
+        (hi << 32) | lo
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -47,9 +59,7 @@ impl U64Target {
 
 impl core::fmt::Debug for U64 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let b: BigUint = (*self).into();
-        let s = b.to_str_radix(10);
-        write!(f, "{}", s)
+        write!(f, "{}", u64::from(*self))
     }
 }
 
@@ -67,10 +77,8 @@ impl Serialize for U64 {
 
 impl<'de> Deserialize<'de> for U64 {
     fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        let s = String::deserialize(deserializer)?;
-        let b = BigUint::from_str_radix(&s, 10).map_err(serde::de::Error::custom)?;
-        let u: U64 = b.try_into().unwrap();
-        Ok(u)
+        let value = u64::deserialize(deserializer)?;
+        Ok(value.into())
     }
 }
 
@@ -85,79 +93,6 @@ impl Ord for U64 {
     #[inline]
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         Iterator::cmp(self.limbs.iter(), other.limbs.iter())
-    }
-}
-
-impl From<u64> for U64 {
-    fn from(value: u64) -> Self {
-        let hi = (value >> 32) as u32;
-        let lo = value as u32;
-        Self { limbs: [hi, lo] }
-    }
-}
-
-impl From<U64> for u64 {
-    fn from(value: U64) -> Self {
-        let hi = value.limbs[0] as u64;
-        let lo = value.limbs[1] as u64;
-        (hi << 32) | lo
-    }
-}
-
-impl TryFrom<BigUint> for U64 {
-    type Error = anyhow::Error;
-    fn try_from(value: BigUint) -> anyhow::Result<Self> {
-        let mut digits = value.to_u32_digits();
-        ensure!(digits.len() <= U64_LEN, "value is too large");
-        digits.resize(U64_LEN, 0);
-        digits.reverse(); // little endian to big endian
-        Ok(Self {
-            limbs: digits.try_into().unwrap(),
-        })
-    }
-}
-
-impl From<U64> for BigUint {
-    fn from(value: U64) -> Self {
-        let mut sum = BigUint::zero();
-        for (i, digit) in value.limbs.iter().rev().enumerate() {
-            sum += BigUint::from(digit) << (32 * i);
-        }
-        sum
-    }
-}
-
-impl From<Fq> for U64 {
-    fn from(value: Fq) -> Self {
-        // Fq is less than 64 bits, so we can safely convert it to U64
-        U64::try_from(BigUint::from(value)).unwrap()
-    }
-}
-
-impl From<U64> for Fq {
-    fn from(value: U64) -> Self {
-        Fq::from(BigUint::from(value))
-    }
-}
-
-impl<F: RichField + Extendable<D>, const D: usize> From<FqTarget<F, D>> for U64Target {
-    fn from(value: FqTarget<F, D>) -> Self {
-        U64Target::from_slice(
-            value
-                .value()
-                .limbs
-                .into_iter()
-                .map(|t| t.0)
-                .rev()
-                .collect::<Vec<_>>()
-                .as_slice(),
-        )
-    }
-}
-
-impl<F: RichField + Extendable<D>, const D: usize> From<U64Target> for FqTarget<F, D> {
-    fn from(value: U64Target) -> Self {
-        FqTarget::from_slice(&value.to_vec().into_iter().rev().collect::<Vec<_>>())
     }
 }
 
@@ -177,12 +112,13 @@ impl U32LimbTrait<U64_LEN> for U64 {
     fn to_u32_vec(&self) -> Vec<u32> {
         self.limbs.to_vec()
     }
-    fn from_u32_slice(limbs: &[u32]) -> super::u32limb_trait::Result<Self> {
+
+    fn from_u32_slice(limbs: &[u32]) -> u32limb_trait::Result<Self> {
         if limbs.len() != U64_LEN {
-            return Err(super::u32limb_trait::U32LimbError::InvalidLength(limbs.len()));
+            return Err(u32limb_trait::U32LimbError::InvalidLength(limbs.len()));
         }
         Ok(Self {
-            limbs: limbs.try_into().map_err(|_| super::u32limb_trait::U32LimbError::InvalidLength(limbs.len()))?,
+            limbs: limbs.try_into().unwrap(),
         })
     }
 }

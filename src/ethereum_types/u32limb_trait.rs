@@ -97,7 +97,10 @@ pub trait U32LimbTrait<const NUM_LIMBS: usize>: Clone + Copy {
         }
         let mut padded_bits = vec![false; 32 * NUM_LIMBS];
         padded_bits[32 * NUM_LIMBS - bits.len()..].copy_from_slice(bits);
-        let limbs = padded_bits.chunks(32).map(bits_be_to_u32).collect::<Vec<_>>();
+        let limbs = padded_bits
+            .chunks(32)
+            .map(bits_be_to_u32)
+            .collect::<Vec<_>>();
         Self::from_u32_slice(&limbs)
     }
 
@@ -118,7 +121,7 @@ pub trait U32LimbTrait<const NUM_LIMBS: usize>: Clone + Copy {
     }
 }
 
-// trait for types with u32 target limbs
+/// trait for types with u32 target limbs
 pub trait U32LimbTargetTrait<const NUM_LIMBS: usize>: Clone + Copy {
     fn to_vec(&self) -> Vec<Target>;
 
