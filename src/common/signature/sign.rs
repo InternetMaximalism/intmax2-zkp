@@ -28,10 +28,9 @@ use plonky2_bn254::{
     },
     utils::hash_to_g2::HashToG2 as _,
 };
-use plonky2_keccak::utils::solidity_keccak256;
 use plonky2_u32::gadgets::arithmetic_u32::U32Target;
 
-use super::flatten::FlatG2Target;
+use super::{flatten::FlatG2Target, utils::get_pubkey_hash};
 
 fn check_pairing(g1s: &[G1Affine], g2s: &[G2Affine]) -> bool {
     Bn254::multi_pairing(g1s, g2s).is_zero()
@@ -102,14 +101,6 @@ pub fn verify_signature(signature: G2Affine, pubkey: U256, message: &[u8]) -> an
         .collect::<Vec<_>>();
 
     verify_signature_no_pad(signature, pubkey, &limbs)
-}
-
-pub fn get_pubkey_hash(pubkeys: &[U256]) -> Bytes32 {
-    let pubkey_flattened = pubkeys
-        .iter()
-        .flat_map(|x| x.to_u32_vec())
-        .collect::<Vec<_>>();
-    Bytes32::from_u32_slice(&solidity_keccak256(&pubkey_flattened))
 }
 
 /// NOTE: This weight differs from the one used when aggregating transactions.
@@ -228,7 +219,7 @@ pub fn tx_tree_root_and_expiry_to_message_point(tx_tree_root: Bytes32, expiry: U
         .chain(expiry.to_u32_vec().iter())
         .map(|x| GoldilocksField::from_canonical_u32(*x))
         .collect::<Vec<_>>();
-    
+
     G2Target::<GoldilocksField, 2>::hash_to_g2(&elements)
 }
 

@@ -70,7 +70,6 @@ pub struct SignatureContentTarget {
 
 impl SignatureContent {
     pub fn to_u32_vec(&self) -> Vec<u32> {
-        
         vec![
             vec![self.is_registration_block as u32],
             self.tx_tree_root.to_u32_vec(),
@@ -91,6 +90,7 @@ impl SignatureContent {
 
     pub fn hash(&self) -> Bytes32 {
         Bytes32::from_u32_slice(&solidity_keccak256(&self.to_u32_vec()))
+            .expect("Failed to convert from U32 to Bytes32")
     }
 }
 

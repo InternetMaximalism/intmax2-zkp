@@ -23,7 +23,7 @@ pub fn get_pubkey_hash(pubkeys: &[U256]) -> Bytes32 {
         .iter()
         .flat_map(|x| x.to_u32_vec())
         .collect::<Vec<_>>();
-    Bytes32::from_u32_slice(&solidity_keccak256(&pubkey_flattened))
+    Bytes32::from_u32_slice(&solidity_keccak256(&pubkey_flattened)).expect("Invalid length")
 }
 
 pub fn get_pubkey_hash_circuit<

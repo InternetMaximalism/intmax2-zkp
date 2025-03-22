@@ -2,8 +2,8 @@ use crate::{
     constants::NULLIFIER_TREE_HEIGHT,
     ethereum_types::{
         bytes32::{Bytes32, Bytes32Target},
-        u256::{U256Target, U256},
-        u32limb_trait::{U32LimbTargetTrait, U32LimbTrait},
+        u256::U256Target,
+        u32limb_trait::U32LimbTargetTrait,
     },
     utils::{
         poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget},
@@ -52,14 +52,12 @@ impl NullifierTree {
             .leaves()
             .iter()
             .skip(1) // ignore the default leaf
-            .map(|l| Bytes32::from_u32_slice(&l.key.to_u32_vec()))
+            .map(|l| l.key.into())
             .collect()
     }
 
     pub fn prove_and_insert(&mut self, nullifier: Bytes32) -> Result<NullifierInsertionProof> {
-        let proof = self
-            .0
-            .prove_and_insert(U256::from_u32_slice(&nullifier.to_u32_vec()), 0)?;
+        let proof = self.0.prove_and_insert(nullifier.into(), 0)?;
         Ok(NullifierInsertionProof(proof))
     }
 }
@@ -70,9 +68,7 @@ impl NullifierInsertionProof {
         prev_root: PoseidonHashOut,
         nullifier: Bytes32,
     ) -> Result<PoseidonHashOut> {
-        let root =
-            self.0
-                .get_new_root(U256::from_u32_slice(&nullifier.to_u32_vec()), 0, prev_root)?;
+        let root = self.0.get_new_root(nullifier.into(), 0, prev_root)?;
         Ok(root)
     }
 
