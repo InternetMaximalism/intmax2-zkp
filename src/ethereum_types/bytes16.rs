@@ -83,10 +83,13 @@ impl U32LimbTrait<BYTES16_LEN> for Bytes16 {
         self.limbs.to_vec()
     }
 
-    fn from_u32_slice(limbs: &[u32]) -> Self {
-        Self {
-            limbs: limbs.try_into().unwrap(),
+    fn from_u32_slice(limbs: &[u32]) -> super::u32limb_trait::Result<Self> {
+        if limbs.len() != BYTES16_LEN {
+            return Err(super::u32limb_trait::U32LimbError::InvalidLength(limbs.len()));
         }
+        Ok(Self {
+            limbs: limbs.try_into().map_err(|_| super::u32limb_trait::U32LimbError::InvalidLength(limbs.len()))?,
+        })
     }
 }
 
@@ -96,6 +99,7 @@ impl U32LimbTargetTrait<BYTES16_LEN> for Bytes16Target {
     }
 
     fn from_slice(limbs: &[Target]) -> Self {
+        assert_eq!(limbs.len(), BYTES16_LEN, "Invalid length for Bytes16Target");
         Self {
             limbs: limbs.try_into().unwrap(),
         }

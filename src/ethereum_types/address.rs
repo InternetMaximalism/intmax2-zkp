@@ -58,10 +58,13 @@ impl U32LimbTrait<ADDRESS_LEN> for Address {
         self.limbs.to_vec()
     }
 
-    fn from_u32_slice(limbs: &[u32]) -> Self {
-        Self {
-            limbs: limbs.try_into().unwrap(),
+    fn from_u32_slice(limbs: &[u32]) -> super::u32limb_trait::Result<Self> {
+        if limbs.len() != ADDRESS_LEN {
+            return Err(super::u32limb_trait::U32LimbError::InvalidLength(limbs.len()));
         }
+        Ok(Self {
+            limbs: limbs.try_into().map_err(|_| super::u32limb_trait::U32LimbError::InvalidLength(limbs.len()))?,
+        })
     }
 }
 
@@ -71,6 +74,7 @@ impl U32LimbTargetTrait<ADDRESS_LEN> for AddressTarget {
     }
 
     fn from_slice(limbs: &[Target]) -> Self {
+        assert_eq!(limbs.len(), ADDRESS_LEN, "Invalid length for AddressTarget");
         Self {
             limbs: limbs.try_into().unwrap(),
         }

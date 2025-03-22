@@ -31,6 +31,13 @@ pub struct InsufficientFlagsTarget {
 }
 
 impl InsufficientFlagsTarget {
+    pub fn new<F: RichField + Extendable<D>, const D: usize>(
+        builder: &mut CircuitBuilder<F, D>,
+        range_check: bool,
+    ) -> Self {
+        U32LimbTargetTrait::<INSUFFICIENT_FLAGS_LEN>::new::<F, D>(builder, range_check)
+    }
+
     pub fn random_access<F: RichField + Extendable<D>, const D: usize>(
         &self,
         builder: &mut CircuitBuilder<F, D>,
@@ -55,11 +62,13 @@ impl U32LimbTrait<INSUFFICIENT_FLAGS_LEN> for InsufficientFlags {
         self.limbs.to_vec()
     }
 
-    fn from_u32_slice(limbs: &[u32]) -> Self {
-        assert_eq!(limbs.len(), INSUFFICIENT_FLAGS_LEN);
-        Self {
-            limbs: limbs.try_into().unwrap(),
+    fn from_u32_slice(limbs: &[u32]) -> crate::ethereum_types::u32limb_trait::Result<Self> {
+        if limbs.len() != INSUFFICIENT_FLAGS_LEN {
+            return Err(crate::ethereum_types::u32limb_trait::U32LimbError::InvalidLength(limbs.len()));
         }
+        Ok(Self {
+            limbs: limbs.try_into().map_err(|_| crate::ethereum_types::u32limb_trait::U32LimbError::InvalidLength(limbs.len()))?,
+        })
     }
 }
 
@@ -69,7 +78,7 @@ impl U32LimbTargetTrait<INSUFFICIENT_FLAGS_LEN> for InsufficientFlagsTarget {
     }
 
     fn from_slice(limbs: &[Target]) -> Self {
-        assert_eq!(limbs.len(), INSUFFICIENT_FLAGS_LEN);
+        assert_eq!(limbs.len(), INSUFFICIENT_FLAGS_LEN, "Invalid length for InsufficientFlagsTarget");
         Self {
             limbs: limbs.try_into().unwrap(),
         }
@@ -106,7 +115,7 @@ mod tests {
         let mut flag_bits = vec![false; NUM_TRANSFERS_IN_TX];
         flag_bits[index] = true;
 
-        let flag = InsufficientFlags::from_bits_be(&flag_bits);
+        let flag = InsufficientFlags::from_bits_be(&flag_bits).expect("Creating from bits should never fail");
 
         let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::default());
         let flags_t = InsufficientFlagsTarget::new(&mut builder, true);

@@ -177,10 +177,13 @@ impl U32LimbTrait<U64_LEN> for U64 {
     fn to_u32_vec(&self) -> Vec<u32> {
         self.limbs.to_vec()
     }
-    fn from_u32_slice(limbs: &[u32]) -> Self {
-        Self {
-            limbs: limbs.try_into().unwrap(),
+    fn from_u32_slice(limbs: &[u32]) -> super::u32limb_trait::Result<Self> {
+        if limbs.len() != U64_LEN {
+            return Err(super::u32limb_trait::U32LimbError::InvalidLength(limbs.len()));
         }
+        Ok(Self {
+            limbs: limbs.try_into().map_err(|_| super::u32limb_trait::U32LimbError::InvalidLength(limbs.len()))?,
+        })
     }
 }
 
@@ -376,17 +379,17 @@ mod tests {
 
     #[test]
     fn u64_order() {
-        let a = U64::from_u32_slice(&[0, 2]);
-        let b = U64::from_u32_slice(&[1, 1]);
+        let a = U64::from_u32_slice(&[0, 2]).unwrap();
+        let b = U64::from_u32_slice(&[1, 1]).unwrap();
         assert!(a < b);
     }
 
     #[test]
     fn u64_add_sub() {
-        let a = U64::from_u32_slice(&[1, 2]);
-        let b = U64::from_u32_slice(&[0, u32::MAX]);
-        let c = U64::from_u32_slice(&[2, 1]);
-        let d = U64::from_u32_slice(&[0, 3]);
+        let a = U64::from_u32_slice(&[1, 2]).unwrap();
+        let b = U64::from_u32_slice(&[0, u32::MAX]).unwrap();
+        let c = U64::from_u32_slice(&[2, 1]).unwrap();
+        let d = U64::from_u32_slice(&[0, 3]).unwrap();
         assert_eq!(a + b, c);
         assert_eq!(a - b, d);
     }
@@ -394,16 +397,16 @@ mod tests {
     #[test]
     #[should_panic]
     fn u64_sub_underflow() {
-        let a = U64::from_u32_slice(&[1, 2]);
-        let b = U64::from_u32_slice(&[0, u32::MAX]);
+        let a = U64::from_u32_slice(&[1, 2]).unwrap();
+        let b = U64::from_u32_slice(&[0, u32::MAX]).unwrap();
 
         _ = b - a;
     }
 
     #[test]
     fn u64_le() {
-        let a = U64::from_u32_slice(&[1, 2]);
-        let b = U64::from_u32_slice(&[0, u32::MAX]);
+        let a = U64::from_u32_slice(&[1, 2]).unwrap();
+        let b = U64::from_u32_slice(&[0, u32::MAX]).unwrap();
 
         let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::default());
         let a_t = U64Target::constant(&mut builder, a);

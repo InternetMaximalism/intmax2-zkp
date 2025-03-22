@@ -119,10 +119,13 @@ impl U32LimbTrait<ACCOUNT_ID_PACKED_LEN> for AccountIdPacked {
         self.limbs.to_vec()
     }
 
-    fn from_u32_slice(limbs: &[u32]) -> Self {
-        Self {
-            limbs: limbs.try_into().unwrap(),
+    fn from_u32_slice(limbs: &[u32]) -> super::u32limb_trait::Result<Self> {
+        if limbs.len() != ACCOUNT_ID_PACKED_LEN {
+            return Err(super::u32limb_trait::U32LimbError::InvalidLength(limbs.len()));
         }
+        Ok(Self {
+            limbs: limbs.try_into().map_err(|_| super::u32limb_trait::U32LimbError::InvalidLength(limbs.len()))?,
+        })
     }
 }
 
@@ -145,7 +148,15 @@ impl AccountIdPacked {
             .iter()
             .flat_map(|&account_id| account_id.to_bytes_be())
             .collect::<Vec<_>>();
-        Self::from_bytes_be(&bytes)
+        Self::from_bytes_be(&bytes).expect("Packing account IDs should never fail")
+    }
+
+    pub fn to_bytes_be(&self) -> Vec<u8> {
+        let mut result = Vec::with_capacity(ACCOUNT_ID_PACKED_LEN * 4);
+        for limb in &self.limbs {
+            result.extend_from_slice(&limb.to_be_bytes());
+        }
+        result
     }
 
     pub fn unpack(&self) -> Vec<AccountId> {
@@ -184,11 +195,28 @@ impl AccountIdPacked {
         while inputs.len() < ACCOUNT_ID_BYTES_LEN * NUM_SENDERS_IN_BLOCK {
             inputs.extend_from_slice(&dummy_account_id_bytes);
         }
-        Ok(Self::from_bytes_be(&inputs))
+        Ok(Self::from_bytes_be(&inputs).expect("Converting from bytes should never fail"))
+    }
+
+    pub fn from_bytes_be(input: &[u8]) -> super::u32limb_trait::Result<Self> {
+        // Convert bytes to u32 limbs
+        let mut limbs = Vec::with_capacity(ACCOUNT_ID_PACKED_LEN);
+        for i in 0..ACCOUNT_ID_PACKED_LEN {
+            let start = i * 4;
+            let end = start + 4;
+            if end <= input.len() {
+                let mut bytes = [0u8; 4];
+                bytes.copy_from_slice(&input[start..end]);
+                limbs.push(u32::from_be_bytes(bytes));
+            } else {
+                limbs.push(0);
+            }
+        }
+        Self::from_u32_slice(&limbs)
     }
 
     pub fn hash(&self) -> Bytes32 {
-        Bytes32::from_u32_slice(&solidity_keccak256(&self.to_u32_vec()))
+        Bytes32::from_u32_slice(&solidity_keccak256(&self.to_u32_vec())).expect("Hashing should never fail")
     }
 }
 

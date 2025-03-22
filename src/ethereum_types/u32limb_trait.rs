@@ -51,13 +51,15 @@ pub trait U32LimbTrait<const NUM_LIMBS: usize>: Clone + Copy {
 
     fn zero() -> Self {
         let limbs = vec![0; NUM_LIMBS];
-        Self::from_u32_slice(&limbs).unwrap()
+        // This should never fail as we're creating a valid zero value
+        Self::from_u32_slice(&limbs).expect("Creating zero value failed")
     }
 
     fn one() -> Self {
         let mut limbs = vec![0; NUM_LIMBS];
         limbs[NUM_LIMBS - 1] = 1;
-        Self::from_u32_slice(&limbs).unwrap()
+        // This should never fail as we're creating a valid one value
+        Self::from_u32_slice(&limbs).expect("Creating one value failed")
     }
 
     fn from_bytes_be(bytes: &[u8]) -> Result<Self> {
@@ -95,14 +97,14 @@ pub trait U32LimbTrait<const NUM_LIMBS: usize>: Clone + Copy {
         }
         let mut padded_bits = vec![false; 32 * NUM_LIMBS];
         padded_bits[32 * NUM_LIMBS - bits.len()..].copy_from_slice(bits);
-        let limbs = bits.chunks(32).map(bits_be_to_u32).collect::<Vec<_>>();
+        let limbs = padded_bits.chunks(32).map(bits_be_to_u32).collect::<Vec<_>>();
         Self::from_u32_slice(&limbs)
     }
 
     fn from_hex(hex_str: &str) -> Result<Self> {
         let cleaned_str = hex_str.strip_prefix("0x").unwrap_or(hex_str);
         let bytes = hex::decode(cleaned_str.as_bytes())?;
-        Ok(Self::from_bytes_be(&bytes)?)
+        Self::from_bytes_be(&bytes)
     }
 
     fn to_hex(&self) -> String {
@@ -111,7 +113,8 @@ pub trait U32LimbTrait<const NUM_LIMBS: usize>: Clone + Copy {
 
     fn rand<R: Rng>(rng: &mut R) -> Self {
         let limbs = (0..NUM_LIMBS).map(|_| rng.gen()).collect::<Vec<_>>();
-        Self::from_u32_slice(&limbs).unwrap()
+        // This should never fail as we're creating random values within the valid range
+        Self::from_u32_slice(&limbs).expect("Creating random value failed")
     }
 }
 

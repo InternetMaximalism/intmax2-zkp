@@ -59,7 +59,7 @@ where
         let prev_hash = if prev_proof.is_some() {
             Bytes32::from_u64_slice(
                 &prev_proof.as_ref().unwrap().public_inputs[0..BYTES32_LEN].to_u64_vec(),
-            )
+            ).expect("Converting from u64 slice should never fail")
         } else {
             Bytes32::default()
         };
