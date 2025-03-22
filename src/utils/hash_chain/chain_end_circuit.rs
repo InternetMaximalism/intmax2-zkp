@@ -42,8 +42,8 @@ impl ChainEndProofPublicInputs {
 
     pub fn from_u32_slice(slice: &[u32]) -> Self {
         assert_eq!(slice.len(), CHAIN_END_PROOF_PUBLIC_INPUTS_LEN);
-        let last_hash = Bytes32::from_u32_slice(&slice[0..BYTES32_LEN]);
-        let aggregator = Address::from_u32_slice(&slice[BYTES32_LEN..]);
+        let last_hash = Bytes32::from_u32_slice(&slice[0..BYTES32_LEN]).unwrap();
+        let aggregator = Address::from_u32_slice(&slice[BYTES32_LEN..]).unwrap();
         Self {
             last_hash,
             aggregator,
@@ -67,7 +67,7 @@ impl ChainEndProofPublicInputs {
     }
 
     pub fn hash(&self) -> Bytes32 {
-        Bytes32::from_u32_slice(&solidity_keccak256(&self.to_u32_vec()))
+        Bytes32::from_u32_slice(&solidity_keccak256(&self.to_u32_vec())).unwrap()
     }
 }
 

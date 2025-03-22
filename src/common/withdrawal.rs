@@ -99,7 +99,7 @@ impl Withdrawal {
 
     pub fn hash_with_prev_hash(&self, prev_withdrawal_hash: Bytes32) -> Bytes32 {
         let input = [prev_withdrawal_hash.to_u32_vec(), self.to_u32_vec()].concat();
-        Bytes32::from_u32_slice(&solidity_keccak256(&input))
+        Bytes32::from_u32_slice(&solidity_keccak256(&input)).unwrap()
     }
 
     pub fn rand<R: rand::Rng>(rng: &mut R) -> Self {
@@ -195,6 +195,6 @@ pub fn get_withdrawal_nullifier_circuit<F: RichField + Extendable<D>, const D: u
     let transfer_commitment = transfer.commitment(builder);
     let input = [transfer_commitment.to_vec(), transfer.salt.to_vec()].concat();
     let input_hash = PoseidonHashOutTarget::hash_inputs(builder, &input);
-    
+
     Bytes32Target::from_hash_out(builder, input_hash)
 }

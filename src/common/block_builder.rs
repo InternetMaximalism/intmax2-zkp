@@ -87,7 +87,7 @@ pub fn construct_signature(
         .iter()
         .map(|s| s.signature.is_some())
         .collect::<Vec<_>>();
-    let sender_flag = Bytes16::from_bits_be(&sender_flag_bits);
+    let sender_flag = Bytes16::from_bits_be(&sender_flag_bits).unwrap();
     let agg_pubkey = sender_with_signatures
         .iter()
         .map(|s| {

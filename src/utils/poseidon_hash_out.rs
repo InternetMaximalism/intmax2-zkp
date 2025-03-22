@@ -226,7 +226,7 @@ impl From<PoseidonHashOut> for Bytes32 {
                 [high, low]
             })
             .collect::<Vec<_>>();
-        Self::from_u32_slice(&limbs)
+        Self::from_u32_slice(&limbs).expect("Converting from u32 slice should never fail")
     }
 }
 
