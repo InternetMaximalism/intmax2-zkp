@@ -6,11 +6,14 @@ use plonky2_bn254::fields::recover::RecoverFromX;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    common::signature::{block_sign_payload::hash_to_weight, utils::get_pubkey_hash},
+    common::signature::{
+        block_sign_payload::{hash_to_weight, BlockSignPayload},
+        flatten::FlatG1,
+        utils::get_pubkey_hash,
+    },
     constants::NUM_SENDERS_IN_BLOCK,
     ethereum_types::{
-        address::Address, bytes16::Bytes16, bytes32::Bytes32, u256::U256,
-        u32limb_trait::U32LimbTrait as _,
+        bytes16::Bytes16, bytes32::Bytes32, u256::U256, u32limb_trait::U32LimbTrait as _,
     },
 };
 
@@ -24,10 +27,7 @@ use super::{
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BlockProposal {
-    pub expiry: u64,
-    pub tx_tree_root: Bytes32,
-    pub block_builder_address: Address,
-    pub block_builder_nonce: u32,
+    pub block_sign_payload: BlockSignPayload,
     pub tx_index: u32,
     pub tx_merkle_proof: TxMerkleProof,
     pub pubkeys: Vec<U256>, // pubkeys of the senders, without padding
@@ -40,7 +40,7 @@ impl BlockProposal {
             .verify(
                 &tx,
                 self.tx_index as u64,
-                self.tx_tree_root.reduce_to_hash_out(),
+                self.block_sign_payload.tx_tree_root.reduce_to_hash_out(),
             )
             .map_err(|e| anyhow::anyhow!("Failed to verify tx merkle proof: {}", e))?;
         ensure!(
@@ -51,13 +51,10 @@ impl BlockProposal {
     }
 
     pub fn sign(&self, key: KeySet) -> UserSignature {
-        let signature: FlatG2 = sign_to_tx_root_and_expiry(
-            key.privkey,
-            self.tx_tree_root,
-            self.expiry,
-            self.pubkeys_hash,
-        )
-        .into();
+        let signature: FlatG2 = self
+            .block_sign_payload
+            .sign(key.privkey, self.pubkeys_hash)
+            .into();
         UserSignature {
             pubkey: key.pubkey,
             signature,
@@ -73,11 +70,9 @@ pub struct SenderWithSignature {
 }
 
 pub fn construct_signature(
-    tx_tree_root: Bytes32,
-    expiry: u64,
+    block_sign_payload: &BlockSignPayload,
     pubkey_hash: Bytes32,
     account_id_hash: Bytes32,
-    is_registration_block: bool,
     sender_with_signatures: &[SenderWithSignature],
 ) -> SignatureContent {
     assert_eq!(sender_with_signatures.len(), NUM_SENDERS_IN_BLOCK);
@@ -86,7 +81,7 @@ pub fn construct_signature(
         .map(|s| s.signature.is_some())
         .collect::<Vec<_>>();
     let sender_flag = Bytes16::from_bits_be(&sender_flag_bits).unwrap();
-    let agg_pubkey = sender_with_signatures
+    let agg_pubkey: FlatG1 = sender_with_signatures
         .iter()
         .map(|s| {
             let weight = hash_to_weight(s.sender, pubkey_hash);
@@ -99,8 +94,9 @@ pub fn construct_signature(
         })
         .fold(G1Affine::zero(), |acc: G1Affine, x: G1Affine| {
             (acc + x).into()
-        });
-    let agg_signature = sender_with_signatures
+        })
+        .into();
+    let agg_signature: FlatG2 = sender_with_signatures
         .iter()
         .map(|s| {
             if let Some(signature) = s.signature.clone() {
@@ -111,23 +107,24 @@ pub fn construct_signature(
         })
         .fold(G2Affine::zero(), |acc: G2Affine, x: G2Affine| {
             (acc + x).into()
-        });
+        })
+        .into();
     // message point
-    let message_point = tx_tree_root_and_expiry_to_message_point(tx_tree_root, expiry.into());
+    let message_point = block_sign_payload.message_point();
     assert!(
-        Bn254::pairing(agg_pubkey, message_point)
-            == Bn254::pairing(G1Affine::generator(), agg_signature)
+        Bn254::pairing(
+            G1Affine::from(agg_pubkey.clone()),
+            G2Affine::from(message_point.clone())
+        ) == Bn254::pairing(G1Affine::generator(), G2Affine::from(agg_signature.clone()))
     );
     SignatureContent {
-        is_registration_block,
-        tx_tree_root,
-        expiry: expiry.into(),
+        block_sign_payload: block_sign_payload.clone(),
         sender_flag,
         pubkey_hash,
         account_id_hash,
-        agg_pubkey: agg_pubkey.into(),
-        agg_signature: agg_signature.into(),
-        message_point: message_point.into(),
+        agg_pubkey,
+        agg_signature,
+        message_point,
     }
 }
 
@@ -143,18 +140,19 @@ impl UserSignature {
     // verify single user signature
     pub fn verify(
         &self,
-        tx_tree_root: Bytes32,
-        expiry: u64,
+        block_sign_payload: &BlockSignPayload,
         pubkey_hash: Bytes32,
     ) -> anyhow::Result<()> {
         let weight = hash_to_weight(self.pubkey, pubkey_hash);
         let pubkey_g1: G1Affine = G1Affine::recover_from_x(self.pubkey.into());
         let weighted_pubkey_g1: G1Affine = (pubkey_g1 * Fr::from(BigUint::from(weight))).into();
-        let signature_g2: G2Affine = self.signature.clone().into();
-        let message_point = tx_tree_root_and_expiry_to_message_point(tx_tree_root, expiry.into());
+        let message_point = block_sign_payload.message_point();
         ensure!(
-            Bn254::pairing(weighted_pubkey_g1, message_point)
-                == Bn254::pairing(G1Affine::generator(), signature_g2),
+            Bn254::pairing(weighted_pubkey_g1, G2Affine::from(message_point))
+                == Bn254::pairing(
+                    G1Affine::generator(),
+                    G2Affine::from(self.signature.clone())
+                ),
             "Invalid signature"
         );
         Ok(())

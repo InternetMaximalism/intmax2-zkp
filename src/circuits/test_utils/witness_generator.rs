@@ -13,7 +13,9 @@ use crate::{
         block_builder::{construct_signature, SenderWithSignature},
         private_state::FullPrivateState,
         salt::Salt,
-        signature::{key_set::KeySet, block_sign_payload::sign_to_tx_root_and_expiry, utils::get_pubkey_hash},
+        signature::{
+            block_sign_payload::BlockSignPayload, key_set::KeySet, utils::get_pubkey_hash,
+        },
         transfer::Transfer,
         trees::{
             account_tree::AccountTree, block_hash_tree::BlockHashTree, deposit_tree::DepositTree,
@@ -27,7 +29,12 @@ use crate::{
         },
     },
     constants::{NUM_SENDERS_IN_BLOCK, NUM_TRANSFERS_IN_TX, TRANSFER_TREE_HEIGHT, TX_TREE_HEIGHT},
-    ethereum_types::{account_id::{AccountId, AccountIdPacked}, bytes32::Bytes32, u256::U256},
+    ethereum_types::{
+        account_id::{AccountId, AccountIdPacked},
+        address::Address,
+        bytes32::Bytes32,
+        u256::U256,
+    },
 };
 
 type F = GoldilocksField;
@@ -86,7 +93,17 @@ pub fn construct_validity_and_tx_witness(
     }
 
     // construct block
-    let expiry = 0; // dummy value
+    // dummy values
+    let expiry = 0;
+    let block_builder_address = Address::default();
+    let block_builder_nonce = 0;
+    let block_sign_payload = BlockSignPayload {
+        is_registration_block,
+        tx_tree_root,
+        expiry: expiry.into(),
+        block_builder_address,
+        block_builder_nonce,
+    };
 
     // get account ids
     let account_ids = if is_registration_block {
@@ -115,15 +132,7 @@ pub fn construct_validity_and_tx_witness(
         .iter()
         .map(|r| {
             let signature = if r.will_return_sig {
-                Some(
-                    sign_to_tx_root_and_expiry(
-                        r.sender_key.privkey,
-                        tx_tree_root,
-                        expiry,
-                        pubkey_hash,
-                    )
-                    .into(),
-                )
+                Some(block_sign_payload.sign(r.sender_key.privkey, pubkey_hash))
             } else {
                 None
             };
@@ -134,11 +143,9 @@ pub fn construct_validity_and_tx_witness(
         })
         .collect::<Vec<_>>();
     let signature = construct_signature(
-        tx_tree_root,
-        expiry,
+        &block_sign_payload,
         pubkey_hash,
         account_id_hash,
-        is_registration_block,
         &sender_with_signatures,
     );
 

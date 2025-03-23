@@ -27,6 +27,7 @@ use plonky2_bn254::{
     utils::hash_to_g2::HashToG2 as _,
 };
 use plonky2_u32::gadgets::arithmetic_u32::U32Target;
+use rand::Rng;
 use serde::{Deserialize, Serialize};
 
 use super::flatten::{FlatG2, FlatG2Target};
@@ -72,6 +73,21 @@ impl BlockSignPayload {
         let signature: G2Affine =
             (message_point * privkey * Fr::from(BigUint::from(weight))).into();
         signature.into()
+    }
+
+    pub fn rand<R: Rng>(rng: &mut R) -> Self {
+        let expiry = 0;
+        let tx_tree_root = Bytes32::rand(rng);
+        let is_registration_block = rng.gen();
+        let block_builder_address = Address::rand(rng);
+        let block_builder_nonce = rng.gen();
+        Self {
+            is_registration_block,
+            tx_tree_root,
+            expiry: expiry.into(),
+            block_builder_address,
+            block_builder_nonce,
+        }
     }
 }
 

@@ -8,6 +8,7 @@ use crate::{
         block::Block,
         deposit::Deposit,
         signature::{
+            block_sign_payload::BlockSignPayload,
             flatten::{FlatG1, FlatG2},
             utils::get_pubkey_hash,
             SignatureContent,
@@ -18,7 +19,7 @@ use crate::{
     constants::{DEPOSIT_TREE_HEIGHT, NUM_SENDERS_IN_BLOCK},
     ethereum_types::{
         account_id::AccountIdPacked, address::Address, bytes16::Bytes16, bytes32::Bytes32,
-        u256::U256, u64::U64,
+        u256::U256,
     },
     utils::leafable::Leafable,
 };
@@ -100,8 +101,7 @@ impl MockContract {
     /// Posts registration block. Same interface as the contract.
     pub fn post_registration_block(
         &mut self,
-        tx_tree_root: Bytes32,
-        expiry: U64,
+        block_sign_payload: &BlockSignPayload,
         sender_flag: Bytes16,
         agg_pubkey: FlatG1,
         agg_signature: FlatG2,
@@ -123,9 +123,7 @@ impl MockContract {
         padded_pubkeys.resize(NUM_SENDERS_IN_BLOCK, U256::dummy_pubkey());
         let pubkey_hash = get_pubkey_hash(&padded_pubkeys);
         let signature = SignatureContent {
-            is_registration_block: true,
-            tx_tree_root,
-            expiry,
+            block_sign_payload: block_sign_payload.clone(),
             sender_flag,
             pubkey_hash,
             account_id_hash: Bytes32::default(),
@@ -155,8 +153,7 @@ impl MockContract {
     /// Posts registration block. Same interface as the contract.
     pub fn post_non_registration_block(
         &mut self,
-        tx_tree_root: Bytes32,
-        expiry: U64,
+        block_sign_payload: &BlockSignPayload,
         sender_flag: Bytes16,
         agg_pubkey: FlatG1,
         agg_signature: FlatG2,
@@ -178,9 +175,7 @@ impl MockContract {
         let account_ids_packed = AccountIdPacked::from_trimmed_bytes(&account_ids)
             .map_err(|e| anyhow::anyhow!("error while recovering packed account ids {}", e))?;
         let signature = SignatureContent {
-            is_registration_block: false,
-            tx_tree_root,
-            expiry,
+            block_sign_payload: block_sign_payload.clone(),
             sender_flag,
             pubkey_hash: public_keys_hash,
             account_id_hash: account_ids_packed.hash(),

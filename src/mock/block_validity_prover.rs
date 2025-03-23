@@ -164,7 +164,7 @@ where
             self.sender_leaves
                 .insert(block_number, block_witness.get_sender_tree().leaves());
 
-            let tx_tree_root = full_block.signature.tx_tree_root;
+            let tx_tree_root = full_block.signature.block_sign_payload.tx_tree_root;
             if tx_tree_root != Bytes32::default()
                 && validity_witness.to_validity_pis().unwrap().is_valid_block
             {

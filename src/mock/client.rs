@@ -243,7 +243,7 @@ impl Client {
             tx: memo.tx,
             tx_index: proposal.tx_index,
             tx_merkle_proof: proposal.tx_merkle_proof.clone(),
-            tx_tree_root: proposal.tx_tree_root,
+            tx_tree_root: proposal.block_sign_payload.tx_tree_root,
         };
 
         // save tx data

@@ -280,7 +280,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         let mut result = true;
         let pubkey_commitment = get_pubkey_commitment(&pubkeys);
         let pubkey_hash = get_pubkey_hash(&pubkeys);
-        let is_registration_block = signature.is_registration_block;
+        let is_registration_block = signature.block_sign_payload.is_registration_block;
         let is_pubkey_eq = signature.pubkey_hash == pubkey_hash;
 
         if is_registration_block {
@@ -465,7 +465,7 @@ impl<const D: usize> MainValidationTarget<D> {
         let pubkey_hash = get_pubkey_hash_circuit::<F, C, D>(builder, &pubkeys);
         let account_tree_root = PoseidonHashOutTarget::new(builder);
 
-        let is_registration_block = signature.is_registration_block;
+        let is_registration_block = signature.block_sign_payload.is_registration_block;
         let is_not_registration_block = builder.not(is_registration_block);
         let is_pubkey_eq = signature.pubkey_hash.is_equal(builder, &pubkey_hash);
         // pubkey case
@@ -656,7 +656,7 @@ where
             block_hash: target.block_hash,
             deposit_tree_root: target.block.deposit_tree_root,
             account_tree_root: target.account_tree_root,
-            tx_tree_root: target.signature.tx_tree_root,
+            tx_tree_root: target.signature.block_sign_payload.tx_tree_root,
             sender_tree_root: target.sender_tree_root,
             timestamp: target.block.timestamp,
             block_number: target.block.block_number,
