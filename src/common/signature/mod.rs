@@ -8,7 +8,7 @@ pub mod utils;
 pub mod verify;
 
 use ark_bn254::Fq;
-use block_sign_payload::{BlockSignPayload, BlockSignPayloadTarget};
+use block_sign_payload::{BlockSignPayload, BlockSignPayloadTarget, BLOCK_SIGN_PAYLOAD_LEN};
 use flatten::{FlatG1, FlatG1Target, FlatG2, FlatG2Target};
 use num::BigUint;
 use plonky2::{
@@ -34,7 +34,8 @@ use crate::{
     utils::poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget},
 };
 
-pub const SIGNATURE_LEN: usize = 1 + BYTES16_LEN + 2 * BYTES32_LEN + 10 * U256_LEN;
+pub const SIGNATURE_LEN: usize =
+    BLOCK_SIGN_PAYLOAD_LEN + BYTES16_LEN + 2 * BYTES32_LEN + 10 * U256_LEN;
 
 #[derive(Debug, thiserror::Error)]
 pub enum SignatureContentError {}
