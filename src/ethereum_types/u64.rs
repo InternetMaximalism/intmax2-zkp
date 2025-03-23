@@ -127,23 +127,9 @@ impl std::ops::Add for U64 {
     type Output = Self;
 
     fn add(self, rhs: Self) -> Self::Output {
-        let mut result_limbs = vec![];
-        let mut carry = 0u64;
-        for (a, b) in self.limbs.iter().rev().zip(rhs.limbs.iter().rev()) {
-            let c = carry + a as u64 + b as u64;
-            let result = c as u32;
-            carry = c >> 32;
-            result_limbs.push(result);
-        }
-
-        // Carry should be zero here.
-        assert_eq!(carry, 0, "U64 addition overflow occurred");
-
-        result_limbs.reverse();
-
-        Self {
-            limbs: result_limbs.try_into().unwrap(),
-        }
+        let a: u64 = self.into();
+        let b: u64 = rhs.into();
+        (a + b).into()
     }
 }
 
@@ -157,24 +143,9 @@ impl std::ops::Sub for U64 {
     type Output = Self;
 
     fn sub(self, rhs: Self) -> Self::Output {
-        let mut result_limbs = vec![];
-
-        let mut borrow = 0i64;
-        for (a, b) in self.limbs.iter().rev().zip(rhs.limbs.iter().rev()) {
-            let c = a as i64 - b as i64 + borrow;
-            let result = c as u32;
-            borrow = (c >> 32) as i32 as i64;
-            result_limbs.push(result);
-        }
-
-        // Borrow should be zero here.
-        assert_eq!(borrow, 0, "U64 sub underflow occurred");
-
-        result_limbs.reverse();
-
-        Self {
-            limbs: result_limbs.try_into().unwrap(),
-        }
+        let a: u64 = self.into();
+        let b: u64 = rhs.into();
+        (a - b).into()
     }
 }
 
@@ -286,7 +257,6 @@ impl U64Target {
 
 #[cfg(test)]
 mod tests {
-    use num_bigint::BigUint;
     use plonky2::{
         field::goldilocks_field::GoldilocksField,
         iop::witness::{PartialWitness, WitnessWrite},
@@ -309,7 +279,7 @@ mod tests {
 
     #[test]
     fn u64_display() {
-        let u = U64::try_from(BigUint::from(123u64)).unwrap();
+        let u = U64::from(123u64);
         assert_eq!(format!("{}", u), "123");
     }
 
@@ -361,7 +331,7 @@ mod tests {
     fn u64_add_sub_circuit() {
         let mut rng = rand::thread_rng();
         let a = U64::rand(&mut rng);
-        let b = U64::try_from(BigUint::from(1u64)).unwrap();
+        let b = U64::from(1u64);
         let a_plus_b = a + b;
         let a_minus_b = a - b;
 

@@ -50,6 +50,7 @@ impl core::fmt::Display for U256 {
 
 impl FromStr for U256 {
     type Err = anyhow::Error;
+
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let b = BigUint::from_str_radix(s, 10).map_err(anyhow::Error::msg)?;
         let u: U256 = b.try_into()?;
@@ -96,6 +97,7 @@ impl From<u32> for U256 {
 
 impl TryFrom<BigUint> for U256 {
     type Error = anyhow::Error;
+
     fn try_from(value: BigUint) -> anyhow::Result<Self> {
         let mut digits = value.to_u32_digits();
         ensure!(digits.len() <= U256_LEN, "value is too large");
@@ -167,12 +169,15 @@ impl U32LimbTrait<U256_LEN> for U256 {
     fn to_u32_vec(&self) -> Vec<u32> {
         self.limbs.to_vec()
     }
+
     fn from_u32_slice(limbs: &[u32]) -> super::u32limb_trait::Result<Self> {
         if limbs.len() != U256_LEN {
-            return Err(super::u32limb_trait::U32LimbError::InvalidLength(limbs.len()));
+            return Err(super::u32limb_trait::U32LimbError::InvalidLength(
+                limbs.len(),
+            ));
         }
         Ok(Self {
-            limbs: limbs.try_into().map_err(|_| super::u32limb_trait::U32LimbError::InvalidLength(limbs.len()))?,
+            limbs: limbs.try_into().unwrap(),
         })
     }
 }

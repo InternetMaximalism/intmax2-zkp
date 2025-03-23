@@ -69,7 +69,7 @@ pub trait U32LimbTrait<const NUM_LIMBS: usize>: Clone + Copy {
         // pad with zeros
         let mut padded_bytes = vec![0; 4 * NUM_LIMBS];
         padded_bytes[4 * NUM_LIMBS - bytes.len()..].copy_from_slice(bytes);
-        let limbs = bytes
+        let limbs = padded_bytes
             .chunks(4)
             .map(|c| u32::from_be_bytes(c.try_into().unwrap()))
             .collect::<Vec<_>>();

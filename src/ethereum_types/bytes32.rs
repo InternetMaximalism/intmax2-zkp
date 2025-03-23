@@ -58,13 +58,15 @@ impl<'de> Deserialize<'de> for Bytes32 {
 
 impl From<U256> for Bytes32 {
     fn from(value: U256) -> Self {
-        Bytes32::from_u32_slice(&value.to_u32_vec()).expect("Converting from U256 to Bytes32 should never fail")
+        Bytes32::from_u32_slice(&value.to_u32_vec())
+            .expect("Converting from U256 to Bytes32 should never fail")
     }
 }
 
 impl From<Bytes32> for U256 {
     fn from(value: Bytes32) -> Self {
-        U256::from_u32_slice(&value.to_u32_vec()).expect("Converting from Bytes32 to U256 should never fail")
+        U256::from_u32_slice(&value.to_u32_vec())
+            .expect("Converting from Bytes32 to U256 should never fail")
     }
 }
 
@@ -75,10 +77,14 @@ impl U32LimbTrait<BYTES32_LEN> for Bytes32 {
 
     fn from_u32_slice(limbs: &[u32]) -> super::u32limb_trait::Result<Self> {
         if limbs.len() != BYTES32_LEN {
-            return Err(super::u32limb_trait::U32LimbError::InvalidLength(limbs.len()));
+            return Err(super::u32limb_trait::U32LimbError::InvalidLength(
+                limbs.len(),
+            ));
         }
         Ok(Self {
-            limbs: limbs.try_into().map_err(|_| super::u32limb_trait::U32LimbError::InvalidLength(limbs.len()))?,
+            limbs: limbs
+                .try_into()
+                .map_err(|_| super::u32limb_trait::U32LimbError::InvalidLength(limbs.len()))?,
         })
     }
 }
@@ -93,5 +99,16 @@ impl U32LimbTargetTrait<BYTES32_LEN> for Bytes32Target {
         Self {
             limbs: limbs.try_into().unwrap(),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_from_str_bytes32() {
+        let bytes32 = Bytes32::from_hex("0x").unwrap();
+        assert_eq!(bytes32, Bytes32::default());
     }
 }
