@@ -3,7 +3,7 @@ use std::str::FromStr;
 use plonky2::iop::target::Target;
 use serde::{Deserialize, Serialize};
 
-use super::u32limb_trait::{U32LimbTargetTrait, U32LimbTrait};
+use super::u32limb_trait::{self, U32LimbTargetTrait, U32LimbTrait};
 
 pub const ADDRESS_LEN: usize = 5;
 
@@ -57,16 +57,14 @@ impl U32LimbTrait<ADDRESS_LEN> for Address {
         self.limbs.to_vec()
     }
 
-    fn from_u32_slice(limbs: &[u32]) -> super::u32limb_trait::Result<Self> {
+    fn from_u32_slice(limbs: &[u32]) -> u32limb_trait::Result<Self> {
         if limbs.len() != ADDRESS_LEN {
-            return Err(super::u32limb_trait::U32LimbError::InvalidLength(
-                limbs.len(),
-            ));
+            return Err(u32limb_trait::U32LimbError::InvalidLength(limbs.len()));
         }
         Ok(Self {
             limbs: limbs
                 .try_into()
-                .map_err(|_| super::u32limb_trait::U32LimbError::InvalidLength(limbs.len()))?,
+                .map_err(|_| u32limb_trait::U32LimbError::InvalidLength(limbs.len()))?,
         })
     }
 }

@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use super::{
     u256::{U256, U256_LEN},
-    u32limb_trait::{U32LimbTargetTrait, U32LimbTrait},
+    u32limb_trait::{self, U32LimbTargetTrait, U32LimbTrait},
 };
 
 pub const BYTES32_LEN: usize = U256_LEN;
@@ -75,16 +75,16 @@ impl U32LimbTrait<BYTES32_LEN> for Bytes32 {
         self.limbs.to_vec()
     }
 
-    fn from_u32_slice(limbs: &[u32]) -> super::u32limb_trait::Result<Self> {
+    fn from_u32_slice(limbs: &[u32]) -> u32limb_trait::Result<Self> {
         if limbs.len() != BYTES32_LEN {
-            return Err(super::u32limb_trait::U32LimbError::InvalidLength(
+            return Err(u32limb_trait::U32LimbError::InvalidLength(
                 limbs.len(),
             ));
         }
         Ok(Self {
             limbs: limbs
                 .try_into()
-                .map_err(|_| super::u32limb_trait::U32LimbError::InvalidLength(limbs.len()))?,
+                .map_err(|_| u32limb_trait::U32LimbError::InvalidLength(limbs.len()))?,
         })
     }
 }

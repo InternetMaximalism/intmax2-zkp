@@ -119,16 +119,14 @@ impl U32LimbTrait<ACCOUNT_ID_PACKED_LEN> for AccountIdPacked {
         self.limbs.to_vec()
     }
 
-    fn from_u32_slice(limbs: &[u32]) -> super::u32limb_trait::Result<Self> {
+    fn from_u32_slice(limbs: &[u32]) -> u32limb_trait::Result<Self> {
         if limbs.len() != ACCOUNT_ID_PACKED_LEN {
-            return Err(super::u32limb_trait::U32LimbError::InvalidLength(
-                limbs.len(),
-            ));
+            return Err(u32limb_trait::U32LimbError::InvalidLength(limbs.len()));
         }
         Ok(Self {
             limbs: limbs
                 .try_into()
-                .map_err(|_| super::u32limb_trait::U32LimbError::InvalidLength(limbs.len()))?,
+                .map_err(|_| u32limb_trait::U32LimbError::InvalidLength(limbs.len()))?,
         })
     }
 }
