@@ -2,7 +2,7 @@ use std::str::FromStr;
 
 use super::{
     bytes32::{Bytes32, Bytes32Target},
-    u32limb_trait::{U32LimbTargetTrait, U32LimbTrait},
+    u32limb_trait::{self, U32LimbTargetTrait, U32LimbTrait},
 };
 use crate::constants::{ACCOUNT_ID_BITS, NUM_SENDERS_IN_BLOCK};
 use anyhow::ensure;
@@ -202,7 +202,7 @@ impl AccountIdPacked {
         Ok(Self::from_bytes_be(&inputs).expect("Converting from bytes should never fail"))
     }
 
-    pub fn from_bytes_be(input: &[u8]) -> super::u32limb_trait::Result<Self> {
+    pub fn from_bytes_be(input: &[u8]) -> u32limb_trait::Result<Self> {
         // Convert bytes to u32 limbs
         let mut limbs = Vec::with_capacity(ACCOUNT_ID_PACKED_LEN);
         for i in 0..ACCOUNT_ID_PACKED_LEN {

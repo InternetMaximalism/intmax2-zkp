@@ -8,7 +8,6 @@ use super::u32limb_trait::{U32LimbTargetTrait, U32LimbTrait};
 pub const ADDRESS_LEN: usize = 5;
 
 /// A structure representing the address type in Ethereum.
-/// The value is stored in big endian format.
 #[derive(Clone, Copy, PartialEq, Default, Hash)]
 pub struct Address {
     limbs: [u32; ADDRESS_LEN],
@@ -60,10 +59,14 @@ impl U32LimbTrait<ADDRESS_LEN> for Address {
 
     fn from_u32_slice(limbs: &[u32]) -> super::u32limb_trait::Result<Self> {
         if limbs.len() != ADDRESS_LEN {
-            return Err(super::u32limb_trait::U32LimbError::InvalidLength(limbs.len()));
+            return Err(super::u32limb_trait::U32LimbError::InvalidLength(
+                limbs.len(),
+            ));
         }
         Ok(Self {
-            limbs: limbs.try_into().map_err(|_| super::u32limb_trait::U32LimbError::InvalidLength(limbs.len()))?,
+            limbs: limbs
+                .try_into()
+                .map_err(|_| super::u32limb_trait::U32LimbError::InvalidLength(limbs.len()))?,
         })
     }
 }

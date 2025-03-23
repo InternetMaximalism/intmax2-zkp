@@ -18,7 +18,10 @@ use plonky2_u32::gadgets::{
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 
-use super::u32limb_trait::{U32LimbTargetTrait, U32LimbTrait};
+use super::{
+    bytes32::Bytes32,
+    u32limb_trait::{U32LimbTargetTrait, U32LimbTrait},
+};
 
 pub const U256_LEN: usize = 8;
 
@@ -52,9 +55,14 @@ impl FromStr for U256 {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let b = BigUint::from_str_radix(s, 10).map_err(anyhow::Error::msg)?;
-        let u: U256 = b.try_into()?;
-        Ok(u)
+        if s.starts_with("0x") {
+            let b: Bytes32 = s.parse()?;
+            Ok(b.into())
+        } else {
+            let b = BigUint::from_str_radix(s, 10).map_err(anyhow::Error::msg)?;
+            let u: U256 = b.try_into()?;
+            Ok(u)
+        }
     }
 }
 
