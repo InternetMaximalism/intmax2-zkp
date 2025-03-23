@@ -13,7 +13,7 @@ use crate::{
         block_builder::{construct_signature, SenderWithSignature},
         private_state::FullPrivateState,
         salt::Salt,
-        signature::{key_set::KeySet, sign::sign_to_tx_root_and_expiry, utils::get_pubkey_hash},
+        signature::{key_set::KeySet, block_sign_payload::sign_to_tx_root_and_expiry, utils::get_pubkey_hash},
         transfer::Transfer,
         trees::{
             account_tree::AccountTree, block_hash_tree::BlockHashTree, deposit_tree::DepositTree,

@@ -6,20 +6,16 @@ use plonky2_bn254::fields::recover::RecoverFromX;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    common::signature::{
-        sign::{hash_to_weight, tx_tree_root_and_expiry_to_message_point},
-        utils::get_pubkey_hash,
-    },
+    common::signature::{block_sign_payload::hash_to_weight, utils::get_pubkey_hash},
     constants::NUM_SENDERS_IN_BLOCK,
     ethereum_types::{
-        bytes16::Bytes16, bytes32::Bytes32, u256::U256, u32limb_trait::U32LimbTrait as _,
+        address::Address, bytes16::Bytes16, bytes32::Bytes32, u256::U256,
+        u32limb_trait::U32LimbTrait as _,
     },
 };
 
 use super::{
-    signature::{
-        flatten::FlatG2, key_set::KeySet, sign::sign_to_tx_root_and_expiry, SignatureContent,
-    },
+    signature::{flatten::FlatG2, key_set::KeySet, SignatureContent},
     trees::tx_tree::TxMerkleProof,
     tx::Tx,
 };
@@ -30,6 +26,8 @@ use super::{
 pub struct BlockProposal {
     pub expiry: u64,
     pub tx_tree_root: Bytes32,
+    pub block_builder_address: Address,
+    pub block_builder_nonce: u32,
     pub tx_index: u32,
     pub tx_merkle_proof: TxMerkleProof,
     pub pubkeys: Vec<U256>, // pubkeys of the senders, without padding

@@ -1,4 +1,4 @@
-use ark_bn254::{Fq, G1Affine, G2Affine};
+use ark_bn254::{Fq, G1Affine};
 use num::BigUint;
 use plonky2::{
     field::extension::Extendable,
@@ -15,13 +15,7 @@ use plonky2_bn254::{
 };
 
 use crate::{
-    common::signature::{
-        pubkey_range_check,
-        sign::{
-            tx_tree_root_and_expiry_to_message_point,
-            tx_tree_root_and_expiry_to_message_point_target,
-        },
-    },
+    common::signature::pubkey_range_check,
     constants::NUM_SENDERS_IN_BLOCK,
     ethereum_types::{
         bytes16::Bytes16,
@@ -65,11 +59,11 @@ impl SignatureContent {
             let pubkey_fq: Fq = BigUint::from(*pubkey).into();
             result &= G1Affine::is_recoverable_from_x(pubkey_fq);
         }
+
         // message point check
-        let message_point_expected =
-            tx_tree_root_and_expiry_to_message_point(self.tx_tree_root, self.expiry);
-        let message_point: G2Affine = self.message_point.clone().into();
-        result &= message_point_expected == message_point;
+        let message_point_expected = self.block_sign_payload.message_point();
+        result &= message_point_expected == self.message_point;
+
         result
     }
 }
@@ -123,12 +117,8 @@ impl SignatureContentTarget {
             result = builder.and(result, is_recoverable);
         }
         // message point check
-        let message_point = tx_tree_root_and_expiry_to_message_point_target::<F, C, D>(
-            builder,
-            self.tx_tree_root,
-            self.expiry,
-        );
-        let is_message_eq = message_point.is_equal(builder, &self.message_point);
+        let message_point_expected = self.block_sign_payload.message_point::<F, C, D>(builder);
+        let is_message_eq = message_point_expected.is_equal(builder, &self.message_point);
         result = builder.and(result, is_message_eq);
         result
     }

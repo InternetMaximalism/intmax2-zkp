@@ -1,7 +1,7 @@
 use crate::{
     common::signature::{
         key_set::KeySet,
-        sign::{
+        block_sign_payload::{
             hash_to_weight, sign_to_tx_root_and_expiry, tx_tree_root_and_expiry_to_message_point,
         },
         utils::get_pubkey_hash,

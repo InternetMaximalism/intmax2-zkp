@@ -87,7 +87,7 @@ impl BlockWitness {
         let sender_leaves = get_sender_leaves(&pubkeys, signature.sender_flag);
 
         let pubkey_hash = get_pubkey_hash(&pubkeys);
-        let is_registration_block = signature.is_registration_block;
+        let is_registration_block = signature.block_sign_payload.is_registration_block;
         let is_pubkey_eq = signature.pubkey_hash == pubkey_hash;
         if is_registration_block {
             ensure!(is_pubkey_eq, "pubkey hash mismatch");
@@ -135,7 +135,7 @@ impl BlockWitness {
         let block_hash = block.hash();
         let sender_tree_root = get_sender_tree_root(&pubkeys, signature.sender_flag);
 
-        let tx_tree_root = signature.tx_tree_root;
+        let tx_tree_root = signature.block_sign_payload.tx_tree_root;
         Ok(MainValidationPublicInputs {
             prev_block_hash,
             block_hash,

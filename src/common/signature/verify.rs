@@ -25,7 +25,7 @@ use crate::{
 
 use super::{
     flatten::FlatG1Target,
-    sign::{hash_to_weight, hash_to_weight_circuit},
+    block_sign_payload::{hash_to_weight, hash_to_weight_circuit},
     SignatureContent, SignatureContentTarget,
 };
 use plonky2_bn254::utils::g1_msm::g1_msm;
