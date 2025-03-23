@@ -30,7 +30,6 @@ use crate::{
         bytes32::{Bytes32, Bytes32Target, BYTES32_LEN},
         u256::{U256, U256_LEN},
         u32limb_trait::{U32LimbTargetTrait, U32LimbTrait},
-        u64::U64Target,
     },
     utils::poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget},
 };
@@ -128,7 +127,10 @@ impl SignatureContentTarget {
         value: &SignatureContent,
     ) -> Self {
         Self {
-            block_sign_payload: BlockSignPayloadTarget::constant(builder, &value.block_sign_payload),
+            block_sign_payload: BlockSignPayloadTarget::constant(
+                builder,
+                &value.block_sign_payload,
+            ),
             sender_flag: Bytes16Target::constant(builder, value.sender_flag),
             pubkey_hash: Bytes32Target::constant(builder, value.pubkey_hash),
             account_id_hash: Bytes32Target::constant(builder, value.account_id_hash),

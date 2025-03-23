@@ -251,3 +251,39 @@ fn target_slice_to_biguint_target<F: RichField + Extendable<D>, const D: usize>(
     let value = BigUintTarget { limbs };
     builder.div_rem_biguint(&value, &r).1
 }
+
+#[cfg(test)]
+mod tests {
+    use plonky2::{
+        field::goldilocks_field::GoldilocksField,
+        iop::witness::PartialWitness,
+        plonk::{
+            circuit_builder::CircuitBuilder, circuit_data::CircuitConfig,
+            config::PoseidonGoldilocksConfig,
+        },
+    };
+
+    use super::{BlockSignPayload, BlockSignPayloadTarget};
+
+    type F = GoldilocksField;
+    const D: usize = 2;
+    type C = PoseidonGoldilocksConfig;
+
+    #[test]
+    fn test_block_sign_payload_message_point_circuit() {
+        let rng = &mut rand::thread_rng();
+
+        let payload = BlockSignPayload::rand(rng);
+        let message_point = payload.message_point();
+
+        let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::default());
+        let payload_target = BlockSignPayloadTarget::constant(&mut builder, &payload);
+        let message_point_target = payload_target.message_point::<F, C, D>(&mut builder);
+
+        let mut pw = PartialWitness::new();
+        message_point_target.set_witness(&mut pw, &message_point);
+        let circuit = builder.build::<C>();
+        let proof = circuit.prove(pw).unwrap();
+        assert!(circuit.verify(proof).is_ok());
+    }
+}
