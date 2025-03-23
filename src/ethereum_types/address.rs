@@ -62,9 +62,7 @@ impl U32LimbTrait<ADDRESS_LEN> for Address {
             return Err(u32limb_trait::U32LimbError::InvalidLength(limbs.len()));
         }
         Ok(Self {
-            limbs: limbs
-                .try_into()
-                .map_err(|_| u32limb_trait::U32LimbError::InvalidLength(limbs.len()))?,
+            limbs: limbs.try_into().unwrap(),
         })
     }
 }

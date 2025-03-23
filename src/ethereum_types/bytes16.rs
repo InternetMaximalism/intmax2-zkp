@@ -57,6 +57,7 @@ impl<'de> Deserialize<'de> for Bytes16 {
 
 impl TryFrom<BigUint> for Bytes16 {
     type Error = anyhow::Error;
+
     fn try_from(value: BigUint) -> anyhow::Result<Self> {
         let mut digits = value.to_u32_digits();
         ensure!(digits.len() <= BYTES16_LEN, "value is too large");
