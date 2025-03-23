@@ -121,10 +121,14 @@ impl U32LimbTrait<ACCOUNT_ID_PACKED_LEN> for AccountIdPacked {
 
     fn from_u32_slice(limbs: &[u32]) -> super::u32limb_trait::Result<Self> {
         if limbs.len() != ACCOUNT_ID_PACKED_LEN {
-            return Err(super::u32limb_trait::U32LimbError::InvalidLength(limbs.len()));
+            return Err(super::u32limb_trait::U32LimbError::InvalidLength(
+                limbs.len(),
+            ));
         }
         Ok(Self {
-            limbs: limbs.try_into().map_err(|_| super::u32limb_trait::U32LimbError::InvalidLength(limbs.len()))?,
+            limbs: limbs
+                .try_into()
+                .map_err(|_| super::u32limb_trait::U32LimbError::InvalidLength(limbs.len()))?,
         })
     }
 }
@@ -162,7 +166,7 @@ impl AccountIdPacked {
     pub fn unpack(&self) -> Vec<AccountId> {
         self.to_bytes_be()
             .chunks(ACCOUNT_ID_BYTES_LEN)
-            .map(|c| AccountId::from_bytes_be(c))
+            .map(AccountId::from_bytes_be)
             .collect::<Vec<_>>()
     }
 
@@ -216,7 +220,8 @@ impl AccountIdPacked {
     }
 
     pub fn hash(&self) -> Bytes32 {
-        Bytes32::from_u32_slice(&solidity_keccak256(&self.to_u32_vec())).expect("Hashing should never fail")
+        Bytes32::from_u32_slice(&solidity_keccak256(&self.to_u32_vec()))
+            .expect("Hashing should never fail")
     }
 }
 
