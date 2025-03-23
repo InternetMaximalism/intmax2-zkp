@@ -102,8 +102,6 @@ impl U32LimbTargetTrait<BYTES32_LEN> for Bytes32Target {
 
 #[cfg(test)]
 mod tests {
-    use crate::ethereum_types::u64::U64;
-
     use super::*;
 
     #[test]
