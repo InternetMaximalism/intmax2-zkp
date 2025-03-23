@@ -71,7 +71,7 @@ impl core::fmt::Display for U64 {
 
 impl Serialize for U64 {
     fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        serializer.serialize_str(&self.to_string())
+        serializer.serialize_u64(u64::from(*self))
     }
 }
 

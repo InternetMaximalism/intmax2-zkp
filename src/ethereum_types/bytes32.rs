@@ -77,9 +77,7 @@ impl U32LimbTrait<BYTES32_LEN> for Bytes32 {
 
     fn from_u32_slice(limbs: &[u32]) -> u32limb_trait::Result<Self> {
         if limbs.len() != BYTES32_LEN {
-            return Err(u32limb_trait::U32LimbError::InvalidLength(
-                limbs.len(),
-            ));
+            return Err(u32limb_trait::U32LimbError::InvalidLength(limbs.len()));
         }
         Ok(Self {
             limbs: limbs
@@ -104,6 +102,8 @@ impl U32LimbTargetTrait<BYTES32_LEN> for Bytes32Target {
 
 #[cfg(test)]
 mod tests {
+    use crate::ethereum_types::u64::U64;
+
     use super::*;
 
     #[test]
