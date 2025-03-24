@@ -148,7 +148,7 @@ fn e2e_test() {
     validity_prover.sync(&contract).unwrap();
 
     let mut withdrawal_aggregator =
-        WithdrawalAggregator::<F, C, D>::new(&balance_processor.get_verifier_data().common);
+        WithdrawalAggregator::<F, C, D>::new(&balance_processor.get_verifier_data());
     // sync bob withdrawals
     client
         .sync_withdrawals(
@@ -200,9 +200,7 @@ fn send_transfers(
         .unwrap();
 
     // block builder post block
-    block_builder
-        .post_block(contract, validity_prover)
-        .unwrap();
+    block_builder.post_block(contract, validity_prover).unwrap();
 }
 
 fn print_balances(balances: &HashMap<u64, AssetLeaf>) {
