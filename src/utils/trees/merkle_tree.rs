@@ -3,7 +3,10 @@ use std::collections::HashMap;
 use plonky2::{
     field::{extension::Extendable, types::Field},
     hash::hash_types::RichField,
-    iop::{target::BoolTarget, witness::WitnessWrite},
+    iop::{
+        target::{BoolTarget, Target},
+        witness::WitnessWrite,
+    },
     plonk::{
         circuit_builder::CircuitBuilder,
         config::{AlgebraicHasher, GenericConfig},
@@ -211,19 +214,17 @@ impl<VT: LeafableTarget> MerkleProofTarget<VT> {
         &self,
         builder: &mut CircuitBuilder<F, D>,
         leaf_data: &VT,
-        index_bits: Vec<BoolTarget>,
-    ) -> <<VT::Leaf as Leafable>::LeafableHasher as LeafableHasher>::HashOutTarget
+        index: Target,
+    ) -> HashOutTarget<VT>
     where
         <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
     {
         let mut state = leaf_data.hash::<F, C, D>(builder);
-        assert_eq!(index_bits.len(), self.siblings.len());
+        let index_bits = builder.split_le(index, self.height());
         for (bit, sibling) in index_bits.iter().zip(&self.siblings) {
-            state = <<VT::Leaf as Leafable>::LeafableHasher as LeafableHasher>::two_to_one_swapped::<
-                F,
-                C,
-                D,
-            >(builder, &state, sibling, *bit);
+            state = HasherFromTarget::<VT>::two_to_one_swapped::<F, C, D>(
+                builder, &state, sibling, *bit,
+            );
         }
         state
     }
@@ -236,17 +237,13 @@ impl<VT: LeafableTarget> MerkleProofTarget<VT> {
         &self,
         builder: &mut CircuitBuilder<F, D>,
         leaf_data: &VT,
-        index_bits: Vec<BoolTarget>,
-        merkle_root: <<VT::Leaf as Leafable>::LeafableHasher as LeafableHasher>::HashOutTarget,
+        index: Target,
+        merkle_root: HashOutTarget<VT>,
     ) where
         <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
     {
-        let state = self.get_root::<F, C, D>(builder, leaf_data, index_bits);
-        <<VT::Leaf as Leafable>::LeafableHasher as LeafableHasher>::connect_hash(
-            builder,
-            &state,
-            &merkle_root,
-        );
+        let state = self.get_root::<F, C, D>(builder, leaf_data, index);
+        HasherFromTarget::<VT>::connect_hash(builder, &state, &merkle_root);
     }
 
     pub(crate) fn conditional_verify<
@@ -258,13 +255,13 @@ impl<VT: LeafableTarget> MerkleProofTarget<VT> {
         builder: &mut CircuitBuilder<F, D>,
         condition: BoolTarget,
         leaf_data: &VT,
-        index_bits: Vec<BoolTarget>,
-        merkle_root: <<VT::Leaf as Leafable>::LeafableHasher as LeafableHasher>::HashOutTarget,
+        index: Target,
+        merkle_root: HashOutTarget<VT>,
     ) where
         <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
     {
-        let state = self.get_root::<F, C, D>(builder, leaf_data, index_bits);
-        <<VT::Leaf as Leafable>::LeafableHasher as LeafableHasher>::conditional_assert_eq_hash(
+        let state = self.get_root::<F, C, D>(builder, leaf_data, index);
+        HasherFromTarget::<VT>::conditional_assert_eq_hash(
             builder,
             condition,
             &state,
@@ -350,8 +347,7 @@ mod tests {
         let leaf_t = Bytes32Target::new(&mut builder, false);
         let root_t = PoseidonHashOutTarget::new(&mut builder);
         let index_t = builder.add_virtual_target();
-        let index_bits_t = builder.split_le(index_t, height);
-        proof_t.verify::<F, C, D>(&mut builder, &leaf_t, index_bits_t, root_t);
+        proof_t.verify::<F, C, D>(&mut builder, &leaf_t, index_t, root_t);
 
         let data = builder.build::<C>();
         let mut pw = PartialWitness::<F>::new();

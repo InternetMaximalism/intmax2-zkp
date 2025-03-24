@@ -165,8 +165,7 @@ impl<VT: LeafableTarget> SparseMerkleProofTarget<VT> {
     where
         <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
     {
-        let index_bits = builder.split_le(index, self.0.height());
-        self.0.get_root::<F, C, D>(builder, leaf_data, index_bits)
+        self.0.get_root::<F, C, D>(builder, leaf_data, index)
     }
 
     pub fn verify<
@@ -182,10 +181,8 @@ impl<VT: LeafableTarget> SparseMerkleProofTarget<VT> {
     ) where
         <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
     {
-        let height = self.0.height();
-        let index_bits = builder.split_le(index, height);
         self.0
-            .verify::<F, C, D>(builder, leaf_data, index_bits, merkle_root)
+            .verify::<F, C, D>(builder, leaf_data, index, merkle_root)
     }
 }
 
