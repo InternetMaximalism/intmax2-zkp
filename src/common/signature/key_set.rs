@@ -29,10 +29,10 @@ impl KeySet {
 
     pub fn generate_from_provisional(provisional_privkey: Fr) -> Self {
         let mut privkey = provisional_privkey;
-        let mut pubkey_g1: G1Affine = (G1Affine::generator() * privkey.clone()).into();
+        let mut pubkey_g1: G1Affine = (G1Affine::generator() * privkey).into();
         // y.sgn() should be false
         if pubkey_g1.y.sgn() {
-            privkey = -privkey.clone();
+            privkey = -privkey;
             pubkey_g1 = -pubkey_g1;
         }
         let pubkey: U256 = pubkey_g1.x.into();
@@ -54,8 +54,8 @@ impl KeySet {
     }
 
     pub fn new(privkey: Fr) -> Self {
-        let pubkey: G1Affine = (G1Affine::generator() * privkey.clone()).into();
-        assert!(pubkey.y.sgn() == false, "y.sgn() should be false");
+        let pubkey: G1Affine = (G1Affine::generator() * privkey).into();
+        assert!(!pubkey.y.sgn(), "y.sgn() should be false");
         Self {
             is_dummy: false,
             privkey,

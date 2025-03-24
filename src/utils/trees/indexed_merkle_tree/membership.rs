@@ -54,21 +54,21 @@ impl IndexedMerkleTree {
     pub fn prove_membership(&self, key: U256) -> MembershipProof {
         if let Some(index) = self.index(key) {
             // inclusion proof
-            return MembershipProof {
+            MembershipProof {
                 is_included: true,
                 leaf_index: index,
                 leaf: self.0.get_leaf(index),
                 leaf_proof: self.0.prove(index),
-            };
+            }
         } else {
             // exclusion proof
             let low_index = self.low_index(key).unwrap(); // unwrap is safe here
-            return MembershipProof {
+            MembershipProof {
                 is_included: false,
                 leaf_index: low_index,
                 leaf: self.0.get_leaf(low_index),
                 leaf_proof: self.0.prove(low_index),
-            };
+            }
         }
     }
 }

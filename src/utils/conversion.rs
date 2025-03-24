@@ -12,7 +12,7 @@ pub trait ToField {
 
 impl<F: PrimeField64> ToU64 for &[F] {
     fn to_u64_vec(&self) -> Vec<u64> {
-        self.into_iter()
+        self.iter()
             .map(|x| x.to_canonical_u64())
             .collect::<Vec<u64>>()
     }
@@ -20,13 +20,13 @@ impl<F: PrimeField64> ToU64 for &[F] {
 
 impl<F: PrimeField64> ToU64 for [F] {
     fn to_u64_vec(&self) -> Vec<u64> {
-        self.into_iter()
+        self.iter()
             .map(|x| x.to_canonical_u64())
             .collect::<Vec<u64>>()
     }
 }
 
-impl<'a, F: PrimeField64> ToU64 for Iter<'a, F> {
+impl<F: PrimeField64> ToU64 for Iter<'_, F> {
     fn to_u64_vec(&self) -> Vec<u64> {
         self.clone()
             .map(|x| x.to_canonical_u64())
@@ -36,7 +36,7 @@ impl<'a, F: PrimeField64> ToU64 for Iter<'a, F> {
 
 impl<F: PrimeField64> ToU64 for Vec<F> {
     fn to_u64_vec(&self) -> Vec<u64> {
-        self.into_iter()
+        self.iter()
             .map(|x| x.to_canonical_u64())
             .collect::<Vec<u64>>()
     }
@@ -44,7 +44,7 @@ impl<F: PrimeField64> ToU64 for Vec<F> {
 
 impl ToField for &[u64] {
     fn to_field_vec<F: Field>(&self) -> Vec<F> {
-        self.into_iter()
+        self.iter()
             .map(|x| F::from_canonical_u64(*x))
             .collect::<Vec<_>>()
     }
@@ -52,7 +52,7 @@ impl ToField for &[u64] {
 
 impl ToField for Vec<u64> {
     fn to_field_vec<F: Field>(&self) -> Vec<F> {
-        self.into_iter()
+        self.iter()
             .map(|x| F::from_canonical_u64(*x))
             .collect::<Vec<_>>()
     }

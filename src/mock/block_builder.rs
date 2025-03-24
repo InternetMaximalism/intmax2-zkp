@@ -1,12 +1,17 @@
 use crate::{
     common::{
         block_builder::{construct_signature, BlockProposal, SenderWithSignature, UserSignature},
-        signature::utils::get_pubkey_hash,
+        signature::{block_sign_payload::BlockSignPayload, utils::get_pubkey_hash},
         trees::tx_tree::TxTree,
         tx::Tx,
     },
     constants::{NUM_SENDERS_IN_BLOCK, TX_TREE_HEIGHT},
-    ethereum_types::{account_id_packed::AccountIdPacked, bytes32::Bytes32, u256::U256},
+    ethereum_types::{
+        account_id::{AccountId, AccountIdPacked},
+        address::Address,
+        bytes32::Bytes32,
+        u256::U256,
+    },
 };
 use anyhow::ensure;
 use hashbrown::HashMap;
@@ -32,8 +37,7 @@ pub struct BlockBuilder {
 
 #[derive(Debug, Clone)]
 struct ProposalMemo {
-    tx_tree_root: Bytes32,
-    expiry: u64,
+    block_sign_payload: BlockSignPayload,
     pubkeys: Vec<U256>, // padded pubkeys
     pubkey_hash: Bytes32,
     proposals: Vec<BlockProposal>,
@@ -43,6 +47,12 @@ struct ProposalMemo {
 enum BlockBuilderStatus {
     AcceptingTxs, // accepting tx requests
     Proposing,    // after constructed the block, accepting signatures
+}
+
+impl Default for BlockBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl BlockBuilder {
@@ -123,18 +133,26 @@ impl BlockBuilder {
 
         let mut tx_tree = TxTree::new(TX_TREE_HEIGHT);
         for (_, tx) in sorted_txs.iter() {
-            tx_tree.push(tx.clone());
+            tx_tree.push(*tx);
         }
         let tx_tree_root: Bytes32 = tx_tree.get_root().into();
         let expiry = 0; // dummy value
+        let block_builder_address = Address::default(); // dummy value
+        let block_builder_nonce = 0; // dummy value
+        let block_sign_payload = BlockSignPayload {
+            is_registration_block: self.is_registration_block.unwrap(),
+            tx_tree_root,
+            expiry: expiry.into(),
+            block_builder_address,
+            block_builder_nonce,
+        };
 
         let mut proposals = Vec::new();
         for (pubkey, _tx) in self.tx_requests.iter() {
             let tx_index = sorted_txs.iter().position(|(p, _)| p == pubkey).unwrap() as u32;
             let tx_merkle_proof = tx_tree.prove(tx_index as u64);
             proposals.push(BlockProposal {
-                expiry,
-                tx_tree_root,
+                block_sign_payload: block_sign_payload.clone(),
                 tx_index,
                 tx_merkle_proof,
                 pubkeys: pubkeys.clone(),
@@ -143,8 +161,7 @@ impl BlockBuilder {
         }
 
         let memo = ProposalMemo {
-            tx_tree_root,
-            expiry,
+            block_sign_payload,
             pubkeys,
             pubkey_hash,
             proposals,
@@ -182,7 +199,7 @@ impl BlockBuilder {
 
         let memo = self.memo.as_ref().unwrap();
         signature
-            .verify(memo.tx_tree_root, memo.expiry, memo.pubkey_hash)
+            .verify(&memo.block_sign_payload, memo.pubkey_hash)
             .map_err(|e| {
                 anyhow::anyhow!("Invalid signature for pubkey {}: {}", signature.pubkey, e)
             })?;
@@ -237,18 +254,16 @@ impl BlockBuilder {
                 let account_id = validity_prover
                     .get_account_id(*pubkey)
                     .ok_or(anyhow::anyhow!("account not found"))?;
-                account_ids.push(account_id);
+                account_ids.push(AccountId(account_id));
             }
             Some(AccountIdPacked::pack(&account_ids))
         };
         let account_id_hash = account_ids.map_or(Bytes32::default(), |ids| ids.hash());
 
         let signature = construct_signature(
-            memo.tx_tree_root,
-            memo.expiry,
+            &memo.block_sign_payload,
             memo.pubkey_hash,
             account_id_hash,
-            self.is_registration_block.unwrap(),
             &sender_with_signatures,
         );
 
@@ -259,8 +274,7 @@ impl BlockBuilder {
                 .filter(|pubkey| !pubkey.is_dummy_pubkey())
                 .collect::<Vec<_>>();
             contract.post_registration_block(
-                memo.tx_tree_root,
-                memo.expiry.into(),
+                &memo.block_sign_payload,
                 signature.sender_flag,
                 signature.agg_pubkey,
                 signature.agg_signature,
@@ -269,8 +283,7 @@ impl BlockBuilder {
             )?;
         } else {
             contract.post_non_registration_block(
-                memo.tx_tree_root,
-                memo.expiry.into(),
+                &memo.block_sign_payload,
                 signature.sender_flag,
                 signature.agg_pubkey,
                 signature.agg_signature,
@@ -340,7 +353,7 @@ mod tests {
 
             // send tx request
             block_builder
-                .send_tx_request(&validity_prover, user.pubkey, tx.clone())
+                .send_tx_request(&validity_prover, user.pubkey, tx)
                 .unwrap();
 
             // Block builder constructs a block

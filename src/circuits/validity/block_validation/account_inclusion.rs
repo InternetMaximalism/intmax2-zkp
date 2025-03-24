@@ -3,7 +3,7 @@ use crate::{
     common::trees::account_tree::{AccountMerkleProof, AccountMerkleProofTarget},
     constants::NUM_SENDERS_IN_BLOCK,
     ethereum_types::{
-        account_id_packed::{AccountIdPacked, AccountIdPackedTarget},
+        account_id::{AccountIdPacked, AccountIdPackedTarget},
         bytes32::{Bytes32, Bytes32Target, BYTES32_LEN},
         u256::{U256Target, U256},
         u32limb_trait::{U32LimbTargetTrait, U32LimbTrait},
@@ -52,7 +52,7 @@ pub struct AccountInclusionPublicInputsTarget {
 impl AccountInclusionPublicInputs {
     pub fn from_u64_slice(input: &[u64]) -> Self {
         assert_eq!(input.len(), ACCOUNT_INCLUSION_PUBLIC_INPUTS_LEN);
-        let account_id_hash = Bytes32::from_u64_slice(&input[0..8]);
+        let account_id_hash = Bytes32::from_u64_slice(&input[0..8]).unwrap();
         let account_tree_root = PoseidonHashOut::from_u64_slice(&input[8..12]);
         let pubkey_commitment = PoseidonHashOut::from_u64_slice(&input[12..16]);
         let is_valid = input[16] == 1;
@@ -71,8 +71,8 @@ impl AccountInclusionPublicInputsTarget {
             .account_id_hash
             .to_vec()
             .into_iter()
-            .chain(self.account_tree_root.elements.into_iter())
-            .chain(self.pubkey_commitment.elements.into_iter())
+            .chain(self.account_tree_root.elements)
+            .chain(self.pubkey_commitment.elements)
             .chain([self.is_valid.target])
             .collect::<Vec<_>>();
         assert_eq!(vec.len(), ACCOUNT_INCLUSION_PUBLIC_INPUTS_LEN);
@@ -232,6 +232,17 @@ where
     pub dummy_proof: DummyProof<F, C, D>,
 }
 
+impl<F, C, const D: usize> Default for AccountInclusionCircuit<F, C, D>
+where
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F> + 'static,
+    C::Hasher: AlgebraicHasher<F>,
+{
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<F, C, const D: usize> AccountInclusionCircuit<F, C, D>
 where
     F: RichField + Extendable<D>,
@@ -282,7 +293,7 @@ mod tests {
     use crate::{
         common::{signature::key_set::KeySet, trees::account_tree::AccountTree},
         constants::NUM_SENDERS_IN_BLOCK,
-        ethereum_types::account_id_packed::AccountIdPacked,
+        ethereum_types::account_id::{AccountId, AccountIdPacked},
     };
 
     use super::{AccountInclusionCircuit, AccountInclusionValue};
@@ -307,8 +318,8 @@ mod tests {
         let mut account_ids = Vec::new();
         let mut account_merkle_proofs = Vec::new();
         for pubkey in &pubkeys {
-            let account_id = tree.index(*pubkey).unwrap();
-            let proof = tree.prove_inclusion(account_id);
+            let account_id = AccountId(tree.index(*pubkey).unwrap());
+            let proof = tree.prove_inclusion(account_id.0);
             account_ids.push(account_id);
             account_merkle_proofs.push(proof);
         }

@@ -50,7 +50,7 @@ where
                 .random_access(self.transfer_witness.transfer_index as usize),
             "insufficient flag is true"
         );
-        let transfer = self.transfer_witness.transfer.clone();
+        let transfer = self.transfer_witness.transfer;
         let nullifier = get_withdrawal_nullifier(&transfer);
         let recipient = transfer
             .recipient

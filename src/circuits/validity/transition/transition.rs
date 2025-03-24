@@ -57,6 +57,7 @@ pub(crate) struct ValidityTransitionValue<
 impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     ValidityTransitionValue<F, C, D>
 {
+    #[allow(clippy::too_many_arguments)]
     pub(crate) fn new(
         account_registration_circuit: &AccountRegistrationCircuit<F, C, D>,
         account_update_circuit: &AccountUpdateCircuit<F, C, D>,

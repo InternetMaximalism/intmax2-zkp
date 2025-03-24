@@ -3,12 +3,11 @@ use std::str::FromStr;
 use plonky2::iop::target::Target;
 use serde::{Deserialize, Serialize};
 
-use super::u32limb_trait::{U32LimbTargetTrait, U32LimbTrait};
+use super::u32limb_trait::{self, U32LimbTargetTrait, U32LimbTrait};
 
 pub const ADDRESS_LEN: usize = 5;
 
 /// A structure representing the address type in Ethereum.
-/// The value is stored in big endian format.
 #[derive(Clone, Copy, PartialEq, Default, Hash)]
 pub struct Address {
     limbs: [u32; ADDRESS_LEN],
@@ -58,10 +57,13 @@ impl U32LimbTrait<ADDRESS_LEN> for Address {
         self.limbs.to_vec()
     }
 
-    fn from_u32_slice(limbs: &[u32]) -> Self {
-        Self {
-            limbs: limbs.try_into().unwrap(),
+    fn from_u32_slice(limbs: &[u32]) -> u32limb_trait::Result<Self> {
+        if limbs.len() != ADDRESS_LEN {
+            return Err(u32limb_trait::U32LimbError::InvalidLength(limbs.len()));
         }
+        Ok(Self {
+            limbs: limbs.try_into().unwrap(),
+        })
     }
 }
 
@@ -71,6 +73,7 @@ impl U32LimbTargetTrait<ADDRESS_LEN> for AddressTarget {
     }
 
     fn from_slice(limbs: &[Target]) -> Self {
+        assert_eq!(limbs.len(), ADDRESS_LEN, "Invalid length for AddressTarget");
         Self {
             limbs: limbs.try_into().unwrap(),
         }

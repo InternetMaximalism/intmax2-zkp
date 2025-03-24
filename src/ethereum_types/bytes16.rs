@@ -5,7 +5,7 @@ use num::{BigUint, Zero as _};
 use plonky2::iop::target::Target;
 use serde::{Deserialize, Serialize};
 
-use super::u32limb_trait::{U32LimbTargetTrait, U32LimbTrait};
+use super::u32limb_trait::{self, U32LimbTargetTrait, U32LimbTrait};
 
 pub const BYTES16_LEN: usize = 4;
 
@@ -57,6 +57,7 @@ impl<'de> Deserialize<'de> for Bytes16 {
 
 impl TryFrom<BigUint> for Bytes16 {
     type Error = anyhow::Error;
+
     fn try_from(value: BigUint) -> anyhow::Result<Self> {
         let mut digits = value.to_u32_digits();
         ensure!(digits.len() <= BYTES16_LEN, "value is too large");
@@ -83,10 +84,15 @@ impl U32LimbTrait<BYTES16_LEN> for Bytes16 {
         self.limbs.to_vec()
     }
 
-    fn from_u32_slice(limbs: &[u32]) -> Self {
-        Self {
-            limbs: limbs.try_into().unwrap(),
+    fn from_u32_slice(limbs: &[u32]) -> u32limb_trait::Result<Self> {
+        if limbs.len() != BYTES16_LEN {
+            return Err(u32limb_trait::U32LimbError::InvalidLength(limbs.len()));
         }
+        Ok(Self {
+            limbs: limbs
+                .try_into()
+                .map_err(|_| u32limb_trait::U32LimbError::InvalidLength(limbs.len()))?,
+        })
     }
 }
 
@@ -96,6 +102,7 @@ impl U32LimbTargetTrait<BYTES16_LEN> for Bytes16Target {
     }
 
     fn from_slice(limbs: &[Target]) -> Self {
+        assert_eq!(limbs.len(), BYTES16_LEN, "Invalid length for Bytes16Target");
         Self {
             limbs: limbs.try_into().unwrap(),
         }

@@ -9,7 +9,7 @@ use crate::{
         witness::block_witness::BlockWitness,
     },
     constants::NUM_SENDERS_IN_BLOCK,
-    ethereum_types::{account_id_packed::AccountIdPacked, u256::U256},
+    ethereum_types::{account_id::AccountIdPacked, u256::U256},
 };
 // A subset of `BlockWitness` that only contains the information to be submitted to the contract
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -40,7 +40,7 @@ impl FullBlock {
         block_tree: &BlockHashTree,
     ) -> anyhow::Result<BlockWitness> {
         ensure!(self.block.block_number != 0, "genesis block is not allowed");
-        let is_registration_block = self.signature.is_registration_block;
+        let is_registration_block = self.signature.block_sign_payload.is_registration_block;
         let (pubkeys, account_id_packed, account_merkle_proofs, account_membership_proofs) =
             if is_registration_block {
                 let mut pubkeys = self.pubkeys.clone().ok_or(anyhow::anyhow!(
@@ -70,8 +70,8 @@ impl FullBlock {
                 let mut account_merkle_proofs = Vec::new();
                 let mut pubkeys = Vec::new();
                 for account_id in account_ids {
-                    let pubkey = account_tree.key(account_id);
-                    let proof = account_tree.prove_inclusion(account_id);
+                    let pubkey = account_tree.key(account_id.0);
+                    let proof = account_tree.prove_inclusion(account_id.0);
                     pubkeys.push(pubkey);
                     account_merkle_proofs.push(proof);
                 }

@@ -56,15 +56,15 @@ impl Claim {
 
     pub fn from_u32_slice(slice: &[u32]) -> Self {
         assert_eq!(slice.len(), CLAIM_LEN);
-        let recipient = Address::from_u32_slice(&slice[0..ADDRESS_LEN]);
-        let amount = U256::from_u32_slice(&slice[ADDRESS_LEN..ADDRESS_LEN + U256_LEN]);
+        let recipient = Address::from_u32_slice(&slice[0..ADDRESS_LEN]).unwrap();
+        let amount = U256::from_u32_slice(&slice[ADDRESS_LEN..ADDRESS_LEN + U256_LEN]).unwrap();
         let nullifier = Bytes32::from_u32_slice(
             &slice[ADDRESS_LEN + U256_LEN..ADDRESS_LEN + U256_LEN + BYTES32_LEN],
-        );
+        ).unwrap();
         let block_hash = Bytes32::from_u32_slice(
             &slice[ADDRESS_LEN + U256_LEN + BYTES32_LEN
                 ..ADDRESS_LEN + U256_LEN + BYTES32_LEN + BYTES32_LEN],
-        );
+        ).unwrap();
         let block_number = slice[ADDRESS_LEN + U256_LEN + BYTES32_LEN + BYTES32_LEN];
         Self {
             recipient,
@@ -88,7 +88,7 @@ impl Claim {
 
     pub fn hash_with_prev_hash(&self, prev_claim_hash: Bytes32) -> Bytes32 {
         let input = [prev_claim_hash.to_u32_vec(), self.to_u32_vec()].concat();
-        Bytes32::from_u32_slice(&solidity_keccak256(&input))
+        Bytes32::from_u32_slice(&solidity_keccak256(&input)).unwrap()
     }
 
     pub fn rand<R: rand::Rng>(rng: &mut R) -> Self {

@@ -25,7 +25,7 @@ use crate::{
 
 use super::{
     flatten::FlatG1Target,
-    sign::{hash_to_weight, hash_to_weight_circuit},
+    block_sign_payload::{hash_to_weight, hash_to_weight_circuit},
     SignatureContent, SignatureContentTarget,
 };
 use plonky2_bn254::utils::g1_msm::g1_msm;
@@ -39,7 +39,7 @@ impl SignatureContent {
             .iter()
             .zip(self.sender_flag.to_bits_be())
             .map(|(pubkey, b)| {
-                let x: Fq = pubkey.clone().into();
+                let x: Fq = (*pubkey).into();
                 let pubkey_g1: G1Affine = G1Affine::recover_from_x(x);
                 let weight = hash_to_weight(*pubkey, self.pubkey_hash);
                 if b {
@@ -85,7 +85,7 @@ impl SignatureContentTarget {
         let pubkeys = pubkeys
             .iter()
             .map(|x| {
-                let x_fq: FqTarget<F, D> = x.clone().into();
+                let x_fq: FqTarget<F, D> = (*x).into();
                 G1Target::recover_from_x(builder, &x_fq) // safely recoverable since the format is
                                                          // already validated
             })
@@ -93,7 +93,7 @@ impl SignatureContentTarget {
         let zipped: Vec<(BigUintTarget, G1Target<F, D>)> = weights
             .iter()
             .zip(pubkeys.iter())
-            .map(|(weight, pubkey)| (weight.clone().into(), pubkey.clone()))
+            .map(|(weight, pubkey)| ((*weight).into(), pubkey.clone()))
             .collect::<Vec<_>>();
         let agg_pubkey: FlatG1Target = g1_msm::<F, C, D>(builder, &zipped).into();
         let is_agg_pubkey_eq = agg_pubkey.is_equal(builder, &self.agg_pubkey);

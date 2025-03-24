@@ -32,6 +32,17 @@ where
     pub validity_circuit: ValidityCircuit<F, C, D>,
 }
 
+impl<F, C, const D: usize> Default for ValidityProcessor<F, C, D>
+where
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F> + 'static,
+    <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
+ {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<F, C, const D: usize> ValidityProcessor<F, C, D>
 where
     F: RichField + Extendable<D>,

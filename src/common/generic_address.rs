@@ -38,7 +38,7 @@ impl GenericAddress {
     pub fn to_u64_vec(&self) -> Vec<u64> {
         let vec = vec![self.is_pubkey as u64]
             .into_iter()
-            .chain(self.data.to_u64_vec().into_iter())
+            .chain(self.data.to_u64_vec())
             .collect::<Vec<_>>();
         assert_eq!(vec.len(), GENERIC_ADDRESS_LEN);
         vec
@@ -56,7 +56,7 @@ impl GenericAddress {
         limbs.resize(U256_LEN, 0);
         Self {
             is_pubkey: false,
-            data: U256::from_u32_slice(&limbs),
+            data: U256::from_u32_slice(&limbs).unwrap(),
         }
     }
 
@@ -68,7 +68,7 @@ impl GenericAddress {
     pub fn to_address(&self) -> Result<Address> {
         ensure!(!self.is_pubkey, "not an address");
         let limbs = self.data.to_u32_vec();
-        Ok(Address::from_u32_slice(&limbs[0..ADDRESS_LEN]))
+        Ok(Address::from_u32_slice(&limbs[0..ADDRESS_LEN]).unwrap())
     }
 
     pub fn rand_pubkey<R: Rng>(rng: &mut R) -> Self {
@@ -84,7 +84,7 @@ impl GenericAddressTarget {
     pub fn to_vec(&self) -> Vec<Target> {
         let vec = vec![self.is_pubkey.target]
             .into_iter()
-            .chain(self.data.to_vec().into_iter())
+            .chain(self.data.to_vec())
             .collect::<Vec<_>>();
         assert_eq!(vec.len(), GENERIC_ADDRESS_LEN);
         vec
@@ -150,7 +150,7 @@ impl GenericAddressTarget {
         builder: &mut CircuitBuilder<F, D>,
     ) -> U256Target {
         builder.assert_one(self.is_pubkey.target);
-        self.data.clone()
+        self.data
     }
 
     pub fn set_witness<F: Field, W: WitnessWrite<F>>(&self, pw: &mut W, address: GenericAddress) {

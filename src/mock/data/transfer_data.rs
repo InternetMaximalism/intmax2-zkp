@@ -51,8 +51,8 @@ where
     }
 
     pub fn encrypt(&self, _pubkey: U256) -> Vec<u8> {
-        let bytes = self.to_bytes();
-        bytes
+        
+        self.to_bytes()
     }
 
     pub fn decrypt(bytes: &[u8], _key: KeySet) -> anyhow::Result<Self> {

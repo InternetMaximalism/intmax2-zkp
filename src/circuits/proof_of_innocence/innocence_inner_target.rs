@@ -34,6 +34,7 @@ pub struct InnocenceInnerValue {
 }
 
 impl InnocenceInnerValue {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         use_allow_list: bool,
         allow_list_tree_root: PoseidonHashOut,

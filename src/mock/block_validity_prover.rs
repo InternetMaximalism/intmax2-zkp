@@ -54,6 +54,17 @@ where
     tx_tree_roots: HashMap<Bytes32, u32>,     // tx tree root at each block
 }
 
+impl<F, C, const D: usize> Default for BlockValidityProver<F, C, D>
+where
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F> + 'static,
+    <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
+ {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<F, C, const D: usize> BlockValidityProver<F, C, D>
 where
     F: RichField + Extendable<D>,
@@ -153,7 +164,7 @@ where
             self.sender_leaves
                 .insert(block_number, block_witness.get_sender_tree().leaves());
 
-            let tx_tree_root = full_block.signature.tx_tree_root;
+            let tx_tree_root = full_block.signature.block_sign_payload.tx_tree_root;
             if tx_tree_root != Bytes32::default()
                 && validity_witness.to_validity_pis().unwrap().is_valid_block
             {

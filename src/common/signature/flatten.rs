@@ -24,6 +24,9 @@ pub struct FlatG1(pub [U256; 2]);
 
 impl From<G1Affine> for FlatG1 {
     fn from(affine: G1Affine) -> Self {
+        if affine.is_zero() {
+            return FlatG1([U256::zero(); 2]);
+        }
         let x = affine.x;
         let y = affine.y;
         FlatG1([x.into(), y.into()])
@@ -32,13 +35,12 @@ impl From<G1Affine> for FlatG1 {
 
 impl From<FlatG1> for G1Affine {
     fn from(flat: FlatG1) -> Self {
-        let x = flat.0[0].into();
-        let y = flat.0[1].into();
-        let p = G1Affine::new_unchecked(x, y);
-        if p.is_zero() {
+        if flat.0[0] == U256::zero() && flat.0[1] == U256::zero() {
             G1Affine::zero()
         } else {
-            p
+            let x: Fq = flat.0[0].into();
+            let y: Fq = flat.0[1].into();
+            G1Affine::new_unchecked(x, y)
         }
     }
 }
@@ -54,6 +56,9 @@ pub struct FlatG2(pub [U256; 4]);
 
 impl From<G2Affine> for FlatG2 {
     fn from(affine: G2Affine) -> Self {
+        if affine.is_zero() {
+            return FlatG2([U256::zero(); 4]);
+        }
         let x_c0 = affine.x.c0;
         let x_c1 = affine.x.c1;
         let y_c0 = affine.y.c0;
@@ -64,17 +69,20 @@ impl From<G2Affine> for FlatG2 {
 
 impl From<FlatG2> for G2Affine {
     fn from(flat: FlatG2) -> Self {
-        let x_c0: Fq = flat.0[1].into();
-        let x_c1: Fq = flat.0[0].into();
-        let y_c0: Fq = flat.0[3].into();
-        let y_c1: Fq = flat.0[2].into();
-        let x = Fq2::new(x_c0, x_c1);
-        let y = Fq2::new(y_c0, y_c1);
-        let p = G2Affine::new_unchecked(x, y);
-        if p.is_zero() {
+        if flat.0[0] == U256::zero()
+            && flat.0[1] == U256::zero()
+            && flat.0[2] == U256::zero()
+            && flat.0[3] == U256::zero()
+        {
             G2Affine::zero()
         } else {
-            p
+            let x_c0: Fq = flat.0[1].into();
+            let x_c1: Fq = flat.0[0].into();
+            let y_c0: Fq = flat.0[3].into();
+            let y_c1: Fq = flat.0[2].into();
+            let x = Fq2::new(x_c0, x_c1);
+            let y = Fq2::new(y_c0, y_c1);
+            G2Affine::new_unchecked(x, y)
         }
     }
 }

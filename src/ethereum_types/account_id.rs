@@ -2,7 +2,7 @@ use std::str::FromStr;
 
 use super::{
     bytes32::{Bytes32, Bytes32Target},
-    u32limb_trait::{U32LimbTargetTrait, U32LimbTrait},
+    u32limb_trait::{self, U32LimbTargetTrait, U32LimbTrait},
 };
 use crate::constants::{ACCOUNT_ID_BITS, NUM_SENDERS_IN_BLOCK};
 use anyhow::ensure;
@@ -20,7 +20,54 @@ use plonky2_keccak::{builder::BuilderKeccak256 as _, utils::solidity_keccak256};
 use serde::{Deserialize, Serialize};
 
 pub const ACCOUNT_ID_PACKED_LEN: usize = ACCOUNT_ID_BITS * NUM_SENDERS_IN_BLOCK / 32;
-pub const ACCOUNT_ID_BTYTES_LEN: usize = ACCOUNT_ID_BITS / 8;
+pub const ACCOUNT_ID_BYTES_LEN: usize = ACCOUNT_ID_BITS / 8;
+
+/// ACCOUNT_ID_BITS bits account ID.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct AccountId(pub u64);
+
+impl AccountId {
+    pub fn dummy() -> Self {
+        AccountId(1)
+    }
+
+    pub fn is_dummy(&self) -> bool {
+        self == &Self::dummy()
+    }
+
+    pub fn to_bits_be(&self) -> Vec<bool> {
+        let mut result = Vec::with_capacity(40);
+        for i in (0..ACCOUNT_ID_BITS).rev() {
+            result.push((self.0 & (1 << i)) != 0);
+        }
+        result
+    }
+
+    pub fn from_bits_be(input: &[bool]) -> Self {
+        assert_eq!(input.len(), ACCOUNT_ID_BITS);
+        let mut value = 0;
+        for (i, &bit) in input.iter().enumerate() {
+            if bit {
+                value |= 1 << (ACCOUNT_ID_BITS - 1 - i);
+            }
+        }
+        AccountId(value)
+    }
+
+    pub fn to_bytes_be(&self) -> Vec<u8> {
+        let bytes: [u8; 8] = self.0.to_be_bytes();
+        // only last ACCOUNT_ID_BYTES_LEN bytes are needed
+        bytes[8 - ACCOUNT_ID_BYTES_LEN..].to_vec()
+    }
+
+    pub fn from_bytes_be(input: &[u8]) -> Self {
+        assert_eq!(input.len(), ACCOUNT_ID_BYTES_LEN);
+        let mut bytes = [0u8; 8];
+        bytes[8 - ACCOUNT_ID_BYTES_LEN..].copy_from_slice(input);
+        AccountId(u64::from_be_bytes(bytes))
+    }
+}
+
 /// A packed account ID.
 /// The value is stored in big endian format.
 #[derive(Clone, Copy, PartialEq, Hash)]
@@ -72,10 +119,15 @@ impl U32LimbTrait<ACCOUNT_ID_PACKED_LEN> for AccountIdPacked {
         self.limbs.to_vec()
     }
 
-    fn from_u32_slice(limbs: &[u32]) -> Self {
-        Self {
-            limbs: limbs.try_into().unwrap(),
+    fn from_u32_slice(limbs: &[u32]) -> u32limb_trait::Result<Self> {
+        if limbs.len() != ACCOUNT_ID_PACKED_LEN {
+            return Err(u32limb_trait::U32LimbError::InvalidLength(limbs.len()));
         }
+        Ok(Self {
+            limbs: limbs
+                .try_into()
+                .map_err(|_| u32limb_trait::U32LimbError::InvalidLength(limbs.len()))?,
+        })
     }
 }
 
@@ -92,68 +144,56 @@ impl U32LimbTargetTrait<ACCOUNT_ID_PACKED_LEN> for AccountIdPackedTarget {
 }
 
 impl AccountIdPacked {
-    pub fn pack(account_ids: &[u64]) -> Self {
+    pub fn pack(account_ids: &[AccountId]) -> Self {
         assert_eq!(account_ids.len(), NUM_SENDERS_IN_BLOCK);
-        let account_id_bits = account_ids
-            .into_iter()
-            .flat_map(|&account_id| account_id_to_bits_be(account_id))
+        let bytes = account_ids
+            .iter()
+            .flat_map(|&account_id| account_id.to_bytes_be())
             .collect::<Vec<_>>();
-        Self::from_bits_be(&account_id_bits)
+        Self::from_bytes_be(&bytes).expect("Packing account IDs should never fail")
     }
 
-    pub fn unpack(&self) -> Vec<u64> {
-        let bits = self.to_bits_be();
-        let account_ids = bits
+    pub fn unpack(&self) -> Vec<AccountId> {
+        self.to_bytes_be()
+            .chunks(ACCOUNT_ID_BYTES_LEN)
+            .map(AccountId::from_bytes_be)
+            .collect::<Vec<_>>()
+    }
+
+    /// Trim dummy account ids and return bytes representation.
+    pub fn to_trimmed_bytes(&self) -> Vec<u8> {
+        let trimmed_account_ids = self
+            .unpack()
             .into_iter()
-            .chunks(ACCOUNT_ID_BITS)
-            .into_iter()
-            .map(|chunk| {
-                let chunk_bits = chunk.into_iter().collect::<Vec<_>>();
-                bits_be_to_account_id(&chunk_bits)
-            })
+            .filter(|&x| !x.is_dummy()) // filter out dummy
             .collect::<Vec<_>>();
-        assert_eq!(account_ids.len(), NUM_SENDERS_IN_BLOCK);
-        account_ids
+        trimmed_account_ids
+            .iter()
+            .flat_map(|&account_id| account_id.to_bytes_be())
+            .collect::<Vec<_>>()
     }
 
     // Recovers account id packed from bytes representation of account ids where
     // dummy accounts are trimmed.
     pub fn from_trimmed_bytes(input: &[u8]) -> anyhow::Result<Self> {
         ensure!(
-            input.len() <= ACCOUNT_ID_BTYTES_LEN * NUM_SENDERS_IN_BLOCK,
+            input.len() <= ACCOUNT_ID_BYTES_LEN * NUM_SENDERS_IN_BLOCK,
             "too long account id bytes"
         );
         ensure!(
-            input.len() % ACCOUNT_ID_BTYTES_LEN == 0,
+            input.len() % ACCOUNT_ID_BYTES_LEN == 0,
             "invalid account id bytes length"
         );
-        let mut dummy_account_id_bytes = [0u8; ACCOUNT_ID_BTYTES_LEN];
-        dummy_account_id_bytes[ACCOUNT_ID_BTYTES_LEN - 1] = 1; // least byte is 1
+        let dummy_account_id_bytes = AccountId::dummy().to_bytes_be();
         let mut inputs = input.to_vec();
-        while inputs.len() < ACCOUNT_ID_BTYTES_LEN * NUM_SENDERS_IN_BLOCK {
+        while inputs.len() < ACCOUNT_ID_BYTES_LEN * NUM_SENDERS_IN_BLOCK {
             inputs.extend_from_slice(&dummy_account_id_bytes);
         }
-        Ok(Self::from_bytes_be(&inputs))
-    }
-
-    pub fn to_trimmed_bytes(&self) -> Vec<u8> {
-        let trimmed_account_ids = self
-            .unpack()
-            .into_iter()
-            .filter(|&x| x != 1) // filter out dummy
-            .collect::<Vec<_>>();
-        let account_id_bits = trimmed_account_ids
-            .into_iter()
-            .flat_map(|account_id| account_id_to_bits_be(account_id))
-            .collect::<Vec<_>>();
-        account_id_bits
-            .chunks(8)
-            .map(|c| bits_be_to_u8(c))
-            .collect()
+        Ok(Self::from_bytes_be(&inputs).unwrap())
     }
 
     pub fn hash(&self) -> Bytes32 {
-        Bytes32::from_u32_slice(&solidity_keccak256(&self.to_u32_vec()))
+        Bytes32::from_u32_slice(&solidity_keccak256(&self.to_u32_vec())).unwrap()
     }
 }
 
@@ -190,37 +230,6 @@ impl AccountIdPackedTarget {
     }
 }
 
-fn account_id_to_bits_be(account_id: u64) -> Vec<bool> {
-    assert!(account_id < 1 << ACCOUNT_ID_BITS);
-    let mut result = Vec::with_capacity(40);
-    for i in (0..ACCOUNT_ID_BITS).rev() {
-        result.push((account_id & (1 << i)) != 0);
-    }
-    result
-}
-
-fn bits_be_to_account_id(vec: &[bool]) -> u64 {
-    assert_eq!(vec.len(), ACCOUNT_ID_BITS);
-    let mut result = 0;
-    for (i, &bit) in vec.iter().enumerate() {
-        if bit {
-            result |= 1 << (ACCOUNT_ID_BITS - 1 - i);
-        }
-    }
-    result
-}
-
-fn bits_be_to_u8(vec: &[bool]) -> u8 {
-    assert_eq!(vec.len(), 8);
-    let mut result = 0;
-    for (i, &bit) in vec.iter().enumerate() {
-        if bit {
-            result |= 1 << (7 - i);
-        }
-    }
-    result
-}
-
 #[cfg(test)]
 mod tests {
     use rand::Rng;
@@ -231,7 +240,7 @@ mod tests {
     fn pack_and_unpack() {
         let mut rng = rand::thread_rng();
         let account_ids = (0..NUM_SENDERS_IN_BLOCK)
-            .map(|_| rng.gen_range(0..1 << ACCOUNT_ID_BITS))
+            .map(|_| AccountId(rng.gen_range(0..1 << ACCOUNT_ID_BITS)))
             .collect::<Vec<_>>();
         let packed = AccountIdPacked::pack(&account_ids);
         let unpacked = packed.unpack();
@@ -243,10 +252,9 @@ mod tests {
         let num_ids = 10;
         let mut rng = rand::thread_rng();
         let mut account_ids = (0..num_ids)
-            .map(|_| rng.gen_range(0..1 << ACCOUNT_ID_BITS))
+            .map(|_| AccountId(rng.gen_range(0..1 << ACCOUNT_ID_BITS)))
             .collect::<Vec<_>>();
-        account_ids.resize(NUM_SENDERS_IN_BLOCK, 1);
-
+        account_ids.resize(NUM_SENDERS_IN_BLOCK, AccountId::dummy());
         let packed = AccountIdPacked::pack(&account_ids);
         let trimmed_bytes = packed.to_trimmed_bytes();
         let recovered = AccountIdPacked::from_trimmed_bytes(&trimmed_bytes).unwrap();

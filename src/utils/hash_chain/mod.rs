@@ -21,7 +21,7 @@ pub mod hash_inner_circuit;
 
 pub fn hash_with_prev_hash(content: &[u32], prev_hash: Bytes32) -> Bytes32 {
     let input = [prev_hash.to_u32_vec(), content.to_vec()].concat();
-    Bytes32::from_u32_slice(&solidity_keccak256(&input))
+    Bytes32::from_u32_slice(&solidity_keccak256(&input)).unwrap()
 }
 
 pub fn hash_with_prev_hash_circuit<

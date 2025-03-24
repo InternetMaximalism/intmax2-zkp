@@ -27,7 +27,7 @@ where
     <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
 {
     pub(crate) fn new(common: &CommonCircuitData<F, D>) -> Self {
-        let data = dummy_circuit::<F, C, D>(&common);
+        let data = dummy_circuit::<F, C, D>(common);
         let proof = dummy_proof(&data, vec![].into_iter().enumerate().collect()).unwrap();
         Self { proof }
     }
@@ -53,5 +53,5 @@ pub(crate) fn conditionally_verify_proof<
     let dummy_verifier_data_target = builder.constant_verifier_data(&dummy_circuit.verifier_only);
     let selected_verifier_data =
         builder.select_verifier_data(condition, inner_verifier_data, &dummy_verifier_data_target);
-    builder.verify_proof::<C>(&proof_with_pis, &selected_verifier_data, inner_common_data);
+    builder.verify_proof::<C>(proof_with_pis, &selected_verifier_data, inner_common_data);
 }

@@ -77,7 +77,7 @@ where
         let non_vd = input[0..16 + PUBLIC_STATE_LEN].to_u64_vec();
         let prev_private_commitment = PoseidonHashOut::from_u64_slice(&non_vd[0..4]);
         let new_private_commitment = PoseidonHashOut::from_u64_slice(&non_vd[4..8]);
-        let pubkey = U256::from_u64_slice(&non_vd[8..16]);
+        let pubkey = U256::from_u64_slice(&non_vd[8..16]).unwrap();
         let public_state = PublicState::from_u64_slice(&non_vd[16..16 + PUBLIC_STATE_LEN]);
         let balance_circuit_vd = vd_from_pis_slice(input, config).unwrap();
         ReceiveTransferPublicInputs {

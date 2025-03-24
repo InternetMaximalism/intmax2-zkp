@@ -57,9 +57,9 @@ impl AccountTransitionPublicInputsTarget {
             .elements
             .into_iter()
             .chain(vec![self.prev_next_account_id])
-            .chain(self.new_account_tree_root.elements.into_iter())
+            .chain(self.new_account_tree_root.elements)
             .chain(vec![self.new_next_account_id])
-            .chain(self.sender_tree_root.elements.into_iter())
+            .chain(self.sender_tree_root.elements)
             .chain(vec![self.block_number])
             .collect::<Vec<_>>();
         assert_eq!(vec.len(), ACCOUNT_TRANSITION_PUBLIC_INPUTS_LEN);

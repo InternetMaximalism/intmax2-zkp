@@ -17,7 +17,7 @@ pub fn get_mining_deposit_nullifier(deposit: &Deposit, deposit_salt: Salt) -> By
         .to_u32_vec()
         .into_iter()
         .map(|x| x as u64)
-        .chain(deposit_salt.to_u64_vec().into_iter())
+        .chain(deposit_salt.to_u64_vec())
         .collect();
     let nullifier = PoseidonHashOut::hash_inputs_u64(&hash_inputs);
     nullifier.into()
@@ -31,7 +31,7 @@ pub fn get_mining_deposit_nullifier_circuit<F: RichField + Extendable<D>, const 
     let hash_inputs: Vec<Target> = deposit
         .to_vec()
         .into_iter()
-        .chain(deposit_salt.to_vec().into_iter())
+        .chain(deposit_salt.to_vec())
         .collect();
     let nullifier = PoseidonHashOutTarget::hash_inputs(builder, &hash_inputs);
     Bytes32Target::from_hash_out(builder, nullifier)

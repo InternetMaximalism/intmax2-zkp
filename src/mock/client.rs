@@ -136,7 +136,7 @@ impl Client {
         <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
     {
         // input validation
-        ensure!(transfers.len() > 0, "transfers is empty");
+        ensure!(!transfers.is_empty(), "transfers is empty");
         ensure!(
             transfers.len() <= NUM_TRANSFERS_IN_TX,
             "transfers is too long"
@@ -240,10 +240,10 @@ impl Client {
         let common_tx_data = CommonTxData {
             spent_proof: memo.spent_proof.clone(),
             sender_prev_block_number: memo.prev_block_number,
-            tx: memo.tx.clone(),
+            tx: memo.tx,
             tx_index: proposal.tx_index,
             tx_merkle_proof: proposal.tx_merkle_proof.clone(),
-            tx_tree_root: proposal.tx_tree_root,
+            tx_tree_root: proposal.block_sign_payload.tx_tree_root,
         };
 
         // save tx data
@@ -256,7 +256,7 @@ impl Client {
         // save transfer data
         let mut transfer_tree = TransferTree::new(TRANSFER_TREE_HEIGHT);
         for transfer in &memo.transfers {
-            transfer_tree.push(transfer.clone());
+            transfer_tree.push(*transfer);
         }
         for (i, transfer) in memo.transfers.iter().enumerate() {
             let transfer_merkle_proof = transfer_tree.prove(i as u64);
@@ -265,7 +265,7 @@ impl Client {
                 prev_block_number: memo.prev_block_number,
                 prev_private_commitment: memo.prev_private_commitment,
                 tx_data: common_tx_data.clone(),
-                transfer: transfer.clone(),
+                transfer: *transfer,
                 transfer_index: i as u32,
                 transfer_merkle_proof,
             };
@@ -333,9 +333,9 @@ impl Client {
 
         // if there are pending actions, return pending
         // todo: process non-pending actions if possible
-        if next_action.pending_deposits.len() > 0
-            || next_action.pending_transfers.len() > 0
-            || next_action.pending_txs.len() > 0
+        if !next_action.pending_deposits.is_empty()
+            || !next_action.pending_transfers.is_empty()
+            || !next_action.pending_txs.is_empty()
         {
             return Ok(SyncStatus::Pending);
         }
@@ -405,7 +405,7 @@ impl Client {
             user_data.withdrawal_lpt,
             self.tx_timeout,
         )?;
-        if withdrawal_info.pending.len() > 0 {
+        if !withdrawal_info.pending.is_empty() {
             todo!("handle pending withdrawals")
         }
         for (meta, data) in &withdrawal_info.settled {
@@ -518,7 +518,7 @@ impl Client {
             &new_sender_balance_proof,
             &prev_balance_proof,
             meta.block_number.unwrap(),
-            &transfer_data,
+            transfer_data,
         )
         .map_err(|e| anyhow::anyhow!("failed to process transfer: {}", e))?;
 
@@ -616,10 +616,10 @@ impl Client {
 
         let withdrawal_witness = WithdrawalWitness {
             transfer_witness: TransferWitness {
-                transfer: withdrawal_data.transfer.clone(),
+                transfer: withdrawal_data.transfer,
                 transfer_index: withdrawal_data.transfer_index,
                 transfer_merkle_proof: withdrawal_data.transfer_merkle_proof.clone(),
-                tx: withdrawal_data.tx_data.tx.clone(),
+                tx: withdrawal_data.tx_data.tx,
             },
             balance_proof: new_user_balance_proof,
         };
@@ -672,9 +672,9 @@ impl Client {
         let new_sender_balance_proof = store_vault_server
             .get_balance_proof(sender, block_number, spent_proof_pis.new_private_commitment)
             .map_err(|e| anyhow::anyhow!("failed to get new balance proof: {}", e))?;
-        if new_sender_balance_proof.is_some() {
+        if let Some(proof) = new_sender_balance_proof {
             // already updated
-            return Ok(new_sender_balance_proof.unwrap());
+            return Ok(proof);
         }
 
         let prev_sender_balance_proof = store_vault_server
@@ -732,7 +732,7 @@ pub fn generate_transfer_tree(transfers: &[Transfer]) -> TransferTree {
     transfers.resize(NUM_TRANSFERS_IN_TX, Transfer::default());
     let mut transfer_tree = TransferTree::new(TRANSFER_TREE_HEIGHT);
     for transfer in &transfers {
-        transfer_tree.push(transfer.clone());
+        transfer_tree.push(*transfer);
     }
     transfer_tree
 }

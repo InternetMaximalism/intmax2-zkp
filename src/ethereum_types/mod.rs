@@ -1,4 +1,4 @@
-pub mod account_id_packed;
+pub mod account_id;
 pub mod address;
 pub mod bytes16;
 pub mod bytes32;

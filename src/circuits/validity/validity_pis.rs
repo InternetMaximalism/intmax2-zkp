@@ -62,7 +62,7 @@ impl ValidityPublicInputs {
             .to_u64_vec()
             .into_iter()
             .chain(self.tx_tree_root.to_u64_vec())
-            .chain(self.sender_tree_root.elements.into_iter())
+            .chain(self.sender_tree_root.elements)
             .chain(vec![self.is_valid_block as u64])
             .collect::<Vec<_>>();
         assert_eq!(vec.len(), VALIDITY_PUBLIC_INPUTS_LEN);
@@ -73,7 +73,7 @@ impl ValidityPublicInputs {
         assert_eq!(input.len(), VALIDITY_PUBLIC_INPUTS_LEN);
         let public_state = PublicState::from_u64_slice(&input[0..PUBLIC_STATE_LEN]);
         let tx_tree_root =
-            Bytes32::from_u64_slice(&input[PUBLIC_STATE_LEN..PUBLIC_STATE_LEN + BYTES32_LEN]);
+            Bytes32::from_u64_slice(&input[PUBLIC_STATE_LEN..PUBLIC_STATE_LEN + BYTES32_LEN]).unwrap();
         let sender_tree_root = PoseidonHashOut::from_u64_slice(
             &input[PUBLIC_STATE_LEN + BYTES32_LEN
                 ..PUBLIC_STATE_LEN + BYTES32_LEN + POSEIDON_HASH_OUT_LEN],
@@ -99,7 +99,7 @@ impl ValidityPublicInputsTarget {
             .to_vec()
             .into_iter()
             .chain(self.tx_tree_root.to_vec())
-            .chain(self.sender_tree_root.elements.into_iter())
+            .chain(self.sender_tree_root.elements)
             .chain(vec![self.is_valid_block.target])
             .collect::<Vec<_>>();
         assert_eq!(vec.len(), VALIDITY_PUBLIC_INPUTS_LEN);

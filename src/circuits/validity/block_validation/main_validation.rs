@@ -92,13 +92,13 @@ pub struct MainValidationPublicInputsTarget {
 impl MainValidationPublicInputs {
     pub fn from_u64_slice(input: &[u64]) -> Self {
         assert_eq!(input.len(), MAIN_VALIDATION_PUBLIC_INPUT_LEN);
-        let prev_block_hash = Bytes32::from_u64_slice(&input[0..8]);
-        let block_hash = Bytes32::from_u64_slice(&input[8..16]);
-        let deposit_tree_root = Bytes32::from_u64_slice(&input[16..24]);
+        let prev_block_hash = Bytes32::from_u64_slice(&input[0..8]).unwrap();
+        let block_hash = Bytes32::from_u64_slice(&input[8..16]).unwrap();
+        let deposit_tree_root = Bytes32::from_u64_slice(&input[16..24]).unwrap();
         let account_tree_root = PoseidonHashOut::from_u64_slice(&input[24..28]);
-        let tx_tree_root = Bytes32::from_u64_slice(&input[28..36]);
+        let tx_tree_root = Bytes32::from_u64_slice(&input[28..36]).unwrap();
         let sender_tree_root = PoseidonHashOut::from_u64_slice(&input[36..40]);
-        let timestamp = U64::from_u64_slice(&input[40..42]).into();
+        let timestamp = U64::from_u64_slice(&input[40..42]).unwrap().into();
         let block_number = input[42];
         let is_registration_block = input[43] == 1;
         let is_valid = input[44] == 1;
@@ -149,12 +149,12 @@ impl MainValidationPublicInputsTarget {
             .prev_block_hash
             .to_vec()
             .into_iter()
-            .chain(self.block_hash.to_vec().into_iter())
-            .chain(self.deposit_tree_root.to_vec().into_iter())
-            .chain(self.account_tree_root.elements.into_iter())
-            .chain(self.tx_tree_root.to_vec().into_iter())
-            .chain(self.sender_tree_root.elements.into_iter())
-            .chain(self.timestamp.to_vec().into_iter())
+            .chain(self.block_hash.to_vec())
+            .chain(self.deposit_tree_root.to_vec())
+            .chain(self.account_tree_root.elements)
+            .chain(self.tx_tree_root.to_vec())
+            .chain(self.sender_tree_root.elements)
+            .chain(self.timestamp.to_vec())
             .chain([
                 self.block_number,
                 self.is_registration_block.target,
@@ -229,7 +229,8 @@ impl MainValidationPublicInputsTarget {
         self.tx_tree_root.set_witness(witness, value.tx_tree_root);
         self.sender_tree_root
             .set_witness(witness, value.sender_tree_root);
-        self.timestamp.set_witness(witness, U64::from(value.timestamp));
+        self.timestamp
+            .set_witness(witness, U64::from(value.timestamp));
         witness.set_target(self.block_number, F::from_canonical_u32(value.block_number));
         witness.set_bool_target(self.is_registration_block, value.is_registration_block);
         witness.set_bool_target(self.is_valid, value.is_valid);
@@ -261,6 +262,7 @@ pub struct MainValidationValue<
 impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     MainValidationValue<F, C, D>
 {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         account_inclusion_circuit: &AccountInclusionCircuit<F, C, D>,
         account_exclusion_circuit: &AccountExclusionCircuit<F, C, D>,
@@ -278,7 +280,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         let mut result = true;
         let pubkey_commitment = get_pubkey_commitment(&pubkeys);
         let pubkey_hash = get_pubkey_hash(&pubkeys);
-        let is_registration_block = signature.is_registration_block;
+        let is_registration_block = signature.block_sign_payload.is_registration_block;
         let is_pubkey_eq = signature.pubkey_hash == pubkey_hash;
 
         if is_registration_block {
@@ -463,7 +465,7 @@ impl<const D: usize> MainValidationTarget<D> {
         let pubkey_hash = get_pubkey_hash_circuit::<F, C, D>(builder, &pubkeys);
         let account_tree_root = PoseidonHashOutTarget::new(builder);
 
-        let is_registration_block = signature.is_registration_block;
+        let is_registration_block = signature.block_sign_payload.is_registration_block;
         let is_not_registration_block = builder.not(is_registration_block);
         let is_pubkey_eq = signature.pubkey_hash.is_equal(builder, &pubkey_hash);
         // pubkey case
@@ -590,12 +592,12 @@ impl<const D: usize> MainValidationTarget<D> {
             .account_inclusion_proof
             .as_ref()
             .unwrap_or(&account_inclusion_proof_dummy.proof);
-        witness.set_proof_with_pis_target(&self.account_inclusion_proof, &account_inclusion_proof);
+        witness.set_proof_with_pis_target(&self.account_inclusion_proof, account_inclusion_proof);
         let account_exclusion_proof = value
             .account_exclusion_proof
             .as_ref()
             .unwrap_or(&account_exclusion_proof_dummy.proof);
-        witness.set_proof_with_pis_target(&self.account_exclusion_proof, &account_exclusion_proof);
+        witness.set_proof_with_pis_target(&self.account_exclusion_proof, account_exclusion_proof);
         witness.set_proof_with_pis_target(
             &self.format_validation_proof,
             &value.format_validation_proof,
@@ -604,7 +606,7 @@ impl<const D: usize> MainValidationTarget<D> {
             .aggregation_proof
             .as_ref()
             .unwrap_or(&aggregation_proof_dummy.proof);
-        witness.set_proof_with_pis_target(&self.aggregation_proof, &aggregation_proof);
+        witness.set_proof_with_pis_target(&self.aggregation_proof, aggregation_proof);
         self.signature_commitment
             .set_witness(witness, value.signature_commitment);
         self.pubkey_commitment
@@ -654,7 +656,7 @@ where
             block_hash: target.block_hash,
             deposit_tree_root: target.block.deposit_tree_root,
             account_tree_root: target.account_tree_root,
-            tx_tree_root: target.signature.tx_tree_root,
+            tx_tree_root: target.signature.block_sign_payload.tx_tree_root,
             sender_tree_root: target.sender_tree_root,
             timestamp: target.block.timestamp,
             block_number: target.block.block_number,

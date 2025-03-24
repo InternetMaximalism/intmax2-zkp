@@ -1,21 +1,20 @@
+pub mod block_sign_payload;
 pub mod flatten;
 pub mod format_validation;
 pub mod key_set;
 pub mod serialize;
-pub mod sign;
+pub mod sign_tools;
 pub mod utils;
 pub mod verify;
 
 use ark_bn254::Fq;
+use block_sign_payload::{BlockSignPayload, BlockSignPayloadTarget, BLOCK_SIGN_PAYLOAD_LEN};
 use flatten::{FlatG1, FlatG1Target, FlatG2, FlatG2Target};
 use num::BigUint;
 use plonky2::{
     field::extension::Extendable,
     hash::hash_types::RichField,
-    iop::{
-        target::{BoolTarget, Target},
-        witness::Witness,
-    },
+    iop::{target::Target, witness::Witness},
     plonk::{
         circuit_builder::CircuitBuilder,
         config::{AlgebraicHasher, GenericConfig},
@@ -31,12 +30,15 @@ use crate::{
         bytes32::{Bytes32, Bytes32Target, BYTES32_LEN},
         u256::{U256, U256_LEN},
         u32limb_trait::{U32LimbTargetTrait, U32LimbTrait},
-        u64::{U64Target, U64, U64_LEN},
     },
     utils::poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget},
 };
 
-pub const SIGNATURE_LEN: usize = 1 + BYTES16_LEN + U64_LEN + 3 * BYTES32_LEN + 10 * U256_LEN;
+pub const SIGNATURE_LEN: usize =
+    BLOCK_SIGN_PAYLOAD_LEN + BYTES16_LEN + 2 * BYTES32_LEN + 10 * U256_LEN;
+
+#[derive(Debug, thiserror::Error)]
+pub enum SignatureContentError {}
 
 /// The signature that is verified by the contract. It is already guaranteed by
 /// the contract that e(`agg_pubkey`, message_point) = e(`agg_signature`, G2)
@@ -44,9 +46,7 @@ pub const SIGNATURE_LEN: usize = 1 + BYTES16_LEN + U64_LEN + 3 * BYTES32_LEN + 1
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SignatureContent {
-    pub is_registration_block: bool,
-    pub tx_tree_root: Bytes32,
-    pub expiry: U64,
+    pub block_sign_payload: BlockSignPayload,
     pub sender_flag: Bytes16,
     pub pubkey_hash: Bytes32,
     pub account_id_hash: Bytes32,
@@ -57,9 +57,7 @@ pub struct SignatureContent {
 
 #[derive(Clone, Debug)]
 pub struct SignatureContentTarget {
-    pub is_registration_block: BoolTarget,
-    pub tx_tree_root: Bytes32Target,
-    pub expiry: U64Target,
+    pub block_sign_payload: BlockSignPayloadTarget,
     pub sender_flag: Bytes16Target,
     pub pubkey_hash: Bytes32Target,
     pub account_id_hash: Bytes32Target,
@@ -70,10 +68,8 @@ pub struct SignatureContentTarget {
 
 impl SignatureContent {
     pub fn to_u32_vec(&self) -> Vec<u32> {
-        let limbs = vec![
-            vec![self.is_registration_block as u32],
-            self.tx_tree_root.to_u32_vec(),
-            self.expiry.to_u32_vec(),
+        let vec = vec![
+            self.block_sign_payload.to_u32_vec(),
             self.sender_flag.to_u32_vec(),
             self.pubkey_hash.to_u32_vec(),
             self.account_id_hash.to_u32_vec(),
@@ -82,7 +78,8 @@ impl SignatureContent {
             self.message_point.to_u32_vec(),
         ]
         .concat();
-        limbs
+        assert_eq!(vec.len(), SIGNATURE_LEN);
+        vec
     }
 
     pub fn commitment(&self) -> PoseidonHashOut {
@@ -91,15 +88,14 @@ impl SignatureContent {
 
     pub fn hash(&self) -> Bytes32 {
         Bytes32::from_u32_slice(&solidity_keccak256(&self.to_u32_vec()))
+            .expect("Failed to convert from U32 to Bytes32")
     }
 }
 
 impl SignatureContentTarget {
     pub fn to_vec<F: RichField>(&self) -> Vec<Target> {
         let vec = vec![
-            vec![self.is_registration_block.target],
-            self.tx_tree_root.to_vec(),
-            self.expiry.to_vec(),
+            self.block_sign_payload.to_vec(),
             self.sender_flag.to_vec(),
             self.pubkey_hash.to_vec(),
             self.account_id_hash.to_vec(),
@@ -114,22 +110,16 @@ impl SignatureContentTarget {
 
     pub fn new<F: RichField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
-        is_checked: bool,
+        range_check: bool,
     ) -> Self {
-        let is_registration_block = builder.add_virtual_bool_target_unsafe();
-        if is_checked {
-            builder.assert_bool(is_registration_block);
-        }
         Self {
-            is_registration_block,
-            tx_tree_root: Bytes32Target::new(builder, is_checked),
-            expiry: U64Target::new(builder, is_checked),
-            sender_flag: Bytes16Target::new(builder, is_checked),
-            pubkey_hash: Bytes32Target::new(builder, is_checked),
-            account_id_hash: Bytes32Target::new(builder, is_checked),
-            agg_pubkey: FlatG1Target::new(builder, is_checked),
-            agg_signature: FlatG2Target::new(builder, is_checked),
-            message_point: FlatG2Target::new(builder, is_checked),
+            block_sign_payload: BlockSignPayloadTarget::new(builder, range_check),
+            sender_flag: Bytes16Target::new(builder, range_check),
+            pubkey_hash: Bytes32Target::new(builder, range_check),
+            account_id_hash: Bytes32Target::new(builder, range_check),
+            agg_pubkey: FlatG1Target::new(builder, range_check),
+            agg_signature: FlatG2Target::new(builder, range_check),
+            message_point: FlatG2Target::new(builder, range_check),
         }
     }
 
@@ -138,9 +128,10 @@ impl SignatureContentTarget {
         value: &SignatureContent,
     ) -> Self {
         Self {
-            is_registration_block: builder.constant_bool(value.is_registration_block),
-            tx_tree_root: Bytes32Target::constant(builder, value.tx_tree_root),
-            expiry: U64Target::constant(builder, value.expiry),
+            block_sign_payload: BlockSignPayloadTarget::constant(
+                builder,
+                &value.block_sign_payload,
+            ),
             sender_flag: Bytes16Target::constant(builder, value.sender_flag),
             pubkey_hash: Bytes32Target::constant(builder, value.pubkey_hash),
             account_id_hash: Bytes32Target::constant(builder, value.account_id_hash),
@@ -155,9 +146,8 @@ impl SignatureContentTarget {
         witness: &mut W,
         value: &SignatureContent,
     ) {
-        witness.set_bool_target(self.is_registration_block, value.is_registration_block);
-        self.tx_tree_root.set_witness(witness, value.tx_tree_root);
-        self.expiry.set_witness(witness, value.expiry);
+        self.block_sign_payload
+            .set_witness(witness, &value.block_sign_payload);
         self.sender_flag.set_witness(witness, value.sender_flag);
         self.pubkey_hash.set_witness(witness, value.pubkey_hash);
         self.account_id_hash

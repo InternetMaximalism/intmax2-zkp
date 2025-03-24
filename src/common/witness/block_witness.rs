@@ -22,7 +22,7 @@ use crate::{
         },
     },
     constants::{ACCOUNT_TREE_HEIGHT, BLOCK_HASH_TREE_HEIGHT, SENDER_TREE_HEIGHT},
-    ethereum_types::{account_id_packed::AccountIdPacked, u256::U256},
+    ethereum_types::{account_id::AccountIdPacked, u256::U256},
     utils::poseidon_hash_out::PoseidonHashOut,
 };
 
@@ -87,7 +87,7 @@ impl BlockWitness {
         let sender_leaves = get_sender_leaves(&pubkeys, signature.sender_flag);
 
         let pubkey_hash = get_pubkey_hash(&pubkeys);
-        let is_registration_block = signature.is_registration_block;
+        let is_registration_block = signature.block_sign_payload.is_registration_block;
         let is_pubkey_eq = signature.pubkey_hash == pubkey_hash;
         if is_registration_block {
             ensure!(is_pubkey_eq, "pubkey hash mismatch");
@@ -110,7 +110,7 @@ impl BlockWitness {
             // Account inclusion verification
             let account_inclusion_value = AccountInclusionValue::new(
                 account_tree_root,
-                self.account_id_packed.clone().ok_or(anyhow::anyhow!(
+                self.account_id_packed.ok_or(anyhow::anyhow!(
                     "account_id_packed is None in non-registration block"
                 ))?,
                 self.account_merkle_proofs.clone().ok_or(anyhow::anyhow!(
@@ -135,7 +135,7 @@ impl BlockWitness {
         let block_hash = block.hash();
         let sender_tree_root = get_sender_tree_root(&pubkeys, signature.sender_flag);
 
-        let tx_tree_root = signature.tx_tree_root;
+        let tx_tree_root = signature.block_sign_payload.tx_tree_root;
         Ok(MainValidationPublicInputs {
             prev_block_hash,
             block_hash,

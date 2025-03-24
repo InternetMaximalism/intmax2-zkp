@@ -68,7 +68,7 @@ impl PublicState {
             self.block_tree_root.to_u64_vec(),
             self.prev_account_tree_root.to_u64_vec(),
             self.account_tree_root.to_u64_vec(),
-            vec![self.next_account_id as u64],
+            vec![self.next_account_id],
             self.deposit_tree_root.to_u64_vec(),
             self.block_hash.to_u64_vec(),
             U64::from(self.timestamp).to_u64_vec(),
@@ -85,9 +85,9 @@ impl PublicState {
         let prev_account_tree_root = PoseidonHashOut::from_u64_slice(&input[4..8]);
         let account_tree_root = PoseidonHashOut::from_u64_slice(&input[8..12]);
         let next_account_id = input[12];
-        let deposit_tree_root = Bytes32::from_u64_slice(&input[13..21]);
-        let block_hash = Bytes32::from_u64_slice(&input[21..29]);
-        let timestamp = U64::from_u64_slice(&input[29..31]).into();
+        let deposit_tree_root = Bytes32::from_u64_slice(&input[13..21]).unwrap();
+        let block_hash = Bytes32::from_u64_slice(&input[21..29]).unwrap();
+        let timestamp = U64::from_u64_slice(&input[29..31]).unwrap().into();
         let block_number = input[31] as u32;
         Self {
             block_tree_root,
@@ -250,7 +250,8 @@ impl PublicStateTarget {
         self.deposit_tree_root
             .set_witness(witness, value.deposit_tree_root);
         self.block_hash.set_witness(witness, value.block_hash);
-        self.timestamp.set_witness(witness, U64::from(value.timestamp));
+        self.timestamp
+            .set_witness(witness, U64::from(value.timestamp));
         witness.set_target(self.block_number, F::from_canonical_u32(value.block_number));
     }
 }

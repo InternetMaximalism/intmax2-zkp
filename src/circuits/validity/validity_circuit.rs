@@ -139,7 +139,7 @@ where
     }
 
     pub fn verify(&self, proof: &ProofWithPublicInputs<F, C, D>) -> Result<()> {
-        check_cyclic_proof_verifier_data(&proof, &self.data.verifier_only, &self.data.common)?;
+        check_cyclic_proof_verifier_data(proof, &self.data.verifier_only, &self.data.common)?;
         self.data.verify(proof.clone())
     }
 }

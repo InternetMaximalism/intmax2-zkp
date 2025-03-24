@@ -1,9 +1,7 @@
 use crate::{
     common::signature::{
+        block_sign_payload::{hash_to_weight, BlockSignPayload},
         key_set::KeySet,
-        sign::{
-            hash_to_weight, sign_to_tx_root_and_expiry, tx_tree_root_and_expiry_to_message_point,
-        },
         utils::get_pubkey_hash,
         SignatureContent,
     },
@@ -17,7 +15,6 @@ use rand::Rng;
 
 impl SignatureContent {
     pub fn rand<R: Rng>(rng: &mut R) -> (Vec<KeySet>, Self) {
-        let expiry = 0;
         let mut key_sets = (0..NUM_SENDERS_IN_BLOCK)
             .map(|_| KeySet::rand(rng))
             .collect::<Vec<_>>();
@@ -29,10 +26,10 @@ impl SignatureContent {
             .collect::<Vec<_>>();
         let pubkey_hash = get_pubkey_hash(&pubkeys);
         let account_id_hash = Bytes32::rand(rng);
-        let tx_tree_root = Bytes32::rand(rng);
-        let is_registration_block = rng.gen();
         let sender_flag = Bytes16::rand(rng);
         let sender_flag_bits = sender_flag.to_bits_be();
+
+        let block_sign_payload = BlockSignPayload::rand(rng);
         let agg_pubkey = key_sets
             .iter()
             .zip(sender_flag_bits.iter())
@@ -49,10 +46,8 @@ impl SignatureContent {
             });
         let agg_signature = key_sets
             .iter()
-            .map(|keyset| {
-                sign_to_tx_root_and_expiry(keyset.privkey, tx_tree_root, expiry, pubkey_hash)
-            })
-            .zip(sender_flag_bits.into_iter())
+            .map(|keyset| G2Affine::from(block_sign_payload.sign(keyset.privkey, pubkey_hash)))
+            .zip(sender_flag_bits)
             .fold(
                 G2Affine::zero(),
                 |acc: G2Affine, (x, b)| {
@@ -64,15 +59,13 @@ impl SignatureContent {
                 },
             );
         // message point
-        let message_point = tx_tree_root_and_expiry_to_message_point(tx_tree_root, expiry.into());
+        let message_point = block_sign_payload.message_point();
         assert!(
-            Bn254::pairing(agg_pubkey, message_point)
+            Bn254::pairing(agg_pubkey, G2Affine::from(message_point.clone()))
                 == Bn254::pairing(G1Affine::generator(), agg_signature)
         );
         let signature = Self {
-            tx_tree_root,
-            expiry: expiry.into(),
-            is_registration_block,
+            block_sign_payload,
             sender_flag,
             pubkey_hash,
             account_id_hash,

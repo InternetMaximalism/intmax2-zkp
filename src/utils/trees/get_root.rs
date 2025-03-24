@@ -29,7 +29,7 @@ fn get_merkle_root_from_full_leaves<V: Leafable>(
             })
             .collect::<Vec<_>>();
     }
-    layer[0].clone()
+    layer[0]
 }
 
 fn get_merkle_root_from_full_leaves_circuit<
@@ -176,7 +176,7 @@ mod tests {
             .map(|_| V::rand(&mut rng))
             .collect::<Vec<_>>();
         for leaf in &leaves {
-            tree.push(leaf.clone());
+            tree.push(*leaf);
         }
         let root_expected = tree.get_root();
         let mut padded_leaves = leaves.clone();

@@ -98,7 +98,7 @@ impl LeafableHasher for PoseidonLeafableHasher {
         let inputs = left
             .to_u64_vec()
             .into_iter()
-            .chain(right.to_u64_vec().into_iter())
+            .chain(right.to_u64_vec())
             .collect::<Vec<_>>();
         PoseidonHashOut::hash_inputs_u64(&inputs)
     }
@@ -182,7 +182,7 @@ impl LeafableHasher for KeccakLeafableHasher {
 
     fn two_to_one(left: Self::HashOut, right: Self::HashOut) -> Self::HashOut {
         let inputs = [left.to_u32_vec(), right.to_u32_vec()].concat();
-        Bytes32::from_u32_slice(&solidity_keccak256(&inputs))
+        Bytes32::from_u32_slice(&solidity_keccak256(&inputs)).expect("Invalid length")
     }
 
     fn connect_hash<F: RichField + Extendable<D>, const D: usize>(

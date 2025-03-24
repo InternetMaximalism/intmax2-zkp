@@ -1,6 +1,7 @@
 use crate::{
     constants::ACCOUNT_TREE_HEIGHT,
     ethereum_types::{
+        account_id::AccountId,
         u256::{U256Target, U256},
         u32limb_trait::U32LimbTargetTrait,
     },
@@ -65,12 +66,12 @@ pub struct AccountMerkleProof {
 impl AccountMerkleProof {
     /// id is already registered. Account id range check is assumed already
     /// done.
-    pub fn verify(&self, root: PoseidonHashOut, account_id: u64, pubkey: U256) -> bool {
+    pub fn verify(&self, root: PoseidonHashOut, account_id: AccountId, pubkey: U256) -> bool {
         let mut result = true;
         let is_not_pubkey_zero = pubkey != U256::default();
         result = result && is_not_pubkey_zero;
         self.merkle_proof
-            .verify(&self.leaf, account_id, root)
+            .verify(&self.leaf, account_id.0, root)
             .unwrap();
         let is_eq = pubkey == self.leaf.key;
         result = result && is_eq;

@@ -52,7 +52,7 @@ impl IndexedMerkleTree {
                 (leaf.key < key) && (key < leaf.next_key || leaf.next_key == U256::default())
             })
             .collect::<Vec<_>>();
-        ensure!(0 < low_leaf_candidates.len(), "key already exists");
+        ensure!(!low_leaf_candidates.is_empty(), "key already exists");
         ensure!(
             low_leaf_candidates.len() == 1,
             "low_index: too many candidates"
@@ -99,6 +99,10 @@ impl IndexedMerkleTree {
     }
 
     pub fn len(&self) -> usize {
-        self.0.len()
+        self.leaves().len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.leaves().is_empty()
     }
 }

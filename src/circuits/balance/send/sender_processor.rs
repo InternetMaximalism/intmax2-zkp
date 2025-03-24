@@ -121,9 +121,9 @@ where
         let sender_value = SenderValue::new(
             &self.spent_circuit,
             &self.tx_inclusion_circuit,
-            &spent_proof,
+            spent_proof,
             &tx_inclusion_proof,
-            &prev_balance_pis,
+            prev_balance_pis,
         )
         .map_err(|e| anyhow::anyhow!("failed to create sender value: {}", e))?;
         self.sender_circuit

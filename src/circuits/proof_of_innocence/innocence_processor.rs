@@ -35,6 +35,17 @@ where
     innocence_wrap_circuit: InnocenceWrapCircuit<F, C, D>,
 }
 
+impl<F, C, const D: usize> Default for InnocenceProcessor<F, C, D>
+where
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F> + 'static,
+    C::Hasher: AlgebraicHasher<F>,
+ {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<F, C, const D: usize> InnocenceProcessor<F, C, D>
 where
     F: RichField + Extendable<D>,

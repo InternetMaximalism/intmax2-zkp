@@ -40,7 +40,7 @@ where
     C::Hasher: AlgebraicHasher<F>,
 {
     pub fn new(single_vd: &VerifierCircuitData<F, C, D>) -> Self {
-        let inner_circuit = HashInnerCircuit::new(&single_vd);
+        let inner_circuit = HashInnerCircuit::new(single_vd);
         let cyclic_circuit = CyclicChainCircuit::new(&inner_circuit.data.verifier_data());
         let chain_end_circuit = ChainEndCircuit::new(&cyclic_circuit.data.verifier_data());
         Self {
@@ -59,7 +59,7 @@ where
         let prev_hash = if prev_proof.is_some() {
             Bytes32::from_u64_slice(
                 &prev_proof.as_ref().unwrap().public_inputs[0..BYTES32_LEN].to_u64_vec(),
-            )
+            ).expect("Converting from u64 slice should never fail")
         } else {
             Bytes32::default()
         };

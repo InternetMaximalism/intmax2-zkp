@@ -38,9 +38,9 @@ impl InnocenceWrapPublicInputs {
     pub fn to_u64_vec(&self) -> Vec<u64> {
         let vec = vec![self.use_allow_list as u64]
             .into_iter()
-            .chain(self.allow_list_tree_root.to_u64_vec().into_iter())
-            .chain(self.deny_list_tree_root.to_u64_vec().into_iter())
-            .chain(self.private_commitment.to_u64_vec().into_iter())
+            .chain(self.allow_list_tree_root.to_u64_vec())
+            .chain(self.deny_list_tree_root.to_u64_vec())
+            .chain(self.private_commitment.to_u64_vec())
             .collect::<Vec<_>>();
         assert_eq!(vec.len(), INNOCENCE_WRAP_PUBLIC_INPUTS_LEN);
         vec
@@ -82,9 +82,9 @@ impl InnocenceWrapPublicInputsTarget {
     pub fn to_vec(&self) -> Vec<Target> {
         let vec = vec![self.use_allow_list.target]
             .into_iter()
-            .chain(self.allow_list_tree_root.to_vec().into_iter())
-            .chain(self.deny_list_tree_root.to_vec().into_iter())
-            .chain(self.private_commitment.to_vec().into_iter())
+            .chain(self.allow_list_tree_root.to_vec())
+            .chain(self.deny_list_tree_root.to_vec())
+            .chain(self.private_commitment.to_vec())
             .collect::<Vec<_>>();
         assert_eq!(vec.len(), INNOCENCE_WRAP_PUBLIC_INPUTS_LEN);
         vec

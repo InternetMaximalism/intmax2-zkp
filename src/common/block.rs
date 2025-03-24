@@ -71,7 +71,7 @@ impl Block {
     }
 
     pub fn hash(&self) -> Bytes32 {
-        Bytes32::from_u32_slice(&solidity_keccak256(&self.to_u32_vec()))
+        Bytes32::from_u32_slice(&solidity_keccak256(&self.to_u32_vec())).unwrap()
     }
 }
 
@@ -132,7 +132,8 @@ impl BlockTarget {
             .set_witness(witness, value.deposit_tree_root);
         self.signature_hash
             .set_witness(witness, value.signature_hash);
-        self.timestamp.set_witness(witness, U64::from(value.timestamp));
+        self.timestamp
+            .set_witness(witness, U64::from(value.timestamp));
         witness.set_target(self.block_number, F::from_canonical_u32(value.block_number));
     }
 }

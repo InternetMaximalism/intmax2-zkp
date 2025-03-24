@@ -141,10 +141,10 @@ impl AccountUpdateTarget {
             );
             account_tree_root = account_update_proof.get_new_root::<F, C, D>(
                 builder,
-                sender_leaf.sender.clone(),
+                sender_leaf.sender,
                 prev_last_block_number,
                 last_block_number,
-                account_tree_root.clone(),
+                account_tree_root,
             );
         }
 
@@ -214,12 +214,12 @@ where
         let mut builder = CircuitBuilder::<F, D>::new(config.clone());
         let target = AccountUpdateTarget::new::<F, C, D>(&mut builder);
         let pis = AccountTransitionPublicInputsTarget {
-            prev_account_tree_root: target.prev_account_tree_root.clone(),
-            prev_next_account_id: target.next_account_id.clone(),
-            new_account_tree_root: target.new_account_tree_root.clone(),
-            new_next_account_id: target.next_account_id.clone(),
-            sender_tree_root: target.sender_tree_root.clone(),
-            block_number: target.block_number.clone(),
+            prev_account_tree_root: target.prev_account_tree_root,
+            prev_next_account_id: target.next_account_id,
+            new_account_tree_root: target.new_account_tree_root,
+            new_next_account_id: target.next_account_id,
+            sender_tree_root: target.sender_tree_root,
+            block_number: target.block_number,
         };
         builder.register_public_inputs(&pis.to_vec());
 

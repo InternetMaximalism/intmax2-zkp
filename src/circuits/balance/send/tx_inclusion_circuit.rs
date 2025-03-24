@@ -60,7 +60,7 @@ impl TxInclusionPublicInputs {
         let new_public_state =
             PublicState::from_u64_slice(&input[PUBLIC_STATE_LEN..PUBLIC_STATE_LEN * 2]);
         let pubkey =
-            U256::from_u64_slice(&input[PUBLIC_STATE_LEN * 2..PUBLIC_STATE_LEN * 2 + U256_LEN]);
+            U256::from_u64_slice(&input[PUBLIC_STATE_LEN * 2..PUBLIC_STATE_LEN * 2 + U256_LEN]).unwrap();
         let tx = Tx::from_u64_slice(
             &input[PUBLIC_STATE_LEN * 2 + U256_LEN..PUBLIC_STATE_LEN * 2 + U256_LEN + TX_LEN],
         );
@@ -143,6 +143,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
 where
     <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
 {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         validity_vd: &VerifierCircuitData<F, C, D>,
         pubkey: U256,
@@ -211,7 +212,7 @@ where
             block_merkle_proof: block_merkle_proof.clone(),
             prev_account_membership_proof: prev_account_membership_proof.clone(),
             sender_index,
-            tx: tx.clone(),
+            tx: *tx,
             tx_merkle_proof: tx_merkle_proof.clone(),
             sender_leaf: sender_leaf.clone(),
             sender_merkle_proof: sender_merkle_proof.clone(),

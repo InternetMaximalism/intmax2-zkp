@@ -46,16 +46,14 @@ where
                     let mut meta = meta;
                     meta.block_number = Some(block_number);
                     settled.push((meta, deposit_data));
+                } else if meta.timestamp + deposit_timeout < chrono::Utc::now().timestamp() as u64 {
+                    // timeout
+                    log::error!("Deposit {} is timeouted", meta.uuid);
+                    rejected.push(meta);
                 } else {
-                    if meta.timestamp + deposit_timeout < chrono::Utc::now().timestamp() as u64 {
-                        // timeout
-                        log::error!("Deposit {} is timeouted", meta.uuid);
-                        rejected.push(meta);
-                    } else {
-                        // pending
-                        log::info!("Deposit {} is pending", meta.uuid);
-                        pending.push(meta);
-                    }
+                    // pending
+                    log::info!("Deposit {} is pending", meta.uuid);
+                    pending.push(meta);
                 }
             }
             Err(e) => {

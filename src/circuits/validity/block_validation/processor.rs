@@ -16,7 +16,7 @@ use crate::{
         format_validation::{FormatValidationCircuit, FormatValidationValue},
         main_validation::{MainValidationCircuit, MainValidationValue},
     },
-    common::{signature::sign::get_pubkey_hash, witness::block_witness::BlockWitness},
+    common::{signature::utils::get_pubkey_hash, witness::block_witness::BlockWitness},
 };
 
 #[derive(Debug)]
@@ -30,6 +30,17 @@ where
     pub aggregation_circuit: AggregationCircuit<F, C, D>,
     pub format_validation_circuit: FormatValidationCircuit<F, C, D>,
     pub main_validation_circuit: MainValidationCircuit<F, C, D>,
+}
+
+impl<F, C, const D: usize> Default for MainValidationProcessor<F, C, D>
+where
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F> + 'static,
+    <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
+{
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl<F, C, const D: usize> MainValidationProcessor<F, C, D>
@@ -61,44 +72,50 @@ where
 
     pub fn prove(&self, block_witness: &BlockWitness) -> Result<ProofWithPublicInputs<F, C, D>> {
         let mut result = true;
-        if !block_witness.signature.is_registration_block {
+        if !block_witness
+            .signature
+            .block_sign_payload
+            .is_registration_block
+        {
             let pubkey_hash = get_pubkey_hash(&block_witness.pubkeys);
             let is_pubkey_eq = block_witness.signature.pubkey_hash == pubkey_hash;
             result = result && is_pubkey_eq;
         }
         let sender_leaves = block_witness.get_sender_tree().leaves();
-        let (account_exclusion_proof, account_inclusion_proof) =
-            if block_witness.signature.is_registration_block {
-                let account_exclusion_value = AccountExclusionValue::new(
-                    block_witness.prev_account_tree_root,
-                    block_witness
-                        .account_membership_proofs
-                        .clone()
-                        .expect("Account membership proofs are missing"),
-                    sender_leaves,
-                );
-                let account_exclusion_proof = self
-                    .account_exclusion_circuit
-                    .prove(&account_exclusion_value)?;
-                result = result && account_exclusion_value.is_valid;
-                (Some(account_exclusion_proof), None)
-            } else {
-                let value = AccountInclusionValue::new(
-                    block_witness.prev_account_tree_root,
-                    block_witness
-                        .account_id_packed
-                        .clone()
-                        .expect("Account ID is missing"),
-                    block_witness
-                        .account_merkle_proofs
-                        .clone()
-                        .expect("Account merkle proofs are missing"),
-                    block_witness.pubkeys.clone(),
-                );
-                let account_inclusion_proof = self.account_inclusion_circuit.prove(&value)?;
-                result = result && value.is_valid;
-                (None, Some(account_inclusion_proof))
-            };
+        let (account_exclusion_proof, account_inclusion_proof) = if block_witness
+            .signature
+            .block_sign_payload
+            .is_registration_block
+        {
+            let account_exclusion_value = AccountExclusionValue::new(
+                block_witness.prev_account_tree_root,
+                block_witness
+                    .account_membership_proofs
+                    .clone()
+                    .expect("Account membership proofs are missing"),
+                sender_leaves,
+            );
+            let account_exclusion_proof = self
+                .account_exclusion_circuit
+                .prove(&account_exclusion_value)?;
+            result = result && account_exclusion_value.is_valid;
+            (Some(account_exclusion_proof), None)
+        } else {
+            let value = AccountInclusionValue::new(
+                block_witness.prev_account_tree_root,
+                block_witness
+                    .account_id_packed
+                    .expect("Account ID is missing"),
+                block_witness
+                    .account_merkle_proofs
+                    .clone()
+                    .expect("Account merkle proofs are missing"),
+                block_witness.pubkeys.clone(),
+            );
+            let account_inclusion_proof = self.account_inclusion_circuit.prove(&value)?;
+            result = result && value.is_valid;
+            (None, Some(account_inclusion_proof))
+        };
         let format_validation_value = FormatValidationValue::new(
             block_witness.pubkeys.clone(),
             block_witness.signature.clone(),
