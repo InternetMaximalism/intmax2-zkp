@@ -1,3 +1,4 @@
+pub mod bit_path;
 pub mod get_root;
 pub mod incremental_merkle_tree;
 pub mod indexed_merkle_tree;

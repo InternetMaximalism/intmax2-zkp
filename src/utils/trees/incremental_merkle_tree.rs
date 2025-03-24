@@ -19,8 +19,6 @@ use crate::utils::{
     trees::merkle_tree::u64_le_bits,
 };
 
-// Merkle Tree that holds leaves as a vec. It is suitable for handling indexed
-// leaves.
 #[derive(Debug, Clone)]
 pub struct IncrementalMerkleTree<V: Leafable> {
     merkle_tree: MerkleTree<V>,
