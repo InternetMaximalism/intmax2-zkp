@@ -12,11 +12,10 @@ use plonky2::{
 };
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-use super::merkle_tree::{MerkleProof, MerkleProofTarget, MerkleTree};
-use crate::utils::{
-    leafable::{Leafable, LeafableTarget},
-    leafable_hasher::LeafableHasher,
+use super::merkle_tree::{
+    HashOut, HashOutTarget, MerkleProof, MerkleProofTarget, MerkleTree, MerkleTreeError,
 };
+use crate::utils::leafable::{Leafable, LeafableTarget};
 
 #[derive(Debug, Clone)]
 pub struct IncrementalMerkleTree<V: Leafable> {
@@ -47,7 +46,7 @@ impl<V: Leafable> IncrementalMerkleTree<V> {
         }
     }
 
-    pub fn get_root(&self) -> <V::LeafableHasher as LeafableHasher>::HashOut {
+    pub fn get_root(&self) -> HashOut<V> {
         self.merkle_tree.get_root()
     }
 
@@ -98,11 +97,7 @@ impl<V: Leafable> IncrementalMerkleProof<V> {
         Self(MerkleProof::dummy(height))
     }
 
-    pub fn get_root(
-        &self,
-        leaf_data: &V,
-        index: u64,
-    ) -> <V::LeafableHasher as LeafableHasher>::HashOut {
+    pub fn get_root(&self, leaf_data: &V, index: u64) -> HashOut<V> {
         self.0.get_root(leaf_data, index)
     }
 
@@ -110,12 +105,12 @@ impl<V: Leafable> IncrementalMerkleProof<V> {
         &self,
         leaf_data: &V,
         index: u64,
-        merkle_root: <V::LeafableHasher as LeafableHasher>::HashOut,
-    ) -> anyhow::Result<()> {
+        merkle_root: HashOut<V>,
+    ) -> Result<(), MerkleTreeError> {
         self.0.verify(leaf_data, index, merkle_root)
     }
 
-    pub fn from_siblings(siblings: Vec<<V::LeafableHasher as LeafableHasher>::HashOut>) -> Self {
+    pub fn from_siblings(siblings: Vec<HashOut<V>>) -> Self {
         Self(MerkleProof { siblings })
     }
 }
@@ -157,7 +152,7 @@ impl<VT: LeafableTarget> IncrementalMerkleProofTarget<VT> {
         builder: &mut CircuitBuilder<F, D>,
         leaf_data: &VT,
         index: Target,
-    ) -> <<VT::Leaf as Leafable>::LeafableHasher as LeafableHasher>::HashOutTarget
+    ) -> HashOutTarget<VT>
     where
         <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
     {
@@ -173,7 +168,7 @@ impl<VT: LeafableTarget> IncrementalMerkleProofTarget<VT> {
         builder: &mut CircuitBuilder<F, D>,
         leaf_data: &VT,
         index: Target,
-        merkle_root: <<VT::Leaf as Leafable>::LeafableHasher as LeafableHasher>::HashOutTarget,
+        merkle_root: HashOutTarget<VT>,
     ) where
         <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
     {
@@ -191,7 +186,7 @@ impl<VT: LeafableTarget> IncrementalMerkleProofTarget<VT> {
         condition: BoolTarget,
         leaf_data: &VT,
         index: Target,
-        merkle_root: <<VT::Leaf as Leafable>::LeafableHasher as LeafableHasher>::HashOutTarget,
+        merkle_root: HashOutTarget<VT>,
     ) where
         <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
     {
@@ -217,7 +212,6 @@ impl<V: Leafable> IncrementalMerkleTree<V> {
 
     fn unpack(packed: IncrementalMerkleTreePacked<V>) -> Self {
         let mut tree = IncrementalMerkleTree::new(packed.height);
-        // todo: batch update
         for leaf in packed.leaves {
             tree.push(leaf);
         }

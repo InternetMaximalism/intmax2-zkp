@@ -26,6 +26,12 @@ pub type HashOut<V> = <Hasher<V> as LeafableHasher>::HashOut;
 pub type HasherFromTarget<VT> = <<VT as LeafableTarget>::Leaf as Leafable>::LeafableHasher;
 pub type HashOutTarget<VT> = <HasherFromTarget<VT> as LeafableHasher>::HashOutTarget;
 
+#[derive(Debug, thiserror::Error)]
+pub enum MerkleTreeError {
+    #[error("Merkle proof verification failed: {0}")]
+    VerificationFailed(String),
+}
+
 #[derive(Clone, Debug)]
 pub(crate) struct MerkleTree<V: Leafable> {
     height: usize,
@@ -69,10 +75,8 @@ impl<V: Leafable> MerkleTree<V> {
     pub(crate) fn update_leaf(&mut self, index: u64, leaf_hash: HashOut<V>) {
         let mut path = BitPath::new(self.height as u32, index);
         path.reverse();
-
         let mut h = leaf_hash;
         self.node_hashes.insert(path.clone(), h);
-
         while !path.is_empty() {
             let sibling = self.get_node_hash(path.sibling());
             h = if path.pop().unwrap() {
@@ -86,8 +90,7 @@ impl<V: Leafable> MerkleTree<V> {
 
     pub(crate) fn prove(&self, index: u64) -> MerkleProof<V> {
         let mut path = BitPath::new(self.height as u32, index);
-        path.reverse(); // path is big endian
-
+        path.reverse();
         let mut siblings = vec![];
         while !path.is_empty() {
             siblings.push(self.get_node_hash(path.sibling()));
@@ -151,11 +154,19 @@ impl<V: Leafable> MerkleProof<V> {
         state
     }
 
-    pub fn verify(&self, leaf_data: &V, index: u64, merkle_root: HashOut<V>) -> anyhow::Result<()> {
-        anyhow::ensure!(
-            self.get_root(leaf_data, index) == merkle_root,
-            "Merkle proof verification failed"
-        );
+    pub fn verify(
+        &self,
+        leaf_data: &V,
+        index: u64,
+        merkle_root: HashOut<V>,
+    ) -> Result<(), MerkleTreeError> {
+        let proof_root = self.get_root(leaf_data, index);
+        if proof_root != merkle_root {
+            return Err(MerkleTreeError::VerificationFailed(format!(
+                "Merkle proof verification failed: root from proof: {:?}, expected root: {:?}",
+                proof_root, merkle_root
+            )));
+        }
         Ok(())
     }
 }

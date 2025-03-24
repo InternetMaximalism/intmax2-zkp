@@ -10,11 +10,10 @@ use plonky2::{
 };
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-use super::merkle_tree::{MerkleProof, MerkleProofTarget, MerkleTree};
-use crate::utils::{
-    leafable::{Leafable, LeafableTarget},
-    leafable_hasher::LeafableHasher,
+use super::merkle_tree::{
+    HashOut, HashOutTarget, MerkleProof, MerkleProofTarget, MerkleTree, MerkleTreeError,
 };
+use crate::utils::leafable::{Leafable, LeafableTarget};
 
 // Merkle Tree that holds leaves as a vec. It is suitable for handling indexed
 // leaves.
@@ -46,7 +45,7 @@ impl<V: Leafable> SparseMerkleTree<V> {
         }
     }
 
-    pub fn get_root(&self) -> <V::LeafableHasher as LeafableHasher>::HashOut {
+    pub fn get_root(&self) -> HashOut<V> {
         self.merkle_tree.get_root()
     }
 
@@ -76,11 +75,7 @@ impl<V: Leafable> SparseMerkleTree<V> {
 pub struct SparseMerkleProof<V: Leafable>(pub(crate) MerkleProof<V>);
 
 impl<V: Leafable> SparseMerkleProof<V> {
-    pub fn get_root(
-        &self,
-        leaf_data: &V,
-        index: u64,
-    ) -> <V::LeafableHasher as LeafableHasher>::HashOut {
+    pub fn get_root(&self, leaf_data: &V, index: u64) -> HashOut<V> {
         self.0.get_root(leaf_data, index)
     }
 
@@ -88,19 +83,19 @@ impl<V: Leafable> SparseMerkleProof<V> {
         &self,
         leaf_data: &V,
         index: u64,
-        merkle_root: <V::LeafableHasher as LeafableHasher>::HashOut,
-    ) -> anyhow::Result<()> {
+        merkle_root: HashOut<V>,
+    ) -> Result<(), MerkleTreeError> {
         self.0.verify(leaf_data, index, merkle_root)
     }
 
-    pub fn from_siblings(siblings: Vec<<V::LeafableHasher as LeafableHasher>::HashOut>) -> Self {
+    pub fn from_siblings(siblings: Vec<HashOut<V>>) -> Self {
         Self(MerkleProof { siblings })
     }
 }
 
 impl<V: Leafable> Serialize for SparseMerkleProof<V>
 where
-    <V::LeafableHasher as LeafableHasher>::HashOut: Serialize,
+    HashOut<V>: Serialize,
 {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -112,14 +107,13 @@ where
 
 impl<'de, V: Leafable> Deserialize<'de> for SparseMerkleProof<V>
 where
-    <V::LeafableHasher as LeafableHasher>::HashOut: Deserialize<'de>,
+    HashOut<V>: Deserialize<'de>,
 {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {
-        let siblings =
-            Vec::<<V::LeafableHasher as LeafableHasher>::HashOut>::deserialize(deserializer)?;
+        let siblings = Vec::<HashOut<V>>::deserialize(deserializer)?;
         Ok(SparseMerkleProof(MerkleProof { siblings }))
     }
 }
@@ -161,7 +155,7 @@ impl<VT: LeafableTarget> SparseMerkleProofTarget<VT> {
         builder: &mut CircuitBuilder<F, D>,
         leaf_data: &VT,
         index: Target,
-    ) -> <<VT::Leaf as Leafable>::LeafableHasher as LeafableHasher>::HashOutTarget
+    ) -> HashOutTarget<VT>
     where
         <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
     {
@@ -177,7 +171,7 @@ impl<VT: LeafableTarget> SparseMerkleProofTarget<VT> {
         builder: &mut CircuitBuilder<F, D>,
         leaf_data: &VT,
         index: Target,
-        merkle_root: <<VT::Leaf as Leafable>::LeafableHasher as LeafableHasher>::HashOutTarget,
+        merkle_root: HashOutTarget<VT>,
     ) where
         <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
     {
