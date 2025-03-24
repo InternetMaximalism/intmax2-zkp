@@ -5,7 +5,7 @@ use plonky2::{
     field::extension::Extendable,
     hash::hash_types::RichField,
     plonk::{
-        circuit_data::CommonCircuitData,
+        circuit_data::VerifierCircuitData,
         config::{AlgebraicHasher, GenericConfig},
         proof::ProofWithPublicInputs,
     },
@@ -24,7 +24,7 @@ where
     C: GenericConfig<D, F = F>,
     <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
 {
-    balance_common_data: CommonCircuitData<F, D>,
+    balance_vd: VerifierCircuitData<F, C, D>,
     single_withdrawal_circuit: OnceLock<SingleWithdrawalCircuit<F, C, D>>,
     withdrawal_processor: OnceLock<HashChainProcessor<F, C, D>>, // delayed initialization
     prev_withdrawal_proof: Option<ProofWithPublicInputs<F, C, D>>,
@@ -37,9 +37,9 @@ where
     C: GenericConfig<D, F = F> + 'static,
     <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
 {
-    pub fn new(balance_common_data: &CommonCircuitData<F, D>) -> Self {
+    pub fn new(balance_vd: &VerifierCircuitData<F, C, D>) -> Self {
         Self {
-            balance_common_data: balance_common_data.clone(),
+            balance_vd: balance_vd.clone(),
             single_withdrawal_circuit: OnceLock::new(),
             withdrawal_processor: OnceLock::new(),
             prev_withdrawal_proof: None,
@@ -50,9 +50,9 @@ where
     pub fn reset(&mut self) {
         let single_withdrawal_circuit = std::mem::take(&mut self.single_withdrawal_circuit);
         let withdrawal_processor = std::mem::take(&mut self.withdrawal_processor);
-        let balance_common_data = self.balance_common_data.clone();
+        let balance_vd = self.balance_vd.clone();
         *self = Self {
-            balance_common_data,
+            balance_vd,
             single_withdrawal_circuit,
             withdrawal_processor,
             prev_withdrawal_proof: None,
@@ -112,6 +112,6 @@ where
 
     pub fn single_withdrawal_circuit(&self) -> &SingleWithdrawalCircuit<F, C, D> {
         self.single_withdrawal_circuit
-            .get_or_init(|| SingleWithdrawalCircuit::new(&self.balance_common_data))
+            .get_or_init(|| SingleWithdrawalCircuit::new(&self.balance_vd))
     }
 }
