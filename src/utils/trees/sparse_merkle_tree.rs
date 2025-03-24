@@ -14,7 +14,6 @@ use super::merkle_tree::{MerkleProof, MerkleProofTarget, MerkleTree};
 use crate::utils::{
     leafable::{Leafable, LeafableTarget},
     leafable_hasher::LeafableHasher,
-    trees::merkle_tree::u64_le_bits,
 };
 
 // Merkle Tree that holds leaves as a vec. It is suitable for handling indexed
@@ -27,7 +26,7 @@ pub struct SparseMerkleTree<V: Leafable> {
 
 impl<V: Leafable> SparseMerkleTree<V> {
     pub fn new(height: usize) -> Self {
-        let merkle_tree = MerkleTree::new(height, V::empty_leaf().hash());
+        let merkle_tree = MerkleTree::new(height);
         let leaves = HashMap::new();
         Self {
             merkle_tree,
@@ -64,14 +63,12 @@ impl<V: Leafable> SparseMerkleTree<V> {
     }
 
     pub fn update(&mut self, index: u64, leaf: V) {
-        let index_bits = u64_le_bits(index, self.height());
-        self.merkle_tree.update_leaf(index_bits, leaf.hash());
+        self.merkle_tree.update_leaf(index, leaf.hash());
         self.leaves.insert(index, leaf);
     }
 
     pub fn prove(&self, index: u64) -> SparseMerkleProof<V> {
-        let index_bits = u64_le_bits(index, self.height());
-        SparseMerkleProof(self.merkle_tree.prove(index_bits))
+        SparseMerkleProof(self.merkle_tree.prove(index))
     }
 }
 
@@ -84,9 +81,7 @@ impl<V: Leafable> SparseMerkleProof<V> {
         leaf_data: &V,
         index: u64,
     ) -> <V::LeafableHasher as LeafableHasher>::HashOut {
-        let height = self.0.height();
-        let index_bits = u64_le_bits(index, height);
-        self.0.get_root(leaf_data, index_bits)
+        self.0.get_root(leaf_data, index)
     }
 
     pub fn verify(
@@ -95,9 +90,7 @@ impl<V: Leafable> SparseMerkleProof<V> {
         index: u64,
         merkle_root: <V::LeafableHasher as LeafableHasher>::HashOut,
     ) -> anyhow::Result<()> {
-        let height = self.0.height();
-        let index_bits = u64_le_bits(index, height);
-        self.0.verify(leaf_data, index_bits, merkle_root)
+        self.0.verify(leaf_data, index, merkle_root)
     }
 
     pub fn from_siblings(siblings: Vec<<V::LeafableHasher as LeafableHasher>::HashOut>) -> Self {

@@ -61,10 +61,9 @@ impl<V: Leafable> MerkleTree<V> {
         self.get_node_hash(BitPath::default())
     }
 
-    // index_bits is little endian
     pub(crate) fn update_leaf(&mut self, index: u64, leaf_hash: HashOut<V>) {
         let mut path = BitPath::new(self.height as u32, index);
-        path.reverse(); // path is big endian
+        path.reverse();
 
         let mut h = leaf_hash;
         self.node_hashes.insert(path.clone(), h);
@@ -339,8 +338,6 @@ mod tests {
 
     #[test]
     fn merkle_tree_update_prove_verify() {
-        type V = Bytes32;
-
         let mut rng = rand::thread_rng();
         let height = 10;
         let mut tree = MerkleTree::<Bytes32>::new(height);

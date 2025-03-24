@@ -16,7 +16,6 @@ use super::merkle_tree::{MerkleProof, MerkleProofTarget, MerkleTree};
 use crate::utils::{
     leafable::{Leafable, LeafableTarget},
     leafable_hasher::LeafableHasher,
-    trees::merkle_tree::u64_le_bits,
 };
 
 #[derive(Debug, Clone)]
@@ -27,7 +26,7 @@ pub struct IncrementalMerkleTree<V: Leafable> {
 
 impl<V: Leafable> IncrementalMerkleTree<V> {
     pub fn new(height: usize) -> Self {
-        let merkle_tree = MerkleTree::new(height, V::empty_leaf().hash());
+        let merkle_tree = MerkleTree::new(height);
         let leaves = vec![];
 
         Self {
@@ -65,8 +64,7 @@ impl<V: Leafable> IncrementalMerkleTree<V> {
     }
 
     pub fn update(&mut self, index: u64, leaf: V) {
-        let index_bits = u64_le_bits(index, self.height());
-        self.merkle_tree.update_leaf(index_bits, leaf.hash());
+        self.merkle_tree.update_leaf(index, leaf.hash());
         self.leaves[index as usize] = leaf;
     }
 
@@ -75,8 +73,7 @@ impl<V: Leafable> IncrementalMerkleTree<V> {
         assert!(index < (1u64 << (self.height() as u64)));
         let leaf_hash = leaf.hash();
         self.leaves.push(leaf);
-        let index_bits = u64_le_bits(index, self.height());
-        self.merkle_tree.update_leaf(index_bits, leaf_hash);
+        self.merkle_tree.update_leaf(index, leaf_hash);
     }
 
     pub fn pop(&mut self) {
@@ -84,13 +81,11 @@ impl<V: Leafable> IncrementalMerkleTree<V> {
         self.leaves.pop();
         let index = self.leaves.len() as u64;
         let leaf = V::empty_leaf();
-        let index_bits = u64_le_bits(index, self.height());
-        self.merkle_tree.update_leaf(index_bits, leaf.hash());
+        self.merkle_tree.update_leaf(index, leaf.hash());
     }
 
     pub fn prove(&self, index: u64) -> IncrementalMerkleProof<V> {
-        let index_bits = u64_le_bits(index, self.height());
-        IncrementalMerkleProof(self.merkle_tree.prove(index_bits))
+        IncrementalMerkleProof(self.merkle_tree.prove(index))
     }
 }
 
@@ -108,9 +103,7 @@ impl<V: Leafable> IncrementalMerkleProof<V> {
         leaf_data: &V,
         index: u64,
     ) -> <V::LeafableHasher as LeafableHasher>::HashOut {
-        let height = self.0.height();
-        let index_bits = u64_le_bits(index, height);
-        self.0.get_root(leaf_data, index_bits)
+        self.0.get_root(leaf_data, index)
     }
 
     pub fn verify(
@@ -119,9 +112,7 @@ impl<V: Leafable> IncrementalMerkleProof<V> {
         index: u64,
         merkle_root: <V::LeafableHasher as LeafableHasher>::HashOut,
     ) -> anyhow::Result<()> {
-        let height = self.0.height();
-        let index_bits = u64_le_bits(index, height);
-        self.0.verify(leaf_data, index_bits, merkle_root)
+        self.0.verify(leaf_data, index, merkle_root)
     }
 
     pub fn from_siblings(siblings: Vec<<V::LeafableHasher as LeafableHasher>::HashOut>) -> Self {
