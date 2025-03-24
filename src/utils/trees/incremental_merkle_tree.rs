@@ -123,22 +123,6 @@ impl<V: Leafable> IncrementalMerkleProof<V> {
 #[derive(Debug, Clone)]
 pub struct IncrementalMerkleProofTarget<VT: LeafableTarget>(pub(crate) MerkleProofTarget<VT>);
 
-impl<VT: LeafableTarget> PartialEq for IncrementalMerkleProofTarget<VT>
-where
-    <<VT::Leaf as Leafable>::LeafableHasher as LeafableHasher>::HashOutTarget: PartialEq,
-{
-    fn eq(&self, other: &Self) -> bool {
-        self.0 == other.0
-    }
-}
-
-impl<VT: LeafableTarget> Eq for IncrementalMerkleProofTarget<VT>
-where
-    <<VT::Leaf as Leafable>::LeafableHasher as LeafableHasher>::HashOutTarget: Eq,
-{
-    // Nothing to implement
-}
-
 impl<VT: LeafableTarget> IncrementalMerkleProofTarget<VT> {
     pub fn new<F: RichField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,

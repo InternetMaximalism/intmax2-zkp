@@ -94,7 +94,7 @@ where
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone)]
 pub struct TransferInclusionTarget<const D: usize> {
     pub transfer: TransferTarget,
     pub transfer_index: Target,

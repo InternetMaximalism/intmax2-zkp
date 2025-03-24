@@ -86,7 +86,7 @@ impl PrivateStateTransitionValue {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone)]
 pub struct PrivateStateTransitionTarget {
     pub token_index: Target,
     pub amount: U256Target,

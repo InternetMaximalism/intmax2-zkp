@@ -39,7 +39,7 @@ pub struct IndexedInsertionProof {
     pub prev_low_leaf: IndexedMerkleLeaf,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug)]
 pub struct IndexedInsertionProofTarget {
     pub index: Target,
     pub low_leaf_proof: IndexedMerkleProofTarget,

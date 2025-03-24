@@ -20,6 +20,8 @@ use super::bit_path::BitPath;
 
 pub type Hasher<V> = <V as Leafable>::LeafableHasher;
 pub type HashOut<V> = <Hasher<V> as LeafableHasher>::HashOut;
+pub type HasherFromTarget<VT> = <<VT as LeafableTarget>::Leaf as Leafable>::LeafableHasher;
+pub type HashOutTarget<VT> = <HasherFromTarget<VT> as LeafableHasher>::HashOutTarget;
 
 #[derive(Clone, Debug)]
 pub(crate) struct MerkleTree<V: Leafable> {
@@ -157,32 +159,7 @@ impl<V: Leafable> MerkleProof<V> {
 
 #[derive(Clone, Debug)]
 pub(crate) struct MerkleProofTarget<VT: LeafableTarget> {
-    pub siblings: Vec<<<VT::Leaf as Leafable>::LeafableHasher as LeafableHasher>::HashOutTarget>,
-}
-
-impl<VT: LeafableTarget> PartialEq for MerkleProofTarget<VT>
-where
-    <<VT::Leaf as Leafable>::LeafableHasher as LeafableHasher>::HashOutTarget: PartialEq,
-{
-    fn eq(&self, other: &Self) -> bool {
-        if self.siblings.len() != other.siblings.len() {
-            return false;
-        }
-        for (a, b) in self.siblings.iter().zip(other.siblings.iter()) {
-            if a != b {
-                return false;
-            }
-        }
-
-        true
-    }
-}
-
-impl<VT: LeafableTarget> Eq for MerkleProofTarget<VT>
-where
-    <<VT::Leaf as Leafable>::LeafableHasher as LeafableHasher>::HashOutTarget: Eq,
-{
-    // Nothing to implement
+    pub siblings: Vec<HashOutTarget<VT>>,
 }
 
 impl<VT: LeafableTarget> MerkleProofTarget<VT> {

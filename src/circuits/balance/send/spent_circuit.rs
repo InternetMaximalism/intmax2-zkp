@@ -61,7 +61,8 @@ impl SpentPublicInputs {
         let insufficient_flags = InsufficientFlags::from_u64_slice(
             &input[2 * POSEIDON_HASH_OUT_LEN + TX_LEN
                 ..2 * POSEIDON_HASH_OUT_LEN + TX_LEN + INSUFFICIENT_FLAGS_LEN],
-        ).unwrap();
+        )
+        .unwrap();
         let is_valid = input[2 * POSEIDON_HASH_OUT_LEN + TX_LEN + INSUFFICIENT_FLAGS_LEN] == 1;
         Self {
             prev_private_commitment,
@@ -144,7 +145,7 @@ pub struct SpentValue {
     pub is_valid: bool,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug)]
 pub struct SpentTarget {
     pub prev_private_state: PrivateStateTarget,
     pub new_private_state_salt: SaltTarget,
@@ -318,7 +319,7 @@ impl SpentTarget {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug)]
 pub struct SpentCircuit<F, C, const D: usize>
 where
     F: RichField + Extendable<D>,
@@ -333,7 +334,7 @@ where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F> + 'static,
     C::Hasher: AlgebraicHasher<F>,
- {
+{
     fn default() -> Self {
         Self::new()
     }

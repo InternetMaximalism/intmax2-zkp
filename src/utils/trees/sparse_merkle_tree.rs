@@ -127,22 +127,6 @@ where
 #[derive(Debug, Clone)]
 pub struct SparseMerkleProofTarget<VT: LeafableTarget>(pub(crate) MerkleProofTarget<VT>);
 
-impl<VT: LeafableTarget> PartialEq for SparseMerkleProofTarget<VT>
-where
-    <<VT::Leaf as Leafable>::LeafableHasher as LeafableHasher>::HashOutTarget: PartialEq,
-{
-    fn eq(&self, other: &Self) -> bool {
-        self.0 == other.0
-    }
-}
-
-impl<VT: LeafableTarget> Eq for SparseMerkleProofTarget<VT>
-where
-    <<VT::Leaf as Leafable>::LeafableHasher as LeafableHasher>::HashOutTarget: Eq,
-{
-    // Nothing to implement
-}
-
 impl<VT: LeafableTarget> SparseMerkleProofTarget<VT> {
     pub fn new<F: RichField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,

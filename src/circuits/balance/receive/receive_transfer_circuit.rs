@@ -199,7 +199,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone)]
 pub struct ReceiveTransferTarget<const D: usize> {
     pub pubkey: U256Target,
     pub public_state: PublicStateTarget,
