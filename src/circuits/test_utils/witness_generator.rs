@@ -56,6 +56,9 @@ pub fn construct_validity_and_tx_witness(
     block_tree: &mut BlockHashTree,
     deposit_tree: &DepositTree,
     is_registration_block: bool,
+    expiry: u64,
+    block_builder_address: Address,
+    block_builder_nonce: u32,
     tx_requests: &[MockTxRequest],
     timestamp: u64,
 ) -> anyhow::Result<(ValidityWitness, Vec<TxWitness>)> {
@@ -93,10 +96,6 @@ pub fn construct_validity_and_tx_witness(
     }
 
     // construct block
-    // dummy values
-    let expiry = 0;
-    let block_builder_address = Address::default();
-    let block_builder_nonce = 0;
     let block_sign_payload = BlockSignPayload {
         is_registration_block,
         tx_tree_root,
@@ -279,16 +278,18 @@ mod tests {
             tx::Tx,
         },
         constants::DEPOSIT_TREE_HEIGHT,
+        ethereum_types::{address::Address, u32limb_trait::U32LimbTrait},
     };
 
     use super::MockTxRequest;
 
     #[test]
     fn test_construct_validity_witness() {
+        let mut rng = rand::thread_rng();
+        let block_builder_address = Address::rand(&mut rng);
         let mut account_tree = AccountTree::initialize();
         let mut block_tree = BlockHashTree::initialize();
         let deposit_tree = DepositTree::new(DEPOSIT_TREE_HEIGHT);
-        let mut rng = rand::thread_rng();
 
         let mut prev_validity_pis = ValidityPublicInputs::genesis();
         for _ in 0..10 {
@@ -305,6 +306,9 @@ mod tests {
                 &mut block_tree,
                 &deposit_tree,
                 true,
+                0,
+                block_builder_address,
+                0,
                 &tx_requests,
                 0,
             )

@@ -48,7 +48,8 @@ mod tests {
     fn test_claim() {
         let mut rng = rand::thread_rng();
         let validity_processor = Arc::new(ValidityProcessor::<F, C, D>::new());
-        let mut validity_state_manager = ValidityStateManager::new(validity_processor.clone());
+        let mut validity_state_manager =
+            ValidityStateManager::new(validity_processor.clone(), Address::default());
         let single_claim_processor =
             SingleClaimProcessor::new(&validity_processor.get_verifier_data());
         let claim_processor = HashChainProcessor::new(&single_claim_processor.get_verifier_data());
@@ -68,11 +69,11 @@ mod tests {
         let deposit_index = validity_state_manager.deposit(&deposit).unwrap();
 
         // post empty block to sync deposit tree
-        validity_state_manager.tick(false, &[], 0).unwrap();
+        validity_state_manager.tick(false, &[], 0, 0).unwrap();
 
         // lock time max passed in this block
         validity_state_manager
-            .tick(false, &[], LOCK_TIME_MAX as u64)
+            .tick(false, &[], 0, LOCK_TIME_MAX as u64)
             .unwrap();
 
         let update_witness = validity_state_manager
