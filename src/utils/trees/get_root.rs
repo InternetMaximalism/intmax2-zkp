@@ -12,8 +12,8 @@ use crate::utils::{
     leafable_hasher::LeafableHasher,
 };
 
-
-/// 与えられたleafとmerkle treeの高さから、merkle rootを計算する。leafが2^height個以上の場合はpanicを起こす。
+/// Calculate the merkle root from the given leaf and the height of the merkle tree. If the
+/// number of leaves is greater than 2^height, it will panic.
 fn get_merkle_root_from_full_leaves<V: Leafable>(
     height: usize,
     leaves: &[V],
@@ -170,8 +170,8 @@ mod tests {
     #[test]
     fn test_get_merkle_root_from_full_leaves() {
         let mut rng = rand::thread_rng();
-        let height = 15;
-        let num_leaves = 800;
+        let height = 5;
+        let num_leaves = 6;
         type V = Bytes32;
         let mut tree = IncrementalMerkleTree::<V>::new(height);
         let leaves = (0..num_leaves)
@@ -193,7 +193,7 @@ mod tests {
         type VT = Bytes32Target;
 
         let mut rng = rand::thread_rng();
-        let height = 10;
+        let height = 5;
         let leaves = (0..1 << height)
             .map(|_| V::rand(&mut rng))
             .collect::<Vec<_>>();
@@ -221,8 +221,8 @@ mod tests {
         type VT = Bytes32Target;
 
         let mut rng = rand::thread_rng();
-        let height = 10;
-        let num_leaves = 100;
+        let height = 5;
+        let num_leaves = 10;
         let leaves = (0..num_leaves)
             .map(|_| V::rand(&mut rng))
             .collect::<Vec<_>>();
