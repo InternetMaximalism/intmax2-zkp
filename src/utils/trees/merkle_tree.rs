@@ -308,6 +308,7 @@ mod tests {
     };
 
     use rand::Rng;
+    use serde_json;
 
     const D: usize = 2;
     type C = PoseidonGoldilocksConfig;
@@ -570,6 +571,44 @@ mod tests {
         tree.update_leaf(index_max, leaf_max.hash());
         let proof_max = tree.prove(index_max);
         proof_max.verify(&leaf_max, index_max, tree.get_root()).unwrap();
+    }
+
+    #[test]
+    fn test_merkle_proof_serialization() {
+        type V = Bytes32;
+        
+        let mut rng = rand::thread_rng();
+        let height = 10;
+        let mut tree = MerkleTree::<V>::new(height);
+        
+        // Create a tree with a few leaves
+        let index = rng.gen_range(0..1 << height);
+        let leaf = V::rand(&mut rng);
+        let leaf_hash = leaf.hash();
+        tree.update_leaf(index, leaf_hash);
+        
+        // Generate a proof
+        let proof = tree.prove(index);
+        let root = tree.get_root();
+        
+        // Serialize the proof to JSON
+        let serialized = serde_json::to_string(&proof).unwrap();
+        
+        // Deserialize the proof
+        let deserialized: MerkleProof<V> = serde_json::from_str(&serialized).unwrap();
+        
+        // Verify the deserialized proof works correctly
+        assert_eq!(proof.siblings.len(), deserialized.siblings.len());
+        for (original, deserialized) in proof.siblings.iter().zip(deserialized.siblings.iter()) {
+            assert_eq!(original, deserialized);
+        }
+        
+        // Verify the proof still works after serialization/deserialization
+        let calculated_root = deserialized.get_root(&leaf, index);
+        assert_eq!(calculated_root, root);
+        
+        // Verify should succeed with the correct root
+        assert!(deserialized.verify(&leaf, index, root).is_ok());
     }
 
     #[test]
