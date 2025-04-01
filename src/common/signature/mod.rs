@@ -68,7 +68,7 @@ pub struct SignatureContentTarget {
 
 impl SignatureContent {
     pub fn to_u32_vec(&self) -> Vec<u32> {
-        let vec = vec![
+        let vec = [
             self.block_sign_payload.to_u32_vec(),
             self.sender_flag.to_u32_vec(),
             self.pubkey_hash.to_u32_vec(),
@@ -94,7 +94,7 @@ impl SignatureContent {
 
 impl SignatureContentTarget {
     pub fn to_vec<F: RichField>(&self) -> Vec<Target> {
-        let vec = vec![
+        let vec = [
             self.block_sign_payload.to_vec(),
             self.sender_flag.to_vec(),
             self.pubkey_hash.to_vec(),
