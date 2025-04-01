@@ -7,9 +7,13 @@ pub mod sign_tools;
 pub mod utils;
 pub mod verify;
 
-use ark_bn254::Fq;
-use block_sign_payload::{BlockSignPayload, BlockSignPayloadTarget, BLOCK_SIGN_PAYLOAD_LEN};
+use ark_bn254::{Bn254, Fq, Fr, G1Affine, G2Affine};
+use ark_ec::{pairing::Pairing as _, AffineRepr as _};
+use block_sign_payload::{
+    hash_to_weight, BlockSignPayload, BlockSignPayloadTarget, BLOCK_SIGN_PAYLOAD_LEN,
+};
 use flatten::{FlatG1, FlatG1Target, FlatG2, FlatG2Target};
+use key_set::KeySet;
 use num::BigUint;
 use plonky2::{
     field::extension::Extendable,
@@ -22,9 +26,12 @@ use plonky2::{
 };
 
 use plonky2_keccak::{builder::BuilderKeccak256 as _, utils::solidity_keccak256};
+use rand::Rng;
 use serde::{Deserialize, Serialize};
+use utils::get_pubkey_hash;
 
 use crate::{
+    constants::NUM_SENDERS_IN_BLOCK,
     ethereum_types::{
         bytes16::{Bytes16, Bytes16Target, BYTES16_LEN},
         bytes32::{Bytes32, Bytes32Target, BYTES32_LEN},
@@ -89,6 +96,68 @@ impl SignatureContent {
     pub fn hash(&self) -> Bytes32 {
         Bytes32::from_u32_slice(&solidity_keccak256(&self.to_u32_vec()))
             .expect("Failed to convert from U32 to Bytes32")
+    }
+
+    pub fn rand<R: Rng>(rng: &mut R) -> (Vec<KeySet>, Self) {
+        let mut key_sets = (0..NUM_SENDERS_IN_BLOCK)
+            .map(|_| KeySet::rand(rng))
+            .collect::<Vec<_>>();
+        // sort by pubkey_x in descending order
+        key_sets.sort_by(|a, b| b.pubkey.cmp(&a.pubkey));
+        let pubkeys = key_sets
+            .iter()
+            .map(|keyset| keyset.pubkey)
+            .collect::<Vec<_>>();
+        let pubkey_hash = get_pubkey_hash(&pubkeys);
+        let account_id_hash = Bytes32::rand(rng);
+        let sender_flag = Bytes16::rand(rng);
+        let sender_flag_bits = sender_flag.to_bits_be();
+
+        let block_sign_payload = BlockSignPayload::rand(rng);
+        let agg_pubkey = key_sets
+            .iter()
+            .zip(sender_flag_bits.iter())
+            .map(|(keyset, b)| {
+                let weight = hash_to_weight(keyset.pubkey, pubkey_hash);
+                if *b {
+                    (keyset.pubkey_g1 * Fr::from(BigUint::from(weight))).into()
+                } else {
+                    G1Affine::zero()
+                }
+            })
+            .fold(G1Affine::zero(), |acc: G1Affine, x: G1Affine| {
+                (acc + x).into()
+            });
+        let agg_signature = key_sets
+            .iter()
+            .map(|keyset| G2Affine::from(block_sign_payload.sign(keyset.privkey, pubkey_hash)))
+            .zip(sender_flag_bits)
+            .fold(
+                G2Affine::zero(),
+                |acc: G2Affine, (x, b)| {
+                    if b {
+                        (acc + x).into()
+                    } else {
+                        acc
+                    }
+                },
+            );
+        // message point
+        let message_point = block_sign_payload.message_point();
+        assert!(
+            Bn254::pairing(agg_pubkey, G2Affine::from(message_point.clone()))
+                == Bn254::pairing(G1Affine::generator(), agg_signature)
+        );
+        let signature = Self {
+            block_sign_payload,
+            sender_flag,
+            pubkey_hash,
+            account_id_hash,
+            agg_pubkey: agg_pubkey.into(),
+            agg_signature: agg_signature.into(),
+            message_point: message_point.into(),
+        };
+        (key_sets, signature)
     }
 }
 
