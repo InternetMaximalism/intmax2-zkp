@@ -32,6 +32,8 @@ pub enum MerkleTreeError {
     VerificationFailed(String),
 }
 
+/// A Merkle tree that only keeps non-zero nodes. It has zero_hashes that hold the hash of each
+/// level of empty leaves.
 #[derive(Clone, Debug)]
 pub(crate) struct MerkleTree<V: Leafable> {
     height: usize,
@@ -283,16 +285,6 @@ impl<VT: LeafableTarget> MerkleProofTarget<VT> {
     pub(crate) fn height(&self) -> usize {
         self.siblings.len()
     }
-}
-
-pub fn u64_le_bits(num: u64, length: usize) -> Vec<bool> {
-    let mut result = Vec::with_capacity(length);
-    let mut n = num;
-    for _ in 0..length {
-        result.push(n & 1 == 1);
-        n >>= 1;
-    }
-    result
 }
 
 #[cfg(test)]

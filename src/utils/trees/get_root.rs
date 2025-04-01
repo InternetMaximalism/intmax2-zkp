@@ -12,6 +12,8 @@ use crate::utils::{
     leafable_hasher::LeafableHasher,
 };
 
+
+/// 与えられたleafとmerkle treeの高さから、merkle rootを計算する。leafが2^height個以上の場合はpanicを起こす。
 fn get_merkle_root_from_full_leaves<V: Leafable>(
     height: usize,
     leaves: &[V],
