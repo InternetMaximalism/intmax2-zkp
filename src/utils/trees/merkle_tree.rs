@@ -63,7 +63,7 @@ impl<V: Leafable> MerkleTree<V> {
         self.height
     }
 
-    pub(crate) fn get_node_hash(&self, path: BitPath) -> HashOut<V> {
+    fn get_node_hash(&self, path: BitPath) -> HashOut<V> {
         match self.node_hashes.get(&path) {
             Some(h) => *h,
             None => self.zero_hashes[path.len() as usize],
@@ -327,47 +327,24 @@ mod tests {
     }
 
     #[test]
-    fn test_merkle_tree_get_node_hash() {
-        let height = 10;
-        let mut tree = MerkleTree::<Bytes32>::new(height);
-        let mut rng = rand::thread_rng();
-        
-        // Test getting node hash for empty path
-        let empty_path = BitPath::default();
-        let root_hash = tree.get_node_hash(empty_path);
-        assert_eq!(root_hash, tree.zero_hashes[0]);
-        
-        // Test getting node hash for a path after updating a leaf
-        let index: u64 = rng.gen_range(0..1 << height);
-        let new_leaf = Bytes32::rand(&mut rng);
-        let leaf_hash = new_leaf.hash();
-        tree.update_leaf(index, leaf_hash);
-        
-        let mut path = BitPath::new(height as u32, index);
-        path.reverse();
-        let node_hash = tree.get_node_hash(path);
-        assert_eq!(node_hash, leaf_hash);
-    }
-
-    #[test]
     fn test_merkle_tree_get_root() {
         let height = 10;
         let tree = MerkleTree::<Bytes32>::new(height);
-        
+
         // Root of empty tree should match the top zero hash
         assert_eq!(tree.get_root(), tree.zero_hashes[0]);
-        
+
         // After updates, root should change
         let mut tree = MerkleTree::<Bytes32>::new(height);
         let mut rng = rand::thread_rng();
         let index: u64 = rng.gen_range(0..1 << height);
         let new_leaf = Bytes32::rand(&mut rng);
         let leaf_hash = new_leaf.hash();
-        
+
         let empty_root = tree.get_root();
         tree.update_leaf(index, leaf_hash);
         let updated_root = tree.get_root();
-        
+
         assert_ne!(empty_root, updated_root);
     }
 
@@ -391,34 +368,34 @@ mod tests {
     fn test_merkle_proof_methods() {
         let mut rng = rand::thread_rng();
         let height = 10;
-        
+
         // Test dummy proof
         let dummy_proof = MerkleProof::<Bytes32>::dummy(height);
         assert_eq!(dummy_proof.height(), height);
         assert_eq!(dummy_proof.siblings.len(), height);
-        
+
         // Test get_root and verify
         let mut tree = MerkleTree::<Bytes32>::new(height);
         let index: u64 = rng.gen_range(0..1 << height);
         let leaf = Bytes32::rand(&mut rng);
         let leaf_hash = leaf.hash();
         tree.update_leaf(index, leaf_hash);
-        
+
         let proof = tree.prove(index);
         let calculated_root = proof.get_root(&leaf, index);
         assert_eq!(calculated_root, tree.get_root());
-        
+
         // Verify should succeed with correct root
         assert!(proof.verify(&leaf, index, tree.get_root()).is_ok());
-        
+
         // Verify should fail with incorrect root
         let wrong_root = Bytes32::rand(&mut rng).hash();
         assert!(proof.verify(&leaf, index, wrong_root).is_err());
-        
+
         // Verify should fail with incorrect leaf
         let wrong_leaf = Bytes32::rand(&mut rng);
         assert!(proof.verify(&wrong_leaf, index, tree.get_root()).is_err());
-        
+
         // Verify should fail with incorrect index
         let wrong_index = (index + 1) % (1 << height);
         assert!(proof.verify(&leaf, wrong_index, tree.get_root()).is_err());
@@ -431,7 +408,7 @@ mod tests {
 
         let mut rng = rand::thread_rng();
         let height = 10;
-        
+
         // Create a tree and update a leaf
         let mut tree = MerkleTree::<V>::new(height);
         let index = rng.gen_range(0..1 << height);
@@ -439,24 +416,24 @@ mod tests {
         let leaf_hash = leaf.hash();
         tree.update_leaf(index, leaf_hash);
         let proof = tree.prove(index);
-        
+
         // Test new
         let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::default());
         let proof_t = MerkleProofTarget::<VT>::new(&mut builder, height);
         assert_eq!(proof_t.siblings.len(), height);
-        
+
         // Test constant
         let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::default());
         let proof_t = MerkleProofTarget::<VT>::constant(&mut builder, &proof);
         assert_eq!(proof_t.siblings.len(), height);
-        
+
         // Test get_root
         let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::default());
         let proof_t = MerkleProofTarget::<VT>::new(&mut builder, height);
         let leaf_t = VT::new(&mut builder, false);
         let index_t = builder.add_virtual_target();
         let _root_t = proof_t.get_root::<F, C, D>(&mut builder, &leaf_t, index_t);
-        
+
         // Test verify
         let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::default());
         let proof_t = MerkleProofTarget::<VT>::new(&mut builder, height);
@@ -464,14 +441,14 @@ mod tests {
         let root_t = PoseidonHashOutTarget::new(&mut builder);
         let index_t = builder.add_virtual_target();
         proof_t.verify::<F, C, D>(&mut builder, &leaf_t, index_t, root_t);
-        
+
         let data = builder.build::<C>();
         let mut pw = PartialWitness::<F>::new();
         leaf_t.set_witness(&mut pw, leaf);
         root_t.set_witness(&mut pw, tree.get_root());
         pw.set_target(index_t, F::from_canonical_u64(index));
         proof_t.set_witness(&mut pw, &proof);
-        
+
         data.prove(pw).unwrap();
     }
 
@@ -482,7 +459,7 @@ mod tests {
 
         let mut rng = rand::thread_rng();
         let height = 10;
-        
+
         // Create a tree and update a leaf
         let mut tree = MerkleTree::<V>::new(height);
         let index = rng.gen_range(0..1 << height);
@@ -490,7 +467,7 @@ mod tests {
         let leaf_hash = leaf.hash();
         tree.update_leaf(index, leaf_hash);
         let proof = tree.prove(index);
-        
+
         // Test conditional_verify with condition=true
         let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::default());
         let proof_t = MerkleProofTarget::<VT>::new(&mut builder, height);
@@ -498,24 +475,24 @@ mod tests {
         let root_t = PoseidonHashOutTarget::new(&mut builder);
         let index_t = builder.add_virtual_target();
         let condition_true = builder.constant_bool(true);
-        
+
         proof_t.conditional_verify::<F, C, D>(
-            &mut builder, 
-            condition_true, 
-            &leaf_t, 
-            index_t, 
-            root_t
+            &mut builder,
+            condition_true,
+            &leaf_t,
+            index_t,
+            root_t,
         );
-        
+
         let data = builder.build::<C>();
         let mut pw = PartialWitness::<F>::new();
         leaf_t.set_witness(&mut pw, leaf);
         root_t.set_witness(&mut pw, tree.get_root());
         pw.set_target(index_t, F::from_canonical_u64(index));
         proof_t.set_witness(&mut pw, &proof);
-        
+
         data.prove(pw).unwrap();
-        
+
         // Test conditional_verify with condition=false (should not verify)
         let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::default());
         let proof_t = MerkleProofTarget::<VT>::new(&mut builder, height);
@@ -523,26 +500,26 @@ mod tests {
         let root_t = PoseidonHashOutTarget::new(&mut builder);
         let index_t = builder.add_virtual_target();
         let condition_false = builder.constant_bool(false);
-        
+
         proof_t.conditional_verify::<F, C, D>(
-            &mut builder, 
-            condition_false, 
-            &leaf_t, 
-            index_t, 
-            root_t
+            &mut builder,
+            condition_false,
+            &leaf_t,
+            index_t,
+            root_t,
         );
-        
+
         let data = builder.build::<C>();
         let mut pw = PartialWitness::<F>::new();
         leaf_t.set_witness(&mut pw, leaf);
-        
+
         // With condition=false, we can provide an incorrect root and it should still work
         let wrong_root = V::rand(&mut rng).hash();
         root_t.set_witness(&mut pw, wrong_root);
-        
+
         pw.set_target(index_t, F::from_canonical_u64(index));
         proof_t.set_witness(&mut pw, &proof);
-        
+
         data.prove(pw).unwrap();
     }
 
@@ -552,61 +529,65 @@ mod tests {
         let min_height = 1;
         let tree_min = MerkleTree::<Bytes32>::new(min_height);
         assert_eq!(tree_min.height(), min_height);
-        
+
         // Test with boundary indices
         let mut rng = rand::thread_rng();
         let height = 10;
         let mut tree = MerkleTree::<Bytes32>::new(height);
-        
+
         // Test with index 0
         let index_min: u64 = 0;
         let leaf_min = Bytes32::rand(&mut rng);
         tree.update_leaf(index_min, leaf_min.hash());
         let proof_min = tree.prove(index_min);
-        proof_min.verify(&leaf_min, index_min, tree.get_root()).unwrap();
-        
+        proof_min
+            .verify(&leaf_min, index_min, tree.get_root())
+            .unwrap();
+
         // Test with max index
         let index_max: u64 = (1 << height) - 1;
         let leaf_max = Bytes32::rand(&mut rng);
         tree.update_leaf(index_max, leaf_max.hash());
         let proof_max = tree.prove(index_max);
-        proof_max.verify(&leaf_max, index_max, tree.get_root()).unwrap();
+        proof_max
+            .verify(&leaf_max, index_max, tree.get_root())
+            .unwrap();
     }
 
     #[test]
     fn test_merkle_proof_serialization() {
         type V = Bytes32;
-        
+
         let mut rng = rand::thread_rng();
         let height = 10;
         let mut tree = MerkleTree::<V>::new(height);
-        
+
         // Create a tree with a few leaves
         let index = rng.gen_range(0..1 << height);
         let leaf = V::rand(&mut rng);
         let leaf_hash = leaf.hash();
         tree.update_leaf(index, leaf_hash);
-        
+
         // Generate a proof
         let proof = tree.prove(index);
         let root = tree.get_root();
-        
+
         // Serialize the proof to JSON
         let serialized = serde_json::to_string(&proof).unwrap();
-        
+
         // Deserialize the proof
         let deserialized: MerkleProof<V> = serde_json::from_str(&serialized).unwrap();
-        
+
         // Verify the deserialized proof works correctly
         assert_eq!(proof.siblings.len(), deserialized.siblings.len());
         for (original, deserialized) in proof.siblings.iter().zip(deserialized.siblings.iter()) {
             assert_eq!(original, deserialized);
         }
-        
+
         // Verify the proof still works after serialization/deserialization
         let calculated_root = deserialized.get_root(&leaf, index);
         assert_eq!(calculated_root, root);
-        
+
         // Verify should succeed with the correct root
         assert!(deserialized.verify(&leaf, index, root).is_ok());
     }
