@@ -12,28 +12,28 @@ fi
 FILE_PATH=$1
 TEST_PATTERN=${2:-""}
 
-# # src/models/user.rs -> models::user
+# src/models/user.rs -> models::user
 MODULE_PATH=$(echo ${FILE_PATH} | sed 's/^src\///g' | sed 's/\.rs$//g' | sed 's/\//::/'g)
 
 COVERAGE_DIR="./target/debug/coverage_${MODULE_PATH//::/_}"
 PROFRAW_DIR="./target/debug/profraw_${MODULE_PATH//::/_}"
 
-# rm -rf "${COVERAGE_DIR}"
-# rm -rf "${PROFRAW_DIR}"
-# mkdir -p "${COVERAGE_DIR}"
-# mkdir -p "${PROFRAW_DIR}"
+rm -rf "${COVERAGE_DIR}"
+rm -rf "${PROFRAW_DIR}"
+mkdir -p "${COVERAGE_DIR}"
+mkdir -p "${PROFRAW_DIR}"
 
-# export CARGO_INCREMENTAL=0
-# export RUSTFLAGS="-Cinstrument-coverage"
-# export LLVM_PROFILE_FILE="${PROFRAW_DIR}/coverage-%p-%m.profraw"
+export CARGO_INCREMENTAL=0
+export RUSTFLAGS="-Cinstrument-coverage"
+export LLVM_PROFILE_FILE="${PROFRAW_DIR}/coverage-%p-%m.profraw"
 
-# if [ -z "${TEST_PATTERN}" ]; then
-#   echo "Running tests for module: ${MODULE_PATH}"
-#   cargo test ${MODULE_PATH}
-# else
-#   echo "Running tests for module: ${MODULE_PATH} with pattern: ${TEST_PATTERN}"
-#   cargo test ${MODULE_PATH}::${TEST_PATTERN}
-# fi
+if [ -z "${TEST_PATTERN}" ]; then
+  echo "Running tests for module: ${MODULE_PATH}"
+  cargo test ${MODULE_PATH}
+else
+  echo "Running tests for module: ${MODULE_PATH} with pattern: ${TEST_PATTERN}"
+  cargo test ${MODULE_PATH}::${TEST_PATTERN}
+fi
 
 echo "Generating coverage report for file: ${FILE_PATH}"
 grcov "${PROFRAW_DIR}" \
