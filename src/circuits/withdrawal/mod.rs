@@ -45,19 +45,18 @@ mod tests {
         let mut rng = rand::thread_rng();
         let validity_processor = Arc::new(ValidityProcessor::<F, C, D>::new());
         let balance_processor = BalanceProcessor::new(&validity_processor.get_verifier_data());
-        let mut validity_state_manager = ValidityStateManager::new(validity_processor.clone());
+        let mut validity_state_manager =
+            ValidityStateManager::new(validity_processor.clone(), Address::default());
         let spent_circuit = balance_processor.spent_circuit();
         let single_withdrawal_circuit =
-            SingleWithdrawalCircuit::new(balance_processor.common_data());
+            SingleWithdrawalCircuit::new(&balance_processor.get_verifier_data());
         let withdrawal_processor =
             HashChainProcessor::new(&single_withdrawal_circuit.data.verifier_data());
-
         let inner_wrapper_circuit = WrapperCircuit::<F, C, C, D>::new(
             &withdrawal_processor.chain_end_circuit.data.verifier_data(),
         );
         let final_circuit =
             WrapperCircuit::<F, C, OuterC, D>::new(&inner_wrapper_circuit.data.verifier_data());
-
         // withdraw transfer
         let mut private_state = FullPrivateState::new();
         let key = KeySet::rand(&mut rng);
@@ -75,7 +74,7 @@ mod tests {
             sender_key: key,
             will_return_sig: true,
         };
-        let tx_witnesses = validity_state_manager.tick(true, &[tx_request], 0)?;
+        let tx_witnesses = validity_state_manager.tick(true, &[tx_request], 0, 0)?;
         let update_witness = validity_state_manager.get_update_witness(key.pubkey, 1, 0, true)?;
 
         let balance_proof = balance_processor.prove_send(

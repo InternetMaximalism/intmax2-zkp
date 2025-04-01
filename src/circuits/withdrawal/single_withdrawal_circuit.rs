@@ -4,7 +4,7 @@ use plonky2::{
     iop::witness::PartialWitness,
     plonk::{
         circuit_builder::CircuitBuilder,
-        circuit_data::{CircuitConfig, CircuitData, CommonCircuitData},
+        circuit_data::{CircuitConfig, CircuitData, VerifierCircuitData},
         config::{AlgebraicHasher, GenericConfig},
         proof::ProofWithPublicInputs,
     },
@@ -33,11 +33,16 @@ where
     C: GenericConfig<D, F = F> + 'static,
     C::Hasher: AlgebraicHasher<F>,
 {
-    pub fn new(balance_common_data: &CommonCircuitData<F, D>) -> Self {
+    pub fn new(balance_vd: &VerifierCircuitData<F, C, D>) -> Self {
         let mut builder =
             CircuitBuilder::<F, D>::new(CircuitConfig::standard_recursion_zk_config());
         let transfer_inclusion_target =
-            TransferInclusionTarget::new::<F, C>(balance_common_data, &mut builder, true);
+            TransferInclusionTarget::new::<F, C>(&balance_vd.common, &mut builder, true);
+        let balance_vd_target = builder.constant_verifier_data(&balance_vd.verifier_only);
+        builder.connect_verifier_data(
+            &transfer_inclusion_target.balance_circuit_vd,
+            &balance_vd_target,
+        );
         let transfer = transfer_inclusion_target.transfer.clone();
         let nullifier = get_withdrawal_nullifier_circuit(&mut builder, &transfer);
         let recipient = transfer.recipient.to_address(&mut builder);

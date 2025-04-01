@@ -183,6 +183,7 @@ mod tests {
             tx::Tx,
         },
         constants::NUM_SENDERS_IN_BLOCK,
+        ethereum_types::address::Address,
     };
 
     type F = GoldilocksField;
@@ -212,6 +213,9 @@ mod tests {
             &mut block_tree,
             &deposit_tree,
             true,
+            0,
+            Address::default(),
+            0,
             &tx_requests,
             0,
         )?;

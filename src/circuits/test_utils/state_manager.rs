@@ -24,7 +24,7 @@ use crate::{
             update_witness::UpdateWitness,
         },
     },
-    ethereum_types::u256::U256,
+    ethereum_types::{address::Address, u256::U256},
 };
 
 use super::witness_generator::{construct_update_witness, MockTxRequest};
@@ -37,6 +37,8 @@ pub struct ValidityStateManager {
     pub validity_processor: Arc<ValidityProcessor<F, C, D>>,
 
     // current state
+    pub block_builder_address: Address,
+    pub builder_nonce: u32,
     pub validity_pis: ValidityPublicInputs,
     pub validity_proof: Option<ProofWithPublicInputs<F, C, D>>,
     pub account_tree: AccountTree,
@@ -52,7 +54,10 @@ pub struct ValidityStateManager {
 }
 
 impl ValidityStateManager {
-    pub fn new(validity_processor: Arc<ValidityProcessor<F, C, D>>) -> Self {
+    pub fn new(
+        validity_processor: Arc<ValidityProcessor<F, C, D>>,
+        block_builder_address: Address,
+    ) -> Self {
         let account_tree = AccountTree::initialize();
         let block_tree = BlockHashTree::initialize();
         let deposit_tree = DepositTree::initialize();
@@ -65,6 +70,8 @@ impl ValidityStateManager {
         let validity_proof = None;
         Self {
             validity_processor,
+            block_builder_address,
+            builder_nonce: 1,
             validity_pis,
             validity_proof,
             account_tree,
@@ -89,6 +96,7 @@ impl ValidityStateManager {
         &mut self,
         is_registration_block: bool,
         tx_requests: &[MockTxRequest],
+        expiry: u64,
         timestamp: u64,
     ) -> Result<Vec<TxWitness>> {
         let (validity_witness, tx_witnesses) = construct_validity_and_tx_witness(
@@ -97,9 +105,13 @@ impl ValidityStateManager {
             &mut self.block_tree,
             &self.deposit_tree,
             is_registration_block,
+            expiry,
+            self.block_builder_address,
+            self.builder_nonce,
             tx_requests,
             timestamp,
         )?;
+        self.builder_nonce += 1;
         self.validity_pis = validity_witness.to_validity_pis()?;
         self.validity_proof = self
             .validity_processor
