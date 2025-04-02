@@ -102,11 +102,11 @@ impl AccountExclusionValue {
             proof.verify(sender_leaf.sender, account_tree_root).unwrap();
             // Only valid if the signature is returned and not included in the tree, or if the
             // signature is not returned.
-            let is_valid =
-                !proof.is_included || !sender_leaf.did_return_sig;
+            let is_valid = !proof.is_included || !sender_leaf.did_return_sig;
             result = result && is_valid;
         }
-        let sender_tree_root = get_merkle_root_from_leaves(SENDER_TREE_HEIGHT, &sender_leaves);
+        let sender_tree_root =
+            get_merkle_root_from_leaves(SENDER_TREE_HEIGHT, &sender_leaves).unwrap();
         Self {
             account_tree_root,
             account_membership_proofs,
@@ -207,7 +207,7 @@ where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F> + 'static,
     C::Hasher: AlgebraicHasher<F>,
- {
+{
     fn default() -> Self {
         Self::new()
     }

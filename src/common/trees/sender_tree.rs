@@ -181,6 +181,7 @@ pub fn get_sender_leaves_circuit<F: RichField + Extendable<D>, const D: usize>(
 
 pub fn get_sender_tree_root(pubkeys: &[U256], sender_flag: Bytes16) -> PoseidonHashOut {
     get_merkle_root_from_leaves(SENDER_TREE_HEIGHT, &get_sender_leaves(pubkeys, sender_flag))
+        .unwrap()
 }
 
 pub fn get_sender_tree_root_circuit<

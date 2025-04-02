@@ -39,7 +39,7 @@ impl SpentWitness {
             transfers.len() == NUM_TRANSFERS_IN_TX,
             "invalid number of transfers"
         );
-        let transfer_tree_root = get_merkle_root_from_leaves(TRANSFER_TREE_HEIGHT, transfers);
+        let transfer_tree_root = get_merkle_root_from_leaves(TRANSFER_TREE_HEIGHT, transfers)?;
         ensure!(
             transfer_tree_root == tx.transfer_tree_root,
             "transfer tree root mismatch"

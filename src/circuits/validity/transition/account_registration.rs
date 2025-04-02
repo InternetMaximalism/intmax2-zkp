@@ -57,7 +57,8 @@ impl AccountRegistrationValue {
             NUM_SENDERS_IN_BLOCK,
             "Invalid number of account registration proofs"
         );
-        let sender_tree_root = get_merkle_root_from_leaves(SENDER_TREE_HEIGHT, &sender_leaves);
+        let sender_tree_root =
+            get_merkle_root_from_leaves(SENDER_TREE_HEIGHT, &sender_leaves).unwrap();
 
         let mut account_tree_root = prev_account_tree_root;
         let mut next_account_id = prev_next_account_id;

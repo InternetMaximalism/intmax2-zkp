@@ -205,9 +205,9 @@ impl SpentValue {
             ..prev_private_state.clone()
         };
         let new_private_commitment = new_private_state.commitment();
-        let transfer_root = get_merkle_root_from_leaves(TRANSFER_TREE_HEIGHT, transfers);
+        let transfer_tree_root = get_merkle_root_from_leaves(TRANSFER_TREE_HEIGHT, transfers)?;
         let tx = Tx {
-            transfer_tree_root: transfer_root,
+            transfer_tree_root,
             nonce: tx_nonce,
         };
         Ok(Self {

@@ -13,13 +13,21 @@ use crate::utils::{
     trees::merkle_tree::{Hasher, HasherFromTarget},
 };
 
-use super::merkle_tree::{HashOut, HashOutTarget};
+use super::{
+    error::GetRootFromLeavesError,
+    merkle_tree::{HashOut, HashOutTarget},
+};
 
-pub fn get_merkle_root_from_leaves<V: Leafable>(height: usize, leaves: &[V]) -> HashOut<V> {
-    assert!(leaves.len() <= 1 << height, "too many leaves");
+pub fn get_merkle_root_from_leaves<V: Leafable>(
+    height: usize,
+    leaves: &[V],
+) -> Result<HashOut<V>, GetRootFromLeavesError> {
+    if leaves.len() > 1 << height {
+        return Err(GetRootFromLeavesError::TooManyLeaves(leaves.len()));
+    }
     let mut leaves = leaves.to_vec();
     leaves.resize(1 << height, V::empty_leaf());
-    get_merkle_root_from_full_leaves(height, &leaves)
+    Ok(get_merkle_root_from_full_leaves(height, &leaves))
 }
 
 pub fn get_merkle_root_from_leaves_circuit<
@@ -209,7 +217,7 @@ mod tests {
         let leaves = (0..num_leaves)
             .map(|_| V::rand(&mut rng))
             .collect::<Vec<_>>();
-        let root = get_merkle_root_from_leaves(height, &leaves);
+        let root = get_merkle_root_from_leaves(height, &leaves).unwrap();
 
         let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::default());
         let leaves_t = leaves
