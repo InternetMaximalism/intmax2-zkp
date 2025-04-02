@@ -10,9 +10,9 @@ use plonky2::{
 };
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-use super::merkle_tree::{
-    HashOut, HashOutTarget, MerkleProof, MerkleProofTarget, MerkleTree, MerkleTreeError,
-};
+use super::{error::MerkleProofError, merkle_tree::{
+    HashOut, HashOutTarget, MerkleProof, MerkleProofTarget, MerkleTree,
+}};
 use crate::utils::leafable::{Leafable, LeafableTarget};
 
 // Merkle Tree that holds leaves as a vec. It is suitable for handling indexed
@@ -84,7 +84,7 @@ impl<V: Leafable> SparseMerkleProof<V> {
         leaf_data: &V,
         index: u64,
         merkle_root: HashOut<V>,
-    ) -> Result<(), MerkleTreeError> {
+    ) -> Result<(), MerkleProofError> {
         self.0.verify(leaf_data, index, merkle_root)
     }
 

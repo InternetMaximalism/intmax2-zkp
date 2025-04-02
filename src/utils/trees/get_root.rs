@@ -10,70 +10,12 @@ use plonky2::{
 use crate::utils::{
     leafable::{Leafable, LeafableTarget},
     leafable_hasher::LeafableHasher,
+    trees::merkle_tree::{Hasher, HasherFromTarget},
 };
 
-/// Calculate the merkle root from the given leaf and the height of the merkle tree. If the
-/// number of leaves is greater than 2^height, it will panic.
-fn get_merkle_root_from_full_leaves<V: Leafable>(
-    height: usize,
-    leaves: &[V],
-) -> <V::LeafableHasher as LeafableHasher>::HashOut {
-    assert_eq!(leaves.len(), 1 << height);
-    let mut layer = leaves.iter().map(|v| v.hash()).collect::<Vec<_>>();
-    assert_ne!(layer.len(), 0);
-    while layer.len() > 1 {
-        if layer.len() % 2 == 1 {
-            panic!("leaves is not power of 2");
-        }
-        layer = (0..(layer.len() / 2))
-            .map(|i| {
-                <V::LeafableHasher as LeafableHasher>::two_to_one(layer[2 * i], layer[2 * i + 1])
-            })
-            .collect::<Vec<_>>();
-    }
-    layer[0]
-}
+use super::merkle_tree::{HashOut, HashOutTarget};
 
-fn get_merkle_root_from_full_leaves_circuit<
-    F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F> + 'static,
-    const D: usize,
-    VT: LeafableTarget,
->(
-    builder: &mut CircuitBuilder<F, D>,
-    height: usize,
-    leaves: &[VT],
-) -> <<VT::Leaf as Leafable>::LeafableHasher as LeafableHasher>::HashOutTarget
-where
-    <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
-{
-    assert_eq!(leaves.len(), 1 << height);
-    let mut layer = leaves
-        .iter()
-        .map(|v| v.hash::<F, C, D>(builder))
-        .collect::<Vec<_>>();
-    assert_ne!(layer.len(), 0);
-    while layer.len() > 1 {
-        if layer.len() % 2 == 1 {
-            panic!("leaves is not power of 2");
-        }
-        layer = (0..(layer.len() / 2))
-            .map(|i| {
-                <<VT::Leaf as Leafable>::LeafableHasher as LeafableHasher>::two_to_one_target::<
-                    F,
-                    C,
-                    D,
-                >(builder, &layer[2 * i], &layer[2 * i + 1])
-            })
-            .collect::<Vec<_>>();
-    }
-    layer[0].clone()
-}
-
-pub fn get_merkle_root_from_leaves<V: Leafable>(
-    height: usize,
-    leaves: &[V],
-) -> <V::LeafableHasher as LeafableHasher>::HashOut {
+pub fn get_merkle_root_from_leaves<V: Leafable>(height: usize, leaves: &[V]) -> HashOut<V> {
     assert!(leaves.len() <= 1 << height, "too many leaves");
     let mut leaves = leaves.to_vec();
     leaves.resize(1 << height, V::empty_leaf());
@@ -89,7 +31,7 @@ pub fn get_merkle_root_from_leaves_circuit<
     builder: &mut CircuitBuilder<F, D>,
     height: usize,
     leaves: &[VT],
-) -> <<VT::Leaf as Leafable>::LeafableHasher as LeafableHasher>::HashOutTarget
+) -> HashOutTarget<VT>
 where
     <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
 {
@@ -110,29 +52,70 @@ where
     // calculate hashes
     let mut default_hash = VT::Leaf::empty_leaf().hash();
     for _ in 0..sub_tree_height {
-        default_hash = <<VT::Leaf as Leafable>::LeafableHasher as LeafableHasher>::two_to_one(
-            default_hash,
-            default_hash,
-        );
+        default_hash = HasherFromTarget::<VT>::two_to_one(default_hash, default_hash);
     }
     let mut root = sub_tree_root;
     for _ in sub_tree_height..height {
         let default_hash_t =
-            <<VT::Leaf as Leafable>::LeafableHasher as LeafableHasher>::constant_hash_out_target(
-                builder,
-                default_hash,
-            );
-        root = <<VT::Leaf as Leafable>::LeafableHasher as LeafableHasher>::two_to_one_target::<
-            F,
-            C,
-            D,
-        >(builder, &root, &default_hash_t);
-        default_hash = <<VT::Leaf as Leafable>::LeafableHasher as LeafableHasher>::two_to_one(
-            default_hash,
-            default_hash,
-        );
+            HasherFromTarget::<VT>::constant_hash_out_target(builder, default_hash);
+        root =
+            HasherFromTarget::<VT>::two_to_one_target::<F, C, D>(builder, &root, &default_hash_t);
+        default_hash = HasherFromTarget::<VT>::two_to_one(default_hash, default_hash);
     }
     root
+}
+
+/// Calculate the merkle root from the given leaf and the height of the merkle tree. If the
+/// number of leaves is greater than 2^height, it will panic.
+fn get_merkle_root_from_full_leaves<V: Leafable>(height: usize, leaves: &[V]) -> HashOut<V> {
+    assert_eq!(leaves.len(), 1 << height);
+    let mut layer = leaves.iter().map(|v| v.hash()).collect::<Vec<_>>();
+    assert_ne!(layer.len(), 0);
+    while layer.len() > 1 {
+        if layer.len() % 2 == 1 {
+            panic!("leaves is not power of 2");
+        }
+        layer = (0..(layer.len() / 2))
+            .map(|i| Hasher::<V>::two_to_one(layer[2 * i], layer[2 * i + 1]))
+            .collect::<Vec<_>>();
+    }
+    layer[0]
+}
+
+fn get_merkle_root_from_full_leaves_circuit<
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F> + 'static,
+    const D: usize,
+    VT: LeafableTarget,
+>(
+    builder: &mut CircuitBuilder<F, D>,
+    height: usize,
+    leaves: &[VT],
+) -> HashOutTarget<VT>
+where
+    <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
+{
+    assert_eq!(leaves.len(), 1 << height);
+    let mut layer = leaves
+        .iter()
+        .map(|v| v.hash::<F, C, D>(builder))
+        .collect::<Vec<_>>();
+    assert_ne!(layer.len(), 0);
+    while layer.len() > 1 {
+        if layer.len() % 2 == 1 {
+            panic!("leaves is not power of 2");
+        }
+        layer = (0..(layer.len() / 2))
+            .map(|i| {
+                HasherFromTarget::<VT>::two_to_one_target::<F, C, D>(
+                    builder,
+                    &layer[2 * i],
+                    &layer[2 * i + 1],
+                )
+            })
+            .collect::<Vec<_>>();
+    }
+    layer[0].clone()
 }
 
 #[cfg(test)]

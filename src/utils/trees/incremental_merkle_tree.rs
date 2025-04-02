@@ -12,8 +12,9 @@ use plonky2::{
 };
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-use super::merkle_tree::{
-    HashOut, HashOutTarget, MerkleProof, MerkleProofTarget, MerkleTree, MerkleTreeError,
+use super::{
+    error::MerkleProofError,
+    merkle_tree::{HashOut, HashOutTarget, MerkleProof, MerkleProofTarget, MerkleTree},
 };
 use crate::utils::leafable::{Leafable, LeafableTarget};
 
@@ -38,7 +39,6 @@ impl<V: Leafable> IncrementalMerkleTree<V> {
         self.merkle_tree.height()
     }
 
-    // NOTICE: `None` and `V::empty_leaf()` are treated equivalently.
     pub fn get_leaf(&self, index: u64) -> V {
         match self.leaves.get(index as usize) {
             Some(leaf) => leaf.clone(),
@@ -58,10 +58,6 @@ impl<V: Leafable> IncrementalMerkleTree<V> {
         self.leaves.len()
     }
 
-    pub fn is_empty(&self) -> bool {
-        self.leaves.is_empty()
-    }
-
     pub fn update(&mut self, index: u64, leaf: V) {
         self.merkle_tree.update_leaf(index, leaf.hash());
         self.leaves[index as usize] = leaf;
@@ -73,14 +69,6 @@ impl<V: Leafable> IncrementalMerkleTree<V> {
         let leaf_hash = leaf.hash();
         self.leaves.push(leaf);
         self.merkle_tree.update_leaf(index, leaf_hash);
-    }
-
-    pub fn pop(&mut self) {
-        assert!(!self.leaves.is_empty());
-        self.leaves.pop();
-        let index = self.leaves.len() as u64;
-        let leaf = V::empty_leaf();
-        self.merkle_tree.update_leaf(index, leaf.hash());
     }
 
     pub fn prove(&self, index: u64) -> IncrementalMerkleProof<V> {
@@ -106,7 +94,7 @@ impl<V: Leafable> IncrementalMerkleProof<V> {
         leaf_data: &V,
         index: u64,
         merkle_root: HashOut<V>,
-    ) -> Result<(), MerkleTreeError> {
+    ) -> Result<(), MerkleProofError> {
         self.0.verify(leaf_data, index, merkle_root)
     }
 

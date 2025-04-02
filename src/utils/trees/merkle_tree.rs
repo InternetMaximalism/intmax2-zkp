@@ -19,18 +19,12 @@ use crate::utils::{
     leafable_hasher::LeafableHasher,
 };
 
-use super::bit_path::BitPath;
+use super::{bit_path::BitPath, error::MerkleProofError};
 
 pub type Hasher<V> = <V as Leafable>::LeafableHasher;
 pub type HashOut<V> = <Hasher<V> as LeafableHasher>::HashOut;
 pub type HasherFromTarget<VT> = <<VT as LeafableTarget>::Leaf as Leafable>::LeafableHasher;
 pub type HashOutTarget<VT> = <HasherFromTarget<VT> as LeafableHasher>::HashOutTarget;
-
-#[derive(Debug, thiserror::Error)]
-pub enum MerkleTreeError {
-    #[error("Merkle proof verification failed: {0}")]
-    VerificationFailed(String),
-}
 
 /// A Merkle tree that only keeps non-zero nodes. It has zero_hashes that hold the hash of each
 /// level of empty leaves.
@@ -161,10 +155,10 @@ impl<V: Leafable> MerkleProof<V> {
         leaf_data: &V,
         index: u64,
         merkle_root: HashOut<V>,
-    ) -> Result<(), MerkleTreeError> {
+    ) -> Result<(), MerkleProofError> {
         let proof_root = self.get_root(leaf_data, index);
         if proof_root != merkle_root {
-            return Err(MerkleTreeError::VerificationFailed(format!(
+            return Err(MerkleProofError::VerificationFailed(format!(
                 "Merkle proof verification failed: root from proof: {:?}, expected root: {:?}",
                 proof_root, merkle_root
             )));
