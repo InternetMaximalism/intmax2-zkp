@@ -215,8 +215,11 @@ impl BlockWitness {
                     } else {
                         prev_last_block_number
                     };
-                    let proof =
-                        account_tree.prove_and_update(sender_leaf.sender, last_block_number as u64);
+                    let proof = account_tree
+                        .prove_and_update(sender_leaf.sender, last_block_number as u64)
+                        .map_err(|e| {
+                            anyhow::anyhow!("failed to prove and update account_tree: {}", e)
+                        })?;
                     account_update_proofs.push(proof);
                 }
                 Some(account_update_proofs)

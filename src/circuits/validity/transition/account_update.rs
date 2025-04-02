@@ -286,7 +286,7 @@ mod tests {
             } else {
                 prev_last_block_number
             };
-            let proof = tree.prove_and_update(sender_leaf.sender, last_block_number as u64);
+            let proof = tree.prove_and_update(sender_leaf.sender, last_block_number as u64).unwrap();
             account_update_proofs.push(proof);
         }
         let new_account_tree_root = tree.get_root();

@@ -3,19 +3,20 @@ pub mod leaf;
 pub mod membership;
 pub mod update;
 
-use anyhow::{anyhow, ensure};
 use serde::{Deserialize, Serialize};
 
 use crate::{
     ethereum_types::u256::U256,
     utils::{
         poseidon_hash_out::PoseidonHashOut,
-        trees::incremental_merkle_tree::{
-            IncrementalMerkleProof, IncrementalMerkleProofTarget, IncrementalMerkleTree,
+        trees::{
+            error::IndexedMerkleTreeError,
+            incremental_merkle_tree::{
+                IncrementalMerkleProof, IncrementalMerkleProofTarget, IncrementalMerkleTree,
+            },
         },
     },
 };
-use anyhow::Result;
 use leaf::{IndexedMerkleLeaf, IndexedMerkleLeafTarget};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -42,7 +43,7 @@ impl IndexedMerkleTree {
         self.0.prove(index)
     }
 
-    pub(crate) fn low_index(&self, key: U256) -> Result<u64> {
+    pub(crate) fn low_index(&self, key: U256) -> Result<u64, IndexedMerkleTreeError> {
         let low_leaf_candidates = self
             .0
             .leaves()
@@ -52,11 +53,12 @@ impl IndexedMerkleTree {
                 (leaf.key < key) && (key < leaf.next_key || leaf.next_key == U256::default())
             })
             .collect::<Vec<_>>();
-        ensure!(!low_leaf_candidates.is_empty(), "key already exists");
-        ensure!(
-            low_leaf_candidates.len() == 1,
-            "low_index: too many candidates"
-        );
+        if low_leaf_candidates.is_empty() {
+            return Err(IndexedMerkleTreeError::KeyAlreadyExists);
+        }
+        if low_leaf_candidates.len() != 1 {
+            return Err(IndexedMerkleTreeError::TooManyCandidates("low_index".to_string()));
+        }
         let (low_leaf_index, _) = low_leaf_candidates[0];
         Ok(low_leaf_index as u64)
     }
@@ -72,10 +74,9 @@ impl IndexedMerkleTree {
         if leaf_candidates.is_empty() {
             return None;
         }
-        assert!(
-            leaf_candidates.len() == 1,
-            "find_index: too many candidates"
-        );
+        if leaf_candidates.len() != 1 {
+            panic!("find_index: too many candidates");
+        }
         let (leaf_index, _) = leaf_candidates[0];
         Some(leaf_index as u64)
     }
@@ -84,10 +85,10 @@ impl IndexedMerkleTree {
         self.0.get_leaf(index).key
     }
 
-    pub fn update(&mut self, key: U256, value: u64) -> Result<()> {
+    pub fn update(&mut self, key: U256, value: u64) -> Result<(), IndexedMerkleTreeError> {
         let index = self
             .index(key)
-            .ok_or_else(|| anyhow!("Error: key doesn't exist"))?;
+            .ok_or(IndexedMerkleTreeError::KeyDoesNotExist)?;
         let mut leaf = self.0.get_leaf(index);
         leaf.value = value;
         self.0.update(index, leaf);
