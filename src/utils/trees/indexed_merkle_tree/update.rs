@@ -43,7 +43,7 @@ pub struct UpdateProofTarget {
 impl IndexedMerkleTree {
     /// Prove update of a key
     pub fn prove_and_update(&mut self, key: U256, new_value: u64) -> Result<UpdateProof, IndexedMerkleTreeError> {
-        let index = self.index(key).ok_or(IndexedMerkleTreeError::KeyDoesNotExist)?;
+        let index = self.index(key).ok_or_else(|| IndexedMerkleTreeError::KeyDoesNotExist(key.to_string()))?;
         let prev_leaf = self.0.get_leaf(index);
         let new_leaf = IndexedMerkleLeaf {
             value: new_value,
@@ -67,10 +67,16 @@ impl UpdateProof {
         prev_root: PoseidonHashOut,
     ) -> Result<PoseidonHashOut, IndexedMerkleTreeError> {
         if self.prev_leaf.value != prev_value {
-            return Err(IndexedMerkleTreeError::ValueMismatch);
+            return Err(IndexedMerkleTreeError::ValueMismatch { 
+                expected: prev_value, 
+                actual: self.prev_leaf.value 
+            });
         }
         if self.prev_leaf.key != key {
-            return Err(IndexedMerkleTreeError::KeyMismatch);
+            return Err(IndexedMerkleTreeError::KeyMismatch { 
+                expected: key.to_string(), 
+                actual: self.prev_leaf.key.to_string() 
+            });
         }
         
         self.leaf_proof
@@ -95,7 +101,10 @@ impl UpdateProof {
     ) -> Result<(), IndexedMerkleTreeError> {
         let expected_new_root = self.get_new_root(key, prev_value, new_value, prev_root)?;
         if new_root != expected_new_root {
-            return Err(IndexedMerkleTreeError::NewRootMismatch);
+            return Err(IndexedMerkleTreeError::NewRootMismatch { 
+                expected: expected_new_root.to_string(), 
+                actual: new_root.to_string() 
+            });
         }
         Ok(())
     }

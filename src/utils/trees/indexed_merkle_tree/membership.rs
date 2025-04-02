@@ -81,11 +81,17 @@ impl MembershipProof {
             
         if self.is_included {
             if self.leaf.key != key {
-                return Err(IndexedMerkleTreeError::KeyMismatch);
+                return Err(IndexedMerkleTreeError::KeyMismatch { 
+                    expected: key.to_string(), 
+                    actual: self.leaf.key.to_string() 
+                });
             }
         } else {
             if !(self.leaf.key < key && (key < self.leaf.next_key || self.leaf.next_key == U256::default())) {
-                return Err(IndexedMerkleTreeError::KeyNotUpperBounded);
+                return Err(IndexedMerkleTreeError::KeyNotUpperBounded(format!(
+                    "key: {}, leaf.key: {}, leaf.next_key: {}", 
+                    key, self.leaf.key, self.leaf.next_key
+                )));
             }
         }
         Ok(())

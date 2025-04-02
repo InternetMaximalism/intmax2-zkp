@@ -129,11 +129,11 @@ impl IndexedInsertionProof {
         prev_root: PoseidonHashOut,
     ) -> Result<PoseidonHashOut, IndexedMerkleTreeError> {
         if !(self.prev_low_leaf.key < key) {
-            return Err(IndexedMerkleTreeError::KeyNotLowerBounded);
+            return Err(IndexedMerkleTreeError::KeyNotLowerBounded(format!("key: {}, prev_low_leaf.key: {}", key, self.prev_low_leaf.key)));
         }
         
         if !(key < self.prev_low_leaf.next_key || self.prev_low_leaf.next_key == U256::default()) {
-            return Err(IndexedMerkleTreeError::KeyNotUpperBounded);
+            return Err(IndexedMerkleTreeError::KeyNotUpperBounded(format!("key: {}, prev_low_leaf.next_key: {}", key, self.prev_low_leaf.next_key)));
         }
         
         self.low_leaf_proof
@@ -187,7 +187,10 @@ impl IndexedInsertionProof {
     ) -> Result<(), IndexedMerkleTreeError> {
         let expected_new_root = self.get_new_root(key, value, prev_root)?;
         if new_root != expected_new_root {
-            return Err(IndexedMerkleTreeError::NewRootMismatch);
+            return Err(IndexedMerkleTreeError::NewRootMismatch { 
+                expected: expected_new_root.to_string(), 
+                actual: new_root.to_string() 
+            });
         }
         Ok(())
     }

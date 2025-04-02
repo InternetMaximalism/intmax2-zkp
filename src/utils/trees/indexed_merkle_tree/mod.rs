@@ -54,7 +54,7 @@ impl IndexedMerkleTree {
             })
             .collect::<Vec<_>>();
         if low_leaf_candidates.is_empty() {
-            return Err(IndexedMerkleTreeError::KeyAlreadyExists);
+            return Err(IndexedMerkleTreeError::KeyAlreadyExists(key.to_string()));
         }
         if low_leaf_candidates.len() != 1 {
             return Err(IndexedMerkleTreeError::TooManyCandidates("low_index".to_string()));
@@ -88,7 +88,7 @@ impl IndexedMerkleTree {
     pub fn update(&mut self, key: U256, value: u64) -> Result<(), IndexedMerkleTreeError> {
         let index = self
             .index(key)
-            .ok_or(IndexedMerkleTreeError::KeyDoesNotExist)?;
+            .ok_or_else(|| IndexedMerkleTreeError::KeyDoesNotExist(key.to_string()))?;
         let mut leaf = self.0.get_leaf(index);
         leaf.value = value;
         self.0.update(index, leaf);
