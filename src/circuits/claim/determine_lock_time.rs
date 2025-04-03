@@ -44,7 +44,7 @@ impl LockTimeConfig {
 }
 
 // lock time is determined by the following formula:
-// lock_time = lock_time_min + (seed % lock_time_max),
+// lock_time = lock_time_min + (seed % lock_time_delta),
 // where seed = PoseidonHash(block_hash, deposit_salt)
 pub struct DetermineLockTimeValue {
     pub block_hash: Bytes32,
@@ -58,7 +58,7 @@ impl DetermineLockTimeValue {
         let seed: BigUint = BigUint::from(U256::from(Bytes32::from(
             PoseidonHashOut::hash_inputs_u64(&inputs),
         )));
-        let delta = BigUint::from(config.lock_time_max);
+        let delta = BigUint::from(config.lock_time_delta());
         let delta_r = seed % delta;
         let delta_r_u32 = delta_r.to_u32_digits().first().cloned().unwrap_or(0);
         let lock_time = config.lock_time_min + delta_r_u32;
@@ -92,7 +92,7 @@ impl DetermineLockTimeTarget {
         let seed_u256 = U256Target::from_slice(seed_bytes32.to_vec().as_slice());
         let seed_biguint = BigUintTarget::from(seed_u256);
 
-        let delta = BigUint::from(config.lock_time_max);
+        let delta = BigUint::from(config.lock_time_delta());
         let (_, delta_r) = builder.div_rem_biguint(&seed_biguint, &delta);
 
         let lock_time_min = builder.constant_biguint(&BigUint::from(config.lock_time_min));
