@@ -4,6 +4,7 @@ pub mod single_withdrawal_circuit;
 mod tests {
     use std::sync::Arc;
 
+    use base64::{prelude::BASE64_STANDARD, Engine as _};
     use plonky2::{
         field::goldilocks_field::GoldilocksField, plonk::config::PoseidonGoldilocksConfig,
     };
@@ -123,6 +124,14 @@ mod tests {
             "Final circuit degree: {}",
             final_circuit.data.common.degree_bits()
         );
+
+        let single_withdrawal_proof_bytes = bincode::serialize(&single_withdrawal_proof).unwrap();
+        let single_withdrawal_proof_str = BASE64_STANDARD.encode(single_withdrawal_proof_bytes);
+        std::fs::write(
+            "circuit_data/claim/single_withdrawal_proof.txt",
+            single_withdrawal_proof_str,
+        )
+        .unwrap();
 
         let final_proof_str = serde_json::to_string_pretty(&final_proof)?;
         let final_circuit_vd = serde_json::to_string_pretty(&final_circuit.data.verifier_only)?;

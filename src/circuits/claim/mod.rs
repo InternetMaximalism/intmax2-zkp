@@ -32,6 +32,7 @@ mod tests {
         },
         wrapper_config::plonky2_config::PoseidonBN128GoldilocksConfig,
     };
+    use base64::{prelude::BASE64_STANDARD, Engine};
     use plonky2::{
         field::goldilocks_field::GoldilocksField, plonk::config::PoseidonGoldilocksConfig,
     };
@@ -133,24 +134,44 @@ mod tests {
             final_circuit.data.common.degree_bits()
         );
 
+        let claim_name = if cfg!(feature = "faster-mining") {
+            "faster_claim"
+        } else {
+            "claim"
+        };
+
+        // for test data
+        let single_claim_proof_bytes = bincode::serialize(&single_claim_proof).unwrap();
+        let single_claim_proof_str = BASE64_STANDARD.encode(single_claim_proof_bytes);
+        std::fs::write(
+            format!(
+                "circuit_data/{}/single_{}_proof.txt",
+                claim_name, claim_name
+            ),
+            single_claim_proof_str,
+        )
+        .unwrap();
+
         let final_proof_str = serde_json::to_string_pretty(&final_proof).unwrap();
         let final_circuit_vd =
             serde_json::to_string_pretty(&final_circuit.data.verifier_only).unwrap();
         let final_circuit_cd = serde_json::to_string_pretty(&final_circuit.data.common).unwrap();
         // save to files
-        std::fs::create_dir_all("circuit_data/claim").unwrap();
         std::fs::write(
-            "circuit_data/claim/proof_with_public_inputs.json",
+            format!("circuit_data/{}/proof_with_public_inputs.json", claim_name),
             final_proof_str,
         )
         .unwrap();
         std::fs::write(
-            "circuit_data/claim/verifier_only_circuit_data.json",
+            format!(
+                "circuit_data/{}/verifier_only_circuit_data.json",
+                claim_name
+            ),
             final_circuit_vd,
         )
         .unwrap();
         std::fs::write(
-            "circuit_data/claim/common_circuit_data.json",
+            format!("circuit_data/{}/common_circuit_data.json", claim_name),
             final_circuit_cd,
         )
         .unwrap();
