@@ -10,6 +10,7 @@ mod tests {
 
     use crate::{
         circuits::{
+            claim::determine_lock_time::LockTimeConfig,
             test_utils::state_manager::ValidityStateManager,
             validity::validity_processor::ValidityProcessor,
         },
@@ -38,7 +39,7 @@ mod tests {
     };
     use rand::Rng as _;
 
-    use super::{determine_lock_time::LOCK_TIME_MAX, single_claim_processor::SingleClaimProcessor};
+    use super::single_claim_processor::SingleClaimProcessor;
 
     type F = GoldilocksField;
     type C = PoseidonGoldilocksConfig;
@@ -47,12 +48,15 @@ mod tests {
 
     #[test]
     fn test_claim() {
+        // 
+        let lock_config = LockTimeConfig::normal();
+
         let mut rng = rand::thread_rng();
         let validity_processor = Arc::new(ValidityProcessor::<F, C, D>::new());
         let mut validity_state_manager =
             ValidityStateManager::new(validity_processor.clone(), Address::default());
         let single_claim_processor =
-            SingleClaimProcessor::new(&validity_processor.get_verifier_data());
+            SingleClaimProcessor::new(&validity_processor.get_verifier_data(), &lock_config);
         let claim_processor = HashChainProcessor::new(&single_claim_processor.get_verifier_data());
 
         let key = KeySet::rand(&mut rng);
@@ -74,7 +78,7 @@ mod tests {
 
         // lock time max passed in this block
         validity_state_manager
-            .tick(false, &[], 0, LOCK_TIME_MAX as u64)
+            .tick(false, &[], 0, lock_config.lock_time_max as u64)
             .unwrap();
 
         let update_witness = validity_state_manager
@@ -134,7 +138,7 @@ mod tests {
             final_circuit.data.common.degree_bits()
         );
 
-        let claim_name = if cfg!(feature = "faster-mining") {
+        let claim_name = if lock_config == LockTimeConfig::faster() {
             "faster_claim"
         } else {
             "claim"

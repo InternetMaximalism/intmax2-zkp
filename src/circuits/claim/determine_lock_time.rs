@@ -17,20 +17,34 @@ use crate::{
     utils::poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget},
 };
 
-#[cfg(feature = "faster-mining")]
-pub const LOCK_TIME_MIN: u32 = 120; // 2 minutes
-#[cfg(feature = "faster-mining")]
-pub const LOCK_TIME_MAX: u32 = 300; // 5 minutes
+#[derive(Debug, Clone, PartialEq)]
+pub struct LockTimeConfig {
+    pub lock_time_min: u32,
+    pub lock_time_max: u32,
+}
 
-#[cfg(not(feature = "faster-mining"))]
-pub const LOCK_TIME_MIN: u32 = 172800; // 2 days
-#[cfg(not(feature = "faster-mining"))]
-pub const LOCK_TIME_MAX: u32 = 432000; // 5 days
+impl LockTimeConfig {
+    pub fn normal() -> Self {
+        LockTimeConfig {
+            lock_time_min: 172800, // 2 days
+            lock_time_max: 432000, // 5 days
+        }
+    }
 
-pub const LOCK_TIME_DELTA: u32 = LOCK_TIME_MAX - LOCK_TIME_MIN;
+    pub fn faster() -> Self {
+        LockTimeConfig {
+            lock_time_min: 120, // 2 minutes
+            lock_time_max: 300, // 5 minutes
+        }
+    }
+
+    pub fn lock_time_delta(&self) -> u32 {
+        self.lock_time_max - self.lock_time_min
+    }
+}
 
 // lock time is determined by the following formula:
-// lock_time = LOCK_TIME_MIN + (seed % LOCK_TIME_DELTA),
+// lock_time = lock_time_min + (seed % lock_time_max),
 // where seed = PoseidonHash(block_hash, deposit_salt)
 pub struct DetermineLockTimeValue {
     pub block_hash: Bytes32,
@@ -39,15 +53,15 @@ pub struct DetermineLockTimeValue {
 }
 
 impl DetermineLockTimeValue {
-    pub fn new(block_hash: Bytes32, deposit_salt: Salt) -> Self {
+    pub fn new(config: &LockTimeConfig, block_hash: Bytes32, deposit_salt: Salt) -> Self {
         let inputs = [block_hash.to_u64_vec(), deposit_salt.to_u64_vec()].concat();
         let seed: BigUint = BigUint::from(U256::from(Bytes32::from(
             PoseidonHashOut::hash_inputs_u64(&inputs),
         )));
-        let delta = BigUint::from(LOCK_TIME_DELTA);
+        let delta = BigUint::from(config.lock_time_max);
         let delta_r = seed % delta;
         let delta_r_u32 = delta_r.to_u32_digits().first().cloned().unwrap_or(0);
-        let lock_time = LOCK_TIME_MIN + delta_r_u32;
+        let lock_time = config.lock_time_min + delta_r_u32;
         DetermineLockTimeValue {
             block_hash,
             deposit_salt,
@@ -67,6 +81,7 @@ impl DetermineLockTimeTarget {
     pub fn new<F: RichField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
         is_checked: bool,
+        config: &LockTimeConfig,
     ) -> Self {
         let block_hash = Bytes32Target::new(builder, is_checked);
         let deposit_salt = SaltTarget::new(builder);
@@ -77,10 +92,10 @@ impl DetermineLockTimeTarget {
         let seed_u256 = U256Target::from_slice(seed_bytes32.to_vec().as_slice());
         let seed_biguint = BigUintTarget::from(seed_u256);
 
-        let delta = BigUint::from(LOCK_TIME_DELTA);
+        let delta = BigUint::from(config.lock_time_max);
         let (_, delta_r) = builder.div_rem_biguint(&seed_biguint, &delta);
 
-        let lock_time_min = builder.constant_biguint(&BigUint::from(LOCK_TIME_MIN));
+        let lock_time_min = builder.constant_biguint(&BigUint::from(config.lock_time_min));
         let lock_time_biguint = builder.add_biguint(&lock_time_min, &delta_r);
         let lock_time = lock_time_biguint.limbs[0].0;
         Self {
@@ -101,8 +116,8 @@ impl DetermineLockTimeTarget {
     }
 }
 
-pub fn get_lock_time(block_hash: Bytes32, deposit_salt: Salt) -> u64 {
-    let value = DetermineLockTimeValue::new(block_hash, deposit_salt);
+pub fn get_lock_time(config: &LockTimeConfig, block_hash: Bytes32, deposit_salt: Salt) -> u64 {
+    let value = DetermineLockTimeValue::new(config, block_hash, deposit_salt);
     value.lock_time as u64
 }
 
@@ -130,15 +145,16 @@ mod tests {
 
     #[test]
     fn test_determine_lock_time() {
+        let config = super::LockTimeConfig::normal();
         let mut rng = rand::thread_rng();
         let block_hash = Bytes32::rand(&mut rng);
         let deposit_salt = Salt::rand(&mut rng);
-        let value = super::DetermineLockTimeValue::new(block_hash, deposit_salt);
+        let value = super::DetermineLockTimeValue::new(&config, block_hash, deposit_salt);
 
-        assert!(value.lock_time >= super::LOCK_TIME_MIN && value.lock_time <= super::LOCK_TIME_MAX);
+        assert!(value.lock_time >= config.lock_time_min && value.lock_time <= config.lock_time_max);
 
         let mut builder = CircuitBuilder::new(CircuitConfig::default());
-        let target = DetermineLockTimeTarget::new::<F, D>(&mut builder, true);
+        let target = DetermineLockTimeTarget::new::<F, D>(&mut builder, true, &config);
         let data = builder.build::<C>();
 
         let mut pw = PartialWitness::new();

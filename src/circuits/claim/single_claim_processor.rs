@@ -13,7 +13,10 @@ use crate::{
     common::witness::claim_witness::ClaimWitness,
 };
 
-use super::{deposit_time::DepositTimeCircuit, single_claim_proof::SingleClaimCircuit};
+use super::{
+    deposit_time::DepositTimeCircuit, determine_lock_time::LockTimeConfig,
+    single_claim_proof::SingleClaimCircuit,
+};
 
 #[derive(Debug)]
 pub struct SingleClaimProcessor<F, C, const D: usize>
@@ -21,6 +24,7 @@ where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
 {
+    pub config: LockTimeConfig,
     pub validity_vd: VerifierCircuitData<F, C, D>,
     pub deposit_time_circuit: DepositTimeCircuit<F, C, D>,
     pub single_claim_circuit: SingleClaimCircuit<F, C, D>,
@@ -32,11 +36,12 @@ where
     C: GenericConfig<D, F = F> + 'static,
     <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
 {
-    pub fn new(validity_vd: &VerifierCircuitData<F, C, D>) -> Self {
-        let deposit_time_circuit = DepositTimeCircuit::new();
+    pub fn new(validity_vd: &VerifierCircuitData<F, C, D>, config: &LockTimeConfig) -> Self {
+        let deposit_time_circuit = DepositTimeCircuit::new(config);
         let single_claim_circuit =
             SingleClaimCircuit::new(validity_vd, &deposit_time_circuit.data.verifier_data());
         Self {
+            config: config.clone(),
             validity_vd: validity_vd.clone(),
             deposit_time_circuit,
             single_claim_circuit,
@@ -53,7 +58,7 @@ where
     ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
         let deposit_time_value = claim_witness
             .deposit_time_witness
-            .to_value()
+            .to_value(&self.config)
             .map_err(|e| anyhow::anyhow!("failed to create deposit_time_value: {}", e))?;
         let deposit_time_proof = self.deposit_time_circuit.prove(&deposit_time_value)?;
 
