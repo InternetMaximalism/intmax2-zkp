@@ -125,10 +125,14 @@ mod tests {
             final_circuit.data.common.degree_bits()
         );
 
-        let single_withdrawal_proof_bytes = bincode::serialize(&single_withdrawal_proof).unwrap();
+        let compressed_single_withdrawal_proof = single_withdrawal_circuit
+            .data
+            .compress(single_withdrawal_proof.clone())
+            .unwrap();
+        let single_withdrawal_proof_bytes = bincode::serialize(&compressed_single_withdrawal_proof).unwrap();
         let single_withdrawal_proof_str = BASE64_STANDARD.encode(single_withdrawal_proof_bytes);
         std::fs::write(
-            "circuit_data/claim/single_withdrawal_proof.txt",
+            "circuit_data/withdrawal/single_withdrawal_proof.txt",
             single_withdrawal_proof_str,
         )
         .unwrap();
