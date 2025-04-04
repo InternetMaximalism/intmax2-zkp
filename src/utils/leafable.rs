@@ -20,7 +20,7 @@ use super::{
 };
 use core::fmt::Debug;
 
-/// Can be a leaf of Merkle trees.
+/// Leafable trait is used to define the leaf of a Merkle tree.
 pub trait Leafable: Clone + Debug {
     type LeafableHasher: LeafableHasher;
 
@@ -47,6 +47,7 @@ pub trait LeafableTarget: Clone + Debug {
     where
         <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>;
 }
+
 /*
  * Leafable for PoseidonHashOut
  */
