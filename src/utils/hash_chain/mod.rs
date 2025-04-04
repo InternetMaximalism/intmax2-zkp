@@ -16,6 +16,7 @@ use crate::ethereum_types::{
 
 pub mod chain_end_circuit;
 pub mod cyclic_chain_circuit;
+pub mod error;
 pub mod hash_chain_processor;
 pub mod hash_inner_circuit;
 

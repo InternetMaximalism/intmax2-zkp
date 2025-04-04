@@ -1,4 +1,4 @@
-use anyhow::Result;
+use super::error::Result;
 use hashbrown::HashMap;
 use plonky2::{
     field::extension::Extendable,
@@ -103,7 +103,7 @@ where
             pw.set_bool_target(self.is_first_step, false);
             pw.set_proof_with_pis_target(&self.prev_proof, prev_proof.as_ref().unwrap());
         }
-        self.data.prove(pw)
+        self.data.prove(pw).map_err(|e| super::error::HashChainError::CyclicProofError(e.to_string()))
     }
 }
 

@@ -1,4 +1,8 @@
-use anyhow::Result;
+use super::{
+    chain_end_circuit::ChainEndCircuit, cyclic_chain_circuit::CyclicChainCircuit,
+    error::{HashChainError, Result},
+    hash_inner_circuit::HashInnerCircuit,
+};
 use plonky2::{
     field::extension::Extendable,
     hash::hash_types::RichField,
@@ -18,10 +22,6 @@ use crate::{
     utils::conversion::ToU64,
 };
 
-use super::{
-    chain_end_circuit::ChainEndCircuit, cyclic_chain_circuit::CyclicChainCircuit,
-    hash_inner_circuit::HashInnerCircuit,
-};
 
 pub struct HashChainProcessor<F, C, const D: usize>
 where
@@ -66,11 +66,11 @@ where
         let inner_proof = self
             .inner_circuit
             .prove(prev_hash, single_proof)
-            .map_err(|e| anyhow::anyhow!("Failed to prove inner: {}", e))?;
+            .map_err(|e| HashChainError::InnerProofError(e.to_string()))?;
         let cyclic_proof = self
             .cyclic_circuit
             .prove(&inner_proof, prev_proof)
-            .map_err(|e| anyhow::anyhow!("Failed to prove cyclic: {}", e))?;
+            .map_err(|e| HashChainError::CyclicProofError(e.to_string()))?;
         Ok(cyclic_proof)
     }
 
@@ -79,7 +79,8 @@ where
         cyclic_proof: &ProofWithPublicInputs<F, C, D>,
         aggregator: Address,
     ) -> Result<ProofWithPublicInputs<F, C, D>> {
-        let end_proof = self.chain_end_circuit.prove(cyclic_proof, aggregator)?;
+        let end_proof = self.chain_end_circuit.prove(cyclic_proof, aggregator)
+            .map_err(|e| HashChainError::ChainEndProofError(e.to_string()))?;
         Ok(end_proof)
     }
 }

@@ -57,10 +57,10 @@ where
         &self,
         prev_hash: Bytes32,
         single_proof: &ProofWithPublicInputs<F, C, D>,
-    ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
+    ) -> super::error::Result<ProofWithPublicInputs<F, C, D>> {
         let mut pw = PartialWitness::<F>::new();
         self.prev_hash.set_witness(&mut pw, prev_hash);
         pw.set_proof_with_pis_target(&self.single_proof, single_proof);
-        self.data.prove(pw)
+        self.data.prove(pw).map_err(|e| super::error::HashChainError::InnerProofError(e.to_string()))
     }
 }
