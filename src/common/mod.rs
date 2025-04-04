@@ -11,6 +11,5 @@ pub mod signature;
 pub mod transfer;
 pub mod trees;
 pub mod tx;
-pub mod utils;
 pub mod withdrawal;
 pub mod witness;
