@@ -1,7 +1,11 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    circuits::validity::validity_pis::ValidityPublicInputs, common::public_state::PublicState,
+    circuits::validity::validity_pis::ValidityPublicInputs, 
+    common::{
+        error::CommonError,
+        public_state::PublicState
+    },
     ethereum_types::bytes32::Bytes32,
 };
 
@@ -22,7 +26,7 @@ impl ValidityWitness {
         }
     }
 
-    pub fn to_validity_pis(&self) -> anyhow::Result<ValidityPublicInputs> {
+    pub fn to_validity_pis(&self) -> Result<ValidityPublicInputs, CommonError> {
         // calculate new roots
         let prev_block_tree_root = self.block_witness.prev_block_tree_root;
 
@@ -42,9 +46,8 @@ impl ValidityWitness {
             .get_root(&block.hash(), block.block_number as u64);
 
         let main_validation_pis = self.block_witness.to_main_validation_pis().map_err(|e| {
-            anyhow::anyhow!(
-                "Failed to convert block witness to main validation pis: {}",
-                e
+            CommonError::BlockWitnessConversionFailed(
+                format!("Failed to convert block witness to main validation pis: {}", e)
             )
         })?;
 
@@ -57,8 +60,8 @@ impl ValidityWitness {
                 .validity_transition_witness
                 .account_registration_proofs
                 .as_ref()
-                .ok_or(anyhow::anyhow!(
-                    "account_registration_proofs should be given"
+                .ok_or(CommonError::MissingData(
+                    "account_registration_proofs should be given".to_string()
                 ))?;
             for (sender_leaf, account_registration_proof) in self
                 .validity_transition_witness

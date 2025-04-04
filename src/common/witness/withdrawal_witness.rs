@@ -15,7 +15,10 @@ use crate::{
         balance_pis::BalancePublicInputs,
         receive::receive_targets::transfer_inclusion::TransferInclusionValue,
     },
-    common::withdrawal::{get_withdrawal_nullifier, Withdrawal},
+    common::{
+        error::CommonError,
+        withdrawal::{get_withdrawal_nullifier, Withdrawal},
+    },
     utils::leafable::Leafable,
 };
 
@@ -69,7 +72,7 @@ where
     pub fn to_transition_inclusion_value(
         &self,
         balance_verifier_data: &VerifierCircuitData<F, C, D>,
-    ) -> anyhow::Result<TransferInclusionValue<F, C, D>>
+    ) -> Result<TransferInclusionValue<F, C, D>, CommonError>
     where
         <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
     {
@@ -82,7 +85,7 @@ where
             &transfer_witness.tx,
             &self.balance_proof,
         )
-        .map_err(|e| anyhow::anyhow!("Failed to create transfer inclusion value: {}", e))?;
+        .map_err(|e| CommonError::TransferInclusionValueCreationFailed(e.to_string()))?;
         Ok(transition_inclusion_value)
     }
 }

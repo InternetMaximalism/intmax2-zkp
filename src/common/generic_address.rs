@@ -1,9 +1,11 @@
-use crate::ethereum_types::{
-    address::{Address, AddressTarget, ADDRESS_LEN},
-    u256::{U256Target, U256, U256_LEN},
-    u32limb_trait::{U32LimbTargetTrait as _, U32LimbTrait},
+use crate::{
+    common::error::CommonError,
+    ethereum_types::{
+        address::{Address, AddressTarget, ADDRESS_LEN},
+        u256::{U256Target, U256, U256_LEN},
+        u32limb_trait::{U32LimbTargetTrait as _, U32LimbTrait},
+    },
 };
-use anyhow::{ensure, Result};
 use plonky2::{
     field::{extension::Extendable, types::Field},
     hash::hash_types::RichField,
@@ -60,13 +62,17 @@ impl GenericAddress {
         }
     }
 
-    pub fn to_pubkey(&self) -> Result<U256> {
-        ensure!(self.is_pubkey, "not a pubkey");
+    pub fn to_pubkey(&self) -> Result<U256, CommonError> {
+        if !self.is_pubkey {
+            return Err(CommonError::InvalidData("not a pubkey".to_string()));
+        }
         Ok(self.data)
     }
 
-    pub fn to_address(&self) -> Result<Address> {
-        ensure!(!self.is_pubkey, "not an address");
+    pub fn to_address(&self) -> Result<Address, CommonError> {
+        if self.is_pubkey {
+            return Err(CommonError::InvalidData("not an address".to_string()));
+        }
         let limbs = self.data.to_u32_vec();
         Ok(Address::from_u32_slice(&limbs[0..ADDRESS_LEN]).unwrap())
     }

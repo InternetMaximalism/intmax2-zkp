@@ -72,7 +72,7 @@ impl<V: Leafable> MerkleTree<V> {
         let mut path = BitPath::new(self.height as u32, index);
         path.reverse();
         let mut h = leaf_hash;
-        self.node_hashes.insert(path.clone(), h);
+        self.node_hashes.insert(path, h);
         while !path.is_empty() {
             let sibling = self.get_node_hash(path.sibling());
             h = if path.pop().unwrap() {
@@ -80,7 +80,7 @@ impl<V: Leafable> MerkleTree<V> {
             } else {
                 Hasher::<V>::two_to_one(h, sibling)
             };
-            self.node_hashes.insert(path.clone(), h);
+            self.node_hashes.insert(path, h);
         }
     }
 

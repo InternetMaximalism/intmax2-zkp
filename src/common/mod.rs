@@ -2,6 +2,7 @@ pub mod block;
 pub mod block_builder;
 pub mod claim;
 pub mod deposit;
+pub mod error;
 pub mod generic_address;
 pub mod insufficient_flags;
 pub mod private_state;

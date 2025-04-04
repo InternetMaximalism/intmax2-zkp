@@ -1,4 +1,3 @@
-use anyhow::ensure;
 use plonky2::{
     field::{
         extension::Extendable,
@@ -19,6 +18,7 @@ use plonky2::{
 
 use crate::{
     common::{
+        error::CommonError,
         insufficient_flags::{InsufficientFlags, InsufficientFlagsTarget, INSUFFICIENT_FLAGS_LEN},
         private_state::{PrivateState, PrivateStateTarget},
         salt::{Salt, SaltTarget},
@@ -167,19 +167,24 @@ impl SpentValue {
         transfers: &[Transfer],
         asset_merkle_proofs: &[AssetMerkleProof],
         tx_nonce: u32,
-    ) -> anyhow::Result<Self> {
-        ensure!(
-            prev_balances.len() == NUM_TRANSFERS_IN_TX,
-            "invalid number of balances"
-        );
-        ensure!(
-            transfers.len() == NUM_TRANSFERS_IN_TX,
-            "invalid number of transfers"
-        );
-        ensure!(
-            asset_merkle_proofs.len() == NUM_TRANSFERS_IN_TX,
-            "invalid number of proofs"
-        );
+    ) -> Result<Self, CommonError> {
+        if prev_balances.len() != NUM_TRANSFERS_IN_TX {
+            return Err(CommonError::InvalidData(
+                "invalid number of balances".to_string()
+            ));
+        }
+        
+        if transfers.len() != NUM_TRANSFERS_IN_TX {
+            return Err(CommonError::InvalidData(
+                "invalid number of transfers".to_string()
+            ));
+        }
+        
+        if asset_merkle_proofs.len() != NUM_TRANSFERS_IN_TX {
+            return Err(CommonError::InvalidData(
+                "invalid number of proofs".to_string()
+            ));
+        }
         let mut insufficient_bits = vec![];
         let mut asset_tree_root = prev_private_state.asset_tree_root;
         for ((transfer, proof), prev_balance) in transfers
@@ -189,7 +194,7 @@ impl SpentValue {
         {
             proof
                 .verify(prev_balance, transfer.token_index as u64, asset_tree_root)
-                .map_err(|e| anyhow::anyhow!("asset merkle proof verification failed: {}", e))?;
+                .map_err(|e| CommonError::InvalidProof(format!("asset merkle proof verification failed: {}", e)))?;
             let new_balance = prev_balance.sub(transfer.amount);
             asset_tree_root = proof.get_root(&new_balance, transfer.token_index as u64);
             insufficient_bits.push(new_balance.is_insufficient);
@@ -205,7 +210,8 @@ impl SpentValue {
             ..prev_private_state.clone()
         };
         let new_private_commitment = new_private_state.commitment();
-        let transfer_tree_root = get_merkle_root_from_leaves(TRANSFER_TREE_HEIGHT, transfers)?;
+        let transfer_tree_root = get_merkle_root_from_leaves(TRANSFER_TREE_HEIGHT, transfers)
+            .map_err(|e| CommonError::InvalidData(e.to_string()))?;
         let tx = Tx {
             transfer_tree_root,
             nonce: tx_nonce,
@@ -362,10 +368,10 @@ where
         Self { data, target }
     }
 
-    pub fn prove(&self, value: &SpentValue) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
+    pub fn prove(&self, value: &SpentValue) -> Result<ProofWithPublicInputs<F, C, D>, CommonError> {
         let mut pw = PartialWitness::<F>::new();
         self.target.set_witness(&mut pw, value);
-        self.data.prove(pw)
+        self.data.prove(pw).map_err(|e| CommonError::InvalidProof(e.to_string()))
     }
 }
 

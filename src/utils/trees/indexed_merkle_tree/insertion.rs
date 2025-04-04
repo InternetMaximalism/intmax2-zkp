@@ -128,7 +128,7 @@ impl IndexedInsertionProof {
         value: u64,
         prev_root: PoseidonHashOut,
     ) -> Result<PoseidonHashOut, IndexedMerkleTreeError> {
-        if !(self.prev_low_leaf.key < key) {
+        if self.prev_low_leaf.key >= key {
             return Err(IndexedMerkleTreeError::KeyNotLowerBounded(format!("key: {}, prev_low_leaf.key: {}", key, self.prev_low_leaf.key)));
         }
         

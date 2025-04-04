@@ -1,4 +1,5 @@
 use crate::{
+    common::error::CommonError,
     constants::NULLIFIER_TREE_HEIGHT,
     ethereum_types::{
         bytes32::{Bytes32, Bytes32Target},
@@ -13,7 +14,6 @@ use crate::{
         },
     },
 };
-use anyhow::{ensure, Result};
 use plonky2::{
     field::{extension::Extendable, types::Field},
     hash::hash_types::RichField,
@@ -56,8 +56,9 @@ impl NullifierTree {
             .collect()
     }
 
-    pub fn prove_and_insert(&mut self, nullifier: Bytes32) -> Result<NullifierInsertionProof> {
-        let proof = self.0.prove_and_insert(nullifier.into(), 0)?;
+    pub fn prove_and_insert(&mut self, nullifier: Bytes32) -> Result<NullifierInsertionProof, CommonError> {
+        let proof = self.0.prove_and_insert(nullifier.into(), 0)
+            .map_err(|e| CommonError::NullifierAlreadyExists(e.to_string()))?;
         Ok(NullifierInsertionProof(proof))
     }
 }
@@ -67,8 +68,9 @@ impl NullifierInsertionProof {
         &self,
         prev_root: PoseidonHashOut,
         nullifier: Bytes32,
-    ) -> Result<PoseidonHashOut> {
-        let root = self.0.get_new_root(nullifier.into(), 0, prev_root)?;
+    ) -> Result<PoseidonHashOut, CommonError> {
+        let root = self.0.get_new_root(nullifier.into(), 0, prev_root)
+            .map_err(|e| CommonError::InvalidData(e.to_string()))?;
         Ok(root)
     }
 
@@ -77,12 +79,13 @@ impl NullifierInsertionProof {
         prev_root: PoseidonHashOut,
         new_root: PoseidonHashOut,
         nullifier: Bytes32,
-    ) -> Result<()> {
+    ) -> Result<(), CommonError> {
         let expected_new_root = self.get_new_root(prev_root, nullifier)?;
-        ensure!(
-            new_root == expected_new_root,
-            "new root is not equal to the expected new root"
-        );
+        if new_root != expected_new_root {
+            return Err(CommonError::InvalidData(
+                "new root is not equal to the expected new root".to_string()
+            ));
+        }
         Ok(())
     }
 }

@@ -145,7 +145,7 @@ impl BlockSignPayloadTarget {
     where
         <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
     {
-        let elements = self.to_vec().iter().map(|x| x.clone()).collect::<Vec<_>>();
+        let elements = self.to_vec().to_vec();
         G2Target::<F, D>::hash_to_g2_circuit::<C>(builder, &elements).into()
     }
 

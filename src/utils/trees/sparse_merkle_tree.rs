@@ -386,7 +386,7 @@ mod tests {
         let mut leaves = HashMap::new();
         for i in 0..5 {
             let new_leaf = V::rand(&mut rng);
-            leaves.insert(i, new_leaf.clone());
+            leaves.insert(i, new_leaf);
             tree.update(i, new_leaf);
         }
 
@@ -414,13 +414,13 @@ mod tests {
 
         // Add a leaf and check that root changes
         let leaf = V::rand(&mut rng);
-        tree.update(0, leaf.clone());
+        tree.update(0, leaf);
         let root_with_one_leaf = tree.get_root();
         assert_ne!(empty_root, root_with_one_leaf);
 
         // Add another leaf and check that root changes again
         let leaf2 = V::rand(&mut rng);
-        tree.update(1, leaf2.clone());
+        tree.update(1, leaf2);
         let root_with_two_leaves = tree.get_root();
         assert_ne!(root_with_one_leaf, root_with_two_leaves);
     }
@@ -438,7 +438,7 @@ mod tests {
         let mut expected_leaves = HashMap::new();
         for i in 0..5 {
             let new_leaf = V::rand(&mut rng);
-            expected_leaves.insert(i, new_leaf.clone());
+            expected_leaves.insert(i, new_leaf);
             tree.update(i, new_leaf);
         }
 
@@ -486,13 +486,13 @@ mod tests {
 
         // Add a new leaf
         let leaf1 = V::rand(&mut rng);
-        tree.update(0, leaf1.clone());
+        tree.update(0, leaf1);
         assert_eq!(tree.get_leaf(0), leaf1);
 
         // Update the leaf
         let leaf2 = V::rand(&mut rng);
         let root_before = tree.get_root();
-        tree.update(0, leaf2.clone());
+        tree.update(0, leaf2);
 
         // Verify the leaf was updated
         assert_eq!(tree.get_leaf(0), leaf2);
@@ -565,7 +565,7 @@ mod tests {
         // Add a leaf
         let index = 3;
         let leaf = V::rand(&mut rng);
-        tree.update(index, leaf.clone());
+        tree.update(index, leaf);
 
         // Generate a proof
         let proof = tree.prove(index);
@@ -588,7 +588,7 @@ mod tests {
         // Add a leaf
         let index = 3;
         let leaf = V::rand(&mut rng);
-        tree.update(index, leaf.clone());
+        tree.update(index, leaf);
 
         // Generate a proof
         let proof = tree.prove(index);
@@ -621,7 +621,7 @@ mod tests {
         // Add a leaf
         let index = 3;
         let leaf = V::rand(&mut rng);
-        tree.update(index, leaf.clone());
+        tree.update(index, leaf);
 
         // Generate a proof
         let proof = tree.prove(index);
@@ -648,7 +648,7 @@ mod tests {
         // Add a leaf
         let index = 3;
         let leaf = V::rand(&mut rng);
-        tree.update(index, leaf.clone());
+        tree.update(index, leaf);
 
         // Generate a proof
         let proof = tree.prove(index);
@@ -673,7 +673,7 @@ mod tests {
         // Add a leaf
         let index = 3;
         let leaf = V::rand(&mut rng);
-        tree.update(index, leaf.clone());
+        tree.update(index, leaf);
 
         // Generate a proof
         let proof = tree.prove(index);
@@ -722,7 +722,7 @@ mod tests {
         // Test tree with a single leaf
         let mut single_leaf_tree = SparseMerkleTree::<Bytes32>::new(10);
         let leaf = Bytes32::rand(&mut rng);
-        single_leaf_tree.update(0, leaf.clone());
+        single_leaf_tree.update(0, leaf);
         assert_eq!(single_leaf_tree.len(), 1);
         assert_eq!(single_leaf_tree.get_leaf(0), leaf);
 
@@ -733,7 +733,7 @@ mod tests {
         // Test with index 0
         let index_min: u64 = 0;
         let leaf_min = Bytes32::rand(&mut rng);
-        tree.update(index_min, leaf_min.clone());
+        tree.update(index_min, leaf_min);
         let proof_min = tree.prove(index_min);
         assert!(proof_min
             .verify(&leaf_min, index_min, tree.get_root())
@@ -742,7 +742,7 @@ mod tests {
         // Test with max index
         let index_max: u64 = (1 << height) - 1;
         let leaf_max = Bytes32::rand(&mut rng);
-        tree.update(index_max, leaf_max.clone());
+        tree.update(index_max, leaf_max);
         let proof_max = tree.prove(index_max);
         assert!(proof_max
             .verify(&leaf_max, index_max, tree.get_root())
@@ -755,7 +755,7 @@ mod tests {
 
         for &idx in &indices {
             let leaf = Bytes32::rand(&mut rng);
-            leaves.insert(idx, leaf.clone());
+            leaves.insert(idx, leaf);
             sparse_tree.update(idx, leaf);
         }
 

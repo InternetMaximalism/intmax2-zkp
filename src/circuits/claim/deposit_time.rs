@@ -21,6 +21,7 @@ use crate::{
     common::{
         block::{Block, BlockTarget},
         deposit::{get_pubkey_salt_hash, get_pubkey_salt_hash_circuit, Deposit, DepositTarget},
+        error::CommonError,
         salt::{Salt, SaltTarget},
         trees::deposit_tree::{DepositMerkleProof, DepositMerkleProofTarget},
     },
@@ -69,16 +70,19 @@ impl DepositTimePublicInputs {
         let nullifier = Bytes32::from_u32_slice(&inputs[U256_LEN..U256_LEN + BYTES32_LEN]).unwrap();
         let deposit_amount = U256::from_u32_slice(
             &inputs[U256_LEN + BYTES32_LEN..U256_LEN + BYTES32_LEN + U256_LEN],
-        ).unwrap();
+        )
+        .unwrap();
         let lock_time = inputs[U256_LEN + BYTES32_LEN + U256_LEN];
         let block_timestamp = U64::from_u32_slice(
             &inputs[U256_LEN + BYTES32_LEN + U256_LEN + 1
                 ..U256_LEN + BYTES32_LEN + U256_LEN + 1 + U64_LEN],
-        ).unwrap();
+        )
+        .unwrap();
         let block_hash = Bytes32::from_u32_slice(
             &inputs[U256_LEN + BYTES32_LEN + U256_LEN + 1 + U64_LEN
                 ..U256_LEN + BYTES32_LEN + U256_LEN + 1 + U64_LEN + BYTES32_LEN],
-        ).unwrap();
+        )
+        .unwrap();
         let block_number = inputs[U256_LEN + BYTES32_LEN + U256_LEN + 1 + U64_LEN + BYTES32_LEN];
         Self {
             pubkey,
@@ -181,11 +185,12 @@ impl DepositTimeValue {
         deposit_index: u32,
         deposit_salt: Salt,
         pubkey: U256,
-    ) -> anyhow::Result<Self> {
+    ) -> Result<Self, CommonError> {
         if !deposit.is_eligible {
-            return Err(anyhow::anyhow!("deposit is not eligible for mining"));
+            return Err(CommonError::InvalidData(
+                "deposit is not eligible for mining".to_string(),
+            ));
         }
-
         // deposit non-inclusion proof of prev_deposit_merkle_proof
         prev_deposit_merkle_proof
             .verify(
@@ -193,22 +198,29 @@ impl DepositTimeValue {
                 deposit_index as u64,
                 prev_block.deposit_tree_root,
             )
-            .map_err(|e| anyhow::anyhow!("prev_deposit_merkle_proof.verify failed: {:?}", e))?;
+            .map_err(|e| {
+                CommonError::InvalidProof(format!(
+                    "prev_deposit_merkle_proof.verify failed: {:?}",
+                    e
+                ))
+            })?;
         // deposit inclusion proof of deposit_merkle_proof
         deposit_merkle_proof
             .verify(deposit, deposit_index as u64, block.deposit_tree_root)
-            .map_err(|e| anyhow::anyhow!("deposit_merkle_proof.verify failed: {:?}", e))?;
+            .map_err(|e| {
+                CommonError::InvalidProof(format!("deposit_merkle_proof.verify failed: {:?}", e))
+            })?;
         // ensure that prev_block is the parent of block
         if prev_block.hash() != block.prev_block_hash {
-            return Err(anyhow::anyhow!(
-                "prev_block.hash() != block.prev_block_hash"
+            return Err(CommonError::InvalidBlock(
+                "prev_block.hash() != block.prev_block_hash".to_string(),
             ));
         }
         // proving that the deposit is bound to the pubkey
         let pubkey_salt_hash = get_pubkey_salt_hash(pubkey, deposit_salt);
         if pubkey_salt_hash != deposit.pubkey_salt_hash {
-            return Err(anyhow::anyhow!(
-                "pubkey_salt_hash != deposit.pubkey_salt_hash"
+            return Err(CommonError::InvalidData(
+                "pubkey_salt_hash != deposit.pubkey_salt_hash".to_string(),
             ));
         }
 
@@ -352,7 +364,7 @@ where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F> + 'static,
     C::Hasher: AlgebraicHasher<F>,
- {
+{
     fn default() -> Self {
         Self::new()
     }
@@ -385,10 +397,12 @@ where
     pub fn prove(
         &self,
         value: &DepositTimeValue,
-    ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
+    ) -> Result<ProofWithPublicInputs<F, C, D>, CommonError> {
         let mut pw = PartialWitness::<F>::new();
         self.target.set_witness(&mut pw, value);
-        self.data.prove(pw)
+        self.data
+            .prove(pw)
+            .map_err(|e| CommonError::InvalidProof(e.to_string()))
     }
 }
 

@@ -1,4 +1,7 @@
-use crate::ethereum_types::u256::U256;
+use crate::{
+    common::error::CommonError,
+    ethereum_types::u256::U256,
+};
 use ark_bn254::{Bn254, Fr, G1Affine, G1Projective, G2Affine, G2Projective};
 use ark_ec::{pairing::Pairing, AffineRepr};
 use num::{BigUint, One, Zero as _};
@@ -44,7 +47,7 @@ fn verify_signature_no_pad(
     signature_g2: G2Affine,
     pubkey: U256,
     message: &[u32],
-) -> anyhow::Result<()> {
+) -> Result<(), CommonError> {
     let elements = message
         .iter()
         .map(|x| GoldilocksField::from_canonical_u32(*x))
@@ -54,7 +57,7 @@ fn verify_signature_no_pad(
     let pubkey_g1 = G1Affine::recover_from_x(pubkey.into());
     let g1_generator_inv = -G1Affine::generator();
     if !check_pairing(&[g1_generator_inv, pubkey_g1], &[signature_g2, message_g2]) {
-        anyhow::bail!("Invalid signature");
+        return Err(CommonError::InvalidSignature);
     }
 
     Ok(())
@@ -71,7 +74,7 @@ pub fn sign_message(privkey: Fr, message: &[u8]) -> G2Affine {
     sign_message_no_pad(privkey, &limbs)
 }
 
-pub fn verify_signature(signature: G2Affine, pubkey: U256, message: &[u8]) -> anyhow::Result<()> {
+pub fn verify_signature(signature: G2Affine, pubkey: U256, message: &[u8]) -> Result<(), CommonError> {
     let padded_message = pad_10star1(message);
     debug_assert!(padded_message.len() % 4 == 0);
     let limbs = padded_message
@@ -132,7 +135,7 @@ pub fn verify_signature_with_signers(
     aggregated_signature: G2Affine,
     message: &[u8],
     signers: Vec<U256>,
-) -> anyhow::Result<()> {
+) -> Result<(), CommonError> {
     let (aggregated_pubkey, _) = calc_aggregated_pubkey(&signers);
 
     verify_signature(aggregated_signature, aggregated_pubkey, message)

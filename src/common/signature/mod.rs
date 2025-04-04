@@ -155,7 +155,7 @@ impl SignatureContent {
             account_id_hash,
             agg_pubkey: agg_pubkey.into(),
             agg_signature: agg_signature.into(),
-            message_point: message_point.into(),
+            message_point,
         };
         (key_sets, signature)
     }

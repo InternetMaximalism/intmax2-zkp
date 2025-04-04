@@ -331,7 +331,7 @@ mod tests {
         let mut leaves = Vec::new();
         for _ in 0..10 {
             let new_leaf = V::rand(&mut rng);
-            leaves.push(new_leaf.clone());
+            leaves.push(new_leaf);
             tree.push(new_leaf);
         }
 
@@ -339,7 +339,7 @@ mod tests {
         for i in 0..5 {
             let new_leaf = V::rand(&mut rng);
             let old_root = tree.get_root();
-            tree.update(i, new_leaf.clone());
+            tree.update(i, new_leaf);
             
             // Verify the leaf was updated
             assert_eq!(tree.get_leaf(i), new_leaf);
@@ -367,7 +367,7 @@ mod tests {
         let mut leaves = Vec::new();
         for i in 0..10 {
             let new_leaf = V::rand(&mut rng);
-            leaves.push(new_leaf.clone());
+            leaves.push(new_leaf);
             tree.push(new_leaf);
             
             // Verify length increases
@@ -394,13 +394,13 @@ mod tests {
         
         // Add a leaf and check that root changes
         let leaf = V::rand(&mut rng);
-        tree.push(leaf.clone());
+        tree.push(leaf);
         let root_with_one_leaf = tree.get_root();
         assert_ne!(empty_root, root_with_one_leaf);
         
         // Add another leaf and check that root changes again
         let leaf2 = V::rand(&mut rng);
-        tree.push(leaf2.clone());
+        tree.push(leaf2);
         let root_with_two_leaves = tree.get_root();
         assert_ne!(root_with_one_leaf, root_with_two_leaves);
     }
@@ -422,7 +422,7 @@ mod tests {
         let mut leaves = Vec::new();
         for _ in 0..5 {
             let new_leaf = V::rand(&mut rng);
-            leaves.push(new_leaf.clone());
+            leaves.push(new_leaf);
             tree.push(new_leaf);
         }
         
@@ -490,7 +490,7 @@ mod tests {
         // Test tree with a single leaf
         let mut single_leaf_tree = IncrementalMerkleTree::<Bytes32>::new(10);
         let leaf = Bytes32::rand(&mut rng);
-        single_leaf_tree.push(leaf.clone());
+        single_leaf_tree.push(leaf);
         assert_eq!(single_leaf_tree.len(), 1);
         assert_eq!(single_leaf_tree.get_leaf(0), leaf);
         
@@ -510,14 +510,14 @@ mod tests {
         // Test with index 0
         let index_min: u64 = 0;
         let leaf_min = Bytes32::rand(&mut rng);
-        tree.update(index_min, leaf_min.clone());
+        tree.update(index_min, leaf_min);
         let proof_min = tree.prove(index_min);
         proof_min.verify(&leaf_min, index_min, tree.get_root()).unwrap();
         
         // Test with max index
         let index_max: u64 = (1 << height) - 1;
         let leaf_max = Bytes32::rand(&mut rng);
-        tree.update(index_max, leaf_max.clone());
+        tree.update(index_max, leaf_max);
         let proof_max = tree.prove(index_max);
         proof_max.verify(&leaf_max, index_max, tree.get_root()).unwrap();
     }

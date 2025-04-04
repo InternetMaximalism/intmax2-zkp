@@ -1,9 +1,9 @@
-use anyhow::ensure;
 use serde::{Deserialize, Serialize};
 
 use crate::{
     circuits::balance::send::spent_circuit::SpentValue,
     common::{
+        error::CommonError,
         private_state::{FullPrivateState, PrivateState},
         salt::Salt,
         transfer::Transfer,
@@ -34,16 +34,21 @@ impl SpentWitness {
         transfers: &[Transfer],
         tx: Tx,
         new_private_state_salt: Salt,
-    ) -> anyhow::Result<Self> {
-        ensure!(
-            transfers.len() == NUM_TRANSFERS_IN_TX,
-            "invalid number of transfers"
-        );
-        let transfer_tree_root = get_merkle_root_from_leaves(TRANSFER_TREE_HEIGHT, transfers)?;
-        ensure!(
-            transfer_tree_root == tx.transfer_tree_root,
-            "transfer tree root mismatch"
-        );
+    ) -> Result<Self, CommonError> {
+        if transfers.len() != NUM_TRANSFERS_IN_TX {
+            return Err(CommonError::InvalidData(
+                "invalid number of transfers".to_string()
+            ));
+        }
+        
+        let transfer_tree_root = get_merkle_root_from_leaves(TRANSFER_TREE_HEIGHT, transfers)
+            .map_err(|e| CommonError::InvalidData(e.to_string()))?;
+            
+        if transfer_tree_root != tx.transfer_tree_root {
+            return Err(CommonError::InvalidData(
+                "transfer tree root mismatch".to_string()
+            ));
+        }
         let mut asset_merkle_proofs = vec![];
         let mut prev_balances = vec![];
         let mut asset_tree = asset_tree.clone();
@@ -65,7 +70,7 @@ impl SpentWitness {
         })
     }
 
-    pub fn to_value(&self) -> anyhow::Result<SpentValue> {
+    pub fn to_value(&self) -> Result<SpentValue, CommonError> {
         SpentValue::new(
             &self.prev_private_state,
             &self.prev_balances,
@@ -80,16 +85,17 @@ impl SpentWitness {
     pub fn update_private_state(
         &self,
         full_private_state: &mut FullPrivateState,
-    ) -> anyhow::Result<()> {
-        ensure!(
-            full_private_state.to_private_state() == self.prev_private_state,
-            "prev private state mismatch"
-        );
+    ) -> Result<(), CommonError> {
+        if full_private_state.to_private_state() != self.prev_private_state {
+            return Err(CommonError::InvalidData(
+                "prev private state mismatch".to_string()
+            ));
+        }
         let prev_private_commitment = full_private_state.to_private_state().commitment();
 
         let value = self
             .to_value()
-            .map_err(|e| anyhow::anyhow!("Invalid spent value: {}", e))?;
+            .map_err(|e| CommonError::InvalidSpentValue(e.to_string()))?;
         if !value.is_valid {
             // if the nonce is invalid, do nothing
             return Ok(());
@@ -110,10 +116,11 @@ impl SpentWitness {
         full_private_state.salt = self.new_private_state_salt;
         full_private_state.prev_private_commitment = prev_private_commitment;
 
-        ensure!(
-            full_private_state.to_private_state().commitment() == value.new_private_commitment,
-            "new private state mismatch"
-        );
+        if full_private_state.to_private_state().commitment() != value.new_private_commitment {
+            return Err(CommonError::InvalidData(
+                "new private state mismatch".to_string()
+            ));
+        }
         Ok(())
     }
 }

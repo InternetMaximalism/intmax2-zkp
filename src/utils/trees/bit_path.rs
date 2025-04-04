@@ -232,7 +232,7 @@ mod tests {
     #[test]
     fn test_bit_path_reverse() {
         let path = BitPath::new(10, 5);
-        let mut reversed_path = path.clone();
+        let mut reversed_path = path;
         reversed_path.reverse();
         let reversed_bits = reversed_path.to_bits_le();
         assert_eq!(
