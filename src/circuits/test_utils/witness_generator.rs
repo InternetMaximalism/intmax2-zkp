@@ -50,6 +50,7 @@ pub struct MockTxRequest {
 
 // Receives an array of tuples consisting of tx and its sender's address, generates a block,
 // and constructs the validity witness of that block.
+#[allow(clippy::too_many_arguments)]
 pub fn construct_validity_and_tx_witness(
     prev_validity_pis: ValidityPublicInputs,
     account_tree: &mut AccountTree,

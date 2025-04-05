@@ -58,6 +58,10 @@ impl<V: Leafable> IncrementalMerkleTree<V> {
         self.leaves.len()
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.leaves.is_empty()
+    }
+
     pub fn update(&mut self, index: u64, leaf: V) {
         self.merkle_tree.update_leaf(index, leaf.hash());
         self.leaves[index as usize] = leaf;
@@ -340,13 +344,13 @@ mod tests {
             let new_leaf = V::rand(&mut rng);
             let old_root = tree.get_root();
             tree.update(i, new_leaf);
-            
+
             // Verify the leaf was updated
             assert_eq!(tree.get_leaf(i), new_leaf);
-            
+
             // Verify the root changed
             assert_ne!(tree.get_root(), old_root);
-            
+
             // Verify the proof works for the updated leaf
             let proof = tree.prove(i);
             proof.verify(&new_leaf, i, tree.get_root()).unwrap();
@@ -369,10 +373,10 @@ mod tests {
             let new_leaf = V::rand(&mut rng);
             leaves.push(new_leaf);
             tree.push(new_leaf);
-            
+
             // Verify length increases
             assert_eq!(tree.len(), i + 1);
-            
+
             // Verify leaves() returns all leaves
             assert_eq!(tree.leaves().len(), i + 1);
             for j in 0..=i {
@@ -388,16 +392,16 @@ mod tests {
 
         type V = Bytes32;
         let mut tree = IncrementalMerkleTree::<V>::new(height);
-        
+
         // Empty tree root
         let empty_root = tree.get_root();
-        
+
         // Add a leaf and check that root changes
         let leaf = V::rand(&mut rng);
         tree.push(leaf);
         let root_with_one_leaf = tree.get_root();
         assert_ne!(empty_root, root_with_one_leaf);
-        
+
         // Add another leaf and check that root changes again
         let leaf2 = V::rand(&mut rng);
         tree.push(leaf2);
@@ -412,12 +416,12 @@ mod tests {
 
         type V = Bytes32;
         let mut tree = IncrementalMerkleTree::<V>::new(height);
-        
+
         // Empty tree should return empty leaf for any index
         for i in 0..10 {
             assert_eq!(tree.get_leaf(i), V::empty_leaf());
         }
-        
+
         // Add some leaves
         let mut leaves = Vec::new();
         for _ in 0..5 {
@@ -425,12 +429,12 @@ mod tests {
             leaves.push(new_leaf);
             tree.push(new_leaf);
         }
-        
+
         // Check existing leaves
         for i in 0..5 {
             assert_eq!(tree.get_leaf(i as u64), leaves[i]);
         }
-        
+
         // Check non-existent leaves
         for i in 5..10 {
             assert_eq!(tree.get_leaf(i as u64), V::empty_leaf());
@@ -440,13 +444,13 @@ mod tests {
     #[test]
     fn test_incremental_merkle_proof_dummy() {
         let height = 10;
-        
+
         // Create a dummy proof
         let dummy_proof = IncrementalMerkleProof::<Bytes32>::dummy(height);
-        
+
         // Check that it has the right height
         assert_eq!(dummy_proof.0.siblings.len(), height);
-        
+
         // Check that all siblings are default values
         for sibling in &dummy_proof.0.siblings {
             assert_eq!(*sibling, HashOut::<Bytes32>::default());
@@ -457,15 +461,15 @@ mod tests {
     fn test_incremental_merkle_proof_from_siblings() {
         let mut rng = rand::thread_rng();
         let height = 5;
-        
+
         // Create random siblings
         let siblings: Vec<HashOut<Bytes32>> = (0..height)
             .map(|_| Bytes32::rand(&mut rng).hash())
             .collect();
-        
+
         // Create proof from siblings
         let proof = IncrementalMerkleProof::<Bytes32>::from_siblings(siblings.clone());
-        
+
         // Check that siblings match
         assert_eq!(proof.0.siblings.len(), siblings.len());
         for (a, b) in proof.0.siblings.iter().zip(siblings.iter()) {
@@ -476,82 +480,86 @@ mod tests {
     #[test]
     fn test_incremental_merkle_tree_edge_cases() {
         let mut rng = rand::thread_rng();
-        
+
         // Test with minimum height
         let min_height = 1;
         let tree_min = IncrementalMerkleTree::<Bytes32>::new(min_height);
         assert_eq!(tree_min.height(), min_height);
-        
+
         // Test empty tree
         let empty_tree = IncrementalMerkleTree::<Bytes32>::new(10);
         assert_eq!(empty_tree.len(), 0);
         assert_eq!(empty_tree.leaves().len(), 0);
-        
+
         // Test tree with a single leaf
         let mut single_leaf_tree = IncrementalMerkleTree::<Bytes32>::new(10);
         let leaf = Bytes32::rand(&mut rng);
         single_leaf_tree.push(leaf);
         assert_eq!(single_leaf_tree.len(), 1);
         assert_eq!(single_leaf_tree.get_leaf(0), leaf);
-        
+
         // Test with boundary indices
         let height = 5;
         let mut tree = IncrementalMerkleTree::<Bytes32>::new(height);
-        
+
         // Fill the tree to capacity
         for _ in 0..(1 << height) {
             let new_leaf = Bytes32::rand(&mut rng);
             tree.push(new_leaf);
         }
-        
+
         // Verify the tree is full
         assert_eq!(tree.len(), 1 << height);
-        
+
         // Test with index 0
         let index_min: u64 = 0;
         let leaf_min = Bytes32::rand(&mut rng);
         tree.update(index_min, leaf_min);
         let proof_min = tree.prove(index_min);
-        proof_min.verify(&leaf_min, index_min, tree.get_root()).unwrap();
-        
+        proof_min
+            .verify(&leaf_min, index_min, tree.get_root())
+            .unwrap();
+
         // Test with max index
         let index_max: u64 = (1 << height) - 1;
         let leaf_max = Bytes32::rand(&mut rng);
         tree.update(index_max, leaf_max);
         let proof_max = tree.prove(index_max);
-        proof_max.verify(&leaf_max, index_max, tree.get_root()).unwrap();
+        proof_max
+            .verify(&leaf_max, index_max, tree.get_root())
+            .unwrap();
     }
 
     #[test]
     fn test_incremental_merkle_tree_serialization() {
         let mut rng = rand::thread_rng();
         let height = 5;
-        
+
         type V = Bytes32;
         let mut tree = IncrementalMerkleTree::<V>::new(height);
-        
+
         // Add some leaves
         for _ in 0..10 {
             let new_leaf = V::rand(&mut rng);
             tree.push(new_leaf);
         }
-        
+
         // Serialize the tree
         let serialized = serde_json::to_string(&tree).unwrap();
-        
+
         // Deserialize the tree
         let deserialized: IncrementalMerkleTree<V> = serde_json::from_str(&serialized).unwrap();
-        
+
         // Verify the deserialized tree matches the original
         assert_eq!(deserialized.height(), tree.height());
         assert_eq!(deserialized.len(), tree.len());
         assert_eq!(deserialized.get_root(), tree.get_root());
-        
+
         // Check all leaves match
         for i in 0..tree.len() {
             assert_eq!(deserialized.get_leaf(i as u64), tree.get_leaf(i as u64));
         }
-        
+
         // Verify proofs still work after serialization/deserialization
         for i in 0..tree.len() {
             let index = i as u64;
@@ -565,27 +573,27 @@ mod tests {
     fn test_incremental_merkle_proof_serialization() {
         let mut rng = rand::thread_rng();
         let height = 5;
-        
+
         type V = Bytes32;
         let mut tree = IncrementalMerkleTree::<V>::new(height);
-        
+
         // Add some leaves
         for _ in 0..10 {
             let new_leaf = V::rand(&mut rng);
             tree.push(new_leaf);
         }
-        
+
         // Generate a proof
         let index = 5;
         let leaf = tree.get_leaf(index);
         let proof = tree.prove(index);
-        
+
         // Serialize the proof
         let serialized = serde_json::to_string(&proof).unwrap();
-        
+
         // Deserialize the proof
         let deserialized: IncrementalMerkleProof<V> = serde_json::from_str(&serialized).unwrap();
-        
+
         // Verify the deserialized proof works correctly
         deserialized.verify(&leaf, index, tree.get_root()).unwrap();
     }
@@ -594,32 +602,32 @@ mod tests {
     fn test_incremental_merkle_proof_verification_failure() {
         let mut rng = rand::thread_rng();
         let height = 5;
-        
+
         type V = Bytes32;
         let mut tree = IncrementalMerkleTree::<V>::new(height);
-        
+
         // Add some leaves
         for _ in 0..10 {
             let new_leaf = V::rand(&mut rng);
             tree.push(new_leaf);
         }
-        
+
         // Generate a proof
         let index = 5;
         let leaf = tree.get_leaf(index);
         let proof = tree.prove(index);
-        
+
         // Verification should succeed with correct parameters
         assert!(proof.verify(&leaf, index, tree.get_root()).is_ok());
-        
+
         // Verification should fail with incorrect leaf
         let wrong_leaf = V::rand(&mut rng);
         assert!(proof.verify(&wrong_leaf, index, tree.get_root()).is_err());
-        
+
         // Verification should fail with incorrect index
         let wrong_index = (index + 1) % 10;
         assert!(proof.verify(&leaf, wrong_index, tree.get_root()).is_err());
-        
+
         // Verification should fail with incorrect root
         let wrong_root = V::rand(&mut rng).hash();
         assert!(proof.verify(&leaf, index, wrong_root).is_err());
@@ -633,7 +641,7 @@ mod tests {
         type V = Bytes32;
         type VT = Bytes32Target;
         let mut tree = IncrementalMerkleTree::<V>::new(height);
-        
+
         // Add some leaves
         for _ in 0..10 {
             let new_leaf = V::rand(&mut rng);
