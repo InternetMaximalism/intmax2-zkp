@@ -1,3 +1,4 @@
+use super::error::WithdrawalError;
 use plonky2::{
     field::extension::Extendable,
     hash::hash_types::RichField,
@@ -65,14 +66,17 @@ where
     pub fn prove(
         &self,
         transition_inclusion_value: &TransferInclusionValue<F, C, D>,
-    ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
+    ) -> Result<ProofWithPublicInputs<F, C, D>, WithdrawalError> {
         let mut pw = PartialWitness::<F>::new();
         self.transfer_inclusion_target
             .set_witness(&mut pw, transition_inclusion_value);
-        self.data.prove(pw)
+        self.data.prove(pw).map_err(|e| WithdrawalError::ProofGenerationError(format!("{:?}", e)))
     }
 
-    pub fn verify(&self, proof: &ProofWithPublicInputs<F, C, D>) -> anyhow::Result<()> {
+    pub fn verify(&self, proof: &ProofWithPublicInputs<F, C, D>) -> Result<(), WithdrawalError> {
         self.data.verify(proof.clone())
+            .map_err(|e| WithdrawalError::VerificationFailed { 
+                message: format!("Proof verification failed: {:?}", e) 
+            })
     }
 }

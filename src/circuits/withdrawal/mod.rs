@@ -1,3 +1,4 @@
+pub mod error;
 pub mod single_withdrawal_circuit;
 
 #[cfg(test)]

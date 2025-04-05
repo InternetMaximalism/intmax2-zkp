@@ -1,5 +1,6 @@
 pub mod deposit_time;
 pub mod determine_lock_time;
+pub mod error;
 pub mod single_claim_processor;
 pub mod single_claim_proof;
 pub mod utils;
