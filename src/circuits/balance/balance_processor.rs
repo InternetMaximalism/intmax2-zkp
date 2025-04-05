@@ -91,7 +91,7 @@ where
                 update_witness,
                 spent_proof,
             )
-            .map_err(|e| BalanceError::Transition(e))?;
+            .map_err(BalanceError::Transition)?;
         let proof = self
             .balance_circuit
             .prove(pubkey, &transition_proof, prev_proof)
@@ -117,7 +117,7 @@ where
                 &prev_balance_pis,
                 update_witness,
             )
-            .map_err(|e| BalanceError::Transition(e))?;
+            .map_err(BalanceError::Transition)?;
         let proof = self
             .balance_circuit
             .prove(pubkey, &transition_proof, prev_proof)
@@ -141,7 +141,7 @@ where
                 &prev_balance_pis,
                 receive_transfer_witness,
             )
-            .map_err(|e| BalanceError::Transition(e))?;
+            .map_err(BalanceError::Transition)?;
         let proof = self
             .balance_circuit
             .prove(pubkey, &transition_proof, prev_proof)
@@ -165,7 +165,7 @@ where
                 &prev_balance_pis,
                 receive_deposit_witness,
             )
-            .map_err(|e| BalanceError::Transition(e))?;
+            .map_err(BalanceError::Transition)?;
         let proof = self
             .balance_circuit
             .prove(pubkey, &transition_proof, prev_proof)

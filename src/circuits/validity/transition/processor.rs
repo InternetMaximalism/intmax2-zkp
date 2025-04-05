@@ -94,7 +94,7 @@ where
                 .validity_transition_witness
                 .account_registration_proofs
                 .clone()
-                .ok_or_else(|| ValidityTransitionError::MissingAccountRegistrationProof)?;
+                .ok_or(ValidityTransitionError::MissingAccountRegistrationProof)?;
                 
             let sender_leaves = get_sender_leaves(
                 &validity_witness.block_witness.pubkeys,
@@ -124,7 +124,7 @@ where
                 .validity_transition_witness
                 .account_update_proofs
                 .clone()
-                .ok_or_else(|| ValidityTransitionError::MissingAccountUpdateProof)?;
+                .ok_or(ValidityTransitionError::MissingAccountUpdateProof)?;
                 
             let prev_sender_leaves = get_sender_leaves(
                 &validity_witness.block_witness.pubkeys,

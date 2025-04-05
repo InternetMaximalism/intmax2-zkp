@@ -145,7 +145,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         // check tx equivalence
         if spent_pis.tx != tx_inclusion_pis.tx {
             return Err(SendError::VerificationFailed { 
-                message: format!("Tx mismatch between spent proof and tx inclusion proof") 
+                message: "Tx mismatch between spent proof and tx inclusion proof".to_string() 
             });
         }
         
