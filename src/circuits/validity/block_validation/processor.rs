@@ -148,7 +148,7 @@ where
             account_exclusion_proof,
             format_validation_proof,
             aggregation_proof,
-        );
+        )?;
         let main_validation_proof = self.main_validation_circuit.prove(
             self.account_inclusion_circuit.dummy_proof.clone(),
             self.account_exclusion_circuit.dummy_proof.clone(),

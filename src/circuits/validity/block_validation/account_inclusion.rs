@@ -8,7 +8,9 @@
 //! makes a transaction for the second or subsequent time.
 
 use crate::{
-    circuits::validity::block_validation::{error::AccountError, utils::get_pubkey_commitment},
+    circuits::validity::block_validation::{
+        error::BlockValidationError, utils::get_pubkey_commitment,
+    },
     common::trees::account_tree::{AccountMerkleProof, AccountMerkleProofTarget},
     constants::NUM_SENDERS_IN_BLOCK,
     ethereum_types::{
@@ -133,9 +135,9 @@ impl AccountInclusionValue {
         account_id_packed: AccountIdPacked,
         account_merkle_proofs: Vec<AccountMerkleProof>,
         pubkeys: Vec<U256>,
-    ) -> Result<Self, AccountError> {
+    ) -> Result<Self, BlockValidationError> {
         if account_merkle_proofs.len() != NUM_SENDERS_IN_BLOCK {
-            return Err(AccountError::AccountInclusionValue(format!(
+            return Err(BlockValidationError::AccountInclusionValue(format!(
                 "Expected {} account merkle proofs, got {}",
                 NUM_SENDERS_IN_BLOCK,
                 account_merkle_proofs.len()
@@ -143,7 +145,7 @@ impl AccountInclusionValue {
         }
 
         if pubkeys.len() != NUM_SENDERS_IN_BLOCK {
-            return Err(AccountError::AccountInclusionValue(format!(
+            return Err(BlockValidationError::AccountInclusionValue(format!(
                 "Expected {} pubkeys, got {}",
                 NUM_SENDERS_IN_BLOCK,
                 pubkeys.len()

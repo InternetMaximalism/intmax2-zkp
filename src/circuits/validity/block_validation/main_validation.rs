@@ -1,4 +1,5 @@
 use crate::{
+    circuits::validity::block_validation::error::BlockValidationError,
     common::{
         signature::utils::get_pubkey_hash_circuit,
         trees::sender_tree::{get_sender_tree_root, get_sender_tree_root_circuit},
@@ -276,7 +277,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         account_exclusion_proof: Option<ProofWithPublicInputs<F, C, D>>,
         format_validation_proof: ProofWithPublicInputs<F, C, D>,
         aggregation_proof: Option<ProofWithPublicInputs<F, C, D>>,
-    ) -> Self {
+    ) -> Result<Self, BlockValidationError> {
         let mut result = true;
         let pubkey_commitment = get_pubkey_commitment(&pubkeys);
         let pubkey_hash = get_pubkey_hash(&pubkeys);
@@ -361,15 +362,22 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
             .expect("format validation proof verification failed");
         let format_validation_pis = FormatValidationPublicInputs::from_u64_slice(
             &format_validation_proof.public_inputs.to_u64_vec(),
-        );
-        assert_eq!(
-            format_validation_pis.pubkey_commitment, pubkey_commitment,
-            "pubkey commitment mismatch"
-        );
-        assert_eq!(
-            format_validation_pis.signature_commitment, signature_commitment,
-            "signature commitment mismatch"
-        );
+        ).expect("Failed to parse format validation public inputs");
+        
+        if format_validation_pis.pubkey_commitment != pubkey_commitment {
+            return Err(BlockValidationError::PubkeyCommitmentMismatch {
+                expected: pubkey_commitment,
+                actual: format_validation_pis.pubkey_commitment,
+            })?;
+        }
+        
+        if format_validation_pis.signature_commitment != signature_commitment {
+            return Err(BlockValidationError::SignatureCommitmentMismatch {
+                expected: signature_commitment,
+                actual: format_validation_pis.signature_commitment,
+            })?;
+        }
+        
         result = result && format_validation_pis.is_valid;
 
         if result {
@@ -380,22 +388,30 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
             aggregation_circuit
                 .data
                 .verify(aggregation_proof.clone())
-                .unwrap();
+                .map_err(|e| BlockValidationError::AggregationProofVerificationFailed(e.to_string()))?;
+                
             let pis = AggregationPublicInputs::from_u64_slice(
                 &aggregation_proof
                     .public_inputs
                     .into_iter()
                     .map(|x| x.to_canonical_u64())
                     .collect::<Vec<_>>(),
-            );
-            assert_eq!(
-                pis.pubkey_commitment, pubkey_commitment,
-                "pubkey commitment mismatch"
-            );
-            assert_eq!(
-                pis.signature_commitment, signature_commitment,
-                "signature commitment mismatch"
-            );
+            ).expect("Failed to parse aggregation public inputs");
+            
+            if pis.pubkey_commitment != pubkey_commitment {
+                return Err(BlockValidationError::PubkeyCommitmentMismatch {
+                    expected: pubkey_commitment,
+                    actual: pis.pubkey_commitment,
+                })?;
+            }
+            
+            if pis.signature_commitment != signature_commitment {
+                return Err(BlockValidationError::SignatureCommitmentMismatch {
+                    expected: signature_commitment,
+                    actual: pis.signature_commitment,
+                })?;
+            }
+            
             result = result && pis.is_valid;
         }
 
@@ -403,7 +419,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         let prev_block_hash = block.prev_block_hash;
         let block_hash = block.hash();
 
-        Self {
+        Ok(Self {
             block,
             signature,
             pubkeys,
@@ -419,7 +435,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
             sender_tree_root,
             is_registration_block,
             is_valid: result,
-        }
+        })
     }
 }
 
@@ -525,7 +541,8 @@ impl<const D: usize> MainValidationTarget<D> {
         // Format validation
         let format_validation_proof = add_proof_target_and_verify(format_validation_vd, builder);
         let format_validation_pis =
-            FormatValidationPublicInputsTarget::from_slice(&format_validation_proof.public_inputs);
+            FormatValidationPublicInputsTarget::from_slice(&format_validation_proof.public_inputs)
+                .expect("Failed to parse format validation public inputs target");
         format_validation_pis
             .pubkey_commitment
             .connect(builder, pubkey_commitment);
@@ -538,7 +555,8 @@ impl<const D: usize> MainValidationTarget<D> {
         let aggregation_proof =
             add_proof_target_and_conditionally_verify(aggregation_vd, builder, result);
         let aggregation_pis =
-            AggregationPublicInputsTarget::from_slice(&aggregation_proof.public_inputs);
+            AggregationPublicInputsTarget::from_slice(&aggregation_proof.public_inputs)
+                .expect("Failed to parse aggregation public inputs target");
         aggregation_pis
             .pubkey_commitment
             .conditional_assert_eq(builder, pubkey_commitment, result);

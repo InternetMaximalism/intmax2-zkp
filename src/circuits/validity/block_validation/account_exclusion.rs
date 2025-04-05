@@ -23,7 +23,7 @@ use plonky2::{
 };
 
 use crate::{
-    circuits::validity::block_validation::error::AccountError,
+    circuits::validity::block_validation::error::BlockValidationError,
     common::trees::{
         account_tree::{AccountMembershipProof, AccountMembershipProofTarget},
         sender_tree::{SenderLeaf, SenderLeafTarget},
@@ -115,9 +115,9 @@ impl AccountExclusionValue {
         account_tree_root: PoseidonHashOut,
         account_membership_proofs: Vec<AccountMembershipProof>,
         sender_leaves: Vec<SenderLeaf>,
-    ) -> Result<Self, AccountError> {
+    ) -> Result<Self, BlockValidationError> {
         if account_membership_proofs.len() != sender_leaves.len() {
-            return Err(AccountError::AccountExclusionValue(format!(
+            return Err(BlockValidationError::AccountExclusionValue(format!(
                 "Mismatched lengths: {} account membership proofs, {} sender leaves",
                 account_membership_proofs.len(),
                 sender_leaves.len()
@@ -125,7 +125,7 @@ impl AccountExclusionValue {
         }
         
         if sender_leaves.len() != NUM_SENDERS_IN_BLOCK {
-            return Err(AccountError::AccountExclusionValue(format!(
+            return Err(BlockValidationError::AccountExclusionValue(format!(
                 "Expected {} sender leaves, got {}",
                 NUM_SENDERS_IN_BLOCK,
                 sender_leaves.len()
@@ -135,7 +135,7 @@ impl AccountExclusionValue {
         let mut result = true;
         for (sender_leaf, proof) in sender_leaves.iter().zip(account_membership_proofs.iter()) {
             proof.verify(sender_leaf.sender, account_tree_root)
-                .map_err(|e| AccountError::AccountExclusionValue(format!(
+                .map_err(|e| BlockValidationError::AccountExclusionValue(format!(
                     "Failed to verify account membership proof: {}", e
                 )))?;
 
@@ -149,7 +149,7 @@ impl AccountExclusionValue {
         }
         
         let sender_tree_root = get_merkle_root_from_leaves(SENDER_TREE_HEIGHT, &sender_leaves)
-            .map_err(|e| AccountError::AccountExclusionValue(format!(
+            .map_err(|e| BlockValidationError::AccountExclusionValue(format!(
                 "Failed to get merkle root from leaves: {}", e
             )))?;
             

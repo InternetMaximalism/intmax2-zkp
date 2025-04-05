@@ -13,6 +13,8 @@ use plonky2::{
     },
 };
 
+use super::error::BlockValidationError;
+
 use crate::{
     circuits::validity::block_validation::utils::get_pubkey_commitment_circuit,
     common::signature::{SignatureContent, SignatureContentTarget},
@@ -43,16 +45,21 @@ pub struct FormatValidationPublicInputsTarget {
 }
 
 impl FormatValidationPublicInputs {
-    pub fn from_u64_slice(input: &[u64]) -> Self {
-        assert_eq!(input.len(), FORMAT_VALIDATION_PUBLIC_INPUTS_LEN);
+    pub fn from_u64_slice(input: &[u64]) -> Result<Self, BlockValidationError> {
+        if input.len() != FORMAT_VALIDATION_PUBLIC_INPUTS_LEN {
+            return Err(BlockValidationError::FormatValidationInputLengthMismatch {
+                expected: FORMAT_VALIDATION_PUBLIC_INPUTS_LEN,
+                actual: input.len(),
+            });
+        }
         let pubkey_commitment = PoseidonHashOut::from_u64_slice(&input[0..4]);
         let signature_commitment = PoseidonHashOut::from_u64_slice(&input[4..8]);
         let is_valid = input[8] == 1;
-        Self {
+        Ok(Self {
             pubkey_commitment,
             signature_commitment,
             is_valid,
-        }
+        })
     }
 }
 
@@ -65,12 +72,21 @@ impl FormatValidationPublicInputsTarget {
             .chain(self.signature_commitment.elements)
             .chain([self.is_valid.target])
             .collect::<Vec<_>>();
-        assert_eq!(vec.len(), FORMAT_VALIDATION_PUBLIC_INPUTS_LEN);
+        
+        // This is a sanity check that should never fail if the code is correct
+        debug_assert_eq!(vec.len(), FORMAT_VALIDATION_PUBLIC_INPUTS_LEN);
+        
         vec
     }
 
-    pub fn from_slice(input: &[Target]) -> Self {
-        assert_eq!(input.len(), FORMAT_VALIDATION_PUBLIC_INPUTS_LEN);
+    pub fn from_slice(input: &[Target]) -> Result<Self, BlockValidationError> {
+        if input.len() != FORMAT_VALIDATION_PUBLIC_INPUTS_LEN {
+            return Err(BlockValidationError::FormatValidationInputLengthMismatch {
+                expected: FORMAT_VALIDATION_PUBLIC_INPUTS_LEN,
+                actual: input.len(),
+            });
+        }
+        
         let pubkey_commitment = PoseidonHashOutTarget {
             elements: input[0..4].try_into().unwrap(),
         };
@@ -78,11 +94,12 @@ impl FormatValidationPublicInputsTarget {
             elements: input[4..8].try_into().unwrap(),
         };
         let is_valid = BoolTarget::new_unsafe(input[8]);
-        Self {
+        
+        Ok(Self {
             pubkey_commitment,
             signature_commitment,
             is_valid,
-        }
+        })
     }
 }
 
