@@ -12,7 +12,7 @@ use crate::{
         block_validation::processor::MainValidationProcessor,
         transition::{
             account_registration::AccountRegistrationValue, account_update::AccountUpdateValue,
-            transition::ValidityTransitionValue,
+            error::ValidityTransitionError, transition::ValidityTransitionValue,
         },
         validity_pis::ValidityPublicInputs,
     },
@@ -23,7 +23,6 @@ use super::{
     account_registration::AccountRegistrationCircuit, account_update::AccountUpdateCircuit,
     wrapper::TransitionWrapperCircuit,
 };
-use anyhow::Result;
 
 #[derive(Debug)]
 pub struct TransitionProcessor<F, C, const D: usize>
@@ -78,7 +77,7 @@ where
         &self,
         prev_pis: &ValidityPublicInputs,
         validity_witness: &ValidityWitness,
-    ) -> Result<ProofWithPublicInputs<F, C, D>> {
+    ) -> Result<ProofWithPublicInputs<F, C, D>, ValidityTransitionError> {
         let prev_account_tree_root = validity_witness.block_witness.prev_account_tree_root;
         let prev_block_tree_root = validity_witness.block_witness.prev_block_tree_root;
         let prev_next_account_id = validity_witness.block_witness.prev_next_account_id;
@@ -86,59 +85,70 @@ where
         let block_pis = validity_witness
             .block_witness
             .to_main_validation_pis()
-            .map_err(|e| {
-                anyhow::anyhow!(
-                    "Failed to convert block witness to main validation pis: {}",
-                    e
-                )
-            })?;
+            .map_err(|e| ValidityTransitionError::InvalidValidityWitness(format!(
+                "Failed to convert block witness to main validation pis: {}", e
+            )))?;
 
         let account_registration_proof = if block_pis.is_valid && block_pis.is_registration_block {
             let account_registration_proofs = validity_witness
                 .validity_transition_witness
                 .account_registration_proofs
                 .clone()
-                .expect("Account registration proofs are missing");
+                .ok_or_else(|| ValidityTransitionError::MissingAccountRegistrationProof)?;
+                
             let sender_leaves = get_sender_leaves(
                 &validity_witness.block_witness.pubkeys,
                 validity_witness.block_witness.signature.sender_flag,
             );
+            
             let value = AccountRegistrationValue::new(
                 prev_account_tree_root,
                 prev_next_account_id,
                 block_pis.block_number,
                 sender_leaves.clone(),
                 account_registration_proofs,
-            )
-            .map_err(|e| anyhow::anyhow!("Failed to create account registration value: {}", e))?;
-            let proof = self.account_registration_circuit.prove(&value)?;
+            )?;
+            
+            let proof = self.account_registration_circuit.prove(&value)
+                .map_err(|e| ValidityTransitionError::InvalidAccountRegistrationProofVerification(
+                    format!("Failed to prove account registration: {}", e)
+                ))?;
+                
             Some(proof)
         } else {
             None
         };
+        
         let account_update_proof = if block_pis.is_valid && (!block_pis.is_registration_block) {
             let account_update_proofs = validity_witness
                 .validity_transition_witness
                 .account_update_proofs
                 .clone()
-                .expect("Account update proofs are missing");
+                .ok_or_else(|| ValidityTransitionError::MissingAccountUpdateProof)?;
+                
             let prev_sender_leaves = get_sender_leaves(
                 &validity_witness.block_witness.pubkeys,
                 validity_witness.block_witness.signature.sender_flag,
             );
+            
             let value = AccountUpdateValue::new(
                 prev_account_tree_root,
                 prev_next_account_id,
                 block_pis.block_number,
                 prev_sender_leaves.clone(),
                 account_update_proofs,
-            )
-            .map_err(|e| anyhow::anyhow!("Failed to create account update value: {}", e))?;
-            let proof = self.account_update_circuit.prove(&value)?;
+            )?;
+            
+            let proof = self.account_update_circuit.prove(&value)
+                .map_err(|e| ValidityTransitionError::InvalidAccountUpdateProofVerification(
+                    format!("Failed to prove account update: {}", e)
+                ))?;
+                
             Some(proof)
         } else {
             None
         };
+        
         let transition_value = ValidityTransitionValue::new(
             &self.account_registration_circuit,
             &self.account_update_circuit,
@@ -152,18 +162,26 @@ where
                 .validity_transition_witness
                 .block_merkle_proof
                 .clone(),
-        )
-        .map_err(|e| anyhow::anyhow!("Failed to create validity transition value: {}", e))?;
+        )?;
+        
         let main_validation_proof = self
             .main_validation_processor
-            .prove(&validity_witness.block_witness)?;
+            .prove(&validity_witness.block_witness)
+            .map_err(|e| ValidityTransitionError::ProofGenerationError(
+                format!("Failed to prove main validation: {}", e)
+            ))?;
+            
         let proof = self.transition_wrapper_circuit.prove(
             &main_validation_proof,
             &transition_value,
             prev_pis,
             self.account_registration_circuit.dummy_proof.clone(),
             self.account_update_circuit.dummy_proof.clone(),
-        )?;
+        )
+        .map_err(|e| ValidityTransitionError::ProofGenerationError(
+            format!("Failed to prove transition wrapper: {}", e)
+        ))?;
+        
         Ok(proof)
     }
 }

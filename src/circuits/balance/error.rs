@@ -21,6 +21,9 @@ pub enum BalanceError {
     #[error("Invalid input: {message}")]
     InvalidInput { message: String },
 
+    #[error("Circuit build error: {0}")]
+    CircuitBuildError(String),
+
     #[error("Proof generation error: {0}")]
     ProofGenerationError(String),
 

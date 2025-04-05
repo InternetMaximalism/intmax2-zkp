@@ -1,6 +1,9 @@
 use crate::{
-    circuits::validity::validity_pis::{
-        ValidityPublicInputs, ValidityPublicInputsTarget, VALIDITY_PUBLIC_INPUTS_LEN,
+    circuits::validity::{
+        error::ValidityProverError,
+        validity_pis::{
+            ValidityPublicInputs, ValidityPublicInputsTarget, VALIDITY_PUBLIC_INPUTS_LEN,
+        },
     },
     constants::CYCLIC_CIRCUIT_PADDING_DEGREE,
     utils::{
@@ -8,7 +11,6 @@ use crate::{
         recursively_verifiable::add_proof_target_and_verify,
     },
 };
-use anyhow::Result;
 use plonky2::{
     field::extension::Extendable,
     gates::noop::NoopGate,
@@ -114,7 +116,7 @@ where
         &self,
         transition_proof: &ProofWithPublicInputs<F, C, D>,
         prev_proof: &Option<ProofWithPublicInputs<F, C, D>>,
-    ) -> Result<ProofWithPublicInputs<F, C, D>> {
+    ) -> Result<ProofWithPublicInputs<F, C, D>, ValidityProverError> {
         let mut pw = PartialWitness::<F>::new();
         pw.set_verifier_data_target(&self.verifier_data_target, &self.data.verifier_only);
         pw.set_proof_with_pis_target(&self.transition_proof, transition_proof);
@@ -135,12 +137,14 @@ where
             pw.set_bool_target(self.is_first_step, false);
             pw.set_proof_with_pis_target(&self.prev_proof, prev_proof.as_ref().unwrap());
         }
-        self.data.prove(pw)
+        self.data.prove(pw).map_err(|e| ValidityProverError::ValidityCircuitProofError(e.to_string()))
     }
 
-    pub fn verify(&self, proof: &ProofWithPublicInputs<F, C, D>) -> Result<()> {
-        check_cyclic_proof_verifier_data(proof, &self.data.verifier_only, &self.data.common)?;
+    pub fn verify(&self, proof: &ProofWithPublicInputs<F, C, D>) -> Result<(), ValidityProverError> {
+        check_cyclic_proof_verifier_data(proof, &self.data.verifier_only, &self.data.common)
+            .map_err(|e| ValidityProverError::Plonky2Error(e.to_string()))?;
         self.data.verify(proof.clone())
+            .map_err(|e| ValidityProverError::Plonky2Error(e.to_string()))
     }
 }
 

@@ -15,6 +15,8 @@ use plonky2::{
     recursion::dummy_circuit::cyclic_base_proof,
 };
 
+use super::error::InnocenceError;
+
 use crate::{
     common::trees::nullifier_tree::NullifierTree,
     constants::CYCLIC_CIRCUIT_PADDING_DEGREE,
@@ -217,7 +219,7 @@ where
         &self,
         inner_value: &InnocenceInnerValue,
         prev_proof: &Option<ProofWithPublicInputs<F, C, D>>,
-    ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
+    ) -> Result<ProofWithPublicInputs<F, C, D>, InnocenceError> {
         let mut pw = PartialWitness::<F>::new();
         pw.set_verifier_data_target(&self.verifier_data_target, &self.data.verifier_only);
         self.inner_target.set_witness(&mut pw, inner_value);
@@ -245,6 +247,7 @@ where
             pw.set_proof_with_pis_target(&self.prev_proof, prev_proof.as_ref().unwrap());
         }
         self.data.prove(pw)
+            .map_err(|e| InnocenceError::InnocenceCircuitProofFailed(e.to_string()))
     }
 }
 

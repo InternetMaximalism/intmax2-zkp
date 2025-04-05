@@ -1,7 +1,7 @@
 use std::sync::OnceLock;
 
-use anyhow::ensure;
 use hashbrown::HashMap;
+use crate::mock::error::MockError;
 use plonky2::{
     field::extension::Extendable,
     hash::hash_types::RichField,
@@ -118,7 +118,7 @@ where
         };
     }
 
-    pub fn sync(&mut self, contract: &MockContract) -> anyhow::Result<()> {
+    pub fn sync(&mut self, contract: &MockContract) -> Result<(), MockError> {
         let mut account_tree = self
             .account_trees
             .get(&self.last_block_number)
@@ -137,23 +137,25 @@ where
                 block_number
             );
             let prev_validity_proof = self.validity_proofs.get(&(block_number - 1)).cloned();
-            assert!(
-                prev_validity_proof.is_some() || block_number == 1,
-                "prev validity proof not found"
-            );
-            let full_block = contract.get_full_block(block_number)?;
+            if prev_validity_proof.is_none() && block_number != 1 {
+                return Err(MockError::PrevValidityProofNotFound(block_number - 1));
+            }
+            
+            let full_block = contract.get_full_block(block_number)
+                .map_err(|e| MockError::BlockNotFound(block_number))?;
+                
             let block_witness = full_block
                 .to_block_witness(&account_tree, &block_tree)
-                .map_err(|e| {
-                    anyhow::anyhow!("failed to convert full block to block witness: {}", e)
-                })?;
+                .map_err(|e| MockError::FullBlockConversionError(e.to_string()))?;
+                
             let validity_witness = block_witness
                 .update_trees(&mut account_tree, &mut block_tree)
-                .map_err(|e| anyhow::anyhow!("failed to update trees: {}", e))?;
+                .map_err(|e| MockError::TreeUpdateError(e.to_string()))?;
+                
             let validity_proof = self
                 .validity_processor()
                 .prove(&prev_validity_proof, &validity_witness)
-                .map_err(|e| anyhow::anyhow!("Failed to generate validity proof: {}", e))?;
+                .map_err(|e| MockError::ValidityProofGenerationError(e.to_string()))?;
 
             // update self
             self.last_block_number = block_number;
@@ -182,23 +184,27 @@ where
         root_block_number: u32,
         leaf_block_number: u32,
         is_prev_account_tree: bool,
-    ) -> anyhow::Result<UpdateWitness<F, C, D>> {
+    ) -> Result<UpdateWitness<F, C, D>, MockError> {
         let validity_proof = self
             .validity_proofs
             .get(&root_block_number)
-            .unwrap()
+            .ok_or(MockError::PrevValidityProofNotFound(root_block_number))?
             .clone();
+            
         let block_merkle_proof = self
             .get_block_merkle_proof(root_block_number, leaf_block_number)
-            .map_err(|e| anyhow::anyhow!("failed to get block merkle proof: {}", e))?;
+            .map_err(|e| MockError::BlockMerkleProofError(e.to_string()))?;
+            
         let account_tree_block_number = if is_prev_account_tree {
             root_block_number - 1
         } else {
             root_block_number
         };
+        
         let account_membership_proof = self
             .get_account_membership_proof(account_tree_block_number, pubkey)
-            .map_err(|e| anyhow::anyhow!("failed to get account membership proof: {}", e))?;
+            .map_err(|e| MockError::AccountMembershipProofError(e.to_string()))?;
+            
         Ok(UpdateWitness {
             is_prev_account_tree,
             validity_proof,
@@ -238,18 +244,19 @@ where
         &self,
         root_block_number: u32,
         leaf_block_number: u32,
-    ) -> anyhow::Result<BlockHashMerkleProof> {
-        ensure!(
-            leaf_block_number <= root_block_number,
-            "leaf_block_number should be smaller than root_block_number"
-        );
+    ) -> Result<BlockHashMerkleProof, MockError> {
+        if leaf_block_number > root_block_number {
+            return Err(MockError::InvalidBlockNumberRelation { 
+                leaf: leaf_block_number, 
+                root: root_block_number 
+            });
+        }
+        
         let block_tree = &self
             .block_trees
             .get(&root_block_number)
-            .ok_or(anyhow::anyhow!(
-                "block tree not found for block number {}",
-                root_block_number
-            ))?;
+            .ok_or(MockError::BlockTreeNotFound(root_block_number))?;
+            
         Ok(block_tree.prove(leaf_block_number as u64))
     }
 
@@ -257,14 +264,11 @@ where
         &self,
         block_number: u32,
         pubkey: U256,
-    ) -> anyhow::Result<AccountMembershipProof> {
+    ) -> Result<AccountMembershipProof, MockError> {
         let account_tree = &self
             .account_trees
             .get(&block_number)
-            .ok_or(anyhow::anyhow!(
-                "account tree not found for block number {}",
-                block_number
-            ))?;
+            .ok_or(MockError::AccountTreeNotFound(block_number))?;
         Ok(account_tree.prove_membership(pubkey))
     }
 
@@ -276,14 +280,11 @@ where
         &self,
         block_number: u32,
         deposit_index: u32,
-    ) -> anyhow::Result<DepositMerkleProof> {
+    ) -> Result<DepositMerkleProof, MockError> {
         let deposit_tree = &self
             .deposit_trees
             .get(&block_number)
-            .ok_or(anyhow::anyhow!(
-                "deposit tree not found for block number {}",
-                block_number
-            ))?;
+            .ok_or(MockError::DepositTreeNotFound(block_number))?;
         Ok(deposit_tree.prove(deposit_index as u64))
     }
 

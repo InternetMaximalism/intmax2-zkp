@@ -8,6 +8,8 @@ use plonky2::{
     },
 };
 
+use super::error::InnocenceError;
+
 use crate::{
     circuits::proof_of_innocence::address_list::AddressMembershipProofTarget,
     common::{
@@ -44,29 +46,29 @@ impl InnocenceInnerValue {
         nullifier_proof: NullifierInsertionProof,
         allow_list_membership_proof: AddressMembershipProof,
         deny_list_membership_proof: AddressMembershipProof,
-    ) -> anyhow::Result<Self> {
+    ) -> Result<Self, InnocenceError> {
         // prove allow/deny list inclusion/exclusion
         allow_list_membership_proof
             .verify(deposit.depositor, allow_list_tree_root)
             .map_err(|e| {
-                anyhow::anyhow!("allow list membership proof verification failed: {}", e)
+                InnocenceError::AllowListMembershipProofVerificationFailed(e.to_string())
             })?;
         if use_allow_list && !allow_list_membership_proof.is_included() {
-            return Err(anyhow::anyhow!("depositor is not in the allow list"));
+            return Err(InnocenceError::DepositorNotInAllowList(deposit.depositor));
         }
         deny_list_membership_proof
             .verify(deposit.depositor, deny_list_tree_root)
             .map_err(|e| {
-                anyhow::anyhow!("deny list membership proof verification failed: {}", e)
+                InnocenceError::DenyListMembershipProofVerificationFailed(e.to_string())
             })?;
         if deny_list_membership_proof.is_included() {
-            return Err(anyhow::anyhow!("depositor is in the deny list"));
+            return Err(InnocenceError::DepositorInDenyList(deposit.depositor));
         }
         // prove transition of nullifier root
         let nullifier: Bytes32 = deposit.poseidon_hash().into();
         let new_nullifier_tree_root = nullifier_proof
             .get_new_root(prev_nullifier_tree_root, nullifier)
-            .map_err(|e| anyhow::anyhow!("Invalid nullifier merkle proof: {}", e))?;
+            .map_err(|e| InnocenceError::InvalidNullifierMerkleProof(e.to_string()))?;
         Ok(Self {
             use_allow_list,
             allow_list_tree_root,

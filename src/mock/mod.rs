@@ -4,6 +4,7 @@ pub mod block_validity_prover;
 pub mod client;
 pub mod contract;
 pub mod data;
+pub mod error;
 pub mod store_vault_server;
 pub mod strategy;
 pub mod withdrawal_aggregator;

@@ -13,6 +13,8 @@ use plonky2::{
     },
 };
 
+use super::error::InnocenceError;
+
 use crate::{
     common::private_state::{PrivateState, PrivateStateTarget},
     utils::{
@@ -160,14 +162,16 @@ where
         &self,
         innocence_proof: &ProofWithPublicInputs<F, C, D>,
         private_state: PrivateState,
-    ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
+    ) -> Result<ProofWithPublicInputs<F, C, D>, InnocenceError> {
         let mut pw = PartialWitness::<F>::new();
         pw.set_proof_with_pis_target(&self.innocence_proof, innocence_proof);
         self.private_state.set_witness(&mut pw, &private_state);
         self.data.prove(pw)
+            .map_err(|e| InnocenceError::InnocenceWrapCircuitProofFailed(e.to_string()))
     }
 
-    pub fn verify(&self, proof: &ProofWithPublicInputs<F, C, D>) -> anyhow::Result<()> {
+    pub fn verify(&self, proof: &ProofWithPublicInputs<F, C, D>) -> Result<(), InnocenceError> {
         self.data.verify(proof.clone())
+            .map_err(|e| InnocenceError::InnocenceWrapCircuitVerificationFailed(e.to_string()))
     }
 }

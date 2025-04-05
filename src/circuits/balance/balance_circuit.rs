@@ -1,4 +1,3 @@
-use anyhow::Result;
 use crate::circuits::balance::error::BalanceError;
 use plonky2::{
     field::extension::Extendable,
@@ -85,7 +84,11 @@ where
             &transition_proof.public_inputs,
             &balance_transition_verifier_data.common.config,
         )
-        .unwrap_or_else(|_| panic!("Failed to parse inner balance vd"));
+        .unwrap_or_else(|_| {
+            // We can't return an error here since the function doesn't return Result
+            // In a future refactoring, we could change the return type to Result
+            panic!("Failed to parse inner balance vd")
+        });
         builder.register_public_inputs(&new_pis.to_vec());
 
         let common_data = common_data_for_balance_circuit::<F, C, D>();
@@ -99,7 +102,11 @@ where
                 &prev_proof,
                 &common_data,
             )
-            .unwrap_or_else(|_| panic!("Failed to conditionally verify cyclic proof or dummy"));
+            .unwrap_or_else(|_| {
+                // We can't return an error here since the function doesn't return Result
+                // In a future refactoring, we could change the return type to Result
+                panic!("Failed to conditionally verify cyclic proof or dummy")
+            });
         let prev_pis = BalancePublicInputsTarget::from_slice(
             &prev_proof.public_inputs[0..BALANCE_PUBLIC_INPUTS_LEN],
         );
@@ -125,9 +132,13 @@ where
 
         let (data, success) = builder.try_build_with_options::<C>(true);
         if data.common != common_data {
+            // We can't return an error here since the function doesn't return Result
+            // In a future refactoring, we could change the return type to Result
             panic!("Common data mismatch in balance circuit");
         }
         if !success {
+            // We can't return an error here since the function doesn't return Result
+            // In a future refactoring, we could change the return type to Result
             panic!("Failed to build balance circuit");
         }
         Self {

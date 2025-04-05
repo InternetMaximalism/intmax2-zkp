@@ -8,6 +8,8 @@ use plonky2::{
     },
 };
 
+use super::error::InnocenceError;
+
 use crate::{
     common::generic_address::{GenericAddress, GenericAddressTarget},
     constants::ADDRESS_LIST_TREE_HEIGHT,
@@ -31,12 +33,12 @@ pub struct AddressMembershipProof(MembershipProof);
 pub struct AddressMembershipProofTarget(MembershipProofTarget);
 
 impl AddressListTree {
-    pub fn new(address_list: &[Address]) -> anyhow::Result<Self> {
+    pub fn new(address_list: &[Address]) -> Result<Self, InnocenceError> {
         let mut tree = IndexedMerkleTree::new(ADDRESS_LIST_TREE_HEIGHT);
         for address in address_list {
             let generic_address = GenericAddress::from_address(*address);
             tree.insert(generic_address.data, 0)
-                .map_err(|e| anyhow::anyhow!("Failed to insert address: {}", e))?;
+                .map_err(|e| InnocenceError::AllowListTreeCreationFailed(e.to_string()))?;
         }
         Ok(Self(tree))
     }
@@ -53,11 +55,11 @@ impl AddressListTree {
 }
 
 impl AddressMembershipProof {
-    pub fn verify(&self, address: Address, root: PoseidonHashOut) -> anyhow::Result<()> {
+    pub fn verify(&self, address: Address, root: PoseidonHashOut) -> Result<(), InnocenceError> {
         let generic_address = GenericAddress::from_address(address);
         self.0
             .verify(generic_address.data, root)
-            .map_err(|e| anyhow::anyhow!("Failed to verify address membership: {}", e))
+            .map_err(|e| InnocenceError::AllowListMembershipProofVerificationFailed(e.to_string()))
     }
 
     pub fn is_included(&self) -> bool {

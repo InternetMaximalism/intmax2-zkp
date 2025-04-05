@@ -244,10 +244,11 @@ where
     pub(crate) fn prove(
         &self,
         value: &AccountUpdateValue,
-    ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
+    ) -> Result<ProofWithPublicInputs<F, C, D>, ValidityTransitionError> {
         let mut pw = PartialWitness::<F>::new();
         self.target.set_witness(&mut pw, value);
         self.data.prove(pw)
+            .map_err(|e| ValidityTransitionError::ProofGenerationError(format!("{:?}", e)))
     }
 }
 

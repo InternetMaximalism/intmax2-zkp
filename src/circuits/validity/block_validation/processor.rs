@@ -1,4 +1,3 @@
-use anyhow::Result;
 use crate::circuits::validity::block_validation::error::BlockValidationError;
 use plonky2::{
     field::extension::Extendable,
@@ -71,7 +70,7 @@ where
         }
     }
 
-    pub fn prove(&self, block_witness: &BlockWitness) -> Result<ProofWithPublicInputs<F, C, D>> {
+    pub fn prove(&self, block_witness: &BlockWitness) -> Result<ProofWithPublicInputs<F, C, D>, BlockValidationError> {
         let mut result = true;
         if !block_witness
             .signature

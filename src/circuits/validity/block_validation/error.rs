@@ -1,7 +1,10 @@
 use crate::{ethereum_types::bytes32::Bytes32, utils::poseidon_hash_out::PoseidonHashOut};
+use anyhow::Error as AnyhowError;
 
 #[derive(Debug, thiserror::Error)]
 pub enum BlockValidationError {
+    #[error("Plonky2 error: {0}")]
+    Plonky2Error(String),
     #[error("AccountInclusionValue error: {0}")]
     AccountInclusionValue(String),
 
@@ -70,4 +73,10 @@ pub enum BlockValidationError {
 
     #[error("Aggregation proof verification failed: {0}")]
     AggregationProofVerificationFailed(String),
+}
+
+impl From<AnyhowError> for BlockValidationError {
+    fn from(err: AnyhowError) -> Self {
+        BlockValidationError::Plonky2Error(err.to_string())
+    }
 }

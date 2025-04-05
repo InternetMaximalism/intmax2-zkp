@@ -1,4 +1,4 @@
-use anyhow::{ensure, Result};
+use super::error::ValidityTransitionError;
 use plonky2::{
     field::extension::Extendable,
     hash::hash_types::RichField,
@@ -122,21 +122,21 @@ where
         prev_pis: &ValidityPublicInputs,
         account_registration_proof_dummy: DummyProof<F, C, D>,
         account_update_proof_dummy: DummyProof<F, C, D>,
-    ) -> Result<ProofWithPublicInputs<F, C, D>> {
+    ) -> Result<ProofWithPublicInputs<F, C, D>, ValidityTransitionError> {
         // Validate inputs
-        ensure!(
-            prev_pis.public_state.block_tree_root == transition_value.prev_block_tree_root,
-            "Block tree root mismatch: expected {:?}, got {:?}",
-            prev_pis.public_state.block_tree_root,
-            transition_value.prev_block_tree_root
-        );
+        if prev_pis.public_state.block_tree_root != transition_value.prev_block_tree_root {
+            return Err(ValidityTransitionError::BlockTreeRootMismatch {
+                expected: prev_pis.public_state.block_tree_root,
+                actual: transition_value.prev_block_tree_root,
+            });
+        }
         
-        ensure!(
-            prev_pis.public_state.account_tree_root == transition_value.prev_account_tree_root,
-            "Account tree root mismatch: expected {:?}, got {:?}",
-            prev_pis.public_state.account_tree_root,
-            transition_value.prev_account_tree_root
-        );
+        if prev_pis.public_state.account_tree_root != transition_value.prev_account_tree_root {
+            return Err(ValidityTransitionError::PrevAccountTreeRootMismatch {
+                expected: prev_pis.public_state.account_tree_root,
+                actual: transition_value.prev_account_tree_root,
+            });
+        }
 
         let mut pw = PartialWitness::<F>::new();
         self.transition_target.set_witness(
@@ -148,5 +148,6 @@ where
         self.prev_pis.set_witness(&mut pw, prev_pis);
         pw.set_proof_with_pis_target(&self.main_validation_proof, main_validation_proof);
         self.data.prove(pw)
+            .map_err(|e| ValidityTransitionError::ProofGenerationError(format!("{:?}", e)))
     }
 }

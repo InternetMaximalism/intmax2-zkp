@@ -16,6 +16,7 @@ use plonky2::{
 use crate::{
     circuits::claim::{
         determine_lock_time::DetermineLockTimeValue,
+        error::ClaimError,
         utils::{get_mining_deposit_nullifier, get_mining_deposit_nullifier_circuit},
     },
     common::{
@@ -397,12 +398,12 @@ where
     pub fn prove(
         &self,
         value: &DepositTimeValue,
-    ) -> Result<ProofWithPublicInputs<F, C, D>, CommonError> {
+    ) -> Result<ProofWithPublicInputs<F, C, D>, ClaimError> {
         let mut pw = PartialWitness::<F>::new();
         self.target.set_witness(&mut pw, value);
         self.data
             .prove(pw)
-            .map_err(|e| CommonError::InvalidProof(e.to_string()))
+            .map_err(|e| ClaimError::ProofGenerationError(format!("{:?}", e)))
     }
 }
 
