@@ -1,4 +1,4 @@
-use anyhow::ensure;
+use super::error::SendError;
 use plonky2::{
     field::extension::Extendable,
     hash::hash_types::RichField,
@@ -164,45 +164,78 @@ where
         tx_merkle_proof: &TxMerkleProof,
         sender_leaf: &SenderLeaf,
         sender_merkle_proof: &SenderMerkleProof,
-    ) -> anyhow::Result<Self> {
+    ) -> Result<Self, SendError> {
         validity_vd
             .verify(validity_proof.clone())
-            .map_err(|e| anyhow::anyhow!("validity proof is invalid: {:?}", e))?;
+            .map_err(|e| SendError::VerificationFailed { 
+                message: format!("Validity proof is invalid: {:?}", e) 
+            })?;
+            
         let validity_pis = ValidityPublicInputs::from_u64_slice(
             &validity_proof.public_inputs[0..VALIDITY_PUBLIC_INPUTS_LEN].to_u64_vec(),
         );
+        
         block_merkle_proof
             .verify(
                 &prev_public_state.block_hash,
                 prev_public_state.block_number as u64,
                 validity_pis.public_state.block_tree_root,
             )
-            .map_err(|e| anyhow::anyhow!("block merkle proof is invalid: {:?}", e))?;
+            .map_err(|e| SendError::VerificationFailed { 
+                message: format!("Block merkle proof is invalid: {:?}", e) 
+            })?;
+            
         prev_account_membership_proof
             .verify(pubkey, validity_pis.public_state.prev_account_tree_root)
-            .map_err(|e| anyhow::anyhow!("account membership proof is invalid: {:?}", e))?;
+            .map_err(|e| SendError::VerificationFailed { 
+                message: format!("Account membership proof is invalid: {:?}", e) 
+            })?;
+            
         let last_block_number = prev_account_membership_proof.get_value() as u32;
-        ensure!(
-            last_block_number <= prev_public_state.block_number,
-            "there is a sent tx before the last block"
-        ); // no send tx till one before the last block
+        
+        if last_block_number > prev_public_state.block_number {
+            return Err(SendError::VerificationFailed { 
+                message: format!(
+                    "There is a sent tx before the last block: last_block_number={}, prev_block_number={}", 
+                    last_block_number, 
+                    prev_public_state.block_number
+                ) 
+            });
+        }
 
         let tx_tree_root: PoseidonHashOut = validity_pis
             .tx_tree_root
             .try_into()
-            .map_err(|e| anyhow::anyhow!("tx tree root is invalid: {:?}", e))?;
+            .map_err(|e| SendError::VerificationFailed { 
+                message: format!("Tx tree root is invalid: {:?}", e) 
+            })?;
+            
         tx_merkle_proof
             .verify(tx, sender_index as u64, tx_tree_root)
-            .map_err(|e| anyhow::anyhow!("tx merkle proof is invalid: {:?}", e))?;
+            .map_err(|e| SendError::VerificationFailed { 
+                message: format!("Tx merkle proof is invalid: {:?}", e) 
+            })?;
+            
         sender_merkle_proof
             .verify(
                 sender_leaf,
                 sender_index as u64,
                 validity_pis.sender_tree_root,
             )
-            .map_err(|e| anyhow::anyhow!("sender merkle proof is invalid: {:?}", e))?;
+            .map_err(|e| SendError::VerificationFailed { 
+                message: format!("Sender merkle proof is invalid: {:?}", e) 
+            })?;
 
-        ensure!(sender_leaf.sender == pubkey, "sender pubkey mismatch");
+        if sender_leaf.sender != pubkey {
+            return Err(SendError::VerificationFailed { 
+                message: format!(
+                    "Sender pubkey mismatch: expected {:?}, got {:?}", 
+                    pubkey, 
+                    sender_leaf.sender
+                ) 
+            });
+        }
+        
         let is_valid = sender_leaf.signature_included && validity_pis.is_valid_block;
 
         Ok(Self {
@@ -367,10 +400,10 @@ where
     pub fn prove(
         &self,
         value: &TxInclusionValue<F, C, D>,
-    ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
+    ) -> Result<ProofWithPublicInputs<F, C, D>, SendError> {
         let mut pw = PartialWitness::<F>::new();
         self.target.set_witness(&mut pw, value);
-        self.data.prove(pw)
+        self.data.prove(pw).map_err(|e| SendError::ProofGenerationError(format!("{:?}", e)))
     }
 }
 

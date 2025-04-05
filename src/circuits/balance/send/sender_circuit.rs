@@ -1,4 +1,4 @@
-use anyhow::ensure;
+use super::error::SendError;
 use plonky2::{
     field::extension::Extendable,
     gates::constant::ConstantGate,
@@ -112,7 +112,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         spent_proof: &ProofWithPublicInputs<F, C, D>,
         tx_inclusion_proof: &ProofWithPublicInputs<F, C, D>,
         prev_balance_pis: &BalancePublicInputs,
-    ) -> anyhow::Result<Self>
+    ) -> Result<Self, SendError>
     where
         C::Hasher: AlgebraicHasher<F>,
     {
@@ -120,11 +120,17 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         spent_circuit
             .data
             .verify(spent_proof.clone())
-            .map_err(|_| anyhow::anyhow!("invalid spent proof"))?;
+            .map_err(|e| SendError::VerificationFailed { 
+                message: format!("Invalid spent proof: {:?}", e) 
+            })?;
+            
         tx_inclusion_circuit
             .data
             .verify(tx_inclusion_proof.clone())
-            .map_err(|_| anyhow::anyhow!("invalid tx inclusion proof"))?;
+            .map_err(|e| SendError::VerificationFailed { 
+                message: format!("Invalid tx inclusion proof: {:?}", e) 
+            })?;
+            
         let spent_pis = SpentPublicInputs::from_u64_slice(
             &spent_proof
                 .public_inputs
@@ -132,22 +138,31 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
                 .map(|x| x.to_canonical_u64())
                 .collect::<Vec<_>>(),
         );
+        
         let tx_inclusion_pis =
             TxInclusionPublicInputs::from_u64_slice(&tx_inclusion_proof.public_inputs.to_u64_vec());
+            
         // check tx equivalence
-        assert_eq!(spent_pis.tx, tx_inclusion_pis.tx);
+        if spent_pis.tx != tx_inclusion_pis.tx {
+            return Err(SendError::VerificationFailed { 
+                message: format!("Tx mismatch between spent proof and tx inclusion proof") 
+            });
+        }
+        
         let is_valid = spent_pis.is_valid && tx_inclusion_pis.is_valid;
         let new_private_commitment = if is_valid {
             spent_pis.new_private_commitment
         } else {
             spent_pis.prev_private_commitment
         };
+        
         let tx_hash = tx_inclusion_pis.tx.hash();
         let last_tx_hash = if is_valid {
             tx_hash
         } else {
             prev_balance_pis.last_tx_hash
         };
+        
         let last_tx_insufficient_flags = if is_valid {
             spent_pis.insufficient_flags
         } else {
@@ -155,14 +170,26 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         };
 
         // check prev balance pis
-        ensure!(
-            prev_balance_pis.pubkey == tx_inclusion_pis.pubkey,
-            "invalid pubkey"
-        );
-        ensure!(
-            prev_balance_pis.public_state == tx_inclusion_pis.prev_public_state,
-            "invalid public state"
-        );
+        if prev_balance_pis.pubkey != tx_inclusion_pis.pubkey {
+            return Err(SendError::VerificationFailed { 
+                message: format!(
+                    "Invalid pubkey: expected {:?}, got {:?}", 
+                    prev_balance_pis.pubkey, 
+                    tx_inclusion_pis.pubkey
+                ) 
+            });
+        }
+        
+        if prev_balance_pis.public_state != tx_inclusion_pis.prev_public_state {
+            return Err(SendError::VerificationFailed { 
+                message: format!(
+                    "Invalid public state: expected {:?}, got {:?}", 
+                    prev_balance_pis.public_state, 
+                    tx_inclusion_pis.prev_public_state
+                ) 
+            });
+        }
+        
         let new_balance_pis = BalancePublicInputs {
             pubkey: tx_inclusion_pis.pubkey,
             private_commitment: new_private_commitment,
@@ -170,6 +197,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
             last_tx_insufficient_flags,
             public_state: tx_inclusion_pis.new_public_state,
         };
+        
         Ok(Self {
             spent_proof: spent_proof.clone(),
             tx_inclusion_proof: tx_inclusion_proof.clone(),
@@ -314,9 +342,9 @@ where
     pub fn prove(
         &self,
         value: &SenderValue<F, C, D>,
-    ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
+    ) -> Result<ProofWithPublicInputs<F, C, D>, SendError> {
         let mut pw = PartialWitness::<F>::new();
         self.target.set_witness(&mut pw, value);
-        self.data.prove(pw)
+        self.data.prove(pw).map_err(|e| SendError::ProofGenerationError(format!("{:?}", e)))
     }
 }

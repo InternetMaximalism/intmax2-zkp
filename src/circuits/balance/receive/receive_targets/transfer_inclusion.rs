@@ -12,7 +12,7 @@ use crate::{
         leafable::{Leafable as _, LeafableTarget},
     },
 };
-use anyhow::ensure;
+use super::error::ReceiveTargetsError;
 use plonky2::{
     field::extension::Extendable,
     hash::hash_types::RichField,
@@ -55,33 +55,53 @@ where
         transfer_merkle_proof: &TransferMerkleProof,
         tx: &Tx,
         balance_proof: &ProofWithPublicInputs<F, C, D>,
-    ) -> anyhow::Result<Self> {
+    ) -> Result<Self, ReceiveTargetsError> {
         let balance_pis = BalancePublicInputs::from_pis(&balance_proof.public_inputs);
         let balance_circuit_vd = vd_from_pis_slice::<F, C, D>(
             &balance_proof.public_inputs,
             &balance_verifier_data.common.config,
         )
-        .map_err(|e| anyhow::anyhow!("Failed to parse balance vd: {}", e))?;
-        ensure!(
-            balance_circuit_vd == balance_verifier_data.verifier_only,
-            "Balance vd mismatch"
-        );
+        .map_err(|e| ReceiveTargetsError::VerificationFailed { 
+            message: format!("Failed to parse balance vd: {}", e) 
+        })?;
+        
+        if balance_circuit_vd != balance_verifier_data.verifier_only {
+            return Err(ReceiveTargetsError::VerificationFailed { 
+                message: "Balance vd mismatch".to_string() 
+            });
+        }
+        
         balance_verifier_data
             .verify(balance_proof.clone())
-            .map_err(|e| anyhow::anyhow!("Failed to verify balance proof: {}", e))?;
-        ensure!(
-            balance_pis.last_tx_hash == tx.hash(),
-            "Last tx hash mismatch"
-        );
+            .map_err(|e| ReceiveTargetsError::VerificationFailed { 
+                message: format!("Failed to verify balance proof: {}", e) 
+            })?;
+            
+        if balance_pis.last_tx_hash != tx.hash() {
+            return Err(ReceiveTargetsError::VerificationFailed { 
+                message: format!("Last tx hash mismatch: expected {:?}, got {:?}", 
+                    tx.hash(), balance_pis.last_tx_hash) 
+            });
+        }
+        
         let _is_insufficient = balance_pis
             .last_tx_insufficient_flags
             .random_access(transfer_index as usize);
+            
         #[cfg(not(feature = "skip_insufficient_check"))]
-        ensure!(!_is_insufficient, "Transfer is insufficient");
+        if _is_insufficient {
+            return Err(ReceiveTargetsError::VerificationFailed { 
+                message: format!("Transfer is insufficient at index {}", transfer_index) 
+            });
+        }
+        
         // check merkle proof
         transfer_merkle_proof
             .verify(transfer, transfer_index as u64, tx.transfer_tree_root)
-            .map_err(|e| anyhow::anyhow!("Invalid transfer merkle proof: {}", e))?;
+            .map_err(|e| ReceiveTargetsError::VerificationFailed { 
+                message: format!("Invalid transfer merkle proof: {}", e) 
+            })?;
+            
         Ok(Self {
             transfer: *transfer,
             transfer_index,
@@ -213,7 +233,7 @@ mod tests {
     const D: usize = 2;
 
     #[test]
-    fn transfer_inclusion() -> anyhow::Result<()> {
+    fn transfer_inclusion() -> Result<(), anyhow::Error> {
         let mut rng = rand::thread_rng();
         let validity_processor = Arc::new(ValidityProcessor::<F, C, D>::new());
         let balance_processor = BalanceProcessor::new(&validity_processor.get_verifier_data());

@@ -1,4 +1,4 @@
-use anyhow::ensure;
+use super::error::ReceiveError;
 use plonky2::{
     field::extension::Extendable,
     hash::hash_types::RichField,
@@ -129,26 +129,43 @@ where
         prev_public_state: &PublicState,
         block_merkle_proof: &BlockHashMerkleProof,
         account_membership_proof: &AccountMembershipProof,
-    ) -> anyhow::Result<Self> {
+    ) -> Result<Self, ReceiveError> {
         validity_vd
             .verify(validity_proof.clone())
-            .map_err(|e| anyhow::anyhow!("validity proof is invalid: {:?}", e))?;
+            .map_err(|e| ReceiveError::VerificationFailed { 
+                message: format!("Validity proof is invalid: {:?}", e) 
+            })?;
+            
         let validity_pis = ValidityPublicInputs::from_pis(&validity_proof.public_inputs);
+        
         block_merkle_proof
             .verify(
                 &prev_public_state.block_hash,
                 prev_public_state.block_number as u64,
                 validity_pis.public_state.block_tree_root,
             )
-            .map_err(|e| anyhow::anyhow!("block merkle proof is invalid: {:?}", e))?;
+            .map_err(|e| ReceiveError::VerificationFailed { 
+                message: format!("Block merkle proof is invalid: {:?}", e) 
+            })?;
+            
         account_membership_proof
             .verify(pubkey, validity_pis.public_state.account_tree_root)
-            .map_err(|e| anyhow::anyhow!("account membership proof is invalid: {:?}", e))?;
+            .map_err(|e| ReceiveError::VerificationFailed { 
+                message: format!("Account membership proof is invalid: {:?}", e) 
+            })?;
+            
         let last_block_number = account_membership_proof.get_value() as u32;
-        ensure!(
-            last_block_number <= prev_public_state.block_number,
-            "last block number is invalid"
-        ); // there is no send tx till the last block
+        
+        if last_block_number > prev_public_state.block_number {
+            return Err(ReceiveError::VerificationFailed { 
+                message: format!(
+                    "Last block number is invalid: last_block_number={}, prev_block_number={}", 
+                    last_block_number, 
+                    prev_public_state.block_number
+                ) 
+            });
+        }
+        
         Ok(Self {
             pubkey,
             prev_public_state: prev_public_state.clone(),
@@ -274,9 +291,9 @@ where
     pub fn prove(
         &self,
         value: &UpdateValue<F, C, D>,
-    ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
+    ) -> Result<ProofWithPublicInputs<F, C, D>, ReceiveError> {
         let mut pw = PartialWitness::<F>::new();
         self.target.set_witness(&mut pw, value);
-        self.data.prove(pw)
+        self.data.prove(pw).map_err(|e| ReceiveError::ProofGenerationError(format!("{:?}", e)))
     }
 }

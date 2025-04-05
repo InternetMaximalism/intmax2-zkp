@@ -8,7 +8,6 @@ use plonky2::{
     },
 };
 
-use crate::circuits::balance::receive::error::ReceiveError;
 use crate::circuits::balance::transition::error::TransitionError;
 
 use crate::{
@@ -95,9 +94,9 @@ where
                 update_witness,
                 spent_proof,
             )
-            .map_err(|e| TransitionError::ProofGenerationError(
-                format!("Sender proof failed: {:?}", e)
-            ))?;
+            .map_err(|e| {
+                TransitionError::ProofGenerationError(format!("Sender proof failed: {:?}", e))
+            })?;
 
         let balance_transition_value = BalanceTransitionValue::new(
             &CircuitConfig::default(),
@@ -113,8 +112,8 @@ where
             prev_balance_pis.clone(),
             balance_circuit_vd.clone(),
         )
-        .map_err(|e| TransitionError::InvalidValue { 
-            message: format!("Balance transition value failed: {:?}", e) 
+        .map_err(|e| TransitionError::InvalidValue {
+            message: format!("Balance transition value failed: {:?}", e),
         })?;
         self.balance_transition_circuit
             .prove(
@@ -124,9 +123,12 @@ where
                 &self.sender_processor.sender_circuit,
                 &balance_transition_value,
             )
-            .map_err(|e| TransitionError::ProofGenerationError(
-                format!("Balance transition proof failed: {:?}", e)
-            ))
+            .map_err(|e| {
+                TransitionError::ProofGenerationError(format!(
+                    "Balance transition proof failed: {:?}",
+                    e
+                ))
+            })
     }
 
     pub fn prove_update(
@@ -144,15 +146,12 @@ where
             &update_witness.block_merkle_proof,
             &update_witness.account_membership_proof,
         )
-        .map_err(|e| TransitionError::InvalidValue { 
-            message: format!("Update value failed: {:?}", e) 
+        .map_err(|e| TransitionError::InvalidValue {
+            message: format!("Update value failed: {:?}", e),
         })?;
-        let update_proof = self
-            .update_circuit
-            .prove(&update_value)
-            .map_err(|e| TransitionError::ProofGenerationError(
-                format!("Update proof failed: {:?}", e)
-            ))?;
+        let update_proof = self.update_circuit.prove(&update_value).map_err(|e| {
+            TransitionError::ProofGenerationError(format!("Update proof failed: {:?}", e))
+        })?;
         let balance_transition_value = BalanceTransitionValue::new(
             &CircuitConfig::default(),
             BalanceTransitionType::Update,
@@ -167,8 +166,8 @@ where
             prev_balance_pis.clone(),
             balance_circuit_vd.clone(),
         )
-        .map_err(|e| TransitionError::InvalidValue { 
-            message: format!("Balance transition value failed: {:?}", e) 
+        .map_err(|e| TransitionError::InvalidValue {
+            message: format!("Balance transition value failed: {:?}", e),
         })?;
         self.balance_transition_circuit
             .prove(
@@ -178,9 +177,12 @@ where
                 &self.sender_processor.sender_circuit,
                 &balance_transition_value,
             )
-            .map_err(|e| TransitionError::ProofGenerationError(
-                format!("Balance transition proof failed: {:?}", e)
-            ))
+            .map_err(|e| {
+                TransitionError::ProofGenerationError(format!(
+                    "Balance transition proof failed: {:?}",
+                    e
+                ))
+            })
     }
 
     pub fn prove_receive_transfer(
@@ -193,25 +195,31 @@ where
         let transfer = receive_transfer_witness.transfer_witness.transfer;
         let nullifier: Bytes32 = transfer.commitment().into();
         let private_witness = receive_transfer_witness.private_transition_witness.clone();
-        
+
         if nullifier != private_witness.nullifier {
-            return Err(TransitionError::InvalidValue { 
-                message: format!("Nullifier mismatch: expected {:?}, got {:?}", 
-                    nullifier, private_witness.nullifier) 
+            return Err(TransitionError::InvalidValue {
+                message: format!(
+                    "Nullifier mismatch: expected {:?}, got {:?}",
+                    nullifier, private_witness.nullifier
+                ),
             });
         }
-        
+
         if transfer.token_index != private_witness.token_index {
-            return Err(TransitionError::InvalidValue { 
-                message: format!("Token index mismatch: expected {}, got {}", 
-                    transfer.token_index, private_witness.token_index) 
+            return Err(TransitionError::InvalidValue {
+                message: format!(
+                    "Token index mismatch: expected {}, got {}",
+                    transfer.token_index, private_witness.token_index
+                ),
             });
         }
-        
+
         if transfer.amount != private_witness.amount {
-            return Err(TransitionError::InvalidValue { 
-                message: format!("Amount mismatch: expected {}, got {}", 
-                    transfer.amount, private_witness.amount) 
+            return Err(TransitionError::InvalidValue {
+                message: format!(
+                    "Amount mismatch: expected {}, got {}",
+                    transfer.amount, private_witness.amount
+                ),
             });
         }
 
@@ -225,8 +233,8 @@ where
             &private_witness.prev_asset_leaf,
             &private_witness.asset_merkle_proof,
         )
-        .map_err(|e| TransitionError::InvalidValue { 
-            message: format!("Private state transition value failed: {:?}", e) 
+        .map_err(|e| TransitionError::InvalidValue {
+            message: format!("Private state transition value failed: {:?}", e),
         })?;
         let transfer_witness = receive_transfer_witness.transfer_witness.clone();
         let transfer_inclusion = TransferInclusionValue::new(
@@ -237,8 +245,8 @@ where
             &transfer_witness.tx,
             &receive_transfer_witness.sender_balance_proof,
         )
-        .map_err(|e| TransitionError::InvalidValue { 
-            message: format!("Transfer inclusion value failed: {:?}", e) 
+        .map_err(|e| TransitionError::InvalidValue {
+            message: format!("Transfer inclusion value failed: {:?}", e),
         })?;
         let receive_transfer_value = ReceiveTransferValue::new(
             &prev_balance_pis.public_state,
@@ -246,15 +254,18 @@ where
             &transfer_inclusion,
             &private_state_transition,
         )
-        .map_err(|e| TransitionError::InvalidValue { 
-            message: format!("Receive transfer value failed: {:?}", e) 
+        .map_err(|e| TransitionError::InvalidValue {
+            message: format!("Receive transfer value failed: {:?}", e),
         })?;
         let receive_transfer_proof = self
             .receive_transfer_circuit
             .prove(&receive_transfer_value)
-            .map_err(|e| TransitionError::ProofGenerationError(
-                format!("Receive transfer proof failed: {:?}", e)
-            ))?;
+            .map_err(|e| {
+                TransitionError::ProofGenerationError(format!(
+                    "Receive transfer proof failed: {:?}",
+                    e
+                ))
+            })?;
 
         let balance_transition_value = BalanceTransitionValue::new(
             &CircuitConfig::default(),
@@ -270,8 +281,8 @@ where
             prev_balance_pis.clone(),
             balance_verifier_data.verifier_only.clone(),
         )
-        .map_err(|e| TransitionError::InvalidValue { 
-            message: format!("Balance transition value failed: {:?}", e) 
+        .map_err(|e| TransitionError::InvalidValue {
+            message: format!("Balance transition value failed: {:?}", e),
         })?;
         self.balance_transition_circuit
             .prove(
@@ -281,9 +292,12 @@ where
                 &self.sender_processor.sender_circuit,
                 &balance_transition_value,
             )
-            .map_err(|e| TransitionError::ProofGenerationError(
-                format!("Balance transition proof failed: {:?}", e)
-            ))
+            .map_err(|e| {
+                TransitionError::ProofGenerationError(format!(
+                    "Balance transition proof failed: {:?}",
+                    e
+                ))
+            })
     }
 
     pub fn prove_receive_deposit(
@@ -298,25 +312,31 @@ where
         // assertion
         let deposit = deposit_witness.deposit.clone();
         let nullifier: Bytes32 = deposit.poseidon_hash().into();
-        
+
         if nullifier != private_transition_witness.nullifier {
-            return Err(TransitionError::InvalidValue { 
-                message: format!("Nullifier mismatch: expected {:?}, got {:?}", 
-                    nullifier, private_transition_witness.nullifier) 
+            return Err(TransitionError::InvalidValue {
+                message: format!(
+                    "Nullifier mismatch: expected {:?}, got {:?}",
+                    nullifier, private_transition_witness.nullifier
+                ),
             });
         }
-        
+
         if deposit.token_index != private_transition_witness.token_index {
-            return Err(TransitionError::InvalidValue { 
-                message: format!("Token index mismatch: expected {}, got {}", 
-                    deposit.token_index, private_transition_witness.token_index) 
+            return Err(TransitionError::InvalidValue {
+                message: format!(
+                    "Token index mismatch: expected {}, got {}",
+                    deposit.token_index, private_transition_witness.token_index
+                ),
             });
         }
-        
+
         if deposit.amount != private_transition_witness.amount {
-            return Err(TransitionError::InvalidValue { 
-                message: format!("Amount mismatch: expected {}, got {}", 
-                    deposit.amount, private_transition_witness.amount) 
+            return Err(TransitionError::InvalidValue {
+                message: format!(
+                    "Amount mismatch: expected {}, got {}",
+                    deposit.amount, private_transition_witness.amount
+                ),
             });
         }
 
@@ -330,8 +350,8 @@ where
             &private_transition_witness.prev_asset_leaf,
             &private_transition_witness.asset_merkle_proof,
         )
-        .map_err(|e| TransitionError::InvalidValue { 
-            message: format!("Private state transition value failed: {:?}", e) 
+        .map_err(|e| TransitionError::InvalidValue {
+            message: format!("Private state transition value failed: {:?}", e),
         })?;
 
         let receive_deposit_value = ReceiveDepositValue::new(
@@ -343,16 +363,19 @@ where
             &prev_balance_pis.public_state,
             &private_state_transition,
         )
-        .map_err(|e| TransitionError::InvalidValue { 
-            message: format!("Receive deposit value failed: {:?}", e) 
+        .map_err(|e| TransitionError::InvalidValue {
+            message: format!("Receive deposit value failed: {:?}", e),
         })?;
 
         let receive_deposit_proof = self
             .receive_deposit_circuit
             .prove(&receive_deposit_value)
-            .map_err(|e| TransitionError::ProofGenerationError(
-                format!("Receive deposit proof failed: {:?}", e)
-            ))?;
+            .map_err(|e| {
+                TransitionError::ProofGenerationError(format!(
+                    "Receive deposit proof failed: {:?}",
+                    e
+                ))
+            })?;
 
         let balance_transition_value = BalanceTransitionValue::new(
             &CircuitConfig::default(),
@@ -368,8 +391,8 @@ where
             prev_balance_pis.clone(),
             balance_verifier_data.verifier_only.clone(),
         )
-        .map_err(|e| TransitionError::InvalidValue { 
-            message: format!("Balance transition value failed: {:?}", e) 
+        .map_err(|e| TransitionError::InvalidValue {
+            message: format!("Balance transition value failed: {:?}", e),
         })?;
         self.balance_transition_circuit
             .prove(
@@ -379,8 +402,11 @@ where
                 &self.sender_processor.sender_circuit,
                 &balance_transition_value,
             )
-            .map_err(|e| TransitionError::ProofGenerationError(
-                format!("Balance transition proof failed: {:?}", e)
-            ))
+            .map_err(|e| {
+                TransitionError::ProofGenerationError(format!(
+                    "Balance transition proof failed: {:?}",
+                    e
+                ))
+            })
     }
 }

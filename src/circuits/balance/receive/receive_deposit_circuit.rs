@@ -16,7 +16,7 @@ use crate::{
         poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget, POSEIDON_HASH_OUT_LEN},
     },
 };
-use anyhow::ensure;
+use super::error::ReceiveError;
 use plonky2::{
     field::{extension::Extendable, types::Field},
     gates::constant::ConstantGate,
@@ -55,21 +55,35 @@ impl ReceiveDepositPublicInputs {
             self.pubkey.to_u64_vec(),
             self.public_state.to_u64_vec()]
         .concat();
-        assert_eq!(vec.len(), RECEIVE_DEPOSIT_PUBLIC_INPUTS_LEN);
+        if vec.len() != RECEIVE_DEPOSIT_PUBLIC_INPUTS_LEN {
+            panic!("ReceiveDepositPublicInputs length mismatch: expected {}, got {}", 
+                RECEIVE_DEPOSIT_PUBLIC_INPUTS_LEN, vec.len());
+        }
         vec
     }
 
-    pub fn from_u64_slice(input: &[u64]) -> Self {
+    pub fn from_u64_slice(input: &[u64]) -> Result<Self, ReceiveError> {
+        if input.len() != RECEIVE_DEPOSIT_PUBLIC_INPUTS_LEN {
+            return Err(ReceiveError::InvalidInput { 
+                message: format!("ReceiveDepositPublicInputs length mismatch: expected {}, got {}", 
+                    RECEIVE_DEPOSIT_PUBLIC_INPUTS_LEN, input.len()) 
+            });
+        }
+        
         let prev_private_commitment = PoseidonHashOut::from_u64_slice(&input[0..4]);
         let new_private_commitment = PoseidonHashOut::from_u64_slice(&input[4..8]);
-        let pubkey = U256::from_u64_slice(&input[8..16]).unwrap();
+        let pubkey = U256::from_u64_slice(&input[8..16])
+            .map_err(|e| ReceiveError::InvalidInput { 
+                message: format!("Failed to parse pubkey: {:?}", e) 
+            })?;
         let public_state = PublicState::from_u64_slice(&input[16..16 + PUBLIC_STATE_LEN]);
-        ReceiveDepositPublicInputs {
+        
+        Ok(ReceiveDepositPublicInputs {
             prev_private_commitment,
             new_private_commitment,
             pubkey,
             public_state,
-        }
+        })
     }
 }
 
@@ -88,11 +102,19 @@ impl ReceiveDepositPublicInputsTarget {
             self.pubkey.to_vec(),
             self.public_state.to_vec()]
         .concat();
-        assert_eq!(vec.len(), RECEIVE_DEPOSIT_PUBLIC_INPUTS_LEN);
+        if vec.len() != RECEIVE_DEPOSIT_PUBLIC_INPUTS_LEN {
+            panic!("ReceiveDepositPublicInputsTarget length mismatch: expected {}, got {}", 
+                RECEIVE_DEPOSIT_PUBLIC_INPUTS_LEN, vec.len());
+        }
         vec
     }
 
     pub fn from_slice(input: &[Target]) -> Self {
+        if input.len() < RECEIVE_DEPOSIT_PUBLIC_INPUTS_LEN {
+            panic!("ReceiveDepositPublicInputsTarget input slice too short: expected at least {}, got {}", 
+                RECEIVE_DEPOSIT_PUBLIC_INPUTS_LEN, input.len());
+        }
+        
         let prev_private_commitment = PoseidonHashOutTarget::from_slice(&input[0..4]);
         let new_private_commitment = PoseidonHashOutTarget::from_slice(&input[4..8]);
         let pubkey = U256Target::from_slice(&input[8..16]);
@@ -128,34 +150,47 @@ impl ReceiveDepositValue {
         deposit_merkle_proof: &DepositMerkleProof,
         public_state: &PublicState,
         private_state_transition: &PrivateStateTransitionValue,
-    ) -> anyhow::Result<Self> {
+    ) -> Result<Self, ReceiveError> {
         // verify deposit inclusion
         let pubkey_salt_hash = get_pubkey_salt_hash(pubkey, deposit_salt);
-        ensure!(
-            pubkey_salt_hash == deposit.pubkey_salt_hash,
-            "Invalid pubkey salt hash"
-        );
+        if pubkey_salt_hash != deposit.pubkey_salt_hash {
+            return Err(ReceiveError::VerificationFailed { 
+                message: format!("Invalid pubkey salt hash: expected {:?}, got {:?}", 
+                    deposit.pubkey_salt_hash, pubkey_salt_hash) 
+            });
+        }
+        
         deposit_merkle_proof
             .verify(
                 deposit,
                 deposit_index as u64,
                 public_state.deposit_tree_root,
             )
-            .map_err(|e| anyhow::anyhow!("Invalid deposit merkle proof: {}", e))?;
+            .map_err(|e| ReceiveError::VerificationFailed { 
+                message: format!("Invalid deposit merkle proof: {}", e) 
+            })?;
 
         let nullifier: Bytes32 = deposit.poseidon_hash().into();
-        ensure!(
-            deposit.token_index == private_state_transition.token_index,
-            "Invalid token index"
-        );
-        ensure!(
-            deposit.amount == private_state_transition.amount,
-            "Invalid amount"
-        );
-        ensure!(
-            nullifier == private_state_transition.nullifier,
-            "Invalid nullifier"
-        );
+        if deposit.token_index != private_state_transition.token_index {
+            return Err(ReceiveError::VerificationFailed { 
+                message: format!("Invalid token index: expected {}, got {}", 
+                    private_state_transition.token_index, deposit.token_index) 
+            });
+        }
+        
+        if deposit.amount != private_state_transition.amount {
+            return Err(ReceiveError::VerificationFailed { 
+                message: format!("Invalid amount: expected {}, got {}", 
+                    private_state_transition.amount, deposit.amount) 
+            });
+        }
+        
+        if nullifier != private_state_transition.nullifier {
+            return Err(ReceiveError::VerificationFailed { 
+                message: format!("Invalid nullifier: expected {:?}, got {:?}", 
+                    private_state_transition.nullifier, nullifier) 
+            });
+        }
 
         let prev_private_commitment = private_state_transition.prev_private_state.commitment();
         let new_private_commitment = private_state_transition.new_private_state.commitment();
@@ -319,9 +354,9 @@ where
     pub fn prove(
         &self,
         value: &ReceiveDepositValue,
-    ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
+    ) -> Result<ProofWithPublicInputs<F, C, D>, ReceiveError> {
         let mut pw = PartialWitness::<F>::new();
         self.target.set_witness(&mut pw, value);
-        self.data.prove(pw)
+        self.data.prove(pw).map_err(|e| ReceiveError::ProofGenerationError(format!("Failed to generate proof: {:?}", e)))
     }
 }

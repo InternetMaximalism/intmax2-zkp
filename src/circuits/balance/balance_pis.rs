@@ -12,8 +12,6 @@ use plonky2::{
 };
 use serde::{Deserialize, Serialize};
 
-use crate::circuits::balance::error::BalanceError;
-
 use crate::{
     common::{
         insufficient_flags::{InsufficientFlags, InsufficientFlagsTarget, INSUFFICIENT_FLAGS_LEN},
@@ -59,23 +57,31 @@ impl BalancePublicInputs {
     }
 
     pub fn to_u64_vec(&self) -> Vec<u64> {
-        let vec = [self.pubkey.to_u64_vec(),
+        let vec = [
+            self.pubkey.to_u64_vec(),
             self.private_commitment.to_u64_vec(),
             self.last_tx_hash.to_u64_vec(),
             self.last_tx_insufficient_flags.to_u64_vec(),
-            self.public_state.to_u64_vec()]
+            self.public_state.to_u64_vec(),
+        ]
         .concat();
         if vec.len() != BALANCE_PUBLIC_INPUTS_LEN {
-            panic!("Balance public inputs length mismatch: expected {}, got {}", 
-                BALANCE_PUBLIC_INPUTS_LEN, vec.len());
+            panic!(
+                "Balance public inputs length mismatch: expected {}, got {}",
+                BALANCE_PUBLIC_INPUTS_LEN,
+                vec.len()
+            );
         }
         vec
     }
 
     pub fn from_u64_slice(input: &[u64]) -> Self {
         if input.len() != BALANCE_PUBLIC_INPUTS_LEN {
-            panic!("Balance public inputs length mismatch: expected {}, got {}", 
-                BALANCE_PUBLIC_INPUTS_LEN, input.len());
+            panic!(
+                "Balance public inputs length mismatch: expected {}, got {}",
+                BALANCE_PUBLIC_INPUTS_LEN,
+                input.len()
+            );
         }
         let pubkey = U256::from_u64_slice(&input[0..U256_LEN]).unwrap();
         let private_commitment =
@@ -86,7 +92,8 @@ impl BalancePublicInputs {
         let last_tx_insufficient_flags = InsufficientFlags::from_u64_slice(
             &input[U256_LEN + 2 * POSEIDON_HASH_OUT_LEN
                 ..U256_LEN + 2 * POSEIDON_HASH_OUT_LEN + INSUFFICIENT_FLAGS_LEN],
-        ).unwrap();
+        )
+        .unwrap();
         let public_state = PublicState::from_u64_slice(
             &input[U256_LEN + 2 * POSEIDON_HASH_OUT_LEN + INSUFFICIENT_FLAGS_LEN..],
         );
@@ -181,23 +188,31 @@ impl BalancePublicInputsTarget {
     }
 
     pub fn to_vec(&self) -> Vec<Target> {
-        let vec = [self.pubkey.to_vec(),
+        let vec = [
+            self.pubkey.to_vec(),
             self.private_commitment.to_vec(),
             self.last_tx_hash.to_vec(),
             self.last_tx_insufficient_flags.to_vec(),
-            self.public_state.to_vec()]
+            self.public_state.to_vec(),
+        ]
         .concat();
         if vec.len() != BALANCE_PUBLIC_INPUTS_LEN {
-            panic!("Balance public inputs target length mismatch: expected {}, got {}", 
-                BALANCE_PUBLIC_INPUTS_LEN, vec.len());
+            panic!(
+                "Balance public inputs target length mismatch: expected {}, got {}",
+                BALANCE_PUBLIC_INPUTS_LEN,
+                vec.len()
+            );
         }
         vec
     }
 
     pub fn from_slice(input: &[Target]) -> Self {
         if input.len() != BALANCE_PUBLIC_INPUTS_LEN {
-            panic!("Balance public inputs target length mismatch: expected {}, got {}", 
-                BALANCE_PUBLIC_INPUTS_LEN, input.len());
+            panic!(
+                "Balance public inputs target length mismatch: expected {}, got {}",
+                BALANCE_PUBLIC_INPUTS_LEN,
+                input.len()
+            );
         }
         let pubkey = U256Target::from_slice(&input[0..U256_LEN]);
         let private_commitment =

@@ -16,7 +16,7 @@ use crate::{
         poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget},
     },
 };
-use anyhow::ensure;
+use super::error::ReceiveError;
 use plonky2::{
     field::extension::Extendable,
     hash::hash_types::RichField,
@@ -152,7 +152,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         block_merkle_proof: &BlockHashMerkleProof,
         transfer_inclusion: &TransferInclusionValue<F, C, D>,
         private_state_transition: &PrivateStateTransitionValue,
-    ) -> anyhow::Result<Self>
+    ) -> Result<Self, ReceiveError>
     where
         C::Hasher: AlgebraicHasher<F>,
     {
@@ -163,29 +163,53 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
                 transfer_inclusion.public_state.block_number as u64,
                 public_state.block_tree_root,
             )
-            .map_err(|e| anyhow::anyhow!("block merkle proof verification failed: {:?}", e))?;
+            .map_err(|e| ReceiveError::VerificationFailed { 
+                message: format!("Block merkle proof verification failed: {:?}", e) 
+            })?;
 
         let transfer = transfer_inclusion.transfer;
         let nullifier: Bytes32 = transfer.commitment().into();
         let pubkey = transfer
             .recipient
             .to_pubkey()
-            .map_err(|e| anyhow::anyhow!("transfer recipient is not pubkey: {:?}", e))?;
-        ensure!(
-            private_state_transition.token_index == transfer.token_index,
-            "token index mismatch"
-        );
-        ensure!(
-            private_state_transition.amount == transfer.amount,
-            "amount mismatch"
-        );
-        ensure!(
-            private_state_transition.nullifier == nullifier,
-            "nullifier mismatch"
-        );
+            .map_err(|e| ReceiveError::VerificationFailed { 
+                message: format!("Transfer recipient is not pubkey: {:?}", e) 
+            })?;
+            
+        if private_state_transition.token_index != transfer.token_index {
+            return Err(ReceiveError::VerificationFailed { 
+                message: format!(
+                    "Token index mismatch: expected {}, got {}", 
+                    transfer.token_index, 
+                    private_state_transition.token_index
+                ) 
+            });
+        }
+        
+        if private_state_transition.amount != transfer.amount {
+            return Err(ReceiveError::VerificationFailed { 
+                message: format!(
+                    "Amount mismatch: expected {:?}, got {:?}", 
+                    transfer.amount, 
+                    private_state_transition.amount
+                ) 
+            });
+        }
+        
+        if private_state_transition.nullifier != nullifier {
+            return Err(ReceiveError::VerificationFailed { 
+                message: format!(
+                    "Nullifier mismatch: expected {:?}, got {:?}", 
+                    nullifier, 
+                    private_state_transition.nullifier
+                ) 
+            });
+        }
+        
         let prev_private_commitment = private_state_transition.prev_private_state.commitment();
         let new_private_commitment = private_state_transition.new_private_state.commitment();
         let balance_circuit_vd = transfer_inclusion.balance_circuit_vd.clone();
+        
         Ok(ReceiveTransferValue {
             pubkey,
             public_state: public_state.clone(),
@@ -332,9 +356,9 @@ where
     pub fn prove(
         &self,
         value: &ReceiveTransferValue<F, C, D>,
-    ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
+    ) -> Result<ProofWithPublicInputs<F, C, D>, ReceiveError> {
         let mut pw = PartialWitness::<F>::new();
         self.target.set_witness(&mut pw, value);
-        self.data.prove(pw)
+        self.data.prove(pw).map_err(|e| ReceiveError::ProofGenerationError(format!("{:?}", e)))
     }
 }
