@@ -56,28 +56,28 @@ impl ReceiveDepositPublicInputs {
             self.public_state.to_u64_vec()]
         .concat();
         if vec.len() != RECEIVE_DEPOSIT_PUBLIC_INPUTS_LEN {
-            return Err(ReceiveError::InvalidInput { 
-                message: format!("ReceiveDepositPublicInputs length mismatch: expected {}, got {}", 
-                    RECEIVE_DEPOSIT_PUBLIC_INPUTS_LEN, vec.len()) 
-            });
+            return Err(ReceiveError::InvalidInput(
+                format!("ReceiveDepositPublicInputs length mismatch: expected {}, got {}", 
+                    RECEIVE_DEPOSIT_PUBLIC_INPUTS_LEN, vec.len())
+            ));
         }
         Ok(vec)
     }
 
     pub fn from_u64_slice(input: &[u64]) -> Result<Self, ReceiveError> {
         if input.len() != RECEIVE_DEPOSIT_PUBLIC_INPUTS_LEN {
-            return Err(ReceiveError::InvalidInput { 
-                message: format!("ReceiveDepositPublicInputs length mismatch: expected {}, got {}", 
-                    RECEIVE_DEPOSIT_PUBLIC_INPUTS_LEN, input.len()) 
-            });
+            return Err(ReceiveError::InvalidInput(
+                format!("ReceiveDepositPublicInputs length mismatch: expected {}, got {}", 
+                    RECEIVE_DEPOSIT_PUBLIC_INPUTS_LEN, input.len())
+            ));
         }
         
         let prev_private_commitment = PoseidonHashOut::from_u64_slice(&input[0..4]);
         let new_private_commitment = PoseidonHashOut::from_u64_slice(&input[4..8]);
         let pubkey = U256::from_u64_slice(&input[8..16])
-            .map_err(|e| ReceiveError::InvalidInput { 
-                message: format!("Failed to parse pubkey: {:?}", e) 
-            })?;
+            .map_err(|e| ReceiveError::InvalidInput(
+                format!("Failed to parse pubkey: {:?}", e)
+            ))?;
         let public_state = PublicState::from_u64_slice(&input[16..16 + PUBLIC_STATE_LEN]);
         
         Ok(ReceiveDepositPublicInputs {
@@ -105,20 +105,20 @@ impl ReceiveDepositPublicInputsTarget {
             self.public_state.to_vec()]
         .concat();
         if vec.len() != RECEIVE_DEPOSIT_PUBLIC_INPUTS_LEN {
-            return Err(ReceiveError::InvalidInput { 
-                message: format!("ReceiveDepositPublicInputsTarget length mismatch: expected {}, got {}", 
-                    RECEIVE_DEPOSIT_PUBLIC_INPUTS_LEN, vec.len()) 
-            });
+            return Err(ReceiveError::InvalidInput(
+                format!("ReceiveDepositPublicInputsTarget length mismatch: expected {}, got {}", 
+                    RECEIVE_DEPOSIT_PUBLIC_INPUTS_LEN, vec.len())
+            ));
         }
         Ok(vec)
     }
 
     pub fn from_slice(input: &[Target]) -> Result<Self, ReceiveError> {
         if input.len() < RECEIVE_DEPOSIT_PUBLIC_INPUTS_LEN {
-            return Err(ReceiveError::InvalidInput { 
-                message: format!("ReceiveDepositPublicInputsTarget input slice too short: expected at least {}, got {}", 
-                    RECEIVE_DEPOSIT_PUBLIC_INPUTS_LEN, input.len()) 
-            });
+            return Err(ReceiveError::InvalidInput(
+                format!("ReceiveDepositPublicInputsTarget input slice too short: expected at least {}, got {}", 
+                    RECEIVE_DEPOSIT_PUBLIC_INPUTS_LEN, input.len())
+            ));
         }
         
         let prev_private_commitment = PoseidonHashOutTarget::from_slice(&input[0..4]);
@@ -160,10 +160,10 @@ impl ReceiveDepositValue {
         // verify deposit inclusion
         let pubkey_salt_hash = get_pubkey_salt_hash(pubkey, deposit_salt);
         if pubkey_salt_hash != deposit.pubkey_salt_hash {
-            return Err(ReceiveError::VerificationFailed { 
-                message: format!("Invalid pubkey salt hash: expected {:?}, got {:?}", 
-                    deposit.pubkey_salt_hash, pubkey_salt_hash) 
-            });
+            return Err(ReceiveError::VerificationFailed(
+                format!("Invalid pubkey salt hash: expected {:?}, got {:?}", 
+                    deposit.pubkey_salt_hash, pubkey_salt_hash)
+            ));
         }
         
         deposit_merkle_proof
@@ -172,30 +172,30 @@ impl ReceiveDepositValue {
                 deposit_index as u64,
                 public_state.deposit_tree_root,
             )
-            .map_err(|e| ReceiveError::VerificationFailed { 
-                message: format!("Invalid deposit merkle proof: {}", e) 
-            })?;
+            .map_err(|e| ReceiveError::VerificationFailed(
+                format!("Invalid deposit merkle proof: {}", e)
+            ))?;
 
         let nullifier: Bytes32 = deposit.poseidon_hash().into();
         if deposit.token_index != private_state_transition.token_index {
-            return Err(ReceiveError::VerificationFailed { 
-                message: format!("Invalid token index: expected {}, got {}", 
-                    private_state_transition.token_index, deposit.token_index) 
-            });
+            return Err(ReceiveError::VerificationFailed(
+                format!("Invalid token index: expected {}, got {}", 
+                    private_state_transition.token_index, deposit.token_index)
+            ));
         }
         
         if deposit.amount != private_state_transition.amount {
-            return Err(ReceiveError::VerificationFailed { 
-                message: format!("Invalid amount: expected {}, got {}", 
-                    private_state_transition.amount, deposit.amount) 
-            });
+            return Err(ReceiveError::VerificationFailed(
+                format!("Invalid amount: expected {}, got {}", 
+                    private_state_transition.amount, deposit.amount)
+            ));
         }
         
         if nullifier != private_state_transition.nullifier {
-            return Err(ReceiveError::VerificationFailed { 
-                message: format!("Invalid nullifier: expected {:?}, got {:?}", 
-                    private_state_transition.nullifier, nullifier) 
-            });
+            return Err(ReceiveError::VerificationFailed(
+                format!("Invalid nullifier: expected {:?}, got {:?}", 
+                    private_state_transition.nullifier, nullifier)
+            ));
         }
 
         let prev_private_commitment = private_state_transition.prev_private_state.commitment();

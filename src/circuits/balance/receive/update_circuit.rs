@@ -132,9 +132,9 @@ where
     ) -> Result<Self, ReceiveError> {
         validity_vd
             .verify(validity_proof.clone())
-            .map_err(|e| ReceiveError::VerificationFailed { 
-                message: format!("Validity proof is invalid: {:?}", e) 
-            })?;
+            .map_err(|e| ReceiveError::VerificationFailed(
+                format!("Validity proof is invalid: {:?}", e)
+            ))?;
             
         let validity_pis = ValidityPublicInputs::from_pis(&validity_proof.public_inputs);
         
@@ -144,26 +144,26 @@ where
                 prev_public_state.block_number as u64,
                 validity_pis.public_state.block_tree_root,
             )
-            .map_err(|e| ReceiveError::VerificationFailed { 
-                message: format!("Block merkle proof is invalid: {:?}", e) 
-            })?;
+            .map_err(|e| ReceiveError::VerificationFailed(
+                format!("Block merkle proof is invalid: {:?}", e)
+            ))?;
             
         account_membership_proof
             .verify(pubkey, validity_pis.public_state.account_tree_root)
-            .map_err(|e| ReceiveError::VerificationFailed { 
-                message: format!("Account membership proof is invalid: {:?}", e) 
-            })?;
+            .map_err(|e| ReceiveError::VerificationFailed(
+                format!("Account membership proof is invalid: {:?}", e)
+            ))?;
             
         let last_block_number = account_membership_proof.get_value() as u32;
         
         if last_block_number > prev_public_state.block_number {
-            return Err(ReceiveError::VerificationFailed { 
-                message: format!(
+            return Err(ReceiveError::VerificationFailed(
+                format!(
                     "Last block number is invalid: last_block_number={}, prev_block_number={}", 
                     last_block_number, 
                     prev_public_state.block_number
-                ) 
-            });
+                )
+            ));
         }
         
         Ok(Self {

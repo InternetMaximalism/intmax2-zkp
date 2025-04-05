@@ -61,27 +61,27 @@ where
             &balance_proof.public_inputs,
             &balance_verifier_data.common.config,
         )
-        .map_err(|e| ReceiveTargetsError::VerificationFailed { 
-            message: format!("Failed to parse balance vd: {}", e) 
-        })?;
+        .map_err(|e| ReceiveTargetsError::VerificationFailed(
+            format!("Failed to parse balance vd: {}", e)
+        ))?;
         
         if balance_circuit_vd != balance_verifier_data.verifier_only {
-            return Err(ReceiveTargetsError::VerificationFailed { 
-                message: "Balance vd mismatch".to_string() 
-            });
+            return Err(ReceiveTargetsError::VerificationFailed(
+                "Balance vd mismatch".to_string()
+            ));
         }
         
         balance_verifier_data
             .verify(balance_proof.clone())
-            .map_err(|e| ReceiveTargetsError::VerificationFailed { 
-                message: format!("Failed to verify balance proof: {}", e) 
-            })?;
+            .map_err(|e| ReceiveTargetsError::VerificationFailed(
+                format!("Failed to verify balance proof: {}", e)
+            ))?;
             
         if balance_pis.last_tx_hash != tx.hash() {
-            return Err(ReceiveTargetsError::VerificationFailed { 
-                message: format!("Last tx hash mismatch: expected {:?}, got {:?}", 
-                    tx.hash(), balance_pis.last_tx_hash) 
-            });
+            return Err(ReceiveTargetsError::VerificationFailed(
+                format!("Last tx hash mismatch: expected {:?}, got {:?}", 
+                    tx.hash(), balance_pis.last_tx_hash)
+            ));
         }
         
         let _is_insufficient = balance_pis
@@ -90,17 +90,17 @@ where
             
         #[cfg(not(feature = "skip_insufficient_check"))]
         if _is_insufficient {
-            return Err(ReceiveTargetsError::VerificationFailed { 
-                message: format!("Transfer is insufficient at index {}", transfer_index) 
-            });
+            return Err(ReceiveTargetsError::VerificationFailed(
+                format!("Transfer is insufficient at index {}", transfer_index)
+            ));
         }
         
         // check merkle proof
         transfer_merkle_proof
             .verify(transfer, transfer_index as u64, tx.transfer_tree_root)
-            .map_err(|e| ReceiveTargetsError::VerificationFailed { 
-                message: format!("Invalid transfer merkle proof: {}", e) 
-            })?;
+            .map_err(|e| ReceiveTargetsError::VerificationFailed(
+                format!("Invalid transfer merkle proof: {}", e)
+            ))?;
             
         Ok(Self {
             transfer: *transfer,

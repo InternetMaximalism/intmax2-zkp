@@ -120,16 +120,16 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         spent_circuit
             .data
             .verify(spent_proof.clone())
-            .map_err(|e| SendError::VerificationFailed { 
-                message: format!("Invalid spent proof: {:?}", e) 
-            })?;
+            .map_err(|e| SendError::VerificationFailed(
+                format!("Invalid spent proof: {:?}", e)
+            ))?;
             
         tx_inclusion_circuit
             .data
             .verify(tx_inclusion_proof.clone())
-            .map_err(|e| SendError::VerificationFailed { 
-                message: format!("Invalid tx inclusion proof: {:?}", e) 
-            })?;
+            .map_err(|e| SendError::VerificationFailed(
+                format!("Invalid tx inclusion proof: {:?}", e)
+            ))?;
             
         let spent_pis = SpentPublicInputs::from_u64_slice(
             &spent_proof
@@ -144,9 +144,9 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
             
         // check tx equivalence
         if spent_pis.tx != tx_inclusion_pis.tx {
-            return Err(SendError::VerificationFailed { 
-                message: "Tx mismatch between spent proof and tx inclusion proof".to_string() 
-            });
+            return Err(SendError::VerificationFailed(
+                "Tx mismatch between spent proof and tx inclusion proof".to_string()
+            ));
         }
         
         let is_valid = spent_pis.is_valid && tx_inclusion_pis.is_valid;
@@ -171,23 +171,23 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
 
         // check prev balance pis
         if prev_balance_pis.pubkey != tx_inclusion_pis.pubkey {
-            return Err(SendError::VerificationFailed { 
-                message: format!(
+            return Err(SendError::VerificationFailed(
+                format!(
                     "Invalid pubkey: expected {:?}, got {:?}", 
                     prev_balance_pis.pubkey, 
                     tx_inclusion_pis.pubkey
-                ) 
-            });
+                )
+            ));
         }
         
         if prev_balance_pis.public_state != tx_inclusion_pis.prev_public_state {
-            return Err(SendError::VerificationFailed { 
-                message: format!(
+            return Err(SendError::VerificationFailed(
+                format!(
                     "Invalid public state: expected {:?}, got {:?}", 
                     prev_balance_pis.public_state, 
                     tx_inclusion_pis.prev_public_state
-                ) 
-            });
+                )
+            ));
         }
         
         let new_balance_pis = BalancePublicInputs {

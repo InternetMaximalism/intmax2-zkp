@@ -163,47 +163,47 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
                 transfer_inclusion.public_state.block_number as u64,
                 public_state.block_tree_root,
             )
-            .map_err(|e| ReceiveError::VerificationFailed { 
-                message: format!("Block merkle proof verification failed: {:?}", e) 
-            })?;
+            .map_err(|e| ReceiveError::VerificationFailed(
+                format!("Block merkle proof verification failed: {:?}", e)
+            ))?;
 
         let transfer = transfer_inclusion.transfer;
         let nullifier: Bytes32 = transfer.commitment().into();
         let pubkey = transfer
             .recipient
             .to_pubkey()
-            .map_err(|e| ReceiveError::VerificationFailed { 
-                message: format!("Transfer recipient is not pubkey: {:?}", e) 
-            })?;
+            .map_err(|e| ReceiveError::VerificationFailed(
+                format!("Transfer recipient is not pubkey: {:?}", e)
+            ))?;
             
         if private_state_transition.token_index != transfer.token_index {
-            return Err(ReceiveError::VerificationFailed { 
-                message: format!(
+            return Err(ReceiveError::VerificationFailed(
+                format!(
                     "Token index mismatch: expected {}, got {}", 
                     transfer.token_index, 
                     private_state_transition.token_index
-                ) 
-            });
+                )
+            ));
         }
         
         if private_state_transition.amount != transfer.amount {
-            return Err(ReceiveError::VerificationFailed { 
-                message: format!(
+            return Err(ReceiveError::VerificationFailed(
+                format!(
                     "Amount mismatch: expected {:?}, got {:?}", 
                     transfer.amount, 
                     private_state_transition.amount
-                ) 
-            });
+                )
+            ));
         }
         
         if private_state_transition.nullifier != nullifier {
-            return Err(ReceiveError::VerificationFailed { 
-                message: format!(
+            return Err(ReceiveError::VerificationFailed(
+                format!(
                     "Nullifier mismatch: expected {:?}, got {:?}", 
                     nullifier, 
                     private_state_transition.nullifier
-                ) 
-            });
+                )
+            ));
         }
         
         let prev_private_commitment = private_state_transition.prev_private_state.commitment();

@@ -167,9 +167,9 @@ where
     ) -> Result<Self, SendError> {
         validity_vd
             .verify(validity_proof.clone())
-            .map_err(|e| SendError::VerificationFailed { 
-                message: format!("Validity proof is invalid: {:?}", e) 
-            })?;
+            .map_err(|e| SendError::VerificationFailed(
+                format!("Validity proof is invalid: {:?}", e)
+            ))?;
             
         let validity_pis = ValidityPublicInputs::from_u64_slice(
             &validity_proof.public_inputs[0..VALIDITY_PUBLIC_INPUTS_LEN].to_u64_vec(),
@@ -181,40 +181,40 @@ where
                 prev_public_state.block_number as u64,
                 validity_pis.public_state.block_tree_root,
             )
-            .map_err(|e| SendError::VerificationFailed { 
-                message: format!("Block merkle proof is invalid: {:?}", e) 
-            })?;
+            .map_err(|e| SendError::VerificationFailed(
+                format!("Block merkle proof is invalid: {:?}", e)
+            ))?;
             
         prev_account_membership_proof
             .verify(pubkey, validity_pis.public_state.prev_account_tree_root)
-            .map_err(|e| SendError::VerificationFailed { 
-                message: format!("Account membership proof is invalid: {:?}", e) 
-            })?;
+            .map_err(|e| SendError::VerificationFailed(
+                format!("Account membership proof is invalid: {:?}", e)
+            ))?;
             
         let last_block_number = prev_account_membership_proof.get_value() as u32;
         
         if last_block_number > prev_public_state.block_number {
-            return Err(SendError::VerificationFailed { 
-                message: format!(
+            return Err(SendError::VerificationFailed(
+                format!(
                     "There is a sent tx before the last block: last_block_number={}, prev_block_number={}", 
                     last_block_number, 
                     prev_public_state.block_number
-                ) 
-            });
+                )
+            ));
         }
 
         let tx_tree_root: PoseidonHashOut = validity_pis
             .tx_tree_root
             .try_into()
-            .map_err(|e| SendError::VerificationFailed { 
-                message: format!("Tx tree root is invalid: {:?}", e) 
-            })?;
+            .map_err(|e| SendError::VerificationFailed(
+                format!("Tx tree root is invalid: {:?}", e)
+            ))?;
             
         tx_merkle_proof
             .verify(tx, sender_index as u64, tx_tree_root)
-            .map_err(|e| SendError::VerificationFailed { 
-                message: format!("Tx merkle proof is invalid: {:?}", e) 
-            })?;
+            .map_err(|e| SendError::VerificationFailed(
+                format!("Tx merkle proof is invalid: {:?}", e)
+            ))?;
             
         sender_merkle_proof
             .verify(
@@ -222,18 +222,18 @@ where
                 sender_index as u64,
                 validity_pis.sender_tree_root,
             )
-            .map_err(|e| SendError::VerificationFailed { 
-                message: format!("Sender merkle proof is invalid: {:?}", e) 
-            })?;
+            .map_err(|e| SendError::VerificationFailed(
+                format!("Sender merkle proof is invalid: {:?}", e)
+            ))?;
 
         if sender_leaf.sender != pubkey {
-            return Err(SendError::VerificationFailed { 
-                message: format!(
+            return Err(SendError::VerificationFailed(
+                format!(
                     "Sender pubkey mismatch: expected {:?}, got {:?}", 
                     pubkey, 
                     sender_leaf.sender
-                ) 
-            });
+                )
+            ));
         }
         
         let is_valid = sender_leaf.signature_included && validity_pis.is_valid_block;

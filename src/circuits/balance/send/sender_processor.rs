@@ -63,9 +63,9 @@ where
     ) -> Result<ProofWithPublicInputs<F, C, D>, SendError> {
         let spent_value = spent_witness
             .to_value()
-            .map_err(|e| SendError::InvalidInput { 
-                message: format!("Failed to create spent value: {}", e) 
-            })?;
+            .map_err(|e| SendError::InvalidInput(
+                format!("Failed to create spent value: {}", e)
+            ))?;
         self.spent_circuit
             .prove(&spent_value)
             .map_err(|e| SendError::ProofGenerationError(
@@ -82,20 +82,20 @@ where
     ) -> Result<ProofWithPublicInputs<F, C, D>, SendError> {
         let update_validity_pis = update_witness.validity_pis();
         if update_validity_pis != tx_witness.validity_pis {
-            return Err(SendError::InvalidInput { 
-                message: format!("Validity proof pis mismatch: expected {:?}, got {:?}", 
-                    tx_witness.validity_pis, update_validity_pis) 
-            });
+            return Err(SendError::InvalidInput(
+                format!("Validity proof pis mismatch: expected {:?}, got {:?}", 
+                    tx_witness.validity_pis, update_validity_pis)
+            ));
         }
         
         let sender_tree = tx_witness.get_sender_tree();
         let sender_leaf = sender_tree.get_leaf(tx_witness.tx_index as u64);
         
         if sender_leaf.sender != prev_balance_pis.pubkey {
-            return Err(SendError::InvalidInput { 
-                message: format!("Sender pubkey mismatch: expected {}, got {}", 
-                    prev_balance_pis.pubkey, sender_leaf.sender) 
-            });
+            return Err(SendError::InvalidInput(
+                format!("Sender pubkey mismatch: expected {}, got {}", 
+                    prev_balance_pis.pubkey, sender_leaf.sender)
+            ));
         }
         
         let sender_merkle_proof = sender_tree.prove(tx_witness.tx_index as u64);
@@ -106,18 +106,18 @@ where
             &update_witness.validity_proof,
             &update_witness.block_merkle_proof,
             &update_witness.prev_account_membership_proof()
-                .map_err(|e| SendError::InvalidInput { 
-                    message: format!("Failed to get prev account membership proof: {}", e) 
-                })?,
+                .map_err(|e| SendError::InvalidInput(
+                    format!("Failed to get prev account membership proof: {}", e)
+                ))?,
             tx_witness.tx_index,
             &tx_witness.tx,
             &tx_witness.tx_merkle_proof,
             &sender_leaf,
             &sender_merkle_proof,
         )
-        .map_err(|e| SendError::InvalidInput { 
-            message: format!("Failed to create tx inclusion value: {}", e) 
-        })?;
+        .map_err(|e| SendError::InvalidInput(
+            format!("Failed to create tx inclusion value: {}", e)
+        ))?;
         
         self.tx_inclusion_circuit
             .prove(&tx_inclusion_value)
@@ -137,17 +137,17 @@ where
         let spent_pis = SpentPublicInputs::from_pis(&spent_proof.public_inputs);
         
         if spent_pis.prev_private_commitment != prev_balance_pis.private_commitment {
-            return Err(SendError::InvalidInput { 
-                message: format!("Prev private commitment mismatch: expected {:?}, got {:?}", 
-                    prev_balance_pis.private_commitment, spent_pis.prev_private_commitment) 
-            });
+            return Err(SendError::InvalidInput(
+                format!("Prev private commitment mismatch: expected {:?}, got {:?}", 
+                    prev_balance_pis.private_commitment, spent_pis.prev_private_commitment)
+            ));
         }
         
         if spent_pis.tx != tx_witness.tx {
-            return Err(SendError::InvalidInput { 
-                message: format!("TX mismatch: expected {:?}, got {:?}", 
-                    tx_witness.tx, spent_pis.tx) 
-            });
+            return Err(SendError::InvalidInput(
+                format!("TX mismatch: expected {:?}, got {:?}", 
+                    tx_witness.tx, spent_pis.tx)
+            ));
         }
         
         let tx_inclusion_proof =
@@ -160,9 +160,9 @@ where
             &tx_inclusion_proof,
             prev_balance_pis,
         )
-        .map_err(|e| SendError::InvalidInput { 
-            message: format!("Failed to create sender value: {}", e) 
-        })?;
+        .map_err(|e| SendError::InvalidInput(
+            format!("Failed to create sender value: {}", e)
+        ))?;
         
         self.sender_circuit
             .prove(&sender_value)

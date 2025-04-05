@@ -164,18 +164,18 @@ where
             let prev_balance_pis =
                 BalancePublicInputs::from_pis(&prev_proof.as_ref().unwrap().public_inputs);
             if transition_prev_balance_pis != prev_balance_pis {
-                return Err(BalanceError::VerificationFailed { 
-                    message: format!("Previous balance public inputs mismatch: expected {:?}, got {:?}", 
-                        prev_balance_pis, transition_prev_balance_pis) 
-                });
+                return Err(BalanceError::VerificationFailed(
+                    format!("Previous balance public inputs mismatch: expected {:?}, got {:?}", 
+                        prev_balance_pis, transition_prev_balance_pis)
+                ));
             }
         } else {
             let initial_balance_pis = BalancePublicInputs::new(pubkey);
             if transition_prev_balance_pis != initial_balance_pis {
-                return Err(BalanceError::VerificationFailed { 
-                    message: format!("Initial balance public inputs mismatch: expected {:?}, got {:?}", 
-                        initial_balance_pis, transition_prev_balance_pis) 
-                });
+                return Err(BalanceError::VerificationFailed(
+                    format!("Initial balance public inputs mismatch: expected {:?}, got {:?}", 
+                        initial_balance_pis, transition_prev_balance_pis)
+                ));
             }
         }
 
@@ -213,13 +213,13 @@ where
 
     pub fn verify(&self, proof: &ProofWithPublicInputs<F, C, D>) -> Result<(), BalanceError> {
         check_cyclic_proof_verifier_data(proof, &self.data.verifier_only, &self.data.common)
-            .map_err(|e| BalanceError::VerificationFailed { 
-                message: format!("Failed to check cyclic proof verifier data: {:?}", e) 
-            })?;
+            .map_err(|e| BalanceError::VerificationFailed(
+                format!("Failed to check cyclic proof verifier data: {:?}", e)
+            ))?;
         self.data.verify(proof.clone())
-            .map_err(|e| BalanceError::VerificationFailed { 
-                message: format!("Failed to verify proof: {:?}", e) 
-            })
+            .map_err(|e| BalanceError::VerificationFailed(
+                format!("Failed to verify proof: {:?}", e)
+            ))
     }
 }
 

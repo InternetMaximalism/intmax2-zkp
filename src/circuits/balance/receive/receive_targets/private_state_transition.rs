@@ -57,9 +57,9 @@ impl PrivateStateTransitionValue {
         let prev_private_commitment = prev_private_state.commitment();
         let new_nullifier_tree_root = nullifier_proof
             .get_new_root(prev_private_state.nullifier_tree_root, nullifier)
-            .map_err(|e| ReceiveTargetsError::VerificationFailed { 
-                message: format!("Invalid nullifier merkle proof: {}", e) 
-            })?;
+            .map_err(|e| ReceiveTargetsError::VerificationFailed(
+                format!("Invalid nullifier merkle proof: {}", e)
+            ))?;
         
         asset_merkle_proof
             .verify(
@@ -67,9 +67,9 @@ impl PrivateStateTransitionValue {
                 token_index as u64,
                 prev_private_state.asset_tree_root,
             )
-            .map_err(|e| ReceiveTargetsError::VerificationFailed { 
-                message: format!("Invalid asset merkle proof: {}", e) 
-            })?;
+            .map_err(|e| ReceiveTargetsError::VerificationFailed(
+                format!("Invalid asset merkle proof: {}", e)
+            ))?;
             
         let new_asset_leaf = prev_asset_leaf.add(amount);
         let new_asset_tree_root = asset_merkle_proof.get_root(&new_asset_leaf, token_index as u64);

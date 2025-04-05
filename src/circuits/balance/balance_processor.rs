@@ -81,9 +81,9 @@ where
         prev_proof: &Option<ProofWithPublicInputs<F, C, D>>,
     ) -> Result<ProofWithPublicInputs<F, C, D>, BalanceError> {
         let prev_balance_pis = get_prev_balance_pis(pubkey, prev_proof)
-            .map_err(|e| BalanceError::InvalidInput { 
-                message: format!("Failed to get previous balance public inputs: {:?}", e) 
-            })?;
+            .map_err(|e| BalanceError::InvalidInput(
+                format!("Failed to get previous balance public inputs: {:?}", e)
+            ))?;
         let transition_proof = self
             .balance_transition_processor
             .prove_send(
@@ -98,9 +98,9 @@ where
         let proof = self
             .balance_circuit
             .prove(pubkey, &transition_proof, prev_proof)
-            .map_err(|e| BalanceError::VerificationFailed { 
-                message: format!("Failed to prove send: {:?}", e) 
-            })?;
+            .map_err(|e| BalanceError::VerificationFailed(
+                format!("Failed to prove send: {:?}", e)
+            ))?;
         Ok(proof)
     }
 
@@ -112,9 +112,9 @@ where
         prev_proof: &Option<ProofWithPublicInputs<F, C, D>>,
     ) -> Result<ProofWithPublicInputs<F, C, D>, BalanceError> {
         let prev_balance_pis = get_prev_balance_pis(pubkey, prev_proof)
-            .map_err(|e| BalanceError::InvalidInput { 
-                message: format!("Failed to get previous balance public inputs: {:?}", e) 
-            })?;
+            .map_err(|e| BalanceError::InvalidInput(
+                format!("Failed to get previous balance public inputs: {:?}", e)
+            ))?;
         let transition_proof = self
             .balance_transition_processor
             .prove_update(
@@ -127,9 +127,9 @@ where
         let proof = self
             .balance_circuit
             .prove(pubkey, &transition_proof, prev_proof)
-            .map_err(|e| BalanceError::VerificationFailed { 
-                message: format!("Failed to prove update: {:?}", e) 
-            })?;
+            .map_err(|e| BalanceError::VerificationFailed(
+                format!("Failed to prove update: {:?}", e)
+            ))?;
         Ok(proof)
     }
 
@@ -140,9 +140,9 @@ where
         prev_proof: &Option<ProofWithPublicInputs<F, C, D>>,
     ) -> Result<ProofWithPublicInputs<F, C, D>, BalanceError> {
         let prev_balance_pis = get_prev_balance_pis(pubkey, prev_proof)
-            .map_err(|e| BalanceError::InvalidInput { 
-                message: format!("Failed to get previous balance public inputs: {:?}", e) 
-            })?;
+            .map_err(|e| BalanceError::InvalidInput(
+                format!("Failed to get previous balance public inputs: {:?}", e)
+            ))?;
         let transition_proof = self
             .balance_transition_processor
             .prove_receive_transfer(
@@ -154,9 +154,9 @@ where
         let proof = self
             .balance_circuit
             .prove(pubkey, &transition_proof, prev_proof)
-            .map_err(|e| BalanceError::VerificationFailed { 
-                message: format!("Failed to prove receive transfer: {:?}", e) 
-            })?;
+            .map_err(|e| BalanceError::VerificationFailed(
+                format!("Failed to prove receive transfer: {:?}", e)
+            ))?;
         Ok(proof)
     }
 
@@ -167,9 +167,9 @@ where
         prev_proof: &Option<ProofWithPublicInputs<F, C, D>>,
     ) -> Result<ProofWithPublicInputs<F, C, D>, BalanceError> {
         let prev_balance_pis = get_prev_balance_pis(pubkey, prev_proof)
-            .map_err(|e| BalanceError::InvalidInput { 
-                message: format!("Failed to get previous balance public inputs: {:?}", e) 
-            })?;
+            .map_err(|e| BalanceError::InvalidInput(
+                format!("Failed to get previous balance public inputs: {:?}", e)
+            ))?;
         let transition_proof = self
             .balance_transition_processor
             .prove_receive_deposit(
@@ -181,9 +181,9 @@ where
         let proof = self
             .balance_circuit
             .prove(pubkey, &transition_proof, prev_proof)
-            .map_err(|e| BalanceError::VerificationFailed { 
-                message: format!("Failed to prove receive deposit: {:?}", e) 
-            })?;
+            .map_err(|e| BalanceError::VerificationFailed(
+                format!("Failed to prove receive deposit: {:?}", e)
+            ))?;
         Ok(proof)
     }
 }
@@ -201,13 +201,13 @@ where
     if let Some(prev_proof) = prev_proof {
         // Safely extract public inputs from the previous proof
         if prev_proof.public_inputs.len() < BALANCE_PUBLIC_INPUTS_LEN {
-            return Err(BalanceError::InvalidInput {
-                message: format!(
+            return Err(BalanceError::InvalidInput(
+                format!(
                     "Previous proof has insufficient public inputs: expected at least {}, got {}",
                     BALANCE_PUBLIC_INPUTS_LEN,
                     prev_proof.public_inputs.len()
                 )
-            });
+            ));
         }
         Ok(BalancePublicInputs::from_pis(&prev_proof.public_inputs))
     } else {

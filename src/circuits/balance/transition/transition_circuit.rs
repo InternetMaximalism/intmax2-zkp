@@ -94,16 +94,16 @@ where
             BalanceTransitionType::ReceiveTransfer => {
                 let receive_transfer_proof = receive_transfer_proof
                     .clone()
-                    .ok_or_else(|| TransitionError::InvalidValue { 
-                        message: "receive_transfer_proof is None".to_string() 
-                    })?;
+                    .ok_or_else(|| TransitionError::InvalidValue(
+                        "receive_transfer_proof is None".to_string()
+                    ))?;
                     
                 receive_transfer_circuit
                     .data
                     .verify(receive_transfer_proof.clone())
-                    .map_err(|e| TransitionError::VerificationFailed { 
-                        message: format!("receive_transfer_proof is invalid: {}", e) 
-                    })?;
+                    .map_err(|e| TransitionError::VerificationFailed(
+                        format!("receive_transfer_proof is invalid: {}", e)
+                    ))?;
                     
                 let pis = ReceiveTransferPublicInputs::<F, C, D>::from_slice(
                     config,
@@ -111,27 +111,27 @@ where
                 );
                 
                 if pis.balance_circuit_vd != balance_circuit_vd {
-                    return Err(TransitionError::VerificationFailed { 
-                        message: "balance_circuit_vd mismatch in receive_transfer_proof".to_string() 
-                    });
+                    return Err(TransitionError::VerificationFailed(
+                        "balance_circuit_vd mismatch in receive_transfer_proof".to_string()
+                    ));
                 }
                 
                 if pis.prev_private_commitment != prev_balance_pis.private_commitment {
-                    return Err(TransitionError::VerificationFailed { 
-                        message: "prev_private_commitment mismatch in receive_transfer_proof".to_string() 
-                    });
+                    return Err(TransitionError::VerificationFailed(
+                        "prev_private_commitment mismatch in receive_transfer_proof".to_string()
+                    ));
                 }
                 
                 if pis.pubkey != prev_balance_pis.pubkey {
-                    return Err(TransitionError::VerificationFailed { 
-                        message: "pubkey mismatch in receive_transfer_proof".to_string() 
-                    });
+                    return Err(TransitionError::VerificationFailed(
+                        "pubkey mismatch in receive_transfer_proof".to_string()
+                    ));
                 }
                 
                 if pis.public_state != prev_balance_pis.public_state {
-                    return Err(TransitionError::VerificationFailed { 
-                        message: "public_state mismatch in receive_transfer_proof".to_string() 
-                    });
+                    return Err(TransitionError::VerificationFailed(
+                        "public_state mismatch in receive_transfer_proof".to_string()
+                    ));
                 }
                 
                 BalancePublicInputs {
@@ -143,16 +143,16 @@ where
             BalanceTransitionType::ReceiveDeposit => {
                 let receive_deposit_proof = receive_deposit_proof
                     .clone()
-                    .ok_or_else(|| TransitionError::InvalidValue { 
-                        message: "receive_deposit_proof is None".to_string() 
-                    })?;
+                    .ok_or_else(|| TransitionError::InvalidValue(
+                        "receive_deposit_proof is None".to_string()
+                    ))?;
                     
                 receive_deposit_circuit
                     .data
                     .verify(receive_deposit_proof.clone())
-                    .map_err(|e| TransitionError::VerificationFailed { 
-                        message: format!("receive_deposit_proof is invalid: {}", e) 
-                    })?;
+                    .map_err(|e| TransitionError::VerificationFailed(
+                        format!("receive_deposit_proof is invalid: {}", e)
+                    ))?;
                     
                 let pis = ReceiveDepositPublicInputs::from_u64_slice(
                     &receive_deposit_proof
@@ -160,26 +160,26 @@ where
                         .iter()
                         .map(|x| x.to_canonical_u64())
                         .collect::<Vec<_>>(),
-                ).map_err(|e| TransitionError::VerificationFailed { 
-                    message: format!("Failed to parse receive_deposit_proof public inputs: {}", e) 
-                })?;
+                ).map_err(|e| TransitionError::VerificationFailed(
+                    format!("Failed to parse receive_deposit_proof public inputs: {}", e)
+                ))?;
                 
                 if pis.prev_private_commitment != prev_balance_pis.private_commitment {
-                    return Err(TransitionError::VerificationFailed { 
-                        message: "prev_private_commitment mismatch in receive_deposit_proof".to_string() 
-                    });
+                    return Err(TransitionError::VerificationFailed(
+                        "prev_private_commitment mismatch in receive_deposit_proof".to_string()
+                    ));
                 }
                 
                 if pis.pubkey != prev_balance_pis.pubkey {
-                    return Err(TransitionError::VerificationFailed { 
-                        message: "pubkey mismatch in receive_deposit_proof".to_string() 
-                    });
+                    return Err(TransitionError::VerificationFailed(
+                        "pubkey mismatch in receive_deposit_proof".to_string()
+                    ));
                 }
                 
                 if pis.public_state != prev_balance_pis.public_state {
-                    return Err(TransitionError::VerificationFailed { 
-                        message: "public_state mismatch in receive_deposit_proof".to_string() 
-                    });
+                    return Err(TransitionError::VerificationFailed(
+                        "public_state mismatch in receive_deposit_proof".to_string()
+                    ));
                 }
                 
                 BalancePublicInputs {
@@ -191,24 +191,24 @@ where
             BalanceTransitionType::Update => {
                 let update_proof = update_proof
                     .clone()
-                    .ok_or_else(|| TransitionError::InvalidValue { 
-                        message: "update_proof is None".to_string() 
-                    })?;
+                    .ok_or_else(|| TransitionError::InvalidValue(
+                        "update_proof is None".to_string()
+                    ))?;
                     
                 update_circuit
                     .data
                     .verify(update_proof.clone())
-                    .map_err(|e| TransitionError::VerificationFailed { 
-                        message: format!("update_proof is invalid: {}", e) 
-                    })?;
+                    .map_err(|e| TransitionError::VerificationFailed(
+                        format!("update_proof is invalid: {}", e)
+                    ))?;
                     
                 let pis =
                     UpdatePublicInputs::from_u64_slice(&update_proof.public_inputs.to_u64_vec());
                     
                 if pis.prev_public_state != prev_balance_pis.public_state {
-                    return Err(TransitionError::VerificationFailed { 
-                        message: "prev_public_state mismatch in update_proof".to_string() 
-                    });
+                    return Err(TransitionError::VerificationFailed(
+                        "prev_public_state mismatch in update_proof".to_string()
+                    ));
                 }
                 
                 BalancePublicInputs {
@@ -217,16 +217,16 @@ where
                 }
             }
             BalanceTransitionType::Sender => {
-                let sender_proof = sender_proof.clone().ok_or_else(|| TransitionError::InvalidValue { 
-                    message: "sender_proof is None".to_string() 
-                })?;
+                let sender_proof = sender_proof.clone().ok_or_else(|| TransitionError::InvalidValue(
+                    "sender_proof is None".to_string()
+                ))?;
                 
                 sender_circuit
                     .data
                     .verify(sender_proof.clone())
-                    .map_err(|e| TransitionError::VerificationFailed { 
-                        message: format!("sender_proof is invalid: {}", e) 
-                    })?;
+                    .map_err(|e| TransitionError::VerificationFailed(
+                        format!("sender_proof is invalid: {}", e)
+                    ))?;
                     
                 let pis = SenderPublicInputs::from_u64_slice(
                     &sender_proof
@@ -237,9 +237,9 @@ where
                 );
                 
                 if pis.prev_balance_pis != prev_balance_pis {
-                    return Err(TransitionError::VerificationFailed { 
-                        message: "prev_balance_pis mismatch".to_string() 
-                    });
+                    return Err(TransitionError::VerificationFailed(
+                        "prev_balance_pis mismatch".to_string()
+                    ));
                 }
                 
                 pis.new_balance_pis

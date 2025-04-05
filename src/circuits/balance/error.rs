@@ -15,11 +15,11 @@ pub enum BalanceError {
     #[error("Send error: {0}")]
     Send(#[from] SendError),
 
-    #[error("Verification failed: {message}")]
-    VerificationFailed { message: String },
+    #[error("Verification failed: {0}")]
+    VerificationFailed(String),
 
-    #[error("Invalid input: {message}")]
-    InvalidInput { message: String },
+    #[error("Invalid input: {0}")]
+    InvalidInput(String),
 
     #[error("Circuit build error: {0}")]
     CircuitBuildError(String),
