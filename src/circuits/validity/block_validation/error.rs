@@ -24,10 +24,7 @@ pub enum BlockValidationError {
     MainValidationInputLengthMismatch { expected: usize, actual: usize },
 
     #[error("Pubkey hash mismatch: expected {expected:?}, got {actual:?}")]
-    PubkeyHashMismatch {
-        expected: PoseidonHashOut,
-        actual: PoseidonHashOut,
-    },
+    PubkeyHashMismatch { expected: Bytes32, actual: Bytes32 },
 
     #[error("Signature hash mismatch: expected {expected:?}, got {actual:?}")]
     SignatureHashMismatch { expected: Bytes32, actual: Bytes32 },
@@ -57,10 +54,7 @@ pub enum BlockValidationError {
     },
 
     #[error("Account ID hash mismatch: expected {expected:?}, got {actual:?}")]
-    AccountIdHashMismatch {
-        expected: PoseidonHashOut,
-        actual: PoseidonHashOut,
-    },
+    AccountIdHashMismatch { expected: Bytes32, actual: Bytes32 },
 
     #[error("Account exclusion proof verification failed: {0}")]
     AccountExclusionProofVerificationFailed(String),
@@ -73,6 +67,9 @@ pub enum BlockValidationError {
 
     #[error("Aggregation proof verification failed: {0}")]
     AggregationProofVerificationFailed(String),
+
+    #[error("Main validation proof generation failed: {0}")]
+    MainValidationProofGenerationFailed(String),
 }
 
 impl From<AnyhowError> for BlockValidationError {

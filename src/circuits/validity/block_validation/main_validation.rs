@@ -91,8 +91,13 @@ pub struct MainValidationPublicInputsTarget {
 }
 
 impl MainValidationPublicInputs {
-    pub fn from_u64_slice(input: &[u64]) -> Self {
-        assert_eq!(input.len(), MAIN_VALIDATION_PUBLIC_INPUT_LEN);
+    pub fn from_u64_slice(input: &[u64]) -> Result<Self, BlockValidationError> {
+        if input.len() != MAIN_VALIDATION_PUBLIC_INPUT_LEN {
+            return Err(BlockValidationError::MainValidationInputLengthMismatch {
+                expected: MAIN_VALIDATION_PUBLIC_INPUT_LEN,
+                actual: input.len(),
+            });
+        }
         let prev_block_hash = Bytes32::from_u64_slice(&input[0..8]).unwrap();
         let block_hash = Bytes32::from_u64_slice(&input[8..16]).unwrap();
         let deposit_tree_root = Bytes32::from_u64_slice(&input[16..24]).unwrap();
@@ -103,7 +108,7 @@ impl MainValidationPublicInputs {
         let block_number = input[42];
         let is_registration_block = input[43] == 1;
         let is_valid = input[44] == 1;
-        Self {
+        Ok(Self {
             prev_block_hash,
             block_hash,
             deposit_tree_root,
@@ -114,7 +119,7 @@ impl MainValidationPublicInputs {
             block_number: block_number as u32,
             is_registration_block,
             is_valid,
-        }
+        })
     }
 }
 
@@ -287,7 +292,12 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         if is_registration_block {
             // When pubkey is directly given, the constraint is that signature.pubkey_hash and
             // pubkey_hash match.
-            assert!(is_pubkey_eq, "pubkey hash mismatch");
+            if !is_pubkey_eq {
+                return Err(BlockValidationError::PubkeyHashMismatch {
+                    expected: pubkey_hash,
+                    actual: signature.pubkey_hash,
+                });
+            }
         } else {
             // In the account id case, The value of signature.pubkey_hash can be freely chosen by
             // the block builder, so it should not be constrained in the circuit.
@@ -296,43 +306,64 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
 
         let signature_commitment = signature.commitment();
         let signature_hash = signature.hash();
-        assert_eq!(
-            block.signature_hash, signature_hash,
-            "signature hash mismatch"
-        );
+        if block.signature_hash != signature_hash {
+            return Err(BlockValidationError::SignatureHashMismatch {
+                expected: signature_hash,
+                actual: block.signature_hash,
+            });
+        }
 
         let sender_tree_root = get_sender_tree_root(&pubkeys, signature.sender_flag);
 
         if is_registration_block {
             // Account exclusion verification
-            let account_exclusion_proof = account_exclusion_proof
-                .clone()
-                .expect("account exclusion proof should be provided");
+            let account_exclusion_proof = account_exclusion_proof.clone().ok_or_else(|| {
+                BlockValidationError::AccountExclusionValue(
+                    "account exclusion proof should be provided".to_string(),
+                )
+            })?;
+
             account_exclusion_circuit
                 .data
                 .verify(account_exclusion_proof.clone())
-                .expect("account exclusion proof verification failed");
+                .map_err(|e| {
+                    BlockValidationError::AccountExclusionProofVerificationFailed(e.to_string())
+                })?;
+
             let pis = AccountExclusionPublicInputs::from_u64_slice(
                 &account_exclusion_proof.public_inputs.to_u64_vec(),
             );
-            assert_eq!(
-                pis.sender_tree_root, sender_tree_root,
-                "sender_tree_root mismatch"
-            );
-            assert_eq!(
-                pis.account_tree_root, account_tree_root,
-                "account tree root mismatch"
-            );
+
+            if pis.sender_tree_root != sender_tree_root {
+                return Err(BlockValidationError::SenderTreeRootMismatch {
+                    expected: sender_tree_root,
+                    actual: pis.sender_tree_root,
+                });
+            }
+
+            if pis.account_tree_root != account_tree_root {
+                return Err(BlockValidationError::AccountTreeRootMismatch {
+                    expected: account_tree_root,
+                    actual: pis.account_tree_root,
+                });
+            }
+
             result = result && pis.is_valid;
         } else {
             // Account inclusion verification
-            let account_inclusion_proof = account_inclusion_proof
-                .clone()
-                .expect("account inclusion proof should be provided");
+            let account_inclusion_proof = account_inclusion_proof.clone().ok_or_else(|| {
+                BlockValidationError::AccountInclusionValue(
+                    "account inclusion proof should be provided".to_string(),
+                )
+            })?;
+
             account_inclusion_circuit
                 .data
                 .verify(account_inclusion_proof.clone())
-                .expect("account inclusion proof verification failed");
+                .map_err(|e| {
+                    BlockValidationError::AccountInclusionProofVerificationFailed(e.to_string())
+                })?;
+
             let pis = AccountInclusionPublicInputs::from_u64_slice(
                 &account_inclusion_proof
                     .public_inputs
@@ -340,18 +371,28 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
                     .map(|x| x.to_canonical_u64())
                     .collect::<Vec<_>>(),
             );
-            assert_eq!(
-                pis.pubkey_commitment, pubkey_commitment,
-                "pubkey commitment mismatch"
-            );
-            assert_eq!(
-                pis.account_tree_root, account_tree_root,
-                "account tree root mismatch"
-            );
-            assert_eq!(
-                pis.account_id_hash, signature.account_id_hash,
-                "account id hash mismatch"
-            );
+
+            if pis.pubkey_commitment != pubkey_commitment {
+                return Err(BlockValidationError::PubkeyCommitmentMismatch {
+                    expected: pubkey_commitment,
+                    actual: pis.pubkey_commitment,
+                });
+            }
+
+            if pis.account_tree_root != account_tree_root {
+                return Err(BlockValidationError::AccountTreeRootMismatch {
+                    expected: account_tree_root,
+                    actual: pis.account_tree_root,
+                });
+            }
+
+            if pis.account_id_hash != signature.account_id_hash {
+                return Err(BlockValidationError::AccountIdHashMismatch {
+                    expected: signature.account_id_hash,
+                    actual: pis.account_id_hash,
+                });
+            }
+
             result = result && pis.is_valid;
         }
 
@@ -359,59 +400,76 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         format_validation_circuit
             .data
             .verify(format_validation_proof.clone())
-            .expect("format validation proof verification failed");
+            .map_err(|e| {
+                BlockValidationError::FormatValidationProofVerificationFailed(e.to_string())
+            })?;
+
         let format_validation_pis = FormatValidationPublicInputs::from_u64_slice(
             &format_validation_proof.public_inputs.to_u64_vec(),
-        ).expect("Failed to parse format validation public inputs");
-        
+        )
+        .map_err(|e| {
+            BlockValidationError::FormatValidationProofVerificationFailed(e.to_string())
+        })?;
+
         if format_validation_pis.pubkey_commitment != pubkey_commitment {
             return Err(BlockValidationError::PubkeyCommitmentMismatch {
                 expected: pubkey_commitment,
                 actual: format_validation_pis.pubkey_commitment,
-            })?;
+            });
         }
-        
+
         if format_validation_pis.signature_commitment != signature_commitment {
             return Err(BlockValidationError::SignatureCommitmentMismatch {
                 expected: signature_commitment,
                 actual: format_validation_pis.signature_commitment,
-            })?;
+            });
         }
-        
+
         result = result && format_validation_pis.is_valid;
 
         if result {
             // Perform aggregation verification only if all the above processes are verified.
-            let aggregation_proof = aggregation_proof
-                .clone()
-                .expect("aggregation proof should be provided");
+            let aggregation_proof = aggregation_proof.clone().ok_or_else(|| {
+                BlockValidationError::AggregationProofVerificationFailed(
+                    "aggregation proof should be provided".to_string(),
+                )
+            })?;
+
             aggregation_circuit
                 .data
                 .verify(aggregation_proof.clone())
-                .map_err(|e| BlockValidationError::AggregationProofVerificationFailed(e.to_string()))?;
-                
+                .map_err(|e| {
+                    BlockValidationError::AggregationProofVerificationFailed(e.to_string())
+                })?;
+
             let pis = AggregationPublicInputs::from_u64_slice(
                 &aggregation_proof
                     .public_inputs
                     .into_iter()
                     .map(|x| x.to_canonical_u64())
                     .collect::<Vec<_>>(),
-            ).expect("Failed to parse aggregation public inputs");
-            
+            )
+            .map_err(|e| {
+                BlockValidationError::AggregationProofVerificationFailed(format!(
+                    "Failed to parse aggregation public inputs: {}",
+                    e
+                ))
+            })?;
+
             if pis.pubkey_commitment != pubkey_commitment {
                 return Err(BlockValidationError::PubkeyCommitmentMismatch {
                     expected: pubkey_commitment,
                     actual: pis.pubkey_commitment,
-                })?;
+                });
             }
-            
+
             if pis.signature_commitment != signature_commitment {
                 return Err(BlockValidationError::SignatureCommitmentMismatch {
                     expected: signature_commitment,
                     actual: pis.signature_commitment,
-                })?;
+                });
             }
-            
+
             result = result && pis.is_valid;
         }
 
@@ -693,7 +751,7 @@ where
         account_exclusion_proof_dummy: DummyProof<F, C, D>,
         aggregation_proof_dummy: DummyProof<F, C, D>,
         value: &MainValidationValue<F, C, D>,
-    ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
+    ) -> Result<ProofWithPublicInputs<F, C, D>, BlockValidationError> {
         let mut pw = PartialWitness::<F>::new();
         self.target.set_witness(
             &mut pw,
@@ -702,6 +760,9 @@ where
             aggregation_proof_dummy,
             value,
         );
-        self.data.prove(pw)
+        let proof = self.data.prove(pw).map_err(|e| {
+            BlockValidationError::MainValidationProofGenerationFailed(e.to_string())
+        })?;
+        Ok(proof)
     }
 }
