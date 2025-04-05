@@ -1,11 +1,8 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    circuits::validity::validity_pis::ValidityPublicInputs, 
-    common::{
-        error::CommonError,
-        public_state::PublicState
-    },
+    circuits::validity::validity_pis::ValidityPublicInputs,
+    common::{error::CommonError, public_state::PublicState},
     ethereum_types::bytes32::Bytes32,
 };
 
@@ -46,9 +43,10 @@ impl ValidityWitness {
             .get_root(&block.hash(), block.block_number as u64);
 
         let main_validation_pis = self.block_witness.to_main_validation_pis().map_err(|e| {
-            CommonError::BlockWitnessConversionFailed(
-                format!("Failed to convert block witness to main validation pis: {}", e)
-            )
+            CommonError::BlockWitnessConversionFailed(format!(
+                "Failed to convert block witness to main validation pis: {}",
+                e
+            ))
         })?;
 
         // transition account tree root
@@ -61,7 +59,7 @@ impl ValidityWitness {
                 .account_registration_proofs
                 .as_ref()
                 .ok_or(CommonError::MissingData(
-                    "account_registration_proofs should be given".to_string()
+                    "account_registration_proofs should be given".to_string(),
                 ))?;
             for (sender_leaf, account_registration_proof) in self
                 .validity_transition_witness
@@ -70,7 +68,7 @@ impl ValidityWitness {
                 .zip(account_registration_proofs)
             {
                 let is_not_dummy = !sender_leaf.sender.is_dummy_pubkey();
-                let will_update = sender_leaf.did_return_sig && is_not_dummy;
+                let will_update = sender_leaf.signature_included && is_not_dummy;
                 account_tree_root = account_registration_proof
                     .conditional_get_new_root(
                         will_update,
@@ -97,7 +95,7 @@ impl ValidityWitness {
                 .zip(account_update_proofs)
             {
                 let prev_last_block_number = account_update_proof.prev_leaf.value as u32;
-                let last_block_number = if sender_leaf.did_return_sig {
+                let last_block_number = if sender_leaf.signature_included {
                     block.block_number
                 } else {
                     prev_last_block_number

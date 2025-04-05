@@ -21,12 +21,12 @@ use crate::{
     constants::{ACCOUNT_TREE_HEIGHT, NUM_SENDERS_IN_BLOCK, SENDER_TREE_HEIGHT},
     utils::{
         dummy::DummyProof,
-        poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget},
+        poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget, POSEIDON_HASH_OUT_LEN},
         trees::get_root::{get_merkle_root_from_leaves, get_merkle_root_from_leaves_circuit},
     },
 };
 
-const ACCOUNT_EXCLUSION_PUBLIC_INPUTS_LEN: usize = 4 + 4 + 1;
+const ACCOUNT_EXCLUSION_PUBLIC_INPUTS_LEN: usize = 2 * POSEIDON_HASH_OUT_LEN + 1;
 
 #[derive(Clone, Debug)]
 pub struct AccountExclusionPublicInputs {
@@ -102,7 +102,7 @@ impl AccountExclusionValue {
             proof.verify(sender_leaf.sender, account_tree_root).unwrap();
             // Only valid if the signature is returned and not included in the tree, or if the
             // signature is not returned.
-            let is_valid = !proof.is_included || !sender_leaf.did_return_sig;
+            let is_valid = !proof.is_included || !sender_leaf.signature_included;
             result = result && is_valid;
         }
         let sender_tree_root =
@@ -147,8 +147,8 @@ impl AccountExclusionTarget {
             proof.verify::<F, C, D>(builder, sender_leaf.sender, account_tree_root);
             let is_not_included = builder.not(proof.is_included);
             let is_not_included_and_did_return_sig =
-                builder.and(is_not_included, sender_leaf.did_return_sig);
-            let did_not_return_sig = builder.not(sender_leaf.did_return_sig);
+                builder.and(is_not_included, sender_leaf.signature_included);
+            let did_not_return_sig = builder.not(sender_leaf.signature_included);
             let is_valid = builder.or(is_not_included_and_did_return_sig, did_not_return_sig);
             result = builder.and(result, is_valid);
         }
@@ -287,7 +287,7 @@ mod tests {
             account_membership_proofs.push(proof);
             let sender_leaf = SenderLeaf {
                 sender: *pubkey,
-                did_return_sig: rng.gen() && !pubkey.is_dummy_pubkey(),
+                signature_included: rng.gen() && !pubkey.is_dummy_pubkey(),
             };
             sender_leaves.push(sender_leaf);
         }

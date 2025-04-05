@@ -66,7 +66,7 @@ impl AccountRegistrationValue {
             sender_leaves.iter().zip(account_registration_proofs.iter())
         {
             let is_not_dummy_pubkey = !sender_leaf.sender.is_dummy_pubkey();
-            let will_update = sender_leaf.did_return_sig && is_not_dummy_pubkey;
+            let will_update = sender_leaf.signature_included && is_not_dummy_pubkey;
             account_tree_root = account_registration_proof
                 .conditional_get_new_root(
                     will_update,
@@ -137,7 +137,7 @@ impl AccountRegistrationTarget {
         {
             let is_dummy_pubkey = sender_leaf.sender.is_dummy_pubkey(builder);
             let is_not_dummy_pubkey = builder.not(is_dummy_pubkey);
-            let will_update = builder.and(sender_leaf.did_return_sig, is_not_dummy_pubkey);
+            let will_update = builder.and(sender_leaf.signature_included, is_not_dummy_pubkey);
             account_tree_root = account_registration_proof.conditional_get_new_root::<F, C, D>(
                 builder,
                 will_update,
@@ -297,7 +297,7 @@ mod tests {
         let mut account_registration_proofs = Vec::new();
         for sender_leaf in sender_leaves.iter() {
             let is_dummy_pubkey = sender_leaf.sender.is_dummy_pubkey();
-            let will_update = sender_leaf.did_return_sig && !is_dummy_pubkey;
+            let will_update = sender_leaf.signature_included && !is_dummy_pubkey;
             let proof = if will_update {
                 tree.prove_and_insert(sender_leaf.sender, block_number as u64)
                     .unwrap()

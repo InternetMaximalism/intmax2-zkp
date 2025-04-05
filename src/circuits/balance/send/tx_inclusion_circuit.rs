@@ -60,7 +60,8 @@ impl TxInclusionPublicInputs {
         let new_public_state =
             PublicState::from_u64_slice(&input[PUBLIC_STATE_LEN..PUBLIC_STATE_LEN * 2]);
         let pubkey =
-            U256::from_u64_slice(&input[PUBLIC_STATE_LEN * 2..PUBLIC_STATE_LEN * 2 + U256_LEN]).unwrap();
+            U256::from_u64_slice(&input[PUBLIC_STATE_LEN * 2..PUBLIC_STATE_LEN * 2 + U256_LEN])
+                .unwrap();
         let tx = Tx::from_u64_slice(
             &input[PUBLIC_STATE_LEN * 2 + U256_LEN..PUBLIC_STATE_LEN * 2 + U256_LEN + TX_LEN],
         );
@@ -202,7 +203,7 @@ where
             .map_err(|e| anyhow::anyhow!("sender merkle proof is invalid: {:?}", e))?;
 
         ensure!(sender_leaf.sender == pubkey, "sender pubkey mismatch");
-        let is_valid = sender_leaf.did_return_sig && validity_pis.is_valid_block;
+        let is_valid = sender_leaf.signature_included && validity_pis.is_valid_block;
 
         Ok(Self {
             pubkey,
@@ -285,7 +286,7 @@ impl<const D: usize> TxInclusionTarget<D> {
             validity_pis.sender_tree_root,
         );
         sender_leaf.sender.connect(builder, pubkey);
-        let is_valid = builder.and(sender_leaf.did_return_sig, validity_pis.is_valid_block);
+        let is_valid = builder.and(sender_leaf.signature_included, validity_pis.is_valid_block);
         Self {
             pubkey,
             prev_public_state,

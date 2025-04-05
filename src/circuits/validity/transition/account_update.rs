@@ -64,7 +64,7 @@ impl AccountUpdateValue {
             sender_leaves.iter().zip(account_update_proofs.iter())
         {
             let prev_last_block_number = account_registration_proof.prev_leaf.value as u32;
-            let last_block_number = if sender_leaf.did_return_sig {
+            let last_block_number = if sender_leaf.signature_included {
                 block_number
             } else {
                 prev_last_block_number
@@ -136,7 +136,7 @@ impl AccountUpdateTarget {
         {
             let prev_last_block_number = account_update_proof.prev_leaf.value;
             let last_block_number = builder.select(
-                sender_leaf.did_return_sig,
+                sender_leaf.signature_included,
                 block_number,
                 prev_last_block_number,
             );
@@ -281,7 +281,7 @@ mod tests {
             let account_id = tree.index(sender_leaf.sender).unwrap();
             let prev_leaf = tree.get_leaf(account_id);
             let prev_last_block_number = prev_leaf.value as u32;
-            let last_block_number = if sender_leaf.did_return_sig {
+            let last_block_number = if sender_leaf.signature_included {
                 block_number
             } else {
                 prev_last_block_number

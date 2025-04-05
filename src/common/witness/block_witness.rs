@@ -103,7 +103,7 @@ impl BlockWitness {
                 self.account_membership_proofs
                     .clone()
                     .ok_or(CommonError::MissingData(
-                        "account_membership_proofs is None in registration block".to_string()
+                        "account_membership_proofs is None in registration block".to_string(),
                     ))?,
                 sender_leaves,
             );
@@ -113,11 +113,13 @@ impl BlockWitness {
             let account_inclusion_value = AccountInclusionValue::new(
                 account_tree_root,
                 self.account_id_packed.ok_or(CommonError::MissingData(
-                    "account_id_packed is None in non-registration block".to_string()
+                    "account_id_packed is None in non-registration block".to_string(),
                 ))?,
-                self.account_merkle_proofs.clone().ok_or(CommonError::MissingData(
-                    "account_merkle_proofs is None in non-registration block".to_string()
-                ))?,
+                self.account_merkle_proofs
+                    .clone()
+                    .ok_or(CommonError::MissingData(
+                        "account_merkle_proofs is None in non-registration block".to_string(),
+                    ))?,
                 pubkeys.clone(),
             );
             result = result && account_inclusion_value.is_valid;
@@ -167,11 +169,13 @@ impl BlockWitness {
         account_tree: &mut AccountTree,
         block_tree: &mut BlockHashTree,
     ) -> Result<ValidityWitness, CommonError> {
-        let block_pis = self.to_main_validation_pis().map_err(|e| {
-            CommonError::BlockWitnessConversionFailed(e.to_string())
-        })?;
+        let block_pis = self
+            .to_main_validation_pis()
+            .map_err(|e| CommonError::BlockWitnessConversionFailed(e.to_string()))?;
         if block_pis.block_number != block_tree.len() as u32 {
-            return Err(CommonError::InvalidBlock("block number mismatch".to_string()));
+            return Err(CommonError::InvalidBlock(
+                "block number mismatch".to_string(),
+            ));
         }
 
         // Update block tree
@@ -185,7 +189,7 @@ impl BlockWitness {
                 let mut account_registration_proofs = Vec::new();
                 for sender_leaf in &sender_leaves {
                     let is_dummy_pubkey = sender_leaf.sender.is_dummy_pubkey();
-                    let will_update = sender_leaf.did_return_sig && !is_dummy_pubkey;
+                    let will_update = sender_leaf.signature_included && !is_dummy_pubkey;
                     let proof = if will_update {
                         account_tree
                             .prove_and_insert(sender_leaf.sender, block_pis.block_number as u64)
@@ -211,16 +215,14 @@ impl BlockWitness {
                     let account_id = account_tree.index(sender_leaf.sender).unwrap();
                     let prev_leaf = account_tree.get_leaf(account_id);
                     let prev_last_block_number = prev_leaf.value as u32;
-                    let last_block_number = if sender_leaf.did_return_sig {
+                    let last_block_number = if sender_leaf.signature_included {
                         block_number
                     } else {
                         prev_last_block_number
                     };
                     let proof = account_tree
                         .prove_and_update(sender_leaf.sender, last_block_number as u64)
-                        .map_err(|e| {
-                            CommonError::AccountTreeProveAndUpdateFailed(e.to_string())
-                        })?;
+                        .map_err(|e| CommonError::AccountTreeProveAndUpdateFailed(e.to_string()))?;
                     account_update_proofs.push(proof);
                 }
                 Some(account_update_proofs)
