@@ -94,7 +94,7 @@ where
                     .clone()
                     .expect("Account membership proofs are missing"),
                 sender_leaves,
-            );
+            ).expect("Failed to create AccountExclusionValue");
             let account_exclusion_proof = self
                 .account_exclusion_circuit
                 .prove(&account_exclusion_value)?;
@@ -111,7 +111,7 @@ where
                     .clone()
                     .expect("Account merkle proofs are missing"),
                 block_witness.pubkeys.clone(),
-            );
+            ).expect("Failed to create AccountInclusionValue");
             let account_inclusion_proof = self.account_inclusion_circuit.prove(&value)?;
             result = result && value.is_valid;
             (None, Some(account_inclusion_proof))

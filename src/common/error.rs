@@ -66,3 +66,9 @@ impl From<std::io::Error> for CommonError {
         CommonError::InvalidData(err.to_string())
     }
 }
+
+impl From<crate::circuits::validity::block_validation::error::AccountError> for CommonError {
+    fn from(err: crate::circuits::validity::block_validation::error::AccountError) -> Self {
+        CommonError::InvalidData(err.to_string())
+    }
+}

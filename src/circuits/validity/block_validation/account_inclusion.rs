@@ -1,5 +1,8 @@
 use crate::{
-    circuits::validity::block_validation::utils::get_pubkey_commitment,
+    circuits::validity::block_validation::{
+        error::AccountError,
+        utils::get_pubkey_commitment,
+    },
     common::trees::account_tree::{AccountMerkleProof, AccountMerkleProofTarget},
     constants::NUM_SENDERS_IN_BLOCK,
     ethereum_types::{
@@ -115,9 +118,22 @@ impl AccountInclusionValue {
         account_id_packed: AccountIdPacked,
         account_merkle_proofs: Vec<AccountMerkleProof>,
         pubkeys: Vec<U256>,
-    ) -> Self {
-        assert_eq!(account_merkle_proofs.len(), NUM_SENDERS_IN_BLOCK);
-        assert_eq!(pubkeys.len(), NUM_SENDERS_IN_BLOCK);
+    ) -> Result<Self, AccountError> {
+        if account_merkle_proofs.len() != NUM_SENDERS_IN_BLOCK {
+            return Err(AccountError::AccountInclusionValue(format!(
+                "Expected {} account merkle proofs, got {}",
+                NUM_SENDERS_IN_BLOCK,
+                account_merkle_proofs.len()
+            )));
+        }
+        
+        if pubkeys.len() != NUM_SENDERS_IN_BLOCK {
+            return Err(AccountError::AccountInclusionValue(format!(
+                "Expected {} pubkeys, got {}",
+                NUM_SENDERS_IN_BLOCK,
+                pubkeys.len()
+            )));
+        }
 
         let mut result = true;
         let account_id_hash = account_id_packed.hash();
@@ -130,7 +146,7 @@ impl AccountInclusionValue {
             result = result && proof.verify(account_tree_root, *account_id, *pubkey);
         }
         let pubkey_commitment = get_pubkey_commitment(&pubkeys);
-        Self {
+        Ok(Self {
             account_id_packed,
             account_tree_root,
             account_merkle_proofs,
@@ -138,7 +154,7 @@ impl AccountInclusionValue {
             account_id_hash,
             pubkey_commitment,
             is_valid: result,
-        }
+        })
     }
 }
 
@@ -261,7 +277,7 @@ where
         };
         builder.register_public_inputs(&pis.to_vec());
 
-        // Add a ContantGate to create a dummy proof.
+        // Add a ConstantGate to create a dummy proof.
         builder.add_gate(ConstantGate::new(config.num_constants), vec![]);
 
         let data = builder.build();
@@ -330,7 +346,7 @@ mod tests {
             account_id_packed,
             account_merkle_proofs,
             pubkeys,
-        );
+        ).unwrap();
         assert!(value.is_valid);
         let circuit = AccountInclusionCircuit::<F, C, D>::new();
         let _proof = circuit.prove(&value).unwrap();

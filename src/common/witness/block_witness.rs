@@ -106,7 +106,7 @@ impl BlockWitness {
                         "account_membership_proofs is None in registration block".to_string(),
                     ))?,
                 sender_leaves,
-            );
+            )?;
             result = result && account_exclusion_value.is_valid;
         } else {
             // Account inclusion verification
@@ -121,7 +121,7 @@ impl BlockWitness {
                         "account_merkle_proofs is None in non-registration block".to_string(),
                     ))?,
                 pubkeys.clone(),
-            );
+            )?;
             result = result && account_inclusion_value.is_valid;
         }
 

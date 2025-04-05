@@ -5,3 +5,4 @@ pub mod format_validation;
 pub mod main_validation;
 pub mod processor;
 pub mod utils;
+pub mod error;
