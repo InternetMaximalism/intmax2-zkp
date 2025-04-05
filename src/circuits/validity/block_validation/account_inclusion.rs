@@ -1,8 +1,14 @@
+//! Account inclusion circuit for non-registration block validation.
+//!
+//! This circuit ensures that for a given sender tree root, all senders are either:
+//! 1. Included in the account tree (if signatures are included), or
+//! 2. Do not have signatures included
+//!
+//! This constraint is used during non-registration block validation when a sender
+//! makes a transaction for the second or subsequent time.
+
 use crate::{
-    circuits::validity::block_validation::{
-        error::AccountError,
-        utils::get_pubkey_commitment,
-    },
+    circuits::validity::block_validation::{error::AccountError, utils::get_pubkey_commitment},
     common::trees::account_tree::{AccountMerkleProof, AccountMerkleProofTarget},
     constants::NUM_SENDERS_IN_BLOCK,
     ethereum_types::{
@@ -113,6 +119,15 @@ pub struct AccountInclusionValue {
 }
 
 impl AccountInclusionValue {
+    /// Creates a new AccountInclusionValue by validating that all senders in the sender tree
+    /// satisfy the account inclusion constraint.
+    ///
+    /// The account inclusion constraint requires that for each sender:
+    /// - If the sender has a signature included, it must be present in the account tree
+    /// - If the sender is not in the account tree, it must NOT have a signature included
+    ///
+    /// This constraint is used for non-registration block validation when a sender makes a
+    /// transaction for the second or subsequent time.
     pub fn new(
         account_tree_root: PoseidonHashOut,
         account_id_packed: AccountIdPacked,
@@ -126,7 +141,7 @@ impl AccountInclusionValue {
                 account_merkle_proofs.len()
             )));
         }
-        
+
         if pubkeys.len() != NUM_SENDERS_IN_BLOCK {
             return Err(AccountError::AccountInclusionValue(format!(
                 "Expected {} pubkeys, got {}",
@@ -138,13 +153,18 @@ impl AccountInclusionValue {
         let mut result = true;
         let account_id_hash = account_id_packed.hash();
         let account_ids = account_id_packed.unpack();
+
+        // Verify that all senders with signatures are included in the account tree
         for ((account_id, proof), pubkey) in account_ids
             .iter()
             .zip(account_merkle_proofs.iter())
             .zip(pubkeys.iter())
         {
-            result = result && proof.verify(account_tree_root, *account_id, *pubkey);
+            // Verify that the account is included in the account tree with the correct pubkey
+            let is_valid_proof = proof.verify(account_tree_root, *account_id, *pubkey);
+            result = result && is_valid_proof;
         }
+
         let pubkey_commitment = get_pubkey_commitment(&pubkeys);
         Ok(Self {
             account_id_packed,
@@ -170,6 +190,15 @@ pub struct AccountInclusionTarget {
 }
 
 impl AccountInclusionTarget {
+    /// Creates a new AccountInclusionTarget with circuit constraints that enforce the account
+    /// inclusion rule.
+    ///
+    /// The account inclusion rule requires that for each sender in the sender tree:
+    /// - If the sender has a signature included, it must be present in the account tree
+    /// - If the sender is not in the account tree, it must NOT have a signature included
+    ///
+    /// This is used for non-registration block validation when a sender makes a transaction for the
+    /// second or subsequent time.
     pub fn new<F: RichField + Extendable<D>, C: GenericConfig<D, F = F> + 'static, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
     ) -> Self
@@ -189,15 +218,21 @@ impl AccountInclusionTarget {
             .collect::<Vec<_>>();
         let account_id_hash = account_id_packed.hash::<F, C, D>(builder);
         let account_ids = account_id_packed.unpack(builder);
+
+        // For each sender, verify that it is included in the account tree with the correct pubkey
         for ((account_id, proof), pubkey) in account_ids
             .iter()
             .zip(account_merkle_proofs.iter())
             .zip(pubkeys.iter())
         {
+            // Verify that the account is included in the account tree with the correct pubkey
             let is_proof_valid =
                 proof.verify::<F, C, D>(builder, account_tree_root, *account_id, *pubkey);
+
+            // Accumulate the result for all senders
             result = builder.and(result, is_proof_valid);
         }
+
         let pubkey_commitment = get_pubkey_commitment_circuit(builder, &pubkeys);
         Self {
             account_id_packed,
@@ -318,12 +353,12 @@ mod tests {
     type C = PoseidonGoldilocksConfig;
 
     #[test]
-    fn account_inclusion() {
+    fn test_account_inclusion_valid_case() {
         let mut rng = rand::thread_rng();
         let mut tree = AccountTree::initialize();
 
+        // Create and insert pubkeys into the account tree
         let mut pubkeys = Vec::new();
-        // insert
         for _ in 0..NUM_SENDERS_IN_BLOCK {
             let keyset = KeySet::rand(&mut rng);
             pubkeys.push(keyset.pubkey);
@@ -331,6 +366,7 @@ mod tests {
             tree.insert(keyset.pubkey, last_block_number).unwrap();
         }
 
+        // Create account IDs and proofs for each pubkey
         let mut account_ids = Vec::new();
         let mut account_merkle_proofs = Vec::new();
         for pubkey in &pubkeys {
@@ -339,16 +375,77 @@ mod tests {
             account_ids.push(account_id);
             account_merkle_proofs.push(proof);
         }
+
         let account_tree_root = tree.get_root();
         let account_id_packed = AccountIdPacked::pack(&account_ids);
+
+        // Create the account inclusion value
         let value = AccountInclusionValue::new(
             account_tree_root,
             account_id_packed,
             account_merkle_proofs,
             pubkeys,
-        ).unwrap();
+        )
+        .unwrap();
+
+        // The value should be valid since all pubkeys are in the account tree
         assert!(value.is_valid);
+
+        // Verify we can generate a valid proof
         let circuit = AccountInclusionCircuit::<F, C, D>::new();
         let _proof = circuit.prove(&value).unwrap();
+    }
+
+    #[test]
+    fn test_account_inclusion_invalid_case() {
+        let mut rng = rand::thread_rng();
+        let mut tree = AccountTree::initialize();
+
+        // Create and insert pubkeys into the account tree
+        let mut pubkeys = Vec::new();
+        for _ in 0..NUM_SENDERS_IN_BLOCK - 1 {
+            let keyset = KeySet::rand(&mut rng);
+            pubkeys.push(keyset.pubkey);
+            let last_block_number = rng.gen();
+            tree.insert(keyset.pubkey, last_block_number).unwrap();
+        }
+
+        // Add one more pubkey that we won't insert into the tree
+        let invalid_keyset = KeySet::rand(&mut rng);
+        let invalid_pubkey = invalid_keyset.pubkey;
+        pubkeys.push(invalid_pubkey);
+
+        // Create account IDs and proofs for each pubkey
+        let mut account_ids = Vec::new();
+        let mut account_merkle_proofs = Vec::new();
+
+        for pubkey in &pubkeys {
+            // For the invalid pubkey, we'll get an invalid proof
+            let account_id = if *pubkey == invalid_pubkey {
+                // Use a dummy account ID for the invalid pubkey
+                AccountId(0)
+            } else {
+                AccountId(tree.index(*pubkey).unwrap())
+            };
+
+            let proof = tree.prove_inclusion(account_id.0);
+            account_ids.push(account_id);
+            account_merkle_proofs.push(proof);
+        }
+
+        let account_tree_root = tree.get_root();
+        let account_id_packed = AccountIdPacked::pack(&account_ids);
+
+        // Create the account inclusion value
+        let value = AccountInclusionValue::new(
+            account_tree_root,
+            account_id_packed,
+            account_merkle_proofs,
+            pubkeys,
+        )
+        .unwrap();
+
+        // The value should be invalid since one pubkey is not in the account tree
+        assert!(!value.is_valid);
     }
 }
