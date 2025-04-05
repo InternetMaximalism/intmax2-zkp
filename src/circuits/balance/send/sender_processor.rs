@@ -1,4 +1,3 @@
-use anyhow::ensure;
 use plonky2::{
     field::extension::Extendable,
     hash::hash_types::RichField,
@@ -10,7 +9,13 @@ use plonky2::{
 };
 
 use crate::{
-    circuits::balance::{balance_pis::BalancePublicInputs, send::spent_circuit::SpentPublicInputs},
+    circuits::balance::{
+        balance_pis::BalancePublicInputs, 
+        send::{
+            error::SendError,
+            spent_circuit::SpentPublicInputs
+        }
+    },
     common::witness::{
         spent_witness::SpentWitness, tx_witness::TxWitness, update_witness::UpdateWitness,
     },
@@ -55,13 +60,17 @@ where
     pub fn prove_spent(
         &self,
         spent_witness: &SpentWitness,
-    ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
+    ) -> Result<ProofWithPublicInputs<F, C, D>, SendError> {
         let spent_value = spent_witness
             .to_value()
-            .map_err(|e| anyhow::anyhow!("failed to create spent value: {}", e))?;
+            .map_err(|e| SendError::InvalidInput { 
+                message: format!("Failed to create spent value: {}", e) 
+            })?;
         self.spent_circuit
             .prove(&spent_value)
-            .map_err(|e| anyhow::anyhow!("failed to prove spent: {}", e))
+            .map_err(|e| SendError::ProofGenerationError(
+                format!("Failed to prove spent: {}", e)
+            ))
     }
 
     fn prove_tx_inclusion(
@@ -70,18 +79,25 @@ where
         prev_balance_pis: &BalancePublicInputs,
         tx_witness: &TxWitness,
         update_witness: &UpdateWitness<F, C, D>,
-    ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
+    ) -> Result<ProofWithPublicInputs<F, C, D>, SendError> {
         let update_validity_pis = update_witness.validity_pis();
-        ensure!(
-            update_validity_pis == tx_witness.validity_pis,
-            "validity proof pis mismatch"
-        );
+        if update_validity_pis != tx_witness.validity_pis {
+            return Err(SendError::InvalidInput { 
+                message: format!("Validity proof pis mismatch: expected {:?}, got {:?}", 
+                    tx_witness.validity_pis, update_validity_pis) 
+            });
+        }
+        
         let sender_tree = tx_witness.get_sender_tree();
         let sender_leaf = sender_tree.get_leaf(tx_witness.tx_index as u64);
-        ensure!(
-            sender_leaf.sender == prev_balance_pis.pubkey,
-            "sender pubkey mismatch"
-        );
+        
+        if sender_leaf.sender != prev_balance_pis.pubkey {
+            return Err(SendError::InvalidInput { 
+                message: format!("Sender pubkey mismatch: expected {}, got {}", 
+                    prev_balance_pis.pubkey, sender_leaf.sender) 
+            });
+        }
+        
         let sender_merkle_proof = sender_tree.prove(tx_witness.tx_index as u64);
         let tx_inclusion_value = TxInclusionValue::new(
             validity_vd,
@@ -89,17 +105,25 @@ where
             &prev_balance_pis.public_state,
             &update_witness.validity_proof,
             &update_witness.block_merkle_proof,
-            &update_witness.prev_account_membership_proof()?,
+            &update_witness.prev_account_membership_proof()
+                .map_err(|e| SendError::InvalidInput { 
+                    message: format!("Failed to get prev account membership proof: {}", e) 
+                })?,
             tx_witness.tx_index,
             &tx_witness.tx,
             &tx_witness.tx_merkle_proof,
             &sender_leaf,
             &sender_merkle_proof,
         )
-        .map_err(|e| anyhow::anyhow!("failed to create tx inclusion value: {}", e))?;
+        .map_err(|e| SendError::InvalidInput { 
+            message: format!("Failed to create tx inclusion value: {}", e) 
+        })?;
+        
         self.tx_inclusion_circuit
             .prove(&tx_inclusion_value)
-            .map_err(|e| anyhow::anyhow!("failed to prove tx inclusion: {}", e))
+            .map_err(|e| SendError::ProofGenerationError(
+                format!("Failed to prove tx inclusion: {}", e)
+            ))
     }
 
     pub fn prove_send(
@@ -109,15 +133,26 @@ where
         tx_witness: &TxWitness,
         update_witness: &UpdateWitness<F, C, D>,
         spent_proof: &ProofWithPublicInputs<F, C, D>,
-    ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
+    ) -> Result<ProofWithPublicInputs<F, C, D>, SendError> {
         let spent_pis = SpentPublicInputs::from_pis(&spent_proof.public_inputs);
-        ensure!(
-            spent_pis.prev_private_commitment == prev_balance_pis.private_commitment,
-            "prev private commitment mismatch"
-        );
-        ensure!(spent_pis.tx == tx_witness.tx, "tx mismatch");
+        
+        if spent_pis.prev_private_commitment != prev_balance_pis.private_commitment {
+            return Err(SendError::InvalidInput { 
+                message: format!("Prev private commitment mismatch: expected {:?}, got {:?}", 
+                    prev_balance_pis.private_commitment, spent_pis.prev_private_commitment) 
+            });
+        }
+        
+        if spent_pis.tx != tx_witness.tx {
+            return Err(SendError::InvalidInput { 
+                message: format!("TX mismatch: expected {:?}, got {:?}", 
+                    tx_witness.tx, spent_pis.tx) 
+            });
+        }
+        
         let tx_inclusion_proof =
             self.prove_tx_inclusion(validity_vd, prev_balance_pis, tx_witness, update_witness)?;
+        
         let sender_value = SenderValue::new(
             &self.spent_circuit,
             &self.tx_inclusion_circuit,
@@ -125,10 +160,15 @@ where
             &tx_inclusion_proof,
             prev_balance_pis,
         )
-        .map_err(|e| anyhow::anyhow!("failed to create sender value: {}", e))?;
+        .map_err(|e| SendError::InvalidInput { 
+            message: format!("Failed to create sender value: {}", e) 
+        })?;
+        
         self.sender_circuit
             .prove(&sender_value)
-            .map_err(|e| anyhow::anyhow!("failed to prove sender: {}", e))
+            .map_err(|e| SendError::ProofGenerationError(
+                format!("Failed to prove sender: {}", e)
+            ))
     }
 }
 
