@@ -49,17 +49,19 @@ pub struct ReceiveDepositPublicInputs {
 }
 
 impl ReceiveDepositPublicInputs {
-    pub fn to_u64_vec(&self) -> Vec<u64> {
+    pub fn to_u64_vec(&self) -> Result<Vec<u64>, ReceiveError> {
         let vec = [self.prev_private_commitment.to_u64_vec(),
             self.new_private_commitment.to_u64_vec(),
             self.pubkey.to_u64_vec(),
             self.public_state.to_u64_vec()]
         .concat();
         if vec.len() != RECEIVE_DEPOSIT_PUBLIC_INPUTS_LEN {
-            panic!("ReceiveDepositPublicInputs length mismatch: expected {}, got {}", 
-                RECEIVE_DEPOSIT_PUBLIC_INPUTS_LEN, vec.len());
+            return Err(ReceiveError::InvalidInput { 
+                message: format!("ReceiveDepositPublicInputs length mismatch: expected {}, got {}", 
+                    RECEIVE_DEPOSIT_PUBLIC_INPUTS_LEN, vec.len()) 
+            });
         }
-        vec
+        Ok(vec)
     }
 
     pub fn from_u64_slice(input: &[u64]) -> Result<Self, ReceiveError> {
@@ -96,35 +98,39 @@ pub struct ReceiveDepositPublicInputsTarget {
 }
 
 impl ReceiveDepositPublicInputsTarget {
-    pub fn to_vec(&self) -> Vec<Target> {
+    pub fn to_vec(&self) -> Result<Vec<Target>, ReceiveError> {
         let vec = [self.prev_private_commitment.to_vec(),
             self.new_private_commitment.to_vec(),
             self.pubkey.to_vec(),
             self.public_state.to_vec()]
         .concat();
         if vec.len() != RECEIVE_DEPOSIT_PUBLIC_INPUTS_LEN {
-            panic!("ReceiveDepositPublicInputsTarget length mismatch: expected {}, got {}", 
-                RECEIVE_DEPOSIT_PUBLIC_INPUTS_LEN, vec.len());
+            return Err(ReceiveError::InvalidInput { 
+                message: format!("ReceiveDepositPublicInputsTarget length mismatch: expected {}, got {}", 
+                    RECEIVE_DEPOSIT_PUBLIC_INPUTS_LEN, vec.len()) 
+            });
         }
-        vec
+        Ok(vec)
     }
 
-    pub fn from_slice(input: &[Target]) -> Self {
+    pub fn from_slice(input: &[Target]) -> Result<Self, ReceiveError> {
         if input.len() < RECEIVE_DEPOSIT_PUBLIC_INPUTS_LEN {
-            panic!("ReceiveDepositPublicInputsTarget input slice too short: expected at least {}, got {}", 
-                RECEIVE_DEPOSIT_PUBLIC_INPUTS_LEN, input.len());
+            return Err(ReceiveError::InvalidInput { 
+                message: format!("ReceiveDepositPublicInputsTarget input slice too short: expected at least {}, got {}", 
+                    RECEIVE_DEPOSIT_PUBLIC_INPUTS_LEN, input.len()) 
+            });
         }
         
         let prev_private_commitment = PoseidonHashOutTarget::from_slice(&input[0..4]);
         let new_private_commitment = PoseidonHashOutTarget::from_slice(&input[4..8]);
         let pubkey = U256Target::from_slice(&input[8..16]);
         let public_state = PublicStateTarget::from_slice(&input[16..16 + PUBLIC_STATE_LEN]);
-        ReceiveDepositPublicInputsTarget {
+        Ok(ReceiveDepositPublicInputsTarget {
             prev_private_commitment,
             new_private_commitment,
             pubkey,
             public_state,
-        }
+        })
     }
 }
 
@@ -338,7 +344,8 @@ where
             new_private_commitment: target.new_private_commitment,
             public_state: target.public_state.clone(),
         };
-        builder.register_public_inputs(&pis.to_vec());
+        let pis_vec = pis.to_vec().expect("Failed to convert public inputs to vector");
+        builder.register_public_inputs(&pis_vec);
         // add constant gate
         let constant_gate = ConstantGate::new(config.num_constants);
         builder.add_gate(constant_gate, vec![]);

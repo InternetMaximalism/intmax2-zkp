@@ -9,7 +9,7 @@ use plonky2::{
 };
 
 use crate::{
-    circuits::balance::{balance_pis::BalancePublicInputs, error::BalanceError},
+    circuits::balance::{balance_pis::{BalancePublicInputs, BALANCE_PUBLIC_INPUTS_LEN}, error::BalanceError},
     common::witness::{
         receive_deposit_witness::ReceiveDepositWitness,
         receive_transfer_witness::ReceiveTransferWitness, tx_witness::TxWitness,
@@ -80,7 +80,10 @@ where
         spent_proof: &ProofWithPublicInputs<F, C, D>,
         prev_proof: &Option<ProofWithPublicInputs<F, C, D>>,
     ) -> Result<ProofWithPublicInputs<F, C, D>, BalanceError> {
-        let prev_balance_pis = get_prev_balance_pis(pubkey, prev_proof);
+        let prev_balance_pis = get_prev_balance_pis(pubkey, prev_proof)
+            .map_err(|e| BalanceError::InvalidInput { 
+                message: format!("Failed to get previous balance public inputs: {:?}", e) 
+            })?;
         let transition_proof = self
             .balance_transition_processor
             .prove_send(
@@ -108,7 +111,10 @@ where
         update_witness: &UpdateWitness<F, C, D>,
         prev_proof: &Option<ProofWithPublicInputs<F, C, D>>,
     ) -> Result<ProofWithPublicInputs<F, C, D>, BalanceError> {
-        let prev_balance_pis = get_prev_balance_pis(pubkey, prev_proof);
+        let prev_balance_pis = get_prev_balance_pis(pubkey, prev_proof)
+            .map_err(|e| BalanceError::InvalidInput { 
+                message: format!("Failed to get previous balance public inputs: {:?}", e) 
+            })?;
         let transition_proof = self
             .balance_transition_processor
             .prove_update(
@@ -133,7 +139,10 @@ where
         receive_transfer_witness: &ReceiveTransferWitness<F, C, D>,
         prev_proof: &Option<ProofWithPublicInputs<F, C, D>>,
     ) -> Result<ProofWithPublicInputs<F, C, D>, BalanceError> {
-        let prev_balance_pis = get_prev_balance_pis(pubkey, prev_proof);
+        let prev_balance_pis = get_prev_balance_pis(pubkey, prev_proof)
+            .map_err(|e| BalanceError::InvalidInput { 
+                message: format!("Failed to get previous balance public inputs: {:?}", e) 
+            })?;
         let transition_proof = self
             .balance_transition_processor
             .prove_receive_transfer(
@@ -157,7 +166,10 @@ where
         receive_deposit_witness: &ReceiveDepositWitness,
         prev_proof: &Option<ProofWithPublicInputs<F, C, D>>,
     ) -> Result<ProofWithPublicInputs<F, C, D>, BalanceError> {
-        let prev_balance_pis = get_prev_balance_pis(pubkey, prev_proof);
+        let prev_balance_pis = get_prev_balance_pis(pubkey, prev_proof)
+            .map_err(|e| BalanceError::InvalidInput { 
+                message: format!("Failed to get previous balance public inputs: {:?}", e) 
+            })?;
         let transition_proof = self
             .balance_transition_processor
             .prove_receive_deposit(
@@ -181,15 +193,25 @@ where
 pub fn get_prev_balance_pis<F, C, const D: usize>(
     pubkey: U256,
     prev_proof: &Option<ProofWithPublicInputs<F, C, D>>,
-) -> BalancePublicInputs
+) -> Result<BalancePublicInputs, BalanceError>
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
 {
     if let Some(prev_proof) = prev_proof {
-        BalancePublicInputs::from_pis(&prev_proof.public_inputs)
+        // Safely extract public inputs from the previous proof
+        if prev_proof.public_inputs.len() < BALANCE_PUBLIC_INPUTS_LEN {
+            return Err(BalanceError::InvalidInput {
+                message: format!(
+                    "Previous proof has insufficient public inputs: expected at least {}, got {}",
+                    BALANCE_PUBLIC_INPUTS_LEN,
+                    prev_proof.public_inputs.len()
+                )
+            });
+        }
+        Ok(BalancePublicInputs::from_pis(&prev_proof.public_inputs))
     } else {
-        BalancePublicInputs::new(pubkey)
+        Ok(BalancePublicInputs::new(pubkey))
     }
 }
 
@@ -335,7 +357,7 @@ mod tests {
         let spent_circuit = SpentCircuit::new();
 
         // public state
-        let mut validity_state_manager = ValidityStateManager::new(validity_processor.clone());
+        let mut validity_state_manager = ValidityStateManager::new(validity_processor.clone(), Address::default());
 
         // local state
         let alice_key = KeySet::rand(&mut rng);
@@ -364,7 +386,7 @@ mod tests {
             sender_key: alice_key,
             will_return_sig: true,
         };
-        let tx_witnesses = validity_state_manager.tick(true, &[tx_request])
+        let tx_witnesses = validity_state_manager.tick(true, &[tx_request], 0, 0)
             .map_err(|e| BalanceError::Other(format!("Failed to tick validity state manager with transaction: {:?}", e)))?;
         let tx_witness = tx_witnesses[0].clone();
         let update_witness =

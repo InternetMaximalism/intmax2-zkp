@@ -27,7 +27,7 @@ pub fn get_merkle_root_from_leaves<V: Leafable>(
     }
     let mut leaves = leaves.to_vec();
     leaves.resize(1 << height, V::empty_leaf());
-    Ok(get_merkle_root_from_full_leaves(height, &leaves))
+    get_merkle_root_from_full_leaves(height, &leaves)
 }
 
 pub fn get_merkle_root_from_leaves_circuit<
@@ -73,21 +73,27 @@ where
     root
 }
 
-/// Calculate the merkle root from the given leaf and the height of the merkle tree. If the
-/// number of leaves is greater than 2^height, it will panic.
-fn get_merkle_root_from_full_leaves<V: Leafable>(height: usize, leaves: &[V]) -> HashOut<V> {
-    assert_eq!(leaves.len(), 1 << height);
+/// Calculate the merkle root from the given leaf and the height of the merkle tree.
+/// Returns an error if the number of leaves is not equal to 2^height.
+fn get_merkle_root_from_full_leaves<V: Leafable>(height: usize, leaves: &[V]) -> Result<HashOut<V>, GetRootFromLeavesError> {
+    if leaves.len() != 1 << height {
+        return Err(GetRootFromLeavesError::TooManyLeaves(leaves.len()));
+    }
+    
     let mut layer = leaves.iter().map(|v| v.hash()).collect::<Vec<_>>();
-    assert_ne!(layer.len(), 0);
+    if layer.is_empty() {
+        return Err(GetRootFromLeavesError::TooManyLeaves(0));
+    }
+    
     while layer.len() > 1 {
         if layer.len() % 2 == 1 {
-            panic!("leaves is not power of 2");
+            return Err(GetRootFromLeavesError::NotPowerOfTwo(layer.len()));
         }
         layer = (0..(layer.len() / 2))
             .map(|i| Hasher::<V>::two_to_one(layer[2 * i], layer[2 * i + 1]))
             .collect::<Vec<_>>();
     }
-    layer[0]
+    Ok(layer[0])
 }
 
 fn get_merkle_root_from_full_leaves_circuit<
@@ -103,16 +109,20 @@ fn get_merkle_root_from_full_leaves_circuit<
 where
     <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
 {
-    assert_eq!(leaves.len(), 1 << height);
+    // Note: For circuit building, we still use assertions since errors during circuit building
+    // are generally unrecoverable and should be caught during development.
+    assert_eq!(leaves.len(), 1 << height, "Number of leaves must be 2^height");
+    
     let mut layer = leaves
         .iter()
         .map(|v| v.hash::<F, C, D>(builder))
         .collect::<Vec<_>>();
-    assert_ne!(layer.len(), 0);
+    
+    assert_ne!(layer.len(), 0, "Layer cannot be empty");
+    
     while layer.len() > 1 {
-        if layer.len() % 2 == 1 {
-            panic!("leaves is not power of 2");
-        }
+        assert!(layer.len() % 2 == 0, "Number of leaves must be a power of 2");
+        
         layer = (0..(layer.len() / 2))
             .map(|i| {
                 HasherFromTarget::<VT>::two_to_one_target::<F, C, D>(
@@ -123,6 +133,7 @@ where
             })
             .collect::<Vec<_>>();
     }
+    
     layer[0].clone()
 }
 
@@ -174,7 +185,7 @@ mod tests {
         let root_expected = tree.get_root();
         let mut padded_leaves = leaves.clone();
         padded_leaves.resize(1 << height, V::empty_leaf());
-        let root = get_merkle_root_from_full_leaves(height, &padded_leaves);
+        let root = get_merkle_root_from_full_leaves(height, &padded_leaves).unwrap();
         assert_eq!(root, root_expected);
     }
 
@@ -188,7 +199,7 @@ mod tests {
         let leaves = (0..1 << height)
             .map(|_| V::rand(&mut rng))
             .collect::<Vec<_>>();
-        let root = get_merkle_root_from_full_leaves(height, &leaves);
+        let root = get_merkle_root_from_full_leaves(height, &leaves).unwrap();
 
         let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::default());
         let mut leaves_t = leaves

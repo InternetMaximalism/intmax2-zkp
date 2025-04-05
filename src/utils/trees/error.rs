@@ -8,6 +8,9 @@ pub enum MerkleProofError {
 pub enum GetRootFromLeavesError {
     #[error("Too many leaves: {0}")]
     TooManyLeaves(usize),
+    
+    #[error("Leaves count is not a power of 2: {0}")]
+    NotPowerOfTwo(usize),
 }
 
 #[derive(Debug, thiserror::Error)]

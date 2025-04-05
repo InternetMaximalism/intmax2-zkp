@@ -347,7 +347,8 @@ impl<const D: usize> BalanceTransitionTarget<D> {
         let new_balance_pis1 = {
             let condition = circuit_flags[1];
             let pis =
-                ReceiveDepositPublicInputsTarget::from_slice(&receive_deposit_proof.public_inputs);
+                ReceiveDepositPublicInputsTarget::from_slice(&receive_deposit_proof.public_inputs)
+                    .expect("Failed to parse receive_deposit_proof public inputs");
             pis.prev_private_commitment.conditional_assert_eq(
                 builder,
                 prev_balance_pis.private_commitment,

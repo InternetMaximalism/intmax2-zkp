@@ -87,16 +87,16 @@ pub fn verify_signature(signature: G2Affine, pubkey: U256, message: &[u8]) -> Re
 
 /// NOTE: This weight differs from the one used when aggregating transactions.
 ///  Depending on the value of the aggregated public key, the sign of the weight may be inverted.
-pub fn weight_to_signature(signature: G2Affine, pubkey: U256, signers: Vec<U256>) -> G2Affine {
+pub fn weight_to_signature(signature: G2Affine, pubkey: U256, signers: Vec<U256>) -> Result<G2Affine, CommonError> {
     let pubkey_hash = get_pubkey_hash(&signers);
     let weight = hash_to_weight(pubkey, pubkey_hash);
-    let (_, y_parity) = calc_aggregated_pubkey(&signers);
+    let (_, y_parity) = calc_aggregated_pubkey(&signers)?;
     let y_parity_fr = if y_parity { -Fr::one() } else { Fr::one() };
 
-    (signature * y_parity_fr * Fr::from(BigUint::from(weight))).into()
+    Ok((signature * y_parity_fr * Fr::from(BigUint::from(weight))).into())
 }
 
-pub fn sign_message_with_signers(privkey: Fr, message: &[u8], signers: Vec<U256>) -> G2Affine {
+pub fn sign_message_with_signers(privkey: Fr, message: &[u8], signers: Vec<U256>) -> Result<G2Affine, CommonError> {
     let signature: G2Affine = sign_message(privkey, message);
     let pubkey: G1Affine = (G1Affine::generator() * privkey).into();
     let pubkey_x: U256 = pubkey.x.into();
@@ -104,7 +104,7 @@ pub fn sign_message_with_signers(privkey: Fr, message: &[u8], signers: Vec<U256>
     weight_to_signature(signature, pubkey_x, signers)
 }
 
-pub fn calc_aggregated_pubkey(signers: &[U256]) -> (U256, bool) {
+pub fn calc_aggregated_pubkey(signers: &[U256]) -> Result<(U256, bool), CommonError> {
     let pubkey_hash = get_pubkey_hash(signers);
     let mut aggregated_pubkey = G1Projective::zero();
     for signer in signers {
@@ -115,12 +115,12 @@ pub fn calc_aggregated_pubkey(signers: &[U256]) -> (U256, bool) {
     }
 
     if aggregated_pubkey.is_zero() {
-        panic!("Invalid aggregated pubkey");
+        return Err(CommonError::InvalidData("Invalid aggregated pubkey: result is zero".to_string()));
     }
 
     let pubkey: G1Affine = aggregated_pubkey.into();
 
-    (U256::from(pubkey.x), pubkey.y.sgn())
+    Ok((U256::from(pubkey.x), pubkey.y.sgn()))
 }
 
 pub fn aggregate_signature(signatures: &[G2Affine]) -> G2Affine {
@@ -136,7 +136,7 @@ pub fn verify_signature_with_signers(
     message: &[u8],
     signers: Vec<U256>,
 ) -> Result<(), CommonError> {
-    let (aggregated_pubkey, _) = calc_aggregated_pubkey(&signers);
+    let (aggregated_pubkey, _) = calc_aggregated_pubkey(&signers)?;
 
     verify_signature(aggregated_signature, aggregated_pubkey, message)
 }
@@ -222,7 +222,8 @@ mod tests {
         let message = b"hello world";
         let mut signatures = vec![];
         for key in keys.iter() {
-            let weight_signature = sign_message_with_signers(key.privkey, message, signers.clone()); // M * priv * weight
+            let weight_signature = sign_message_with_signers(key.privkey, message, signers.clone())
+                .expect("Failed to sign message with signers");
             signatures.push(weight_signature);
         }
         let aggregated_signature = aggregate_signature(&signatures);
@@ -240,12 +241,13 @@ mod tests {
         let message = b"hello world";
         let mut signatures = vec![];
         for key in keys.iter() {
-            let signature = sign_message_with_signers(key.privkey, message, signers.clone());
+            let signature = sign_message_with_signers(key.privkey, message, signers.clone())
+                .expect("Failed to sign message with signers");
             signatures.push(signature);
         }
         let aggregated_signature = signatures
             .iter()
-            .fold(G2Projective::zero(), |acc, x| acc + x);
+            .fold(G2Projective::zero(), |acc, x| acc + *x);
 
         let wrong_signers = [signers, vec![keys[0].pubkey]].concat();
         verify_signature_with_signers(aggregated_signature.into(), message, wrong_signers).unwrap();

@@ -196,24 +196,20 @@ impl BalancePublicInputsTarget {
             self.public_state.to_vec(),
         ]
         .concat();
-        if vec.len() != BALANCE_PUBLIC_INPUTS_LEN {
-            panic!(
-                "Balance public inputs target length mismatch: expected {}, got {}",
-                BALANCE_PUBLIC_INPUTS_LEN,
-                vec.len()
-            );
-        }
+        assert_eq!(vec.len(), BALANCE_PUBLIC_INPUTS_LEN, 
+            "Balance public inputs target length mismatch: expected {}, got {}", 
+            BALANCE_PUBLIC_INPUTS_LEN, vec.len());
         vec
     }
 
     pub fn from_slice(input: &[Target]) -> Self {
-        if input.len() != BALANCE_PUBLIC_INPUTS_LEN {
-            panic!(
-                "Balance public inputs target length mismatch: expected {}, got {}",
-                BALANCE_PUBLIC_INPUTS_LEN,
-                input.len()
-            );
-        }
+        assert_eq!(
+            input.len(), 
+            BALANCE_PUBLIC_INPUTS_LEN,
+            "Balance public inputs target length mismatch: expected {}, got {}",
+            BALANCE_PUBLIC_INPUTS_LEN,
+            input.len()
+        );
         let pubkey = U256Target::from_slice(&input[0..U256_LEN]);
         let private_commitment =
             PoseidonHashOutTarget::from_slice(&input[U256_LEN..U256_LEN + POSEIDON_HASH_OUT_LEN]);

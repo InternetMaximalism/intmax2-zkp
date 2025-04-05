@@ -191,7 +191,8 @@ where
         tx_block_number <= validity_prover.block_number(),
         "validity prover is not up to date"
     );
-    let prev_balance_pis = get_prev_balance_pis(sender, prev_balance_proof);
+    let prev_balance_pis = get_prev_balance_pis(sender, prev_balance_proof)
+        .map_err(|e| anyhow::anyhow!("Failed to get previous balance public inputs: {:?}", e))?;
     ensure!(
         prev_balance_pis.public_state.block_number < tx_block_number,
         "tx block number is not greater than prev balance proof"
@@ -264,7 +265,8 @@ where
 
     // check block number
     ensure!(block_number > 0, "block number should be greater than 0");
-    let prev_balance_pis = get_prev_balance_pis(pubkey, prev_balance_proof);
+    let prev_balance_pis = get_prev_balance_pis(pubkey, prev_balance_proof)
+        .map_err(|e| anyhow::anyhow!("Failed to get previous balance public inputs: {:?}", e))?;
     if block_number == prev_balance_pis.public_state.block_number {
         // no need to update balance proof
         return Ok(prev_balance_proof.clone().unwrap());
