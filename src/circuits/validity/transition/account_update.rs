@@ -13,6 +13,8 @@ use plonky2::{
     },
 };
 
+use super::error::ValidityTransitionError;
+
 use crate::{
     common::trees::{
         account_tree::{AccountUpdateProof, AccountUpdateProofTarget},
@@ -45,41 +47,47 @@ impl AccountUpdateValue {
         block_number: u32,
         sender_leaves: Vec<SenderLeaf>,
         account_update_proofs: Vec<AccountUpdateProof>,
-    ) -> Self {
-        assert_eq!(
-            sender_leaves.len(),
-            NUM_SENDERS_IN_BLOCK,
-            "Invalid number of sender leaves"
-        );
-        assert_eq!(
-            account_update_proofs.len(),
-            NUM_SENDERS_IN_BLOCK,
-            "Invalid number of account registration proofs"
-        );
-        let sender_tree_root =
-            get_merkle_root_from_leaves(SENDER_TREE_HEIGHT, &sender_leaves).unwrap();
+    ) -> Result<Self, ValidityTransitionError> {
+        if sender_leaves.len() != NUM_SENDERS_IN_BLOCK {
+            return Err(ValidityTransitionError::InvalidSenderLeavesCount {
+                expected: NUM_SENDERS_IN_BLOCK,
+                actual: sender_leaves.len(),
+            });
+        }
+        
+        if account_update_proofs.len() != NUM_SENDERS_IN_BLOCK {
+            return Err(ValidityTransitionError::InvalidAccountUpdateProofsCount {
+                expected: NUM_SENDERS_IN_BLOCK,
+                actual: account_update_proofs.len(),
+            });
+        }
+        
+        let sender_tree_root = get_merkle_root_from_leaves(SENDER_TREE_HEIGHT, &sender_leaves)
+            .unwrap();
 
         let mut account_tree_root = prev_account_tree_root;
-        for (sender_leaf, account_registration_proof) in
-            sender_leaves.iter().zip(account_update_proofs.iter())
+        for (i, (sender_leaf, account_update_proof)) in
+            sender_leaves.iter().zip(account_update_proofs.iter()).enumerate()
         {
-            let prev_last_block_number = account_registration_proof.prev_leaf.value as u32;
+            let prev_last_block_number = account_update_proof.prev_leaf.value as u32;
             let last_block_number = if sender_leaf.signature_included {
                 block_number
             } else {
                 prev_last_block_number
             };
-            account_tree_root = account_registration_proof
+            account_tree_root = account_update_proof
                 .get_new_root(
                     sender_leaf.sender,
                     prev_last_block_number as u64,
                     last_block_number as u64,
                     account_tree_root,
                 )
-                .expect("Invalid account update proof");
+                .map_err(|e| ValidityTransitionError::InvalidAccountUpdateProof(
+                    format!("Invalid account update proof at index {}: {}", i, e)
+                ))?;
         }
 
-        Self {
+        Ok(Self {
             prev_account_tree_root,
             new_account_tree_root: account_tree_root,
             next_account_id: prev_next_account_id,
@@ -87,7 +95,7 @@ impl AccountUpdateValue {
             block_number,
             sender_leaves,
             account_update_proofs,
-        }
+        })
     }
 }
 
@@ -291,21 +299,21 @@ mod tests {
         }
         let new_account_tree_root = tree.get_root();
 
-        let account_registration_value = AccountUpdateValue::new(
+        let account_update_value = AccountUpdateValue::new(
             prev_account_tree_root,
             next_account_id,
             block_number,
             sender_leaves,
             account_update_proofs,
-        );
+        ).unwrap();
         assert_eq!(
-            account_registration_value.new_account_tree_root,
+            account_update_value.new_account_tree_root,
             new_account_tree_root
         );
 
-        let account_registration_circuit = AccountUpdateCircuit::<F, C, D>::new();
-        let _proof = account_registration_circuit
-            .prove(&account_registration_value)
+        let account_update_circuit = AccountUpdateCircuit::<F, C, D>::new();
+        let _proof = account_update_circuit
+            .prove(&account_update_value)
             .unwrap();
     }
 }

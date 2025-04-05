@@ -13,6 +13,8 @@ use plonky2::{
     },
 };
 
+use super::error::ValidityTransitionError;
+
 use crate::{
     common::trees::{
         account_tree::{AccountRegistrationProof, AccountRegistrationProofTarget},
@@ -46,24 +48,28 @@ impl AccountRegistrationValue {
         block_number: u32,
         sender_leaves: Vec<SenderLeaf>,
         account_registration_proofs: Vec<AccountRegistrationProof>,
-    ) -> Self {
-        assert_eq!(
-            sender_leaves.len(),
-            NUM_SENDERS_IN_BLOCK,
-            "Invalid number of sender leaves"
-        );
-        assert_eq!(
-            account_registration_proofs.len(),
-            NUM_SENDERS_IN_BLOCK,
-            "Invalid number of account registration proofs"
-        );
-        let sender_tree_root =
-            get_merkle_root_from_leaves(SENDER_TREE_HEIGHT, &sender_leaves).unwrap();
+    ) -> Result<Self, ValidityTransitionError> {
+        if sender_leaves.len() != NUM_SENDERS_IN_BLOCK {
+            return Err(ValidityTransitionError::InvalidSenderLeavesCount {
+                expected: NUM_SENDERS_IN_BLOCK,
+                actual: sender_leaves.len(),
+            });
+        }
+        
+        if account_registration_proofs.len() != NUM_SENDERS_IN_BLOCK {
+            return Err(ValidityTransitionError::InvalidAccountRegistrationProofsCount {
+                expected: NUM_SENDERS_IN_BLOCK,
+                actual: account_registration_proofs.len(),
+            });
+        }
+        
+        let sender_tree_root = get_merkle_root_from_leaves(SENDER_TREE_HEIGHT, &sender_leaves)
+            .unwrap();
 
         let mut account_tree_root = prev_account_tree_root;
         let mut next_account_id = prev_next_account_id;
-        for (sender_leaf, account_registration_proof) in
-            sender_leaves.iter().zip(account_registration_proofs.iter())
+        for (i, (sender_leaf, account_registration_proof)) in
+            sender_leaves.iter().zip(account_registration_proofs.iter()).enumerate()
         {
             let is_not_dummy_pubkey = !sender_leaf.sender.is_dummy_pubkey();
             let will_update = sender_leaf.signature_included && is_not_dummy_pubkey;
@@ -74,14 +80,22 @@ impl AccountRegistrationValue {
                     block_number as u64,
                     account_tree_root,
                 )
-                .expect("Invalid account registration proof");
+                .map_err(|e| ValidityTransitionError::InvalidAccountRegistrationProof(
+                    format!("Invalid account registration proof at index {}: {}", i, e)
+                ))?;
+                
             if will_update {
-                assert_eq!({ account_registration_proof.index }, next_account_id);
+                if account_registration_proof.index != next_account_id {
+                    return Err(ValidityTransitionError::AccountIdMismatch {
+                        expected: next_account_id,
+                        actual: account_registration_proof.index,
+                    });
+                }
                 next_account_id += 1;
             }
         }
 
-        Self {
+        Ok(Self {
             prev_account_tree_root,
             prev_next_account_id,
             new_account_tree_root: account_tree_root,
@@ -90,7 +104,7 @@ impl AccountRegistrationValue {
             block_number,
             sender_leaves,
             account_registration_proofs,
-        }
+        })
     }
 }
 
@@ -315,7 +329,7 @@ mod tests {
             block_number,
             sender_leaves,
             account_registration_proofs,
-        );
+        ).unwrap();
         let new_account_tree_root = tree.get_root();
         assert_eq!(
             account_registration_value.new_account_tree_root,

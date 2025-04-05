@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{ensure, Result};
 use plonky2::{
     field::extension::Extendable,
     hash::hash_types::RichField,
@@ -123,12 +123,17 @@ where
         account_registration_proof_dummy: DummyProof<F, C, D>,
         account_update_proof_dummy: DummyProof<F, C, D>,
     ) -> Result<ProofWithPublicInputs<F, C, D>> {
-        // assertion
-        assert_eq!(
+        // Validate inputs
+        ensure!(
+            prev_pis.public_state.block_tree_root == transition_value.prev_block_tree_root,
+            "Block tree root mismatch: expected {:?}, got {:?}",
             prev_pis.public_state.block_tree_root,
             transition_value.prev_block_tree_root
         );
-        assert_eq!(
+        
+        ensure!(
+            prev_pis.public_state.account_tree_root == transition_value.prev_account_tree_root,
+            "Account tree root mismatch: expected {:?}, got {:?}",
             prev_pis.public_state.account_tree_root,
             transition_value.prev_account_tree_root
         );

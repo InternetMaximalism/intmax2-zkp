@@ -1,4 +1,5 @@
 use anyhow::Result;
+use crate::circuits::validity::block_validation::error::BlockValidationError;
 use plonky2::{
     field::extension::Extendable,
     hash::hash_types::RichField,
@@ -87,31 +88,43 @@ where
             .block_sign_payload
             .is_registration_block
         {
+            let account_membership_proofs = block_witness
+                .account_membership_proofs
+                .clone()
+                .ok_or_else(|| BlockValidationError::AccountExclusionValue(
+                    "Account membership proofs are missing".to_string()
+                ))?;
+                
             let account_exclusion_value = AccountExclusionValue::new(
                 block_witness.prev_account_tree_root,
-                block_witness
-                    .account_membership_proofs
-                    .clone()
-                    .expect("Account membership proofs are missing"),
+                account_membership_proofs,
                 sender_leaves,
-            ).expect("Failed to create AccountExclusionValue");
+            )?;
             let account_exclusion_proof = self
                 .account_exclusion_circuit
                 .prove(&account_exclusion_value)?;
             result = result && account_exclusion_value.is_valid;
             (Some(account_exclusion_proof), None)
         } else {
+            let account_id_packed = block_witness
+                .account_id_packed
+                .ok_or_else(|| BlockValidationError::AccountInclusionValue(
+                    "Account ID is missing".to_string()
+                ))?;
+                
+            let account_merkle_proofs = block_witness
+                .account_merkle_proofs
+                .clone()
+                .ok_or_else(|| BlockValidationError::AccountInclusionValue(
+                    "Account merkle proofs are missing".to_string()
+                ))?;
+                
             let value = AccountInclusionValue::new(
                 block_witness.prev_account_tree_root,
-                block_witness
-                    .account_id_packed
-                    .expect("Account ID is missing"),
-                block_witness
-                    .account_merkle_proofs
-                    .clone()
-                    .expect("Account merkle proofs are missing"),
+                account_id_packed,
+                account_merkle_proofs,
                 block_witness.pubkeys.clone(),
-            ).expect("Failed to create AccountInclusionValue");
+            )?;
             let account_inclusion_proof = self.account_inclusion_circuit.prove(&value)?;
             result = result && value.is_valid;
             (None, Some(account_inclusion_proof))
@@ -124,7 +137,7 @@ where
         let format_validation_proof = self
             .format_validation_circuit
             .prove(&format_validation_value)
-            .unwrap();
+            .map_err(|e| BlockValidationError::FormatValidationProofVerificationFailed(e.to_string()))?;
         let aggregation_proof = if result {
             let aggregation_value = AggregationValue::new(
                 block_witness.pubkeys.clone(),
@@ -221,8 +234,7 @@ mod tests {
         )?;
         let instant = std::time::Instant::now();
         let _main_validation_proof = main_validation_processor
-            .prove(&validity_witness.block_witness)
-            .unwrap();
+            .prove(&validity_witness.block_witness)?;
         println!(
             "main validation proof generation time: {:?}",
             instant.elapsed()

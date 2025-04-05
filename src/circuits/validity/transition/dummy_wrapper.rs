@@ -1,4 +1,4 @@
-use anyhow::{ensure, Result};
+use crate::circuits::validity::transition::error::ValidityTransitionError;
 use plonky2::{
     field::extension::Extendable,
     hash::hash_types::RichField,
@@ -70,31 +70,34 @@ where
         &self,
         prev_pis: &ValidityPublicInputs,
         validity_witness: &ValidityWitness,
-    ) -> Result<ProofWithPublicInputs<F, C, D>> {
-        let new_pis = validity_witness.to_validity_pis().map_err(|e| {
-            anyhow::anyhow!(
-                "Failed to convert validity witness to validity public inputs: {}",
-                e
-            )
-        })?;
+    ) -> Result<ProofWithPublicInputs<F, C, D>, ValidityTransitionError> {
+        let new_pis = validity_witness.to_validity_pis()
+            .map_err(|e| ValidityTransitionError::InvalidValidityWitness(
+                format!("Failed to convert validity witness to validity public inputs: {}", e)
+            ))?;
 
-        // assertion
-        ensure!(
-            prev_pis.public_state.account_tree_root
-                == validity_witness.block_witness.prev_account_tree_root,
-            "Account tree root mismatch"
-        );
-        ensure!(
-            prev_pis.public_state.block_tree_root
-                == validity_witness.block_witness.prev_block_tree_root,
-            "Block tree root mismatch"
-        );
+        // Validate inputs
+        if prev_pis.public_state.account_tree_root != validity_witness.block_witness.prev_account_tree_root {
+            return Err(ValidityTransitionError::PrevAccountTreeRootMismatch {
+                expected: prev_pis.public_state.account_tree_root,
+                actual: validity_witness.block_witness.prev_account_tree_root,
+            });
+        }
+        
+        if prev_pis.public_state.block_tree_root != validity_witness.block_witness.prev_block_tree_root {
+            return Err(ValidityTransitionError::BlockTreeRootMismatch {
+                expected: prev_pis.public_state.block_tree_root,
+                actual: validity_witness.block_witness.prev_block_tree_root,
+            });
+        }
 
         let mut pw = PartialWitness::<F>::new();
         self.prev_pis.set_witness(&mut pw, prev_pis);
         self.new_pis.set_witness(&mut pw, &new_pis);
         self.data
             .prove(pw)
-            .map_err(|e| anyhow::anyhow!("Failed to prove: {}", e))
+            .map_err(|e| ValidityTransitionError::ProofGenerationError(
+                format!("Failed to prove: {}", e)
+            ))
     }
 }

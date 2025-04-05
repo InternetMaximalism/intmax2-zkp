@@ -6,3 +6,4 @@ pub mod processor;
 #[allow(clippy::module_inception)]
 pub mod transition;
 pub mod wrapper;
+pub mod error;

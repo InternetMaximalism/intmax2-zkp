@@ -1,3 +1,4 @@
+use anyhow::Result;
 use plonky2::{
     field::extension::Extendable,
     hash::hash_types::RichField,
@@ -35,6 +36,7 @@ use super::{
     account_registration::AccountRegistrationCircuit,
     account_transition_pis::AccountTransitionPublicInputsTarget,
     account_update::AccountUpdateCircuit,
+    error::ValidityTransitionError,
 };
 
 pub(crate) struct ValidityTransitionValue<
@@ -68,7 +70,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         account_registration_proof: Option<ProofWithPublicInputs<F, C, D>>,
         account_update_proof: Option<ProofWithPublicInputs<F, C, D>>,
         block_hash_merkle_proof: BlockHashMerkleProof,
-    ) -> Self {
+    ) -> Result<Self, ValidityTransitionError> {
         // account registration
         let is_account_registration = block_pis.is_registration_block && block_pis.is_valid;
         let mut new_account_tree_root = prev_account_tree_root;
@@ -76,18 +78,49 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         if is_account_registration {
             let account_registration_proof = account_registration_proof
                 .clone()
-                .expect("Account registration proof is missing");
+                .ok_or(ValidityTransitionError::MissingAccountRegistrationProof)?;
+                
             account_registration_circuit
                 .data
                 .verify(account_registration_proof.clone())
-                .expect("Account registration proof is invalid");
+                .map_err(|e| ValidityTransitionError::InvalidAccountRegistrationProof(
+                    format!("Account registration proof verification failed: {}", e)
+                ))?;
+                
             let pis = AccountTransitionPublicInputs::from_u64_slice(
                 &account_registration_proof.public_inputs.to_u64_vec(),
-            );
-            assert_eq!(pis.prev_account_tree_root, prev_account_tree_root);
-            assert_eq!(pis.prev_next_account_id, new_next_account_id);
-            assert_eq!(pis.sender_tree_root, block_pis.sender_tree_root);
-            assert_eq!(pis.block_number, block_pis.block_number);
+            ).map_err(|e| ValidityTransitionError::InvalidAccountRegistrationProof(
+                format!("Failed to parse account registration public inputs: {}", e)
+            ))?;
+            
+            if pis.prev_account_tree_root != prev_account_tree_root {
+                return Err(ValidityTransitionError::PrevAccountTreeRootMismatch {
+                    expected: prev_account_tree_root,
+                    actual: pis.prev_account_tree_root,
+                });
+            }
+            
+            if pis.prev_next_account_id != new_next_account_id {
+                return Err(ValidityTransitionError::AccountIdMismatch {
+                    expected: new_next_account_id,
+                    actual: pis.prev_next_account_id,
+                });
+            }
+            
+            if pis.sender_tree_root != block_pis.sender_tree_root {
+                return Err(ValidityTransitionError::SenderTreeRootMismatch {
+                    expected: block_pis.sender_tree_root,
+                    actual: pis.sender_tree_root,
+                });
+            }
+            
+            if pis.block_number != block_pis.block_number {
+                return Err(ValidityTransitionError::BlockNumberMismatch {
+                    expected: block_pis.block_number,
+                    actual: pis.block_number,
+                });
+            }
+            
             new_account_tree_root = pis.new_account_tree_root;
             new_next_account_id = pis.new_next_account_id;
         }
@@ -96,22 +129,53 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         if is_account_update {
             let account_update_proof = account_update_proof
                 .clone()
-                .expect("Account update proof is missing");
+                .ok_or(ValidityTransitionError::MissingAccountUpdateProof)?;
+                
             account_update_circuit
                 .data
                 .verify(account_update_proof.clone())
-                .expect("Account update proof is invalid");
+                .map_err(|e| ValidityTransitionError::InvalidAccountUpdateProof(
+                    format!("Account update proof verification failed: {}", e)
+                ))?;
+                
             let pis = AccountTransitionPublicInputs::from_u64_slice(
                 &account_update_proof
                     .public_inputs
                     .iter()
                     .map(|x| x.to_canonical_u64())
                     .collect::<Vec<_>>(),
-            );
-            assert_eq!(pis.prev_account_tree_root, prev_account_tree_root);
-            assert_eq!(pis.prev_next_account_id, new_next_account_id);
-            assert_eq!(pis.sender_tree_root, block_pis.sender_tree_root);
-            assert_eq!(pis.block_number, block_pis.block_number);
+            ).map_err(|e| ValidityTransitionError::InvalidAccountUpdateProof(
+                format!("Failed to parse account update public inputs: {}", e)
+            ))?;
+            
+            if pis.prev_account_tree_root != prev_account_tree_root {
+                return Err(ValidityTransitionError::PrevAccountTreeRootMismatch {
+                    expected: prev_account_tree_root,
+                    actual: pis.prev_account_tree_root,
+                });
+            }
+            
+            if pis.prev_next_account_id != new_next_account_id {
+                return Err(ValidityTransitionError::AccountIdMismatch {
+                    expected: new_next_account_id,
+                    actual: pis.prev_next_account_id,
+                });
+            }
+            
+            if pis.sender_tree_root != block_pis.sender_tree_root {
+                return Err(ValidityTransitionError::SenderTreeRootMismatch {
+                    expected: block_pis.sender_tree_root,
+                    actual: pis.sender_tree_root,
+                });
+            }
+            
+            if pis.block_number != block_pis.block_number {
+                return Err(ValidityTransitionError::BlockNumberMismatch {
+                    expected: block_pis.block_number,
+                    actual: pis.block_number,
+                });
+            }
+            
             new_account_tree_root = pis.new_account_tree_root;
             new_next_account_id = pis.new_next_account_id;
         }
@@ -124,11 +188,14 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
                 block_number as u64,
                 prev_block_tree_root,
             )
-            .expect("Block hash merkle proof is invalid");
+            .map_err(|e| ValidityTransitionError::InvalidBlockHashMerkleProof(
+                format!("Block hash merkle proof verification failed: {}", e)
+            ))?;
+            
         let new_block_tree_root =
             block_hash_merkle_proof.get_root(&block_pis.block_hash, block_number as u64);
 
-        Self {
+        Ok(Self {
             block_pis,
             prev_block_tree_root,
             prev_next_account_id,
@@ -139,7 +206,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
             account_registration_proof,
             account_update_proof,
             block_hash_merkle_proof,
-        }
+        })
     }
 }
 
@@ -186,7 +253,8 @@ impl<const D: usize> ValidityTransitionTarget<D> {
         );
         let account_registration_pis = AccountTransitionPublicInputsTarget::from_slice(
             &account_registration_proof.public_inputs,
-        );
+        ).expect("Failed to parse account registration public inputs target");
+        
         account_registration_pis
             .prev_account_tree_root
             .conditional_assert_eq(builder, prev_account_tree_root, is_account_registration);
@@ -223,7 +291,9 @@ impl<const D: usize> ValidityTransitionTarget<D> {
             is_account_update,
         );
         let account_update_pis =
-            AccountTransitionPublicInputsTarget::from_slice(&account_update_proof.public_inputs);
+            AccountTransitionPublicInputsTarget::from_slice(&account_update_proof.public_inputs)
+            .expect("Failed to parse account update public inputs target");
+            
         account_update_pis
             .prev_account_tree_root
             .conditional_assert_eq(builder, prev_account_tree_root, is_account_update);
