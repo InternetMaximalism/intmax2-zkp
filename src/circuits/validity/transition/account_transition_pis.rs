@@ -1,9 +1,11 @@
 use plonky2::iop::target::Target;
 
-use crate::utils::poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget};
 use super::error::ValidityTransitionError;
+use crate::utils::poseidon_hash_out::{
+    PoseidonHashOut, PoseidonHashOutTarget, POSEIDON_HASH_OUT_LEN,
+};
 
-pub const ACCOUNT_TRANSITION_PUBLIC_INPUTS_LEN: usize = 4 * 3 + 3;
+pub const ACCOUNT_TRANSITION_PUBLIC_INPUTS_LEN: usize = 3 * POSEIDON_HASH_OUT_LEN + 3;
 
 #[derive(Clone, Debug)]
 pub struct AccountTransitionPublicInputs {
@@ -28,10 +30,12 @@ pub(crate) struct AccountTransitionPublicInputsTarget {
 impl AccountTransitionPublicInputs {
     pub(crate) fn from_u64_slice(input: &[u64]) -> Result<Self, ValidityTransitionError> {
         if input.len() != ACCOUNT_TRANSITION_PUBLIC_INPUTS_LEN {
-            return Err(ValidityTransitionError::AccountTransitionInputLengthMismatch {
-                expected: ACCOUNT_TRANSITION_PUBLIC_INPUTS_LEN,
-                actual: input.len(),
-            });
+            return Err(
+                ValidityTransitionError::AccountTransitionInputLengthMismatch {
+                    expected: ACCOUNT_TRANSITION_PUBLIC_INPUTS_LEN,
+                    actual: input.len(),
+                },
+            );
         }
         let prev_account_tree_root = PoseidonHashOut {
             elements: input[0..4].try_into().unwrap(),
@@ -68,21 +72,23 @@ impl AccountTransitionPublicInputsTarget {
             .chain(self.sender_tree_root.elements)
             .chain(vec![self.block_number])
             .collect::<Vec<_>>();
-        
+
         // This is a sanity check that should never fail if the code is correct
         debug_assert_eq!(vec.len(), ACCOUNT_TRANSITION_PUBLIC_INPUTS_LEN);
-        
+
         vec
     }
 
     pub(crate) fn from_slice(input: &[Target]) -> Result<Self, ValidityTransitionError> {
         if input.len() != ACCOUNT_TRANSITION_PUBLIC_INPUTS_LEN {
-            return Err(ValidityTransitionError::AccountTransitionInputLengthMismatch {
-                expected: ACCOUNT_TRANSITION_PUBLIC_INPUTS_LEN,
-                actual: input.len(),
-            });
+            return Err(
+                ValidityTransitionError::AccountTransitionInputLengthMismatch {
+                    expected: ACCOUNT_TRANSITION_PUBLIC_INPUTS_LEN,
+                    actual: input.len(),
+                },
+            );
         }
-        
+
         let prev_account_tree_root = PoseidonHashOutTarget {
             elements: input[0..4].try_into().unwrap(),
         };
@@ -95,7 +101,7 @@ impl AccountTransitionPublicInputsTarget {
             elements: input[10..14].try_into().unwrap(),
         };
         let block_number = input[14];
-        
+
         Ok(Self {
             prev_account_tree_root,
             prev_next_account_id,

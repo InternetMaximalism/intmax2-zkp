@@ -42,7 +42,7 @@ where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F> + 'static,
     <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
- {
+{
     fn default() -> Self {
         Self::new()
     }
@@ -109,7 +109,8 @@ where
                 block_pis.block_number,
                 sender_leaves.clone(),
                 account_registration_proofs,
-            ).map_err(|e| anyhow::anyhow!("Failed to create account registration value: {}", e))?;
+            )
+            .map_err(|e| anyhow::anyhow!("Failed to create account registration value: {}", e))?;
             let proof = self.account_registration_circuit.prove(&value)?;
             Some(proof)
         } else {
@@ -131,7 +132,8 @@ where
                 block_pis.block_number,
                 prev_sender_leaves.clone(),
                 account_update_proofs,
-            ).map_err(|e| anyhow::anyhow!("Failed to create account update value: {}", e))?;
+            )
+            .map_err(|e| anyhow::anyhow!("Failed to create account update value: {}", e))?;
             let proof = self.account_update_circuit.prove(&value)?;
             Some(proof)
         } else {
@@ -150,7 +152,8 @@ where
                 .validity_transition_witness
                 .block_merkle_proof
                 .clone(),
-        ).map_err(|e| anyhow::anyhow!("Failed to create validity transition value: {}", e))?;
+        )
+        .map_err(|e| anyhow::anyhow!("Failed to create validity transition value: {}", e))?;
         let main_validation_proof = self
             .main_validation_processor
             .prove(&validity_witness.block_witness)?;

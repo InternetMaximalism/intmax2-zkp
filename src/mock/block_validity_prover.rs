@@ -59,7 +59,7 @@ where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F> + 'static,
     <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
- {
+{
     fn default() -> Self {
         Self::new()
     }
@@ -153,7 +153,7 @@ where
             let validity_proof = self
                 .validity_processor()
                 .prove(&prev_validity_proof, &validity_witness)
-                .unwrap();
+                .map_err(|e| anyhow::anyhow!("Failed to generate validity proof: {}", e))?;
 
             // update self
             self.last_block_number = block_number;
