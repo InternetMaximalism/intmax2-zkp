@@ -1,6 +1,7 @@
 pub mod conversion;
 pub mod cyclic;
 pub mod dummy;
+pub mod error;
 pub mod hash_chain;
 pub mod leafable;
 pub mod leafable_hasher;

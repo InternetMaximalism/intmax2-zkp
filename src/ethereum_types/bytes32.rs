@@ -4,6 +4,7 @@ use plonky2::iop::target::Target;
 use serde::{Deserialize, Serialize};
 
 use super::{
+    error::EthereumTypeError,
     u256::{U256, U256_LEN},
     u32limb_trait::{self, U32LimbTargetTrait, U32LimbTrait},
 };
@@ -35,10 +36,10 @@ impl core::fmt::Display for Bytes32 {
 }
 
 impl FromStr for Bytes32 {
-    type Err = anyhow::Error;
+    type Err = EthereumTypeError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Self::from_hex(s).map_err(|e| anyhow::anyhow!("Failed to parse Bytes32: {}", e))
+        Self::from_hex(s).map_err(|e| EthereumTypeError::HexParseError(format!("Failed to parse Bytes32: {}", e)))
     }
 }
 
@@ -77,12 +78,12 @@ impl U32LimbTrait<BYTES32_LEN> for Bytes32 {
 
     fn from_u32_slice(limbs: &[u32]) -> u32limb_trait::Result<Self> {
         if limbs.len() != BYTES32_LEN {
-            return Err(u32limb_trait::U32LimbError::InvalidLength(limbs.len()));
+            return Err(EthereumTypeError::InvalidLengthSimple(limbs.len()));
         }
         Ok(Self {
             limbs: limbs
                 .try_into()
-                .map_err(|_| u32limb_trait::U32LimbError::InvalidLength(limbs.len()))?,
+                .map_err(|_| EthereumTypeError::InvalidLengthSimple(limbs.len()))?,
         })
     }
 }

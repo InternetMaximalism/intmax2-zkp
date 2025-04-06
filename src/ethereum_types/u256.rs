@@ -1,6 +1,5 @@
 use std::str::FromStr;
 
-use anyhow::ensure;
 use ark_bn254::Fq;
 use ark_std::iterable::Iterable;
 use num::{BigUint, Num as _, Zero};
@@ -20,7 +19,8 @@ use serde::{Deserialize, Serialize};
 
 use super::{
     bytes32::Bytes32,
-    u32limb_trait::{U32LimbError, U32LimbTargetTrait, U32LimbTrait},
+    error::EthereumTypeError,
+    u32limb_trait::{U32LimbTargetTrait, U32LimbTrait},
 };
 
 pub const U256_LEN: usize = 8;
@@ -52,15 +52,15 @@ impl core::fmt::Display for U256 {
 }
 
 impl FromStr for U256 {
-    type Err = anyhow::Error;
+    type Err = EthereumTypeError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         if s.starts_with("0x") {
-            let b: Bytes32 = s.parse()?;
+            let b: Bytes32 = s.parse().map_err(|e| EthereumTypeError::HexParseError(format!("Failed to parse U256 from hex: {}", e)))?;
             Ok(b.into())
         } else {
-            let b = BigUint::from_str_radix(s, 10).map_err(anyhow::Error::msg)?;
-            let u: U256 = b.try_into()?;
+            let b = BigUint::from_str_radix(s, 10).map_err(|e| EthereumTypeError::IntegerParseError(format!("Failed to parse U256 from decimal: {}", e)))?;
+            let u: U256 = b.try_into().map_err(|e| EthereumTypeError::ConversionError(format!("Failed to convert BigUint to U256: {}", e)))?;
             Ok(u)
         }
     }
@@ -76,7 +76,7 @@ impl<'de> Deserialize<'de> for U256 {
     fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         let s = String::deserialize(deserializer)?;
         let b = BigUint::from_str_radix(&s, 10).map_err(serde::de::Error::custom)?;
-        let u: U256 = b.try_into().unwrap();
+        let u: U256 = b.try_into().map_err(serde::de::Error::custom)?;
         Ok(u)
     }
 }
@@ -104,11 +104,13 @@ impl From<u32> for U256 {
 }
 
 impl TryFrom<BigUint> for U256 {
-    type Error = anyhow::Error;
+    type Error = EthereumTypeError;
 
-    fn try_from(value: BigUint) -> anyhow::Result<Self> {
+    fn try_from(value: BigUint) -> Result<Self, Self::Error> {
         let mut digits = value.to_u32_digits();
-        ensure!(digits.len() <= U256_LEN, "value is too large");
+        if digits.len() > U256_LEN {
+            return Err(EthereumTypeError::ValueTooLarge(format!("Value has {} digits, but U256 can only hold {}", digits.len(), U256_LEN)));
+        }
         digits.resize(U256_LEN, 0);
         digits.reverse(); // little endian to big endian
         Ok(Self {
@@ -130,7 +132,8 @@ impl From<U256> for BigUint {
 impl From<Fq> for U256 {
     fn from(value: Fq) -> Self {
         // Fq is less than 256 bits, so we can safely convert it to U256
-        U256::try_from(BigUint::from(value)).unwrap()
+        U256::try_from(BigUint::from(value))
+            .expect("Converting from Fq to U256 should never fail as Fq is less than 256 bits")
     }
 }
 
@@ -178,9 +181,9 @@ impl U32LimbTrait<U256_LEN> for U256 {
         self.limbs.to_vec()
     }
 
-    fn from_u32_slice(limbs: &[u32]) -> Result<Self, U32LimbError> {
+    fn from_u32_slice(limbs: &[u32]) -> super::u32limb_trait::Result<Self> {
         if limbs.len() != U256_LEN {
-            return Err(U32LimbError::InvalidLength(limbs.len()));
+            return Err(EthereumTypeError::InvalidLengthSimple(limbs.len()));
         }
         Ok(Self {
             limbs: limbs.try_into().unwrap(),

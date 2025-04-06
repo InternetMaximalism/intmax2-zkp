@@ -2,10 +2,10 @@ use std::str::FromStr;
 
 use super::{
     bytes32::{Bytes32, Bytes32Target},
+    error::EthereumTypeError,
     u32limb_trait::{self, U32LimbTargetTrait, U32LimbTrait},
 };
 use crate::constants::{ACCOUNT_ID_BITS, NUM_SENDERS_IN_BLOCK};
-use anyhow::ensure;
 use itertools::Itertools;
 use plonky2::{
     field::extension::Extendable,
@@ -93,10 +93,10 @@ impl core::fmt::Display for AccountIdPacked {
 }
 
 impl FromStr for AccountIdPacked {
-    type Err = anyhow::Error;
+    type Err = EthereumTypeError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Self::from_hex(s).map_err(|e| anyhow::anyhow!("Failed to parse AccountIdPacked: {}", e))
+        Self::from_hex(s).map_err(|e| EthereumTypeError::HexParseError(format!("Failed to parse AccountIdPacked: {}", e)))
     }
 }
 
@@ -121,12 +121,12 @@ impl U32LimbTrait<ACCOUNT_ID_PACKED_LEN> for AccountIdPacked {
 
     fn from_u32_slice(limbs: &[u32]) -> u32limb_trait::Result<Self> {
         if limbs.len() != ACCOUNT_ID_PACKED_LEN {
-            return Err(u32limb_trait::U32LimbError::InvalidLength(limbs.len()));
+            return Err(EthereumTypeError::InvalidLengthSimple(limbs.len()));
         }
         Ok(Self {
             limbs: limbs
                 .try_into()
-                .map_err(|_| u32limb_trait::U32LimbError::InvalidLength(limbs.len()))?,
+                .map_err(|_| EthereumTypeError::InvalidLengthSimple(limbs.len()))?,
         })
     }
 }
@@ -175,15 +175,21 @@ impl AccountIdPacked {
 
     // Recovers account id packed from bytes representation of account ids where
     // dummy accounts are trimmed.
-    pub fn from_trimmed_bytes(input: &[u8]) -> anyhow::Result<Self> {
-        ensure!(
-            input.len() <= ACCOUNT_ID_BYTES_LEN * NUM_SENDERS_IN_BLOCK,
-            "too long account id bytes"
-        );
-        ensure!(
-            input.len() % ACCOUNT_ID_BYTES_LEN == 0,
-            "invalid account id bytes length"
-        );
+    pub fn from_trimmed_bytes(input: &[u8]) -> Result<Self, EthereumTypeError> {
+        if input.len() > ACCOUNT_ID_BYTES_LEN * NUM_SENDERS_IN_BLOCK {
+            return Err(EthereumTypeError::InvalidLength {
+                expected: (ACCOUNT_ID_BYTES_LEN * NUM_SENDERS_IN_BLOCK).to_string(),
+                actual: input.len(),
+            });
+        }
+        
+        if input.len() % ACCOUNT_ID_BYTES_LEN != 0 {
+            return Err(EthereumTypeError::InvalidLength {
+                expected: format!("a multiple of {}", ACCOUNT_ID_BYTES_LEN),
+                actual: input.len(),
+            });
+        }
+        
         let dummy_account_id_bytes = AccountId::dummy().to_bytes_be();
         let mut inputs = input.to_vec();
         while inputs.len() < ACCOUNT_ID_BYTES_LEN * NUM_SENDERS_IN_BLOCK {

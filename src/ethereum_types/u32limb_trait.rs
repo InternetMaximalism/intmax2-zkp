@@ -12,19 +12,9 @@ use plonky2::{
 };
 use rand::Rng;
 
-#[derive(Debug, thiserror::Error)]
-pub enum U32LimbError {
-    #[error("Invalid length: {0}")]
-    InvalidLength(usize),
+use super::error::EthereumTypeError;
 
-    #[error("Out of u32 range")]
-    OutOfU32Range,
-
-    #[error("Invalid hex")]
-    InvalidHex(#[from] hex::FromHexError),
-}
-
-pub type Result<T> = std::result::Result<T, U32LimbError>;
+pub type Result<T> = std::result::Result<T, EthereumTypeError>;
 
 /// Trait for types with u32 limbs
 pub trait U32LimbTrait<const NUM_LIMBS: usize>: Clone + Copy {
@@ -41,7 +31,7 @@ pub trait U32LimbTrait<const NUM_LIMBS: usize>: Clone + Copy {
             .iter()
             .map(|&x| {
                 if x > u32::MAX as u64 {
-                    return Err(U32LimbError::OutOfU32Range);
+                    return Err(EthereumTypeError::OutOfU32Range);
                 }
                 Ok(x as u32)
             })
@@ -64,7 +54,7 @@ pub trait U32LimbTrait<const NUM_LIMBS: usize>: Clone + Copy {
 
     fn from_bytes_be(bytes: &[u8]) -> Result<Self> {
         if bytes.len() > 4 * NUM_LIMBS {
-            return Err(U32LimbError::InvalidLength(bytes.len()));
+            return Err(EthereumTypeError::InvalidLengthSimple(bytes.len()));
         }
         // pad with zeros
         let mut padded_bytes = vec![0; 4 * NUM_LIMBS];
@@ -93,7 +83,7 @@ pub trait U32LimbTrait<const NUM_LIMBS: usize>: Clone + Copy {
 
     fn from_bits_be(bits: &[bool]) -> Result<Self> {
         if bits.len() > 32 * NUM_LIMBS {
-            return Err(U32LimbError::InvalidLength(bits.len()));
+            return Err(EthereumTypeError::InvalidLengthSimple(bits.len()));
         }
         let mut padded_bits = vec![false; 32 * NUM_LIMBS];
         padded_bits[32 * NUM_LIMBS - bits.len()..].copy_from_slice(bits);
