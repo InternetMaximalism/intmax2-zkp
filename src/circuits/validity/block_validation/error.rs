@@ -66,7 +66,4 @@ pub enum BlockValidationError {
 
     #[error("Aggregation proof verification failed: {0}")]
     AggregationProofVerificationFailed(String),
-
-    #[error("Main validation proof generation failed: {0}")]
-    MainValidationProofGenerationFailed(String),
 }

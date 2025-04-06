@@ -1,3 +1,19 @@
+//! Circuit that verifies the weighted aggregation of public keys matches the aggregate public key
+//! in the signature.
+//!
+//! This circuit ensures that the weighted aggregation of public keys bound by a pubkey commitment
+//! equals the aggregate public key bound by a signature commitment. The weights are derived from
+//! hashing each public key with the pubkey hash.
+//!
+//! The circuit takes as input:
+//! - A set of public keys
+//! - A signature content containing an aggregate public key
+//! - Commitments to both the public keys and the signature
+//!
+//! It verifies that:
+//! 1. The weighted sum of the public keys equals the aggregate public key in the signature
+//! 2. The commitments correctly bind the public keys and signature
+
 use plonky2::{
     field::extension::Extendable,
     gates::constant::ConstantGate,
@@ -26,25 +42,37 @@ use crate::{
     },
     utils::{
         dummy::DummyProof,
-        poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget},
+        poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget, POSEIDON_HASH_OUT_LEN},
     },
 };
 
 use super::utils::get_pubkey_commitment;
 
-pub const AGGREGATION_PUBLIC_INPUTS_LEN: usize = 4 + 4 + 1;
+pub const AGGREGATION_PUBLIC_INPUTS_LEN: usize = 2 * POSEIDON_HASH_OUT_LEN + 1;
 
+/// Public inputs for the aggregation circuit.
 #[derive(Clone, Debug)]
 pub struct AggregationPublicInputs {
+    /// Commitment to the set of public keys
     pub pubkey_commitment: PoseidonHashOut,
+
+    /// Commitment to the signature content
     pub signature_commitment: PoseidonHashOut,
+
+    /// Flag indicating whether the aggregation is valid
     pub is_valid: bool,
 }
 
+/// Target version of AggregationPublicInputs for use in the circuit.
 #[derive(Clone, Debug)]
 pub struct AggregationPublicInputsTarget {
+    /// Target for the commitment to the set of public keys
     pub pubkey_commitment: PoseidonHashOutTarget,
+
+    /// Target for the commitment to the signature content
     pub signature_commitment: PoseidonHashOutTarget,
+
+    /// Target for the validity flag
     pub is_valid: BoolTarget,
 }
 
@@ -76,10 +104,7 @@ impl AggregationPublicInputsTarget {
             .chain(self.signature_commitment.elements)
             .chain([self.is_valid.target])
             .collect::<Vec<_>>();
-
-        // This is a sanity check that should never fail if the code is correct
-        debug_assert_eq!(vec.len(), AGGREGATION_PUBLIC_INPUTS_LEN);
-
+        assert_eq!(vec.len(), AGGREGATION_PUBLIC_INPUTS_LEN);
         vec
     }
 
@@ -103,6 +128,7 @@ impl AggregationPublicInputsTarget {
     }
 }
 
+/// Values used in the aggregation circuit.
 pub struct AggregationValue {
     pub pubkeys: Vec<U256>,
     pub signature: SignatureContent,
@@ -111,12 +137,22 @@ pub struct AggregationValue {
     pub is_valid: bool,
 }
 
+/// Target version of AggregationValue for use in the circuit.
 #[derive(Debug, Clone)]
 pub struct AggregationTarget {
+    /// Targets for the set of public keys
     pub pubkeys: Vec<U256Target>,
+
+    /// Target for the signature content
     pub signature: SignatureContentTarget,
+
+    /// Target for the commitment to the set of public keys
     pub pubkey_commitment: PoseidonHashOutTarget,
+
+    /// Target for the commitment to the signature content
     pub signature_commitment: PoseidonHashOutTarget,
+
+    /// Target for the validity flag
     pub is_valid: BoolTarget,
 }
 
@@ -145,6 +181,7 @@ impl AggregationTarget {
         let pubkeys = (0..NUM_SENDERS_IN_BLOCK)
             .map(|_| U256Target::new(builder, true))
             .collect::<Vec<_>>();
+
         let pubkey_commitment = get_pubkey_commitment_circuit(builder, &pubkeys);
         let signature = SignatureContentTarget::new(builder, true);
         let signature_commitment = signature.commitment(builder);
@@ -175,6 +212,7 @@ impl AggregationTarget {
     }
 }
 
+/// Circuit that verifies the weighted aggregation of public keys matches the aggregate public key.
 #[derive(Debug)]
 pub struct AggregationCircuit<F, C, const D: usize>
 where
@@ -183,6 +221,7 @@ where
 {
     pub data: CircuitData<F, C, D>,
     pub target: AggregationTarget,
+    /// Dummy proof for recursive verification
     pub dummy_proof: DummyProof<F, C, D>,
 }
 
@@ -206,7 +245,11 @@ where
     pub fn new() -> Self {
         let config = CircuitConfig::default();
         let mut builder = CircuitBuilder::<F, D>::new(config.clone());
+
+        // Create targets for the aggregation values
         let target = AggregationTarget::new::<F, C, D>(&mut builder);
+
+        // Register public inputs
         let pis = AggregationPublicInputsTarget {
             signature_commitment: target.signature_commitment,
             pubkey_commitment: target.pubkey_commitment,
@@ -214,11 +257,13 @@ where
         };
         builder.register_public_inputs(&pis.to_vec());
 
-        // Add a ConstantGate to create a dummy proof.
+        // Add a ConstantGate to create a dummy proof
         builder.add_gate(ConstantGate::new(config.num_constants), vec![]);
 
+        // Build the circuit
         let data = builder.build();
         let dummy_proof = DummyProof::new(&data.common);
+
         Self {
             data,
             target,
@@ -250,25 +295,81 @@ mod tests {
     const D: usize = 2;
     type C = PoseidonGoldilocksConfig;
 
+    /// Tests the aggregation circuit with valid inputs.
     #[test]
-    fn test_aggregation_circuit() {
+    fn test_aggregation_circuit_valid() {
+        // Generate random key set and signature
         let rng = &mut rand::thread_rng();
         let (keyset, signature) = SignatureContent::rand(rng);
         let pubkeys = keyset
             .iter()
             .map(|keyset| keyset.pubkey)
             .collect::<Vec<_>>();
-        assert!(signature.is_valid_format(&pubkeys));
-        assert!(signature.verify_aggregation(&pubkeys));
 
+        // Verify format and aggregation validity
+        assert!(
+            signature.is_valid_format(&pubkeys),
+            "Signature format should be valid"
+        );
+        assert!(
+            signature.verify_aggregation(&pubkeys),
+            "Signature aggregation should be valid"
+        );
+
+        // Create and prove the aggregation circuit
         let aggregation_circuit = AggregationCircuit::<F, C, D>::new();
         let aggregation_value = AggregationValue::new(pubkeys, signature);
         let proof = aggregation_circuit
             .prove(&aggregation_value)
             .expect("Failed to prove aggregation circuit");
+
+        // Verify the proof
         aggregation_circuit
             .data
             .verify(proof)
-            .expect("Failed to verify aggregation circuit");
+            .expect("Failed to verify aggregation circuit proof");
+    }
+
+    /// Tests the public inputs conversion functions.
+    #[test]
+    fn test_aggregation_public_inputs_conversion() {
+        // Create random public inputs
+        let rng = &mut rand::thread_rng();
+        let pubkey_commitment = PoseidonHashOut::rand(rng);
+        let signature_commitment = PoseidonHashOut::rand(rng);
+        let is_valid = true;
+
+        // Create public inputs
+        let inputs = AggregationPublicInputs {
+            pubkey_commitment,
+            signature_commitment,
+            is_valid,
+        };
+
+        // Convert to u64 slice
+        let u64_vec = [
+            pubkey_commitment.to_u64_vec(),
+            signature_commitment.to_u64_vec(),
+            vec![if is_valid { 1 } else { 0 }],
+        ]
+        .concat();
+
+        // Convert back to AggregationPublicInputs
+        let recovered = AggregationPublicInputs::from_u64_slice(&u64_vec)
+            .expect("Failed to convert from u64 slice");
+
+        // Verify equality
+        assert_eq!(
+            recovered.pubkey_commitment, inputs.pubkey_commitment,
+            "Pubkey commitment should match after conversion"
+        );
+        assert_eq!(
+            recovered.signature_commitment, inputs.signature_commitment,
+            "Signature commitment should match after conversion"
+        );
+        assert_eq!(
+            recovered.is_valid, inputs.is_valid,
+            "Validity flag should match after conversion"
+        );
     }
 }

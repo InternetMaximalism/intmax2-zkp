@@ -761,7 +761,10 @@ where
             value,
         );
         let proof = self.data.prove(pw).map_err(|e| {
-            BlockValidationError::MainValidationProofGenerationFailed(e.to_string())
+            BlockValidationError::Plonky2Error(format!(
+                "Failed to prove main validation circuit: {}",
+                e
+            ))
         })?;
         Ok(proof)
     }
