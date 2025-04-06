@@ -21,7 +21,7 @@ mod tests {
         },
         common::{
             generic_address::GenericAddress, private_state::FullPrivateState, salt::Salt,
-            signature::key_set::KeySet, transfer::Transfer,
+            signature_content::key_set::KeySet, transfer::Transfer,
             witness::withdrawal_witness::WithdrawalWitness,
         },
         ethereum_types::{address::Address, bytes32::Bytes32, u32limb_trait::U32LimbTrait},

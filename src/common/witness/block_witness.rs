@@ -12,7 +12,7 @@ use crate::{
     common::{
         block::Block,
         error::CommonError,
-        signature::{utils::get_pubkey_hash, SignatureContent},
+        signature_content::{utils::get_pubkey_hash, SignatureContent},
         trees::{
             account_tree::{
                 AccountMembershipProof, AccountMerkleProof, AccountRegistrationProof, AccountTree,

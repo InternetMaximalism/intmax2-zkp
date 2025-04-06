@@ -345,7 +345,7 @@ mod tests {
     use rand::Rng as _;
 
     use crate::{
-        common::{signature::key_set::KeySet, trees::account_tree::AccountTree},
+        common::{signature_content::key_set::KeySet, trees::account_tree::AccountTree},
         constants::NUM_SENDERS_IN_BLOCK,
         ethereum_types::account_id::{AccountId, AccountIdPacked},
     };

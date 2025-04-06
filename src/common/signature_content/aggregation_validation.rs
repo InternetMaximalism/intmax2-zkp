@@ -16,7 +16,7 @@ use plonky2_bn254::{
 };
 
 use crate::{
-    common::signature::flatten::FlatG1,
+    common::signature_content::flatten::FlatG1,
     ethereum_types::{
         u256::{U256Target, U256},
         u32limb_trait::{U32LimbTargetTrait, U32LimbTrait},
@@ -114,7 +114,7 @@ mod tests {
     };
 
     use crate::{
-        common::signature::{SignatureContent, SignatureContentTarget},
+        common::signature_content::{SignatureContent, SignatureContentTarget},
         ethereum_types::{u256::U256Target, u32limb_trait::U32LimbTargetTrait as _},
     };
 

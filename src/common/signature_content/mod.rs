@@ -5,7 +5,7 @@ pub mod key_set;
 pub mod serialize;
 pub mod sign_tools;
 pub mod utils;
-pub mod verify;
+pub mod aggregation_validation;
 
 use ark_bn254::{Bn254, Fq, Fr, G1Affine, G2Affine};
 use ark_ec::{pairing::Pairing as _, AffineRepr as _};

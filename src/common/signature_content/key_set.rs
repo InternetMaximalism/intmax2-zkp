@@ -104,7 +104,7 @@ impl U256Target {
 
 #[cfg(test)]
 mod tests {
-    use crate::common::{signature::key_set::KeySet, trees::account_tree::AccountTree};
+    use crate::common::{signature_content::key_set::KeySet, trees::account_tree::AccountTree};
 
     #[test]
     fn dummy_key_account_id() {

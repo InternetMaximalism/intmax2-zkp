@@ -4,7 +4,7 @@ use plonky2::{
     plonk::config::{AlgebraicHasher, GenericConfig},
 };
 
-use crate::{common::signature::key_set::KeySet, mock::data::tx_data::TxData};
+use crate::{common::signature_content::key_set::KeySet, mock::data::tx_data::TxData};
 
 use crate::mock::{
     block_validity_prover::BlockValidityProver, data::meta_data::MetaData,

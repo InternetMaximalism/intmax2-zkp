@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     common::{
-        signature::key_set::KeySet, transfer::Transfer, trees::transfer_tree::TransferMerkleProof,
+        signature_content::key_set::KeySet, transfer::Transfer, trees::transfer_tree::TransferMerkleProof,
     },
     ethereum_types::u256::U256,
     utils::poseidon_hash_out::PoseidonHashOut,

@@ -6,7 +6,7 @@ use crate::{
     common::{
         deposit::{get_pubkey_salt_hash, Deposit},
         salt::Salt,
-        signature::key_set::KeySet,
+        signature_content::key_set::KeySet,
         transfer::Transfer,
         trees::transfer_tree::TransferTree,
         tx::Tx,

@@ -1,7 +1,7 @@
 use crate::{
     circuits::validity::block_validation::error::BlockValidationError,
     common::{
-        signature::utils::get_pubkey_hash_circuit,
+        signature_content::utils::get_pubkey_hash_circuit,
         trees::sender_tree::{get_sender_tree_root, get_sender_tree_root_circuit},
     },
     ethereum_types::{
@@ -41,7 +41,7 @@ use crate::{
     },
     common::{
         block::{Block, BlockTarget},
-        signature::{utils::get_pubkey_hash, SignatureContent, SignatureContentTarget},
+        signature_content::{utils::get_pubkey_hash, SignatureContent, SignatureContentTarget},
     },
     constants::NUM_SENDERS_IN_BLOCK,
     ethereum_types::{bytes32::Bytes32, u256::U256, u32limb_trait::U32LimbTargetTrait},

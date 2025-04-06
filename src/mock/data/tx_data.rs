@@ -4,7 +4,7 @@ use plonky2::{
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    common::{signature::key_set::KeySet, witness::spent_witness::SpentWitness},
+    common::{signature_content::key_set::KeySet, witness::spent_witness::SpentWitness},
     ethereum_types::u256::U256,
 };
 

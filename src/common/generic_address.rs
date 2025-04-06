@@ -18,7 +18,7 @@ use plonky2::{
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 
-use super::signature::key_set::KeySet;
+use super::signature_content::key_set::KeySet;
 
 pub const GENERIC_ADDRESS_LEN: usize = 1 + U256_LEN;
 

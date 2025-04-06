@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     common::{
         private_state::{FullPrivateState, PrivateState},
-        signature::key_set::KeySet,
+        signature_content::key_set::KeySet,
         trees::asset_tree::AssetLeaf,
     },
     ethereum_types::u256::U256,

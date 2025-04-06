@@ -17,7 +17,7 @@ mod tests {
         common::{
             deposit::{get_pubkey_salt_hash, Deposit},
             salt::Salt,
-            signature::key_set::KeySet,
+            signature_content::key_set::KeySet,
             witness::{claim_witness::ClaimWitness, deposit_time_witness::DepositTimeWitness},
         },
         ethereum_types::{

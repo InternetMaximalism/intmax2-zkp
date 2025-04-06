@@ -226,7 +226,7 @@ mod tests {
             deposit::{get_pubkey_salt_hash, Deposit},
             private_state::FullPrivateState,
             salt::Salt,
-            signature::key_set::KeySet,
+            signature_content::key_set::KeySet,
             transfer::Transfer,
             witness::{
                 deposit_witness::DepositWitness,

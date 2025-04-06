@@ -223,7 +223,7 @@ mod tests {
             },
             validity::validity_processor::ValidityProcessor,
         },
-        common::{private_state::FullPrivateState, signature::key_set::KeySet, transfer::Transfer},
+        common::{private_state::FullPrivateState, signature_content::key_set::KeySet, transfer::Transfer},
     };
 
     use super::TransferInclusionValue;

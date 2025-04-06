@@ -16,7 +16,7 @@ use crate::{
         format_validation::{FormatValidationCircuit, FormatValidationValue},
         main_validation::{MainValidationCircuit, MainValidationValue},
     },
-    common::{signature::utils::get_pubkey_hash, witness::block_witness::BlockWitness},
+    common::{signature_content::utils::get_pubkey_hash, witness::block_witness::BlockWitness},
 };
 
 #[derive(Debug)]
@@ -187,7 +187,7 @@ mod tests {
             },
         },
         common::{
-            signature::key_set::KeySet,
+            signature_content::key_set::KeySet,
             trees::{
                 account_tree::AccountTree, block_hash_tree::BlockHashTree,
                 deposit_tree::DepositTree,

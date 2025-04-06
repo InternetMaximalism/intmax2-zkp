@@ -13,7 +13,7 @@ use crate::{
         block_builder::{construct_signature, SenderWithSignature},
         private_state::FullPrivateState,
         salt::Salt,
-        signature::{
+        signature_content::{
             block_sign_payload::BlockSignPayload, key_set::KeySet, utils::get_pubkey_hash,
         },
         transfer::Transfer,
@@ -271,7 +271,7 @@ mod tests {
     use crate::{
         circuits::validity::validity_pis::ValidityPublicInputs,
         common::{
-            signature::key_set::KeySet,
+            signature_content::key_set::KeySet,
             trees::{
                 account_tree::AccountTree, block_hash_tree::BlockHashTree,
                 deposit_tree::DepositTree,

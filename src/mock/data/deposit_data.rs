@@ -5,7 +5,7 @@ use crate::{
     common::{
         deposit::{get_pubkey_salt_hash, Deposit},
         salt::Salt,
-        signature::key_set::KeySet,
+        signature_content::key_set::KeySet,
     },
     ethereum_types::{bytes32::Bytes32, u256::U256},
     utils::leafable::Leafable,

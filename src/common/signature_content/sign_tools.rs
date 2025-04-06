@@ -156,7 +156,7 @@ mod tests {
     };
 
     use crate::{
-        common::signature::{
+        common::signature_content::{
             key_set::KeySet,
             block_sign_payload::{hash_to_weight, hash_to_weight_circuit},
             sign_tools::{

@@ -17,7 +17,7 @@ use super::error::BlockValidationError;
 
 use crate::{
     circuits::validity::block_validation::utils::get_pubkey_commitment_circuit,
-    common::signature::{SignatureContent, SignatureContentTarget},
+    common::signature_content::{SignatureContent, SignatureContentTarget},
     constants::NUM_SENDERS_IN_BLOCK,
     ethereum_types::{
         u256::{U256Target, U256},

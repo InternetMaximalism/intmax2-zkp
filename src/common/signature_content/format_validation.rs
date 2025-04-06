@@ -15,7 +15,7 @@ use plonky2_bn254::{
 };
 
 use crate::{
-    common::signature::pubkey_range_check,
+    common::signature_content::pubkey_range_check,
     constants::NUM_SENDERS_IN_BLOCK,
     ethereum_types::{
         bytes16::Bytes16,
@@ -138,7 +138,7 @@ mod tests {
     use plonky2_bn254::fields::recover::RecoverFromX;
 
     use crate::{
-        common::signature::{SignatureContent, SignatureContentTarget},
+        common::signature_content::{SignatureContent, SignatureContentTarget},
         ethereum_types::{u256::U256Target, u32limb_trait::U32LimbTargetTrait as _},
     };
 

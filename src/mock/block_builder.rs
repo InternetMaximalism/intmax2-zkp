@@ -1,7 +1,7 @@
 use crate::{
     common::{
         block_builder::{construct_signature, BlockProposal, SenderWithSignature, UserSignature},
-        signature::{block_sign_payload::BlockSignPayload, utils::get_pubkey_hash},
+        signature_content::{block_sign_payload::BlockSignPayload, utils::get_pubkey_hash},
         trees::tx_tree::TxTree,
         tx::Tx,
     },
@@ -328,7 +328,7 @@ impl BlockBuilder {
 mod tests {
     use super::BlockBuilder;
     use crate::{
-        common::{signature::key_set::KeySet, tx::Tx},
+        common::{signature_content::key_set::KeySet, tx::Tx},
         mock::{block_validity_prover::BlockValidityProver, contract::MockContract},
     };
     use plonky2::{

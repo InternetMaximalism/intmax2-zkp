@@ -277,7 +277,7 @@ mod tests {
 
     use crate::{
         common::{
-            signature::key_set::KeySet,
+            signature_content::key_set::KeySet,
             trees::{account_tree::AccountTree, sender_tree::get_sender_leaves},
         },
         ethereum_types::{bytes16::Bytes16, u256::U256, u32limb_trait::U32LimbTrait as _},

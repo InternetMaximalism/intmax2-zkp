@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     common::{
         error::CommonError,
-        signature::{
+        signature_content::{
             block_sign_payload::{hash_to_weight, BlockSignPayload},
             flatten::FlatG1,
             utils::get_pubkey_hash,
@@ -20,7 +20,7 @@ use crate::{
 };
 
 use super::{
-    signature::{flatten::FlatG2, key_set::KeySet, SignatureContent},
+    signature_content::{flatten::FlatG2, key_set::KeySet, SignatureContent},
     trees::tx_tree::TxMerkleProof,
     tx::Tx,
 };

@@ -325,7 +325,7 @@ mod tests {
     };
 
     use crate::{
-        common::{signature::key_set::KeySet, trees::account_tree::AccountTree},
+        common::{signature_content::key_set::KeySet, trees::account_tree::AccountTree},
         constants::NUM_SENDERS_IN_BLOCK,
         ethereum_types::u256::U256,
     };

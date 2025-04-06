@@ -7,7 +7,7 @@ use crate::{
     common::{
         block::Block,
         deposit::Deposit,
-        signature::{
+        signature_content::{
             block_sign_payload::BlockSignPayload,
             flatten::{FlatG1, FlatG2},
             utils::get_pubkey_hash,

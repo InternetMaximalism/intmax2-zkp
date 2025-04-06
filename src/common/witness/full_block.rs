@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     common::{
         block::Block,
-        signature::SignatureContent,
+        signature_content::SignatureContent,
         trees::{account_tree::AccountTree, block_hash_tree::BlockHashTree},
         witness::block_witness::BlockWitness,
     },

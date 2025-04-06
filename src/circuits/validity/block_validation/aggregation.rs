@@ -18,7 +18,7 @@ use super::error::BlockValidationError;
 
 use crate::{
     circuits::validity::block_validation::utils::get_pubkey_commitment_circuit,
-    common::signature::{SignatureContent, SignatureContentTarget},
+    common::signature_content::{SignatureContent, SignatureContentTarget},
     constants::NUM_SENDERS_IN_BLOCK,
     ethereum_types::{
         u256::{U256Target, U256},
@@ -76,10 +76,10 @@ impl AggregationPublicInputsTarget {
             .chain(self.signature_commitment.elements)
             .chain([self.is_valid.target])
             .collect::<Vec<_>>();
-        
+
         // This is a sanity check that should never fail if the code is correct
         debug_assert_eq!(vec.len(), AGGREGATION_PUBLIC_INPUTS_LEN);
-        
+
         vec
     }
 
@@ -90,11 +90,11 @@ impl AggregationPublicInputsTarget {
                 actual: input.len(),
             });
         }
-        
+
         let pubkey_commitment = PoseidonHashOutTarget::from_slice(&input[0..4]);
         let signature_commitment = PoseidonHashOutTarget::from_slice(&input[4..8]);
         let is_valid = BoolTarget::new_unsafe(input[8]);
-        
+
         Ok(Self {
             pubkey_commitment,
             signature_commitment,
@@ -191,7 +191,7 @@ where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F> + 'static,
     C::Hasher: AlgebraicHasher<F>,
- {
+{
     fn default() -> Self {
         Self::new()
     }
@@ -232,7 +232,51 @@ where
     ) -> Result<ProofWithPublicInputs<F, C, D>, BlockValidationError> {
         let mut pw = PartialWitness::<F>::new();
         self.target.set_witness(&mut pw, value);
-        self.data.prove(pw)
+        self.data
+            .prove(pw)
             .map_err(|e| BlockValidationError::Plonky2Error(e.to_string()))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::common::signature_content::SignatureContent;
+    use plonky2::{
+        field::goldilocks_field::GoldilocksField,
+        iop::witness::{PartialWitness, WitnessWrite as _},
+        plonk::config::PoseidonGoldilocksConfig,
+    };
+    use rand::thread_rng;
+
+    type F = GoldilocksField;
+    const D: usize = 2;
+    type C = PoseidonGoldilocksConfig;
+
+    #[test]
+    fn test_aggregation() {
+        let rng = &mut rand::thread_rng();
+        let (keyset, signature) = SignatureContent::rand(rng);
+        let pubkeys = keyset
+            .iter()
+            .map(|keyset| keyset.pubkey)
+            .collect::<Vec<_>>();
+        assert!(signature.is_valid_format(&pubkeys));
+        assert!(signature.verify_aggregation(&pubkeys));
+
+        let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::default());
+        let pubkeys_t = pubkeys
+            .iter()
+            .map(|x| U256Target::constant(&mut builder, *x))
+            .collect::<Vec<_>>();
+        let signature_t = SignatureContentTarget::constant(&mut builder, &signature);
+        let result = signature_t.verify_aggregation::<F, C, D>(&mut builder, &pubkeys_t);
+
+        let mut pw = PartialWitness::new();
+        pw.set_bool_target(result, true);
+
+        let circuit = builder.build::<C>();
+        let proof = circuit.prove(pw).unwrap();
+        assert!(circuit.verify(proof).is_ok());
     }
 }

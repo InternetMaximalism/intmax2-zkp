@@ -14,7 +14,7 @@ use std::env;
 use crate::{
     circuits::balance::balance_processor::BalanceProcessor,
     common::{
-        generic_address::GenericAddress, salt::Salt, signature::key_set::KeySet,
+        generic_address::GenericAddress, salt::Salt, signature_content::key_set::KeySet,
         transfer::Transfer, trees::asset_tree::AssetLeaf,
     },
     ethereum_types::{address::Address, u32limb_trait::U32LimbTrait as _},
