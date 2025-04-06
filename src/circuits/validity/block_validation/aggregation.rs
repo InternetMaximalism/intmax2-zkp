@@ -243,18 +243,15 @@ mod tests {
     use super::*;
     use crate::common::signature_content::SignatureContent;
     use plonky2::{
-        field::goldilocks_field::GoldilocksField,
-        iop::witness::{PartialWitness, WitnessWrite as _},
-        plonk::config::PoseidonGoldilocksConfig,
+        field::goldilocks_field::GoldilocksField, plonk::config::PoseidonGoldilocksConfig,
     };
-    use rand::thread_rng;
 
     type F = GoldilocksField;
     const D: usize = 2;
     type C = PoseidonGoldilocksConfig;
 
     #[test]
-    fn test_aggregation() {
+    fn test_aggregation_circuit() {
         let rng = &mut rand::thread_rng();
         let (keyset, signature) = SignatureContent::rand(rng);
         let pubkeys = keyset
@@ -264,19 +261,14 @@ mod tests {
         assert!(signature.is_valid_format(&pubkeys));
         assert!(signature.verify_aggregation(&pubkeys));
 
-        let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::default());
-        let pubkeys_t = pubkeys
-            .iter()
-            .map(|x| U256Target::constant(&mut builder, *x))
-            .collect::<Vec<_>>();
-        let signature_t = SignatureContentTarget::constant(&mut builder, &signature);
-        let result = signature_t.verify_aggregation::<F, C, D>(&mut builder, &pubkeys_t);
-
-        let mut pw = PartialWitness::new();
-        pw.set_bool_target(result, true);
-
-        let circuit = builder.build::<C>();
-        let proof = circuit.prove(pw).unwrap();
-        assert!(circuit.verify(proof).is_ok());
+        let aggregation_circuit = AggregationCircuit::<F, C, D>::new();
+        let aggregation_value = AggregationValue::new(pubkeys, signature);
+        let proof = aggregation_circuit
+            .prove(&aggregation_value)
+            .expect("Failed to prove aggregation circuit");
+        aggregation_circuit
+            .data
+            .verify(proof)
+            .expect("Failed to verify aggregation circuit");
     }
 }
