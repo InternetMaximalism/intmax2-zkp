@@ -1,8 +1,8 @@
 use thiserror::Error;
 
-use crate::circuits::balance::receive::error::ReceiveError;
-use crate::circuits::balance::send::error::SendError;
-use crate::circuits::balance::transition::error::TransitionError;
+use crate::circuits::balance::{
+    receive::error::ReceiveError, send::error::SendError, transition::error::TransitionError,
+};
 
 #[derive(Debug, Error)]
 pub enum BalanceError {
@@ -29,10 +29,4 @@ pub enum BalanceError {
 
     #[error("Other error: {0}")]
     Other(String),
-}
-
-impl From<anyhow::Error> for BalanceError {
-    fn from(err: anyhow::Error) -> Self {
-        BalanceError::Other(format!("{:?}", err))
-    }
 }

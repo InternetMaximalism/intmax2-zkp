@@ -1,8 +1,10 @@
-use crate::ethereum_types::{
-    bytes32::Bytes32Target,
-    u32limb_trait::{U32LimbTargetTrait as _, U32LimbTrait as _},
+use crate::{
+    ethereum_types::{
+        bytes32::Bytes32Target,
+        u32limb_trait::{U32LimbTargetTrait as _, U32LimbTrait as _},
+    },
+    utils::error::PoseidonHashOutError,
 };
-use anyhow::ensure;
 use core::fmt::Display;
 use plonky2::{
     field::{
@@ -248,13 +250,15 @@ impl Bytes32 {
 }
 
 impl TryFrom<Bytes32> for PoseidonHashOut {
-    type Error = anyhow::Error;
+    type Error = PoseidonHashOutError;
     // Convert Bytes32 to HashOut.
     /// Bytes32 has a larger representation space than HashOut, so this might fail.
     fn try_from(value: Bytes32) -> Result<Self, Self::Error> {
         let hash_out = value.reduce_to_hash_out();
         let recovered: Bytes32 = hash_out.into();
-        ensure!(value == recovered, "Failed to recover HashOut from Bytes32");
+        if value != recovered {
+            return Err(PoseidonHashOutError::RecoveryFailed);
+        }
         Ok(hash_out)
     }
 }

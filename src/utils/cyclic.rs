@@ -1,4 +1,7 @@
-use anyhow::{ensure, Result};
+use crate::utils::error::CyclicError;
+use std::result::Result as StdResult;
+
+type Result<T> = StdResult<T, CyclicError>;
 use plonky2::{
     field::extension::Extendable,
     hash::{
@@ -55,7 +58,9 @@ where
 {
     let cap_len = config.fri_config.num_cap_elements();
     let len = slice.len();
-    ensure!(len >= 4 + 4 * cap_len, "Not enough public inputs");
+    if len < 4 + 4 * cap_len {
+        return Err(CyclicError::NotEnoughPublicInputs);
+    }
     let constants_sigmas_cap = MerkleCap(
         (0..cap_len)
             .map(|i| HashOut {
@@ -78,7 +83,9 @@ pub fn vd_from_pis_slice_target(
 ) -> Result<VerifierCircuitTarget> {
     let cap_len = config.fri_config.num_cap_elements();
     let len = slice.len();
-    ensure!(len >= 4 + 4 * cap_len, "Not enough public inputs");
+    if len < 4 + 4 * cap_len {
+        return Err(CyclicError::NotEnoughPublicInputs);
+    }
     let constants_sigmas_cap = MerkleCapTarget(
         (0..cap_len)
             .map(|i| HashOutTarget {

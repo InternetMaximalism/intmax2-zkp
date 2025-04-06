@@ -1,4 +1,4 @@
-use anyhow::ensure;
+use crate::common::error::CommonError;
 use plonky2::{
     field::extension::Extendable,
     hash::hash_types::RichField,
@@ -39,11 +39,10 @@ where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
 {
-    pub fn prev_account_membership_proof(&self) -> anyhow::Result<AccountMembershipProof> {
-        ensure!(
-            self.is_prev_account_tree,
-            "prev account tree is not available"
-        );
+    pub fn prev_account_membership_proof(&self) -> Result<AccountMembershipProof, CommonError> {
+        if !self.is_prev_account_tree {
+            return Err(CommonError::InvalidWitness("prev account tree is not available".to_string()));
+        }
         Ok(self.account_membership_proof.clone())
     }
 
