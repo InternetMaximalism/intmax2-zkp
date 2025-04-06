@@ -207,10 +207,11 @@ where
     pub fn prove(
         &self,
         value: &FormatValidationValue,
-    ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
+    ) -> Result<ProofWithPublicInputs<F, C, D>, BlockValidationError> {
         let mut pw = PartialWitness::<F>::new();
         self.target.set_witness(&mut pw, value);
         self.data.prove(pw)
+            .map_err(|e| BlockValidationError::Plonky2Error(e.to_string()))
     }
 }
 

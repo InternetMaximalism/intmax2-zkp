@@ -1,5 +1,4 @@
 use crate::{ethereum_types::bytes32::Bytes32, utils::poseidon_hash_out::PoseidonHashOut};
-use anyhow::Error as AnyhowError;
 
 #[derive(Debug, thiserror::Error)]
 pub enum BlockValidationError {
@@ -70,10 +69,4 @@ pub enum BlockValidationError {
 
     #[error("Main validation proof generation failed: {0}")]
     MainValidationProofGenerationFailed(String),
-}
-
-impl From<AnyhowError> for BlockValidationError {
-    fn from(err: AnyhowError) -> Self {
-        BlockValidationError::Plonky2Error(err.to_string())
-    }
 }

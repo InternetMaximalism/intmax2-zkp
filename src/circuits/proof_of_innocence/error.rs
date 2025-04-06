@@ -17,10 +17,7 @@ pub enum InnocenceError {
     NoDeposits,
 
     #[error("Invalid nullifier tree root: expected {expected}, got {actual}")]
-    InvalidNullifierTreeRoot {
-        expected: String,
-        actual: String,
-    },
+    InvalidNullifierTreeRoot { expected: String, actual: String },
 
     #[error("Allow list membership proof verification failed: {0}")]
     AllowListMembershipProofVerificationFailed(String),
@@ -52,27 +49,21 @@ pub enum InnocenceError {
     #[error("Failed to verify innocence wrap circuit: {0}")]
     InnocenceWrapCircuitVerificationFailed(String),
 
-    #[error("use_allow_list is not equal to the expected value: expected {expected}, got {actual}")]
+    #[error(
+        "use_allow_list is not equal to the expected value: expected {expected}, got {actual}"
+    )]
     UseAllowListMismatch { expected: bool, actual: bool },
 
     #[error("allow_list_tree_root is not equal to the expected value: expected {expected}, got {actual}")]
-    AllowListTreeRootMismatch {
-        expected: String,
-        actual: String,
-    },
+    AllowListTreeRootMismatch { expected: String, actual: String },
 
-    #[error("deny_list_tree_root is not equal to the expected value: expected {expected}, got {actual}")]
-    DenyListTreeRootMismatch {
-        expected: String,
-        actual: String,
-    },
+    #[error(
+        "deny_list_tree_root is not equal to the expected value: expected {expected}, got {actual}"
+    )]
+    DenyListTreeRootMismatch { expected: String, actual: String },
 
-    #[error("private_commitment is not equal to the expected value: expected {expected}, got {actual}")]
-    PrivateCommitmentMismatch {
-        expected: String,
-        actual: String,
-    },
-
-    #[error(transparent)]
-    Other(#[from] anyhow::Error),
+    #[error(
+        "private_commitment is not equal to the expected value: expected {expected}, got {actual}"
+    )]
+    PrivateCommitmentMismatch { expected: String, actual: String },
 }
