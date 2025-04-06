@@ -11,6 +11,7 @@ mod tests {
 
     use crate::{
         circuits::{
+            claim::determine_lock_time::LockTimeConfig,
             test_utils::state_manager::ValidityStateManager,
             validity::validity_processor::ValidityProcessor,
         },
@@ -33,12 +34,13 @@ mod tests {
         },
         wrapper_config::plonky2_config::PoseidonBN128GoldilocksConfig,
     };
+    use base64::{prelude::BASE64_STANDARD, Engine};
     use plonky2::{
         field::goldilocks_field::GoldilocksField, plonk::config::PoseidonGoldilocksConfig,
     };
     use rand::Rng as _;
 
-    use super::{determine_lock_time::LOCK_TIME_MAX, single_claim_processor::SingleClaimProcessor};
+    use super::single_claim_processor::SingleClaimProcessor;
 
     type F = GoldilocksField;
     type C = PoseidonGoldilocksConfig;
@@ -47,12 +49,15 @@ mod tests {
 
     #[test]
     fn test_claim() {
+        // 
+        let lock_config = LockTimeConfig::normal();
+
         let mut rng = rand::thread_rng();
         let validity_processor = Arc::new(ValidityProcessor::<F, C, D>::new());
         let mut validity_state_manager =
             ValidityStateManager::new(validity_processor.clone(), Address::default());
         let single_claim_processor =
-            SingleClaimProcessor::new(&validity_processor.get_verifier_data());
+            SingleClaimProcessor::new(&validity_processor.get_verifier_data(), &lock_config);
         let claim_processor = HashChainProcessor::new(&single_claim_processor.get_verifier_data());
 
         let key = KeySet::rand(&mut rng);
@@ -74,7 +79,7 @@ mod tests {
 
         // lock time max passed in this block
         validity_state_manager
-            .tick(false, &[], 0, LOCK_TIME_MAX as u64)
+            .tick(false, &[], 0, lock_config.lock_time_max as u64)
             .unwrap();
 
         let update_witness = validity_state_manager
@@ -134,24 +139,44 @@ mod tests {
             final_circuit.data.common.degree_bits()
         );
 
+        let claim_name = if lock_config == LockTimeConfig::faster() {
+            "faster_claim"
+        } else {
+            "claim"
+        };
+
+        // for test data
+        let single_claim_proof_bytes = bincode::serialize(&single_claim_proof).unwrap();
+        let single_claim_proof_str = BASE64_STANDARD.encode(single_claim_proof_bytes);
+        std::fs::write(
+            format!(
+                "circuit_data/{}/single_{}_proof.txt",
+                claim_name, claim_name
+            ),
+            single_claim_proof_str,
+        )
+        .unwrap();
+
         let final_proof_str = serde_json::to_string_pretty(&final_proof).unwrap();
         let final_circuit_vd =
             serde_json::to_string_pretty(&final_circuit.data.verifier_only).unwrap();
         let final_circuit_cd = serde_json::to_string_pretty(&final_circuit.data.common).unwrap();
         // save to files
-        std::fs::create_dir_all("circuit_data/claim").unwrap();
         std::fs::write(
-            "circuit_data/claim/proof_with_public_inputs.json",
+            format!("circuit_data/{}/proof_with_public_inputs.json", claim_name),
             final_proof_str,
         )
         .unwrap();
         std::fs::write(
-            "circuit_data/claim/verifier_only_circuit_data.json",
+            format!(
+                "circuit_data/{}/verifier_only_circuit_data.json",
+                claim_name
+            ),
             final_circuit_vd,
         )
         .unwrap();
         std::fs::write(
-            "circuit_data/claim/common_circuit_data.json",
+            format!("circuit_data/{}/common_circuit_data.json", claim_name),
             final_circuit_cd,
         )
         .unwrap();

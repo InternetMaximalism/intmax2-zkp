@@ -36,7 +36,7 @@ use crate::{
     utils::leafable::{Leafable, LeafableTarget},
 };
 
-use super::determine_lock_time::DetermineLockTimeTarget;
+use super::determine_lock_time::{DetermineLockTimeTarget, LockTimeConfig};
 
 const DEPOSIT_TIME_PUBLIC_INPUTS_LEN: usize =
     U256_LEN + BYTES32_LEN + U256_LEN + 1 + U64_LEN + BYTES32_LEN + 1;
@@ -178,6 +178,7 @@ pub struct DepositTimeValue {
 impl DepositTimeValue {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
+        config: &LockTimeConfig,
         prev_block: &Block,
         block: &Block,
         prev_deposit_merkle_proof: &DepositMerkleProof,
@@ -227,7 +228,8 @@ impl DepositTimeValue {
 
         let nullifier = get_mining_deposit_nullifier(deposit, deposit_salt);
         let block_hash = block.hash();
-        let determine_lock_time_value = DetermineLockTimeValue::new(block_hash, deposit_salt);
+        let determine_lock_time_value =
+            DetermineLockTimeValue::new(config, block_hash, deposit_salt);
 
         Ok(Self {
             prev_block: prev_block.clone(),
@@ -264,6 +266,7 @@ impl DepositTimeTarget {
     pub fn new<F: RichField + Extendable<D>, C: GenericConfig<D, F = F> + 'static, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
         is_checked: bool,
+        config: &LockTimeConfig,
     ) -> Self
     where
         <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
@@ -303,7 +306,7 @@ impl DepositTimeTarget {
         let nullifier = get_mining_deposit_nullifier_circuit(builder, &deposit, deposit_salt);
         let block_hash = block.hash::<F, C, D>(builder);
 
-        let determine_lock_time_target = DetermineLockTimeTarget::new(builder, is_checked);
+        let determine_lock_time_target = DetermineLockTimeTarget::new(builder, is_checked, config);
         determine_lock_time_target
             .block_hash
             .connect(builder, block_hash);
@@ -360,27 +363,16 @@ where
     pub target: DepositTimeTarget,
 }
 
-impl<F, C, const D: usize> Default for DepositTimeCircuit<F, C, D>
-where
-    F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F> + 'static,
-    C::Hasher: AlgebraicHasher<F>,
-{
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 impl<F, C, const D: usize> DepositTimeCircuit<F, C, D>
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F> + 'static,
     C::Hasher: AlgebraicHasher<F>,
 {
-    pub fn new() -> Self {
+    pub fn new(lock_config: &LockTimeConfig) -> Self {
         let config = CircuitConfig::default();
         let mut builder = CircuitBuilder::<F, D>::new(config.clone());
-        let target = DepositTimeTarget::new::<F, C, D>(&mut builder, true);
+        let target = DepositTimeTarget::new::<F, C, D>(&mut builder, true, lock_config);
         let pis = DepositTimePublicInputsTarget {
             pubkey: target.pubkey,
             nullifier: target.nullifier,
@@ -433,6 +425,7 @@ mod tests {
 
     #[test]
     fn test_deposit_time_circuit() {
+        let lock_config = super::LockTimeConfig::normal();
         let mut rng = rand::thread_rng();
 
         let pubkey = U256::rand(&mut rng);
@@ -475,6 +468,7 @@ mod tests {
         let deposit_merkle_proof = deposit_tree.prove(deposit_index as u64);
 
         let value = super::DepositTimeValue::new(
+            &lock_config,
             &prev_block,
             &block,
             &prev_deposit_merkle_proof,
@@ -486,7 +480,7 @@ mod tests {
         )
         .unwrap();
 
-        let circuit = super::DepositTimeCircuit::<F, C, D>::new();
+        let circuit = super::DepositTimeCircuit::<F, C, D>::new(&lock_config);
         let _proof = circuit.prove(&value).unwrap();
     }
 }
