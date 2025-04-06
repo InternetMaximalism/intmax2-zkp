@@ -13,6 +13,14 @@
 //! It verifies that:
 //! 1. The weighted sum of the public keys equals the aggregate public key in the signature
 //! 2. The commitments correctly bind the public keys and signature
+//!
+//! IMPORTANT: This circuit assumes that format validation has already been performed on the
+//! pubkeys and signature content. If the format validation is not passed, the proof generation
+//! will fail. Format validation ensures that:
+//! - Pubkeys are in the correct range and properly ordered
+//! - Pubkeys are recoverable from their x-coordinates
+//! - The signature content has a valid format
+//! - The message point is correctly derived from the block sign payload
 
 use plonky2::{
     field::extension::Extendable,
