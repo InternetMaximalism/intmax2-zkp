@@ -16,6 +16,4 @@ pub enum HashChainError {
     Plonky2Error(String),
 }
 
-// No direct From implementation for CircuitDataError since it doesn't exist
-
 pub type Result<T> = std::result::Result<T, HashChainError>;
