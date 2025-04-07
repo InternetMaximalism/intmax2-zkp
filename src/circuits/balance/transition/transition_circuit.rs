@@ -234,7 +234,9 @@ where
                         .iter()
                         .map(|x| x.to_canonical_u64())
                         .collect::<Vec<_>>(),
-                );
+                ).map_err(|e| TransitionError::VerificationFailed(
+                    format!("Failed to parse sender_proof public inputs: {}", e)
+                ))?;
                 
                 if pis.prev_balance_pis != prev_balance_pis {
                     return Err(TransitionError::VerificationFailed(

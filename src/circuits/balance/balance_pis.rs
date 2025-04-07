@@ -104,6 +104,13 @@ impl BalancePublicInputs {
     }
 
     pub fn from_pis<F: PrimeField64>(pis: &[F]) -> Result<Self, BalanceError> {
+        if pis.len() < BALANCE_PUBLIC_INPUTS_LEN {
+            return Err(BalanceError::InvalidInput(format!(
+                "Public inputs length too short: expected at least {}, got {}",
+                BALANCE_PUBLIC_INPUTS_LEN,
+                pis.len()
+            )));
+        }
         Self::from_u64_slice(&pis[0..BALANCE_PUBLIC_INPUTS_LEN].to_u64_vec())
     }
 

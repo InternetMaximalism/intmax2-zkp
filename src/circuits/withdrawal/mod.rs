@@ -104,7 +104,7 @@ mod tests {
             withdrawal_processor.prove_end(&chained_withdrawal_proof, aggregator)?;
 
         // public inputs check
-        let withdrawal = withdrawal_witness.to_withdrawal();
+        let withdrawal = withdrawal_witness.to_withdrawal()?;
         let mut hash = Bytes32::default();
         hash = hash_with_prev_hash(&withdrawal.to_u32_vec(), hash);
         let expected_end_withdrawal_pis = ChainEndProofPublicInputs {

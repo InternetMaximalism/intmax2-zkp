@@ -147,10 +147,10 @@ where
     ) -> Result<ProofWithPublicInputs<F, C, D>, BalanceError> {
         // validation of public inputs equivalence
         let transition_prev_balance_pis =
-            BalancePublicInputs::from_pis(&transition_proof.public_inputs);
+            BalancePublicInputs::from_pis(&transition_proof.public_inputs)?;
         if prev_proof.is_some() {
             let prev_balance_pis =
-                BalancePublicInputs::from_pis(&prev_proof.as_ref().unwrap().public_inputs);
+                BalancePublicInputs::from_pis(&prev_proof.as_ref().unwrap().public_inputs)?;
             if transition_prev_balance_pis != prev_balance_pis {
                 return Err(BalanceError::VerificationFailed(format!(
                     "Previous balance public inputs mismatch: expected {:?}, got {:?}",

@@ -117,7 +117,8 @@ where
     C: GenericConfig<D, F = F> + 'static,
     <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
 {
-    let sender_balance_pis = BalancePublicInputs::from_pis(&sender_balance_proof.public_inputs);
+    let sender_balance_pis = BalancePublicInputs::from_pis(&sender_balance_proof.public_inputs)
+        .map_err(|e| anyhow::anyhow!("Failed to parse sender balance public inputs: {:?}", e))?;
     ensure!(
         sender_balance_pis.public_state.block_number <= receive_block_number,
         "receive block number is not greater than sender's block number"

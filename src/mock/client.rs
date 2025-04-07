@@ -558,7 +558,8 @@ impl Client {
             meta.block_number.unwrap(),
             &tx_data.common,
         )?;
-        let balance_pis = BalancePublicInputs::from_pis(&balance_proof.public_inputs);
+        let balance_pis = BalancePublicInputs::from_pis(&balance_proof.public_inputs)
+            .map_err(|e| anyhow::anyhow!("Failed to parse balance public inputs: {:?}", e))?;
         ensure!(
             balance_pis.public_state.block_number == meta.block_number.unwrap(),
             "block number mismatch"

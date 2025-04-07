@@ -39,34 +39,38 @@ where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
 {
-    pub fn to_withdrawal(&self) -> Withdrawal {
-        let balance_pis = BalancePublicInputs::from_pis(&self.balance_proof.public_inputs);
-        assert_eq!(
-            balance_pis.last_tx_hash,
-            self.transfer_witness.tx.hash(),
-            "last tx hash mismatch"
-        );
+    pub fn to_withdrawal(&self) -> Result<Withdrawal, CommonError> {
+        let balance_pis = BalancePublicInputs::from_pis(&self.balance_proof.public_inputs)
+            .map_err(|e| CommonError::InvalidData(format!("Failed to parse balance public inputs: {}", e)))?;
+            
+        if balance_pis.last_tx_hash != self.transfer_witness.tx.hash() {
+            return Err(CommonError::InvalidData(
+                "last tx hash mismatch".to_string()
+            ));
+        }
+        
         #[cfg(not(feature = "skip_insufficient_check"))]
-        assert!(
-            !balance_pis
-                .last_tx_insufficient_flags
-                .random_access(self.transfer_witness.transfer_index as usize),
-            "insufficient flag is true"
-        );
+        if balance_pis
+            .last_tx_insufficient_flags
+            .random_access(self.transfer_witness.transfer_index as usize)
+        {
+            return Err(CommonError::InvalidData(
+                "insufficient flag is true".to_string()
+            ));
+        }
+        
         let transfer = self.transfer_witness.transfer;
         let nullifier = get_withdrawal_nullifier(&transfer);
-        let recipient = transfer
-            .recipient
-            .to_address()
-            .expect("recipient is not an eth address");
-        Withdrawal {
+        let recipient = transfer.recipient.to_address()?;
+            
+        Ok(Withdrawal {
             recipient,
             token_index: transfer.token_index,
             amount: transfer.amount,
             nullifier,
             block_hash: balance_pis.public_state.block_hash,
             block_number: balance_pis.public_state.block_number,
-        }
+        })
     }
 
     pub fn to_transition_inclusion_value(

@@ -55,16 +55,25 @@ impl SenderPublicInputs {
         vec
     }
 
-    pub fn from_u64_slice(vec: &[u64]) -> Self {
-        assert_eq!(vec.len(), SENDER_PUBLIC_INPUTS_LEN);
-        let prev_balance_pis =
-            BalancePublicInputs::from_u64_slice(&vec[..BALANCE_PUBLIC_INPUTS_LEN]);
-        let new_balance_pis =
-            BalancePublicInputs::from_u64_slice(&vec[BALANCE_PUBLIC_INPUTS_LEN..]);
-        Self {
+    pub fn from_u64_slice(vec: &[u64]) -> Result<Self, super::error::SendError> {
+        if vec.len() != SENDER_PUBLIC_INPUTS_LEN {
+            return Err(super::error::SendError::InvalidInput(format!(
+                "Sender public inputs length mismatch: expected {}, got {}",
+                SENDER_PUBLIC_INPUTS_LEN,
+                vec.len()
+            )));
+        }
+        
+        let prev_balance_pis = BalancePublicInputs::from_u64_slice(&vec[..BALANCE_PUBLIC_INPUTS_LEN])
+            .map_err(|e| super::error::SendError::InvalidInput(format!("Invalid prev balance public inputs: {:?}", e)))?;
+            
+        let new_balance_pis = BalancePublicInputs::from_u64_slice(&vec[BALANCE_PUBLIC_INPUTS_LEN..])
+            .map_err(|e| super::error::SendError::InvalidInput(format!("Invalid new balance public inputs: {:?}", e)))?;
+            
+        Ok(Self {
             prev_balance_pis,
             new_balance_pis,
-        }
+        })
     }
 }
 

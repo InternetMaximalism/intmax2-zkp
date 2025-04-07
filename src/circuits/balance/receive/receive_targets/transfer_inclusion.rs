@@ -56,7 +56,10 @@ where
         tx: &Tx,
         balance_proof: &ProofWithPublicInputs<F, C, D>,
     ) -> Result<Self, ReceiveTargetsError> {
-        let balance_pis = BalancePublicInputs::from_pis(&balance_proof.public_inputs);
+        let balance_pis = BalancePublicInputs::from_pis(&balance_proof.public_inputs)
+            .map_err(|e| ReceiveTargetsError::VerificationFailed(
+                format!("Failed to parse balance public inputs: {}", e)
+            ))?;
         let balance_circuit_vd = vd_from_pis_slice::<F, C, D>(
             &balance_proof.public_inputs,
             &balance_verifier_data.common.config,

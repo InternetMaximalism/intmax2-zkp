@@ -65,20 +65,28 @@ where
     }
 
     pub fn save_balance_proof(&mut self, pubkey: U256, proof: ProofWithPublicInputs<F, C, D>) {
-        let balance_pis = BalancePublicInputs::from_pis(&proof.public_inputs);
-        log::info!(
-            "saving balance proof for pubkey: {}, block_number: {}, private commitment: {}",
-            pubkey,
-            balance_pis.public_state.block_number,
-            balance_pis.private_commitment
-        );
-        // todo: add proof verification & duplicate check
-        self.balance_proofs
-            .entry(pubkey)
-            .or_default()
-            .entry(balance_pis.public_state.block_number)
-            .or_insert_with(Vec::new)
-            .push(proof);
+        let result = BalancePublicInputs::from_pis(&proof.public_inputs);
+        match result {
+            Ok(balance_pis) => {
+                log::info!(
+                    "saving balance proof for pubkey: {}, block_number: {}, private commitment: {}",
+                    pubkey,
+                    balance_pis.public_state.block_number,
+                    balance_pis.private_commitment
+                );
+                // todo: add proof verification & duplicate check
+                self.balance_proofs
+                    .entry(pubkey)
+                    .or_default()
+                    .entry(balance_pis.public_state.block_number)
+                    .or_insert_with(Vec::new)
+                    .push(proof);
+            }
+            Err(e) => {
+                log::error!("Failed to parse balance public inputs: {:?}", e);
+                // We don't save the proof if we can't parse the public inputs
+            }
+        }
     }
 
     pub fn get_balance_proof(
@@ -100,9 +108,18 @@ where
         let proofs = proofs.get(&block_number).unwrap_or(&empty);
 
         for proof in proofs.iter() {
-            let balance_pis = BalancePublicInputs::from_pis(&proof.public_inputs);
-            if balance_pis.private_commitment == private_commitment {
-                return Ok(Some(proof.clone()));
+            let result = BalancePublicInputs::from_pis(&proof.public_inputs);
+            match result {
+                Ok(balance_pis) => {
+                    if balance_pis.private_commitment == private_commitment {
+                        return Ok(Some(proof.clone()));
+                    }
+                }
+                Err(e) => {
+                    log::error!("Failed to parse balance public inputs: {:?}", e);
+                    // Skip this proof if we can't parse the public inputs
+                    continue;
+                }
             }
         }
         Ok(None)

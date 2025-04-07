@@ -200,16 +200,7 @@ where
 {
     if let Some(prev_proof) = prev_proof {
         // Safely extract public inputs from the previous proof
-        if prev_proof.public_inputs.len() < BALANCE_PUBLIC_INPUTS_LEN {
-            return Err(BalanceError::InvalidInput(
-                format!(
-                    "Previous proof has insufficient public inputs: expected at least {}, got {}",
-                    BALANCE_PUBLIC_INPUTS_LEN,
-                    prev_proof.public_inputs.len()
-                )
-            ));
-        }
-        Ok(BalancePublicInputs::from_pis(&prev_proof.public_inputs))
+        BalancePublicInputs::from_pis(&prev_proof.public_inputs)
     } else {
         Ok(BalancePublicInputs::new(pubkey))
     }
