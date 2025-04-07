@@ -28,6 +28,8 @@ use crate::{
     },
 };
 
+use super::error::BalanceError;
+
 pub const BALANCE_PUBLIC_INPUTS_LEN: usize =
     U256_LEN + POSEIDON_HASH_OUT_LEN * 2 + INSUFFICIENT_FLAGS_LEN + PUBLIC_STATE_LEN;
 
@@ -65,23 +67,18 @@ impl BalancePublicInputs {
             self.public_state.to_u64_vec(),
         ]
         .concat();
-        if vec.len() != BALANCE_PUBLIC_INPUTS_LEN {
-            panic!(
-                "Balance public inputs length mismatch: expected {}, got {}",
-                BALANCE_PUBLIC_INPUTS_LEN,
-                vec.len()
-            );
-        }
+        // this never fails
+        assert_eq!(vec.len(), BALANCE_PUBLIC_INPUTS_LEN);
         vec
     }
 
-    pub fn from_u64_slice(input: &[u64]) -> Self {
+    pub fn from_u64_slice(input: &[u64]) -> Result<Self, BalanceError> {
         if input.len() != BALANCE_PUBLIC_INPUTS_LEN {
-            panic!(
+            return Err(BalanceError::InvalidInput(format!(
                 "Balance public inputs length mismatch: expected {}, got {}",
                 BALANCE_PUBLIC_INPUTS_LEN,
                 input.len()
-            );
+            )));
         }
         let pubkey = U256::from_u64_slice(&input[0..U256_LEN]).unwrap();
         let private_commitment =
@@ -97,16 +94,16 @@ impl BalancePublicInputs {
         let public_state = PublicState::from_u64_slice(
             &input[U256_LEN + 2 * POSEIDON_HASH_OUT_LEN + INSUFFICIENT_FLAGS_LEN..],
         );
-        Self {
+        Ok(Self {
             pubkey,
             private_commitment,
             last_tx_hash,
             last_tx_insufficient_flags,
             public_state,
-        }
+        })
     }
 
-    pub fn from_pis<F: PrimeField64>(pis: &[F]) -> Self {
+    pub fn from_pis<F: PrimeField64>(pis: &[F]) -> Result<Self, BalanceError> {
         Self::from_u64_slice(&pis[0..BALANCE_PUBLIC_INPUTS_LEN].to_u64_vec())
     }
 
@@ -196,15 +193,19 @@ impl BalancePublicInputsTarget {
             self.public_state.to_vec(),
         ]
         .concat();
-        assert_eq!(vec.len(), BALANCE_PUBLIC_INPUTS_LEN, 
-            "Balance public inputs target length mismatch: expected {}, got {}", 
-            BALANCE_PUBLIC_INPUTS_LEN, vec.len());
+        assert_eq!(
+            vec.len(),
+            BALANCE_PUBLIC_INPUTS_LEN,
+            "Balance public inputs target length mismatch: expected {}, got {}",
+            BALANCE_PUBLIC_INPUTS_LEN,
+            vec.len()
+        );
         vec
     }
 
     pub fn from_slice(input: &[Target]) -> Self {
         assert_eq!(
-            input.len(), 
+            input.len(),
             BALANCE_PUBLIC_INPUTS_LEN,
             "Balance public inputs target length mismatch: expected {}, got {}",
             BALANCE_PUBLIC_INPUTS_LEN,
