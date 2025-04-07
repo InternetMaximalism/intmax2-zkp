@@ -135,17 +135,20 @@ impl FormatValidationValue {
     /// 3. pubkeys can be used as x-coordinates of G1 points (x^3 + 3 is a perfect square)
     /// 4. the message_point in signature content is correctly calculated from the block sign
     ///    payload
-    pub fn new(pubkeys: Vec<U256>, signature: SignatureContent) -> Self {
+    pub fn new(
+        pubkeys: Vec<U256>,
+        signature: SignatureContent,
+    ) -> Result<Self, BlockValidationError> {
         let pubkey_commitment = get_pubkey_commitment(&pubkeys);
         let signature_commitment = signature.commitment();
-        let is_valid = signature.is_valid_format(&pubkeys);
-        Self {
+        let is_valid = signature.is_valid_format(&pubkeys)?;
+        Ok(Self {
             pubkeys,
             signature,
             pubkey_commitment,
             signature_commitment,
             is_valid,
-        }
+        })
     }
 }
 
@@ -269,12 +272,12 @@ mod tests {
             .iter()
             .map(|keyset| keyset.pubkey)
             .collect::<Vec<_>>();
-        let result = signature.is_valid_format(&pubkeys);
+        let result = signature.is_valid_format(&pubkeys).unwrap();
         assert!(result);
 
         let format_validation_circuit = FormatValidationCircuit::<F, C, D>::new();
         let format_validation_value =
-            FormatValidationValue::new(pubkeys.clone(), signature.clone());
+            FormatValidationValue::new(pubkeys.clone(), signature.clone()).unwrap();
         let proof = format_validation_circuit
             .prove(&format_validation_value)
             .expect("Failed to prove format validation circuit");

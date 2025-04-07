@@ -1,3 +1,9 @@
+//! Format validation checks:
+//! 1. pubkeys are strictly in descending order, except for dummy keys (value 1) e.g., [50, 43, 1,
+//!    1, 1, ...] is valid
+//! 2. all pubkeys are within the Fq range (valid field elements)
+//! 3. pubkeys can be used as x-coordinates of G1 points (x^3 + 3 is a perfect square)
+//! 4. the message_point in signature content is correctly calculated from the block sign payload
 use ark_bn254::{Fq, G1Affine};
 use num::BigUint;
 use plonky2::{
@@ -15,7 +21,7 @@ use plonky2_bn254::{
 };
 
 use crate::{
-    common::signature_content::pubkey_range_check,
+    common::signature_content::{pubkey_range_check, SignatureContentError},
     constants::NUM_SENDERS_IN_BLOCK,
     ethereum_types::{
         bytes16::Bytes16,
@@ -27,16 +33,16 @@ use crate::{
 use super::{SignatureContent, SignatureContentTarget};
 
 impl SignatureContent {
-    /// Check if the format is correct (if the modulo is correct, etc.) and
-    /// ensure that the subsequent ZKP works without any problems
-    /// correctness of pubkey hash and account id hash is not checked here
-    /// pubkeys are given as witnesses
-    pub fn is_valid_format(&self, pubkeys: &[U256]) -> bool {
-        assert_eq!(
-            pubkeys.len(),
-            NUM_SENDERS_IN_BLOCK,
-            "pubkeys length is invalid"
-        );
+    /// Validates the format of the signature content with pubkeys
+    /// Returns a Result with a boolean indicating if the format is valid,
+    /// or an error if the pubkeys length is invalid
+    pub fn is_valid_format(&self, pubkeys: &[U256]) -> Result<bool, SignatureContentError> {
+        if pubkeys.len() != NUM_SENDERS_IN_BLOCK {
+            return Err(SignatureContentError::InvalidPubkeysLength {
+                expected: NUM_SENDERS_IN_BLOCK,
+                actual: pubkeys.len(),
+            });
+        }
 
         let mut result = true;
 
@@ -64,11 +70,14 @@ impl SignatureContent {
         let message_point_expected = self.block_sign_payload.message_point();
         result &= message_point_expected == self.message_point;
 
-        result
+        Ok(result)
     }
 }
 
 impl SignatureContentTarget {
+    /// Validates the format of the signature content with pubkeys
+    /// Returns a BoolTarget indicating if the format is valid
+    /// Panics if the pubkeys length is invalid
     pub fn is_valid_format<
         F: RichField + Extendable<D>,
         C: GenericConfig<D, F = F> + 'static,
@@ -81,11 +90,7 @@ impl SignatureContentTarget {
     where
         <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
     {
-        assert_eq!(
-            pubkeys.len(),
-            NUM_SENDERS_IN_BLOCK,
-            "pubkeys length is invalid"
-        );
+        assert_eq!(pubkeys.len(), NUM_SENDERS_IN_BLOCK);
         let mut result = builder.constant_bool(true);
 
         // sender flag check
@@ -152,14 +157,18 @@ mod tests {
     }
 
     #[test]
-    fn is_valid_format() {
+    fn test_format_validation_valid() {
         let rng = &mut rand::thread_rng();
         let (keyset, signature) = SignatureContent::rand(rng);
         let pubkeys = keyset
             .iter()
             .map(|keyset| keyset.pubkey)
             .collect::<Vec<_>>();
-        let result = signature.is_valid_format(&pubkeys);
+
+        // Test the format validation
+        let result = signature
+            .is_valid_format(&pubkeys)
+            .expect("Format validation failed");
         assert!(result);
 
         let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::default());
@@ -176,5 +185,40 @@ mod tests {
         let circuit = builder.build::<C>();
         let proof = circuit.prove(pw).unwrap();
         assert!(circuit.verify(proof).is_ok());
+    }
+
+    #[test]
+    #[should_panic(expected = "Invalid pubkeys length")]
+    fn test_format_validation_invalid_length() {
+        let rng = &mut rand::thread_rng();
+        let (_, signature) = SignatureContent::rand(rng);
+        let pubkeys = vec![]; // Empty pubkeys to trigger the error
+
+        // This should panic with the custom error message
+        signature.is_valid_format(&pubkeys);
+    }
+
+    #[test]
+    fn test_validate_format_invalid_length() {
+        let rng = &mut rand::thread_rng();
+        let (_, signature) = SignatureContent::rand(rng);
+        let pubkeys = vec![]; // Empty pubkeys to trigger the error
+
+        // This should return an error
+        let result = signature.is_valid_format(&pubkeys);
+        assert!(result.is_err());
+
+        if let Err(err) = result {
+            match err {
+                crate::common::signature_content::SignatureContentError::InvalidPubkeysLength {
+                    expected,
+                    actual,
+                } => {
+                    assert_eq!(expected, crate::constants::NUM_SENDERS_IN_BLOCK);
+                    assert_eq!(actual, 0);
+                }
+                _ => panic!("Unexpected error type"),
+            }
+        }
     }
 }

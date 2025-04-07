@@ -24,8 +24,8 @@ use crate::{
 };
 
 use super::{
-    flatten::FlatG1Target,
     block_sign_payload::{hash_to_weight, hash_to_weight_circuit},
+    flatten::FlatG1Target,
     SignatureContent, SignatureContentTarget,
 };
 use plonky2_bn254::utils::g1_msm::g1_msm;
@@ -130,7 +130,7 @@ mod tests {
             .iter()
             .map(|keyset| keyset.pubkey)
             .collect::<Vec<_>>();
-        assert!(signature.is_valid_format(&pubkeys));
+        assert!(signature.is_valid_format(&pubkeys).unwrap());
         assert!(signature.verify_aggregation(&pubkeys));
 
         let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::default());

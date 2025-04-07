@@ -127,7 +127,7 @@ impl BlockWitness {
 
         // Format validation
         let format_validation_value =
-            FormatValidationValue::new(pubkeys.clone(), signature.clone());
+            FormatValidationValue::new(pubkeys.clone(), signature.clone())?;
         result = result && format_validation_value.is_valid;
 
         if result {

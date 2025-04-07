@@ -316,7 +316,7 @@ mod tests {
 
         // Verify format and aggregation validity
         assert!(
-            signature.is_valid_format(&pubkeys),
+            signature.is_valid_format(&pubkeys).unwrap(),
             "Signature format should be valid"
         );
         assert!(

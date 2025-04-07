@@ -1,11 +1,12 @@
+pub mod aggregation_validation;
 pub mod block_sign_payload;
+pub mod error;
 pub mod flatten;
 pub mod format_validation;
 pub mod key_set;
 pub mod serialize;
 pub mod sign_tools;
 pub mod utils;
-pub mod aggregation_validation;
 
 use ark_bn254::{Bn254, Fq, Fr, G1Affine, G2Affine};
 use ark_ec::{pairing::Pairing as _, AffineRepr as _};
@@ -44,8 +45,7 @@ use crate::{
 pub const SIGNATURE_LEN: usize =
     BLOCK_SIGN_PAYLOAD_LEN + BYTES16_LEN + 2 * BYTES32_LEN + 10 * U256_LEN;
 
-#[derive(Debug, thiserror::Error)]
-pub enum SignatureContentError {}
+pub use error::SignatureContentError;
 
 /// The signature that is verified by the contract. It is already guaranteed by
 /// the contract that e(`agg_pubkey`, message_point) = e(`agg_signature`, G2)

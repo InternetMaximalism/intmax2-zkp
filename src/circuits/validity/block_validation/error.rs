@@ -1,9 +1,16 @@
-use crate::{ethereum_types::bytes32::Bytes32, utils::poseidon_hash_out::PoseidonHashOut};
+use crate::{
+    common::signature_content::SignatureContentError, ethereum_types::bytes32::Bytes32,
+    utils::poseidon_hash_out::PoseidonHashOut,
+};
 
 #[derive(Debug, thiserror::Error)]
 pub enum BlockValidationError {
     #[error("Plonky2 error: {0}")]
     Plonky2Error(String),
+
+    #[error("SignatureContent error: {0}")]
+    SignatureContentError(#[from] SignatureContentError),
+
     #[error("AccountInclusionValue error: {0}")]
     AccountInclusionValue(String),
 

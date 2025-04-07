@@ -84,11 +84,7 @@ where
             &transition_proof.public_inputs,
             &balance_transition_verifier_data.common.config,
         )
-        .unwrap_or_else(|_| {
-            // We can't return an error here since the function doesn't return Result
-            // In a future refactoring, we could change the return type to Result
-            panic!("Failed to parse inner balance vd")
-        });
+        .expect("Failed to parse inner balance vd");
         builder.register_public_inputs(&new_pis.to_vec());
 
         let common_data = common_data_for_balance_circuit::<F, C, D>();
@@ -102,11 +98,7 @@ where
                 &prev_proof,
                 &common_data,
             )
-            .unwrap_or_else(|_| {
-                // We can't return an error here since the function doesn't return Result
-                // In a future refactoring, we could change the return type to Result
-                panic!("Failed to conditionally verify cyclic proof or dummy")
-            });
+            .expect("Failed to conditionally verify cyclic proof or dummy");
         let prev_pis = BalancePublicInputsTarget::from_slice(
             &prev_proof.public_inputs[0..BALANCE_PUBLIC_INPUTS_LEN],
         );
@@ -164,18 +156,18 @@ where
             let prev_balance_pis =
                 BalancePublicInputs::from_pis(&prev_proof.as_ref().unwrap().public_inputs);
             if transition_prev_balance_pis != prev_balance_pis {
-                return Err(BalanceError::VerificationFailed(
-                    format!("Previous balance public inputs mismatch: expected {:?}, got {:?}", 
-                        prev_balance_pis, transition_prev_balance_pis)
-                ));
+                return Err(BalanceError::VerificationFailed(format!(
+                    "Previous balance public inputs mismatch: expected {:?}, got {:?}",
+                    prev_balance_pis, transition_prev_balance_pis
+                )));
             }
         } else {
             let initial_balance_pis = BalancePublicInputs::new(pubkey);
             if transition_prev_balance_pis != initial_balance_pis {
-                return Err(BalanceError::VerificationFailed(
-                    format!("Initial balance public inputs mismatch: expected {:?}, got {:?}", 
-                        initial_balance_pis, transition_prev_balance_pis)
-                ));
+                return Err(BalanceError::VerificationFailed(format!(
+                    "Initial balance public inputs mismatch: expected {:?}, got {:?}",
+                    initial_balance_pis, transition_prev_balance_pis
+                )));
             }
         }
 
@@ -200,7 +192,9 @@ where
             pw.set_bool_target(self.is_first_step, false);
             pw.set_proof_with_pis_target(&self.prev_proof, prev_proof.as_ref().unwrap());
         }
-        self.data.prove(pw).map_err(|e| BalanceError::ProofGenerationError(format!("Failed to generate proof: {:?}", e)))
+        self.data.prove(pw).map_err(|e| {
+            BalanceError::ProofGenerationError(format!("Failed to generate proof: {:?}", e))
+        })
     }
 
     pub fn get_verifier_only_data(&self) -> VerifierOnlyCircuitData<C, D> {
@@ -213,13 +207,15 @@ where
 
     pub fn verify(&self, proof: &ProofWithPublicInputs<F, C, D>) -> Result<(), BalanceError> {
         check_cyclic_proof_verifier_data(proof, &self.data.verifier_only, &self.data.common)
-            .map_err(|e| BalanceError::VerificationFailed(
-                format!("Failed to check cyclic proof verifier data: {:?}", e)
-            ))?;
-        self.data.verify(proof.clone())
-            .map_err(|e| BalanceError::VerificationFailed(
-                format!("Failed to verify proof: {:?}", e)
-            ))
+            .map_err(|e| {
+                BalanceError::VerificationFailed(format!(
+                    "Failed to check cyclic proof verifier data: {:?}",
+                    e
+                ))
+            })?;
+        self.data.verify(proof.clone()).map_err(|e| {
+            BalanceError::VerificationFailed(format!("Failed to verify proof: {:?}", e))
+        })
     }
 }
 
