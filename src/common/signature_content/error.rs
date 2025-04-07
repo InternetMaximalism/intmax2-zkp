@@ -5,9 +5,3 @@ pub enum SignatureContentError {
     #[error("Invalid pubkeys length: expected {expected} but got {actual}")]
     InvalidPubkeysLength { expected: usize, actual: usize },
 }
-
-#[derive(Debug, Error)]
-pub enum KeySetError {
-    #[error("Invalid private key: {0}")]
-    InvalidPrivateKey(String),
-}
