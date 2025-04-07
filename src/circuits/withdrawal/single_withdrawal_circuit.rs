@@ -75,8 +75,8 @@ where
 
     pub fn verify(&self, proof: &ProofWithPublicInputs<F, C, D>) -> Result<(), WithdrawalError> {
         self.data.verify(proof.clone())
-            .map_err(|e| WithdrawalError::VerificationFailed { 
-                message: format!("Proof verification failed: {:?}", e) 
-            })
+            .map_err(|e| WithdrawalError::VerificationFailed(
+                format!("Proof verification failed: {:?}", e)
+            ))
     }
 }
