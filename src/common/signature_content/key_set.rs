@@ -16,7 +16,6 @@ use serde::{Deserialize, Serialize};
 #[derive(Copy, Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct KeySet {
-    pub is_dummy: bool,
     pub privkey: U256,
     pub pubkey: U256,
 }
@@ -34,17 +33,14 @@ impl KeySet {
         let pubkey: U256 = pubkey_g1.x.into();
 
         // assertion
+        assert!(!pubkey.is_dummy_pubkey());
         let recovered_pubkey = G1Affine::recover_from_x(pubkey.into());
         assert_eq!(
             recovered_pubkey, pubkey_g1,
             "recovered_pubkey should be equal to pubkey"
         );
 
-        Self {
-            is_dummy: false,
-            privkey,
-            pubkey,
-        }
+        Self { privkey, pubkey }
     }
 
     pub fn rand<R: Rng>(rng: &mut R) -> Self {
@@ -65,10 +61,13 @@ impl KeySet {
     /// Create a dummy keyset for padding purposes
     pub fn dummy() -> Self {
         Self {
-            is_dummy: true,
             privkey: U256::zero(),
             pubkey: U256::dummy_pubkey(),
         }
+    }
+
+    pub fn is_dummy(&self) -> bool {
+        self.pubkey.is_dummy_pubkey()
     }
 }
 
