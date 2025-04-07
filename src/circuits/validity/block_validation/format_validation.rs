@@ -1,3 +1,15 @@
+//! Format validation circuit for block validation.
+//!
+//! This circuit verifies that the given pubkey commitment and signature commitment
+//! satisfy the following conditions:
+//! 1. Pubkeys are strictly in descending order, except for dummy keys (value 1)
+//! 2. All pubkeys are within the Fq range
+//! 3. Pubkeys can be used as x-coordinates of G1 points (x^3 + 3 is a perfect square, allowing y recovery)
+//! 4. The message_point in signature content is correctly calculated from the block sign payload
+//!
+//! These validations ensure that the public keys and signature are properly formatted
+//! before they are used in subsequent validation steps like aggregation verification.
+
 use plonky2::{
     field::extension::Extendable,
     hash::hash_types::RichField,
@@ -12,14 +24,6 @@ use plonky2::{
         proof::ProofWithPublicInputs,
     },
 };
-
-// Format validation circuit verifies that the given pubkey commitment and signature commitment
-// satisfy the following conditions:
-// 1. pubkeys are strictly in descending order, except for dummy keys (value 1)
-// 2. all pubkeys are within the Fq range
-// 3. pubkeys can be used as x-coordinates of G1 points (x^3 + 3 is a perfect square, allowing y
-//    recovery)
-// 4. the message_point in signature content is correctly calculated from the block sign payload
 
 use super::error::BlockValidationError;
 
@@ -38,17 +42,29 @@ use super::utils::get_pubkey_commitment;
 
 pub const FORMAT_VALIDATION_PUBLIC_INPUTS_LEN: usize = 2 * POSEIDON_HASH_OUT_LEN + 1;
 
+/// Public inputs for the format validation circuit.
 #[derive(Clone, Debug)]
 pub struct FormatValidationPublicInputs {
+    /// Commitment to the set of public keys
     pub pubkey_commitment: PoseidonHashOut,
+    
+    /// Commitment to the signature content
     pub signature_commitment: PoseidonHashOut,
+    
+    /// Flag indicating whether the format is valid
     pub is_valid: bool,
 }
 
+/// Target version of FormatValidationPublicInputs for use in the circuit.
 #[derive(Clone, Debug)]
 pub struct FormatValidationPublicInputsTarget {
+    /// Target for the commitment to the set of public keys
     pub pubkey_commitment: PoseidonHashOutTarget,
+    
+    /// Target for the commitment to the signature content
     pub signature_commitment: PoseidonHashOutTarget,
+    
+    /// Target for the validity flag
     pub is_valid: BoolTarget,
 }
 
@@ -107,20 +123,46 @@ impl FormatValidationPublicInputsTarget {
     }
 }
 
+/// Values used in the format validation circuit.
+///
+/// This structure contains all the inputs and outputs for the format validation process,
+/// including the public keys, signature content, commitments, and validity flag.
 pub struct FormatValidationValue {
+    /// The set of public keys to be validated
     pub pubkeys: Vec<U256>,
+    
+    /// The signature content to be validated
     pub signature: SignatureContent,
+    
+    /// Commitment to the set of public keys
     pub pubkey_commitment: PoseidonHashOut,
+    
+    /// Commitment to the signature content
     pub signature_commitment: PoseidonHashOut,
+    
+    /// Flag indicating whether the format is valid
     pub is_valid: bool,
 }
 
+/// Target version of FormatValidationValue for use in the circuit.
+///
+/// This structure contains all the circuit targets needed to implement the
+/// format validation constraints in the ZK circuit.
 #[derive(Debug, Clone)]
 pub struct FormatValidationTarget {
+    /// Targets for the set of public keys
     pub pubkeys: Vec<U256Target>,
+    
+    /// Target for the signature content
     pub signature: SignatureContentTarget,
+    
+    /// Target for the commitment to the set of public keys
     pub pubkey_commitment: PoseidonHashOutTarget,
+    
+    /// Target for the commitment to the signature content
     pub signature_commitment: PoseidonHashOutTarget,
+    
+    /// Target for the validity flag
     pub is_valid: BoolTarget,
 }
 
@@ -201,6 +243,10 @@ impl FormatValidationTarget {
     }
 }
 
+/// Circuit that verifies the format of public keys and signature content.
+///
+/// This circuit ensures that the public keys and signature content are properly formatted
+/// according to the required constraints, such as ordering, range checks, and point validity.
 #[derive(Debug)]
 pub struct FormatValidationCircuit<F, C, const D: usize>
 where
@@ -217,6 +263,10 @@ where
     C: GenericConfig<D, F = F> + 'static,
     <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
 {
+    /// Creates a new FormatValidationCircuit with the necessary constraints.
+    ///
+    /// This method initializes a circuit that verifies the format of public keys and
+    /// signature content according to the required constraints.
     pub fn new() -> Self {
         let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::default());
         let target = FormatValidationTarget::new::<F, C, D>(&mut builder);
@@ -230,6 +280,13 @@ where
         Self { data, target }
     }
 
+    /// Generates a proof for the format validation circuit.
+    ///
+    /// # Arguments
+    /// * `value` - The FormatValidationValue containing all inputs and expected outputs
+    ///
+    /// # Returns
+    /// A proof that the public keys and signature content are properly formatted
     pub fn prove(
         &self,
         value: &FormatValidationValue,
@@ -264,6 +321,13 @@ mod tests {
     const D: usize = 2;
     type C = PoseidonGoldilocksConfig;
 
+    /// Tests the format validation circuit with valid inputs.
+    ///
+    /// This test:
+    /// 1. Generates random key set and signature
+    /// 2. Verifies that the format is valid
+    /// 3. Creates and proves the format validation circuit
+    /// 4. Verifies the proof
     #[test]
     fn test_format_validation() {
         let rng = &mut rand::thread_rng();

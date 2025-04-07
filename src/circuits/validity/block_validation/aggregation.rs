@@ -1,9 +1,9 @@
-//! Circuit that verifies the weighted aggregation of public keys matches the aggregate public key
-//! in the signature.
+//! Aggregation circuit for block validation.
 //!
-//! This circuit ensures that the weighted aggregation of public keys bound by a pubkey commitment
-//! equals the aggregate public key bound by a signature commitment. The weights are derived from
-//! hashing each public key with the pubkey hash.
+//! This circuit verifies that the weighted aggregation of public keys matches the aggregate 
+//! public key in the signature. It ensures that the weighted aggregation of public keys bound 
+//! by a pubkey commitment equals the aggregate public key bound by a signature commitment.
+//! The weights are derived from hashing each public key with the pubkey hash.
 //!
 //! The circuit takes as input:
 //! - A set of public keys
@@ -16,11 +16,7 @@
 //!
 //! IMPORTANT: This circuit assumes that format validation has already been performed on the
 //! pubkeys and signature content. If the format validation is not passed, the proof generation
-//! will fail. Format validation ensures that:
-//! - Pubkeys are in the correct range and properly ordered
-//! - Pubkeys are recoverable from their x-coordinates
-//! - The signature content has a valid format
-//! - The message point is correctly derived from the block sign payload
+//! will fail.
 
 use plonky2::{
     field::extension::Extendable,
@@ -137,15 +133,30 @@ impl AggregationPublicInputsTarget {
 }
 
 /// Values used in the aggregation circuit.
+///
+/// This structure contains all the inputs and outputs for the aggregation verification process,
+/// including the public keys, signature content, commitments, and validity flag.
 pub struct AggregationValue {
+    /// The set of public keys to be aggregated
     pub pubkeys: Vec<U256>,
+    
+    /// The signature content containing the aggregate public key
     pub signature: SignatureContent,
+    
+    /// Commitment to the set of public keys
     pub pubkey_commitment: PoseidonHashOut,
+    
+    /// Commitment to the signature content
     pub signature_commitment: PoseidonHashOut,
+    
+    /// Flag indicating whether the aggregation is valid
     pub is_valid: bool,
 }
 
 /// Target version of AggregationValue for use in the circuit.
+///
+/// This structure contains all the circuit targets needed to implement the
+/// aggregation verification constraints in the ZK circuit.
 #[derive(Debug, Clone)]
 pub struct AggregationTarget {
     /// Targets for the set of public keys
@@ -165,6 +176,16 @@ pub struct AggregationTarget {
 }
 
 impl AggregationValue {
+    /// Creates a new AggregationValue with the given public keys and signature.
+    ///
+    /// This function:
+    /// 1. Computes the commitment to the public keys
+    /// 2. Computes the commitment to the signature content
+    /// 3. Verifies that the weighted aggregation of public keys matches the aggregate public key
+    ///
+    /// # Arguments
+    /// * `pubkeys` - The set of public keys to be aggregated
+    /// * `signature` - The signature content containing the aggregate public key
     pub fn new(pubkeys: Vec<U256>, signature: SignatureContent) -> Self {
         let pubkey_commitment = get_pubkey_commitment(&pubkeys);
         let signature_commitment = signature.commitment();
@@ -180,6 +201,16 @@ impl AggregationValue {
 }
 
 impl AggregationTarget {
+    /// Creates a new AggregationTarget with circuit constraints that enforce the
+    /// aggregation verification rules.
+    ///
+    /// The circuit enforces that:
+    /// 1. The pubkey commitment correctly binds the public keys
+    /// 2. The signature commitment correctly binds the signature content
+    /// 3. The weighted aggregation of public keys matches the aggregate public key
+    ///
+    /// # Arguments
+    /// * `builder` - The circuit builder to add constraints to
     pub fn new<F: RichField + Extendable<D>, C: GenericConfig<D, F = F> + 'static, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
     ) -> Self
@@ -221,6 +252,10 @@ impl AggregationTarget {
 }
 
 /// Circuit that verifies the weighted aggregation of public keys matches the aggregate public key.
+///
+/// This circuit ensures that the weighted aggregation of public keys bound by a pubkey commitment
+/// equals the aggregate public key bound by a signature commitment. The weights are derived from
+/// hashing each public key with the pubkey hash.
 #[derive(Debug)]
 pub struct AggregationCircuit<F, C, const D: usize>
 where
@@ -250,6 +285,10 @@ where
     C: GenericConfig<D, F = F> + 'static,
     C::Hasher: AlgebraicHasher<F>,
 {
+    /// Creates a new AggregationCircuit with the necessary constraints.
+    ///
+    /// This method initializes a circuit that verifies the weighted aggregation of
+    /// public keys matches the aggregate public key in the signature.
     pub fn new() -> Self {
         let config = CircuitConfig::default();
         let mut builder = CircuitBuilder::<F, D>::new(config.clone());
@@ -279,6 +318,13 @@ where
         }
     }
 
+    /// Generates a proof for the aggregation circuit.
+    ///
+    /// # Arguments
+    /// * `value` - The AggregationValue containing all inputs and expected outputs
+    ///
+    /// # Returns
+    /// A proof that the weighted aggregation of public keys matches the aggregate public key
     pub fn prove(
         &self,
         value: &AggregationValue,
