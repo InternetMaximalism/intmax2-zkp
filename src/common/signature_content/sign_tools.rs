@@ -1,7 +1,4 @@
-use crate::{
-    common::error::CommonError,
-    ethereum_types::u256::U256,
-};
+use crate::{common::error::CommonError, ethereum_types::u256::U256};
 use ark_bn254::{Bn254, Fr, G1Affine, G1Projective, G2Affine, G2Projective};
 use ark_ec::{pairing::Pairing, AffineRepr};
 use num::{BigUint, One, Zero as _};
@@ -32,14 +29,14 @@ fn pad_10star1(input: &[u8]) -> Vec<u8> {
     padded
 }
 
-fn sign_message_no_pad(privkey: Fr, message: &[u32]) -> G2Affine {
+fn sign_message_no_pad(privkey: U256, message: &[u32]) -> G2Affine {
+    let privkey: Fr = BigUint::from(privkey).into();
     let elements = message
         .iter()
         .map(|x| GoldilocksField::from_canonical_u32(*x))
         .collect::<Vec<_>>();
     let message_g2 = G2Target::<GoldilocksField, 2>::hash_to_g2(&elements);
     let signature: G2Affine = (message_g2 * privkey).into();
-
     signature
 }
 
@@ -63,18 +60,21 @@ fn verify_signature_no_pad(
     Ok(())
 }
 
-pub fn sign_message(privkey: Fr, message: &[u8]) -> G2Affine {
+pub fn sign_message(privkey: U256, message: &[u8]) -> G2Affine {
     let padded_message = pad_10star1(message);
     debug_assert!(padded_message.len() % 4 == 0);
     let limbs = padded_message
         .chunks(4)
         .map(|c| u32::from_be_bytes(c.try_into().unwrap()))
         .collect::<Vec<_>>();
-
     sign_message_no_pad(privkey, &limbs)
 }
 
-pub fn verify_signature(signature: G2Affine, pubkey: U256, message: &[u8]) -> Result<(), CommonError> {
+pub fn verify_signature(
+    signature: G2Affine,
+    pubkey: U256,
+    message: &[u8],
+) -> Result<(), CommonError> {
     let padded_message = pad_10star1(message);
     debug_assert!(padded_message.len() % 4 == 0);
     let limbs = padded_message
@@ -87,7 +87,11 @@ pub fn verify_signature(signature: G2Affine, pubkey: U256, message: &[u8]) -> Re
 
 /// NOTE: This weight differs from the one used when aggregating transactions.
 ///  Depending on the value of the aggregated public key, the sign of the weight may be inverted.
-pub fn weight_to_signature(signature: G2Affine, pubkey: U256, signers: Vec<U256>) -> Result<G2Affine, CommonError> {
+pub fn weight_to_signature(
+    signature: G2Affine,
+    pubkey: U256,
+    signers: Vec<U256>,
+) -> Result<G2Affine, CommonError> {
     let pubkey_hash = get_pubkey_hash(&signers);
     let weight = hash_to_weight(pubkey, pubkey_hash);
     let (_, y_parity) = calc_aggregated_pubkey(&signers)?;
@@ -96,8 +100,13 @@ pub fn weight_to_signature(signature: G2Affine, pubkey: U256, signers: Vec<U256>
     Ok((signature * y_parity_fr * Fr::from(BigUint::from(weight))).into())
 }
 
-pub fn sign_message_with_signers(privkey: Fr, message: &[u8], signers: Vec<U256>) -> Result<G2Affine, CommonError> {
+pub fn sign_message_with_signers(
+    privkey: U256,
+    message: &[u8],
+    signers: Vec<U256>,
+) -> Result<G2Affine, CommonError> {
     let signature: G2Affine = sign_message(privkey, message);
+    let privkey: Fr = BigUint::from(privkey).into();
     let pubkey: G1Affine = (G1Affine::generator() * privkey).into();
     let pubkey_x: U256 = pubkey.x.into();
 
@@ -115,7 +124,9 @@ pub fn calc_aggregated_pubkey(signers: &[U256]) -> Result<(U256, bool), CommonEr
     }
 
     if aggregated_pubkey.is_zero() {
-        return Err(CommonError::InvalidData("Invalid aggregated pubkey: result is zero".to_string()));
+        return Err(CommonError::InvalidData(
+            "Invalid aggregated pubkey: result is zero".to_string(),
+        ));
     }
 
     let pubkey: G1Affine = aggregated_pubkey.into();
@@ -157,8 +168,8 @@ mod tests {
 
     use crate::{
         common::signature_content::{
-            key_set::KeySet,
             block_sign_payload::{hash_to_weight, hash_to_weight_circuit},
+            key_set::KeySet,
             sign_tools::{
                 aggregate_signature, sign_message, sign_message_no_pad, sign_message_with_signers,
                 verify_signature, verify_signature_no_pad, verify_signature_with_signers,

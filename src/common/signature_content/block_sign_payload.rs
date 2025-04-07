@@ -65,7 +65,8 @@ impl BlockSignPayload {
         G2Target::<GoldilocksField, 2>::hash_to_g2(&elements).into()
     }
 
-    pub fn sign(&self, privkey: Fr, pubkey_hash: Bytes32) -> FlatG2 {
+    pub fn sign(&self, privkey: U256, pubkey_hash: Bytes32) -> FlatG2 {
+        let privkey: Fr = BigUint::from(privkey).into();
         let pubkey: G1Affine = (G1Affine::generator() * privkey).into();
         let pubkey_x: U256 = pubkey.x.into();
         let weight = hash_to_weight(pubkey_x, pubkey_hash);

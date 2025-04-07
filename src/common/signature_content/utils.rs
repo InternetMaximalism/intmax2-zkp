@@ -8,17 +8,13 @@ use plonky2::{
 };
 use plonky2_keccak::{builder::BuilderKeccak256 as _, utils::solidity_keccak256};
 
-use crate::{
-    constants::NUM_SENDERS_IN_BLOCK,
-    ethereum_types::{
-        bytes32::{Bytes32, Bytes32Target},
-        u256::{U256Target, U256},
-        u32limb_trait::{U32LimbTargetTrait as _, U32LimbTrait as _},
-    },
+use crate::ethereum_types::{
+    bytes32::{Bytes32, Bytes32Target},
+    u256::{U256Target, U256},
+    u32limb_trait::{U32LimbTargetTrait as _, U32LimbTrait as _},
 };
 
 pub fn get_pubkey_hash(pubkeys: &[U256]) -> Bytes32 {
-    assert_eq!(pubkeys.len(), NUM_SENDERS_IN_BLOCK);
     let pubkey_flattened = pubkeys
         .iter()
         .flat_map(|x| x.to_u32_vec())

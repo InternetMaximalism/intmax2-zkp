@@ -4,72 +4,69 @@ use crate::ethereum_types::{
 };
 use ark_bn254::{Fr, G1Affine};
 use ark_ec::AffineRepr;
-use ark_ff::Field;
-use ark_std::UniformRand;
+use num::BigUint;
 use plonky2::{
     field::extension::Extendable, hash::hash_types::RichField, iop::target::BoolTarget,
     plonk::circuit_builder::CircuitBuilder,
 };
-use plonky2_bn254::fields::sgn::Sgn as _;
+use plonky2_bn254::fields::{recover::RecoverFromX as _, sgn::Sgn as _};
 use rand::Rng;
+use serde::{Deserialize, Serialize};
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct KeySet {
     pub is_dummy: bool,
-    pub privkey: Fr,
-    pub pubkey_g1: G1Affine,
+    pub privkey: U256,
     pub pubkey: U256,
 }
 
 impl KeySet {
-    pub fn rand<R: Rng>(rng: &mut R) -> Self {
-        let provisional_privkey = Fr::rand(rng);
-        Self::generate_from_provisional(provisional_privkey)
-    }
-
-    pub fn generate_from_provisional(provisional_privkey: Fr) -> Self {
-        let mut privkey = provisional_privkey;
-        let mut pubkey_g1: G1Affine = (G1Affine::generator() * privkey).into();
-        // y.sgn() should be false
+    pub fn new(privkey: U256) -> Self {
+        let mut privkey_fr: Fr = BigUint::from(privkey).into();
+        let mut pubkey_g1: G1Affine = (G1Affine::generator() * privkey_fr).into();
         if pubkey_g1.y.sgn() {
-            privkey = -privkey;
+            privkey_fr = -privkey_fr;
             pubkey_g1 = -pubkey_g1;
         }
+
+        let privkey: U256 = BigUint::from(privkey_fr).try_into().unwrap(); // unwrap is safe
         let pubkey: U256 = pubkey_g1.x.into();
-        #[cfg(debug_assertions)]
-        {
-            use plonky2_bn254::fields::recover::RecoverFromX;
-            let recovered_pubkey = G1Affine::recover_from_x(pubkey.into());
-            debug_assert_eq!(
-                recovered_pubkey, pubkey_g1,
-                "recovered_pubkey should be equal to pubkey"
-            );
-        }
+
+        // assertion
+        let recovered_pubkey = G1Affine::recover_from_x(pubkey.into());
+        assert_eq!(
+            recovered_pubkey, pubkey_g1,
+            "recovered_pubkey should be equal to pubkey"
+        );
+
         Self {
             is_dummy: false,
             privkey,
-            pubkey_g1,
             pubkey,
         }
     }
 
-    pub fn new(privkey: Fr) -> Self {
-        let pubkey: G1Affine = (G1Affine::generator() * privkey).into();
-        assert!(!pubkey.y.sgn(), "y.sgn() should be false");
-        Self {
-            is_dummy: false,
-            privkey,
-            pubkey_g1: pubkey,
-            pubkey: pubkey.x.into(),
-        }
+    pub fn rand<R: Rng>(rng: &mut R) -> Self {
+        Self::new(U256::rand(rng))
+    }
+
+    pub fn privkey_fr(&self) -> Fr {
+        let privkey: Fr = BigUint::from(self.privkey).into();
+        privkey
+    }
+
+    pub fn pubkey_g1(&self) -> G1Affine {
+        let privkey_fr: Fr = BigUint::from(self.privkey).into();
+        let pubkey_g1: G1Affine = (G1Affine::generator() * privkey_fr).into();
+        pubkey_g1
     }
 
     /// Create a dummy keyset for padding purposes
     pub fn dummy() -> Self {
         Self {
             is_dummy: true,
-            privkey: Fr::ZERO,
-            pubkey_g1: G1Affine::zero(),
+            privkey: U256::zero(),
             pubkey: U256::dummy_pubkey(),
         }
     }
@@ -104,7 +101,18 @@ impl U256Target {
 
 #[cfg(test)]
 mod tests {
+    use plonky2_bn254::fields::sgn::Sgn as _;
+
     use crate::common::{signature_content::key_set::KeySet, trees::account_tree::AccountTree};
+
+    #[test]
+    fn test_key_set_random() {
+        for _ in 0..100 {
+            let key_set = KeySet::rand(&mut rand::thread_rng());
+            let pubkey_g1 = key_set.pubkey_g1();
+            assert!(!pubkey_g1.y.sgn());
+        }
+    }
 
     #[test]
     fn dummy_key_account_id() {

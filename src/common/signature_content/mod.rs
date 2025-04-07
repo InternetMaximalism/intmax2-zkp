@@ -116,10 +116,10 @@ impl SignatureContent {
         let agg_pubkey = key_sets
             .iter()
             .zip(sender_flag_bits.iter())
-            .map(|(keyset, b)| {
-                let weight = hash_to_weight(keyset.pubkey, pubkey_hash);
+            .map(|(key, b)| {
+                let weight = hash_to_weight(key.pubkey, pubkey_hash);
                 if *b {
-                    (keyset.pubkey_g1 * Fr::from(BigUint::from(weight))).into()
+                    (key.pubkey_g1() * Fr::from(BigUint::from(weight))).into()
                 } else {
                     G1Affine::zero()
                 }
@@ -129,7 +129,7 @@ impl SignatureContent {
             });
         let agg_signature = key_sets
             .iter()
-            .map(|keyset| G2Affine::from(block_sign_payload.sign(keyset.privkey, pubkey_hash)))
+            .map(|key| G2Affine::from(block_sign_payload.sign(key.privkey, pubkey_hash)))
             .zip(sender_flag_bits)
             .fold(
                 G2Affine::zero(),
