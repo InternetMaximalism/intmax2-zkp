@@ -123,16 +123,12 @@ where
         prev_pis.conditional_assert_eq(&mut builder, &initial_balance_pis, is_first_step);
 
         let (data, success) = builder.try_build_with_options::<C>(true);
-        if data.common != common_data {
-            // We can't return an error here since the function doesn't return Result
-            // In a future refactoring, we could change the return type to Result
-            panic!("Common data mismatch in balance circuit");
-        }
-        if !success {
-            // We can't return an error here since the function doesn't return Result
-            // In a future refactoring, we could change the return type to Result
-            panic!("Failed to build balance circuit");
-        }
+        assert_eq!(
+            data.common, common_data,
+            "Common data mismatch in balance circuit"
+        );
+        assert!(success, "Failed to build balance circuit");
+
         Self {
             data,
             is_first_step,

@@ -2,14 +2,14 @@ use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum ClaimError {
-    #[error("Verification failed: {message}")]
-    VerificationFailed { message: String },
+    #[error("Verification failed: {0}")]
+    VerificationFailed(String),
 
-    #[error("Invalid lock time: {message}")]
-    InvalidLockTime { message: String },
+    #[error("Invalid lock time: {0}")]
+    InvalidLockTime(String),
 
-    #[error("Invalid block number: {message}")]
-    InvalidBlockNumber { message: String },
+    #[error("Invalid block number: {0}")]
+    InvalidBlockNumber(String),
 
     #[error("Proof generation error: {0}")]
     ProofGenerationError(String),
