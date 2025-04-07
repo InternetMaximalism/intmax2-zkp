@@ -208,7 +208,7 @@ mod tests {
     type C = PoseidonGoldilocksConfig;
 
     #[test]
-    fn main_validation_processor() -> anyhow::Result<()> {
+    fn test_main_validation_processor() -> anyhow::Result<()> {
         let main_validation_processor = MainValidationProcessor::<F, C, D>::new();
         let mut rng = rand::thread_rng();
 
