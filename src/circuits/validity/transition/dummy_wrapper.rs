@@ -1,3 +1,9 @@
+//! Dummy wrapper circuit for validity transition.
+//!
+//! This module provides a dummy implementation of the transition wrapper circuit that is
+//! primarily used for testing purposes. It creates a simplified proof circuit that skips
+//! the constraints of validity proof when you don't need the full validation for testing.
+
 use crate::circuits::validity::transition::error::ValidityTransitionError;
 use plonky2::{
     field::extension::Extendable,
@@ -16,8 +22,12 @@ use crate::{
     common::witness::validity_witness::ValidityWitness,
 };
 
-#[derive(Debug)]
 /// A dummy implementation of the transition wrapper circuit used for testing balance proof.
+///
+/// This circuit is mainly used for testing purposes when you want to use a simplified proof
+/// circuit that skips the constraints of validity proof. It provides a lightweight alternative
+/// to the full transition wrapper circuit when full validation is not needed for testing.
+#[derive(Debug)]
 pub struct DummyTransitionWrapperCircuit<F, C, const D: usize>
 where
     F: RichField + Extendable<D>,
@@ -45,6 +55,10 @@ where
     C: GenericConfig<D, F = F> + 'static,
     C::Hasher: AlgebraicHasher<F>,
 {
+    /// Creates a new dummy transition wrapper circuit.
+    ///
+    /// This method initializes a simplified circuit that skips the constraints of validity proof,
+    /// which is useful for testing purposes when full validation is not needed.
     pub fn new() -> Self {
         let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::default());
         let prev_pis = ValidityPublicInputsTarget::new(&mut builder, false);
@@ -66,6 +80,18 @@ where
     C: GenericConfig<D, F = F> + 'static,
     C::Hasher: AlgebraicHasher<F>,
 {
+    /// Generates a proof using the dummy transition wrapper circuit.
+    ///
+    /// This method creates a simplified proof that skips the constraints of validity proof,
+    /// while still performing basic validation of the inputs. It's useful for testing
+    /// balance proofs without the overhead of full validity constraints.
+    ///
+    /// # Arguments
+    /// * `prev_pis` - The previous validity public inputs
+    /// * `validity_witness` - The validity witness containing the transition data
+    ///
+    /// # Returns
+    /// A proof that can be used for testing purposes
     pub fn prove(
         &self,
         prev_pis: &ValidityPublicInputs,
