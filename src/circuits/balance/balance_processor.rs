@@ -9,7 +9,7 @@ use plonky2::{
 };
 
 use crate::{
-    circuits::balance::{balance_pis::{BalancePublicInputs, BALANCE_PUBLIC_INPUTS_LEN}, error::BalanceError},
+    circuits::balance::{balance_pis::BalancePublicInputs, error::BalanceError},
     common::witness::{
         receive_deposit_witness::ReceiveDepositWitness,
         receive_transfer_witness::ReceiveTransferWitness, tx_witness::TxWitness,
