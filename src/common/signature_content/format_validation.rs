@@ -131,7 +131,8 @@ impl SignatureContentTarget {
 
 #[cfg(test)]
 mod tests {
-    use ark_bn254::{Fq, G1Affine};
+    use ark_bn254::{Fq, G1Affine, G2Affine};
+    use ark_ff::UniformRand;
     use plonky2::{
         field::goldilocks_field::GoldilocksField,
         iop::witness::{PartialWitness, WitnessWrite},
@@ -143,8 +144,12 @@ mod tests {
     use plonky2_bn254::fields::recover::RecoverFromX;
 
     use crate::{
-        common::signature_content::{SignatureContent, SignatureContentTarget},
-        ethereum_types::{u256::U256Target, u32limb_trait::U32LimbTargetTrait as _},
+        common::signature_content::{key_set::KeySet, SignatureContent, SignatureContentTarget},
+        constants::NUM_SENDERS_IN_BLOCK,
+        ethereum_types::{
+            u256::{U256Target, U256},
+            u32limb_trait::{U32LimbTargetTrait as _, U32LimbTrait},
+        },
     };
 
     type F = GoldilocksField;
@@ -188,37 +193,135 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "Invalid pubkeys length")]
-    fn test_format_validation_invalid_length() {
+    fn test_format_validation_invalid_pubkey_order() {
         let rng = &mut rand::thread_rng();
-        let (_, signature) = SignatureContent::rand(rng);
-        let pubkeys = vec![]; // Empty pubkeys to trigger the error
+        let (keyset, signature) = SignatureContent::rand(rng);
+        let mut pubkeys = keyset
+            .iter()
+            .map(|keyset| keyset.pubkey)
+            .collect::<Vec<_>>();
+        // Reverse the order of pubkeys to make it invalid
+        pubkeys.reverse();
 
-        // This should panic with the custom error message
-        signature.is_valid_format(&pubkeys);
+        // Test the format validation
+        let result = signature
+            .is_valid_format(&pubkeys)
+            .expect("Format validation failed");
+        assert!(!result);
+
+        let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::default());
+        let pubkeys_t = pubkeys
+            .iter()
+            .map(|x| U256Target::constant(&mut builder, *x))
+            .collect::<Vec<_>>();
+        let signature_t = SignatureContentTarget::constant(&mut builder, &signature);
+        let result_t = signature_t.is_valid_format::<F, C, D>(&mut builder, &pubkeys_t);
+
+        let mut pw = PartialWitness::new();
+        pw.set_bool_target(result_t, result);
+
+        let circuit = builder.build::<C>();
+        let proof = circuit.prove(pw).unwrap();
+        assert!(circuit.verify(proof).is_ok());
     }
 
     #[test]
-    fn test_validate_format_invalid_length() {
+    fn test_format_validation_out_of_range() {
         let rng = &mut rand::thread_rng();
-        let (_, signature) = SignatureContent::rand(rng);
-        let pubkeys = vec![]; // Empty pubkeys to trigger the error
+        let (keyset, signature) = SignatureContent::rand(rng);
+        let mut pubkeys = keyset
+            .iter()
+            .map(|keyset| keyset.pubkey)
+            .collect::<Vec<_>>();
 
-        // This should return an error
-        let result = signature.is_valid_format(&pubkeys);
-        assert!(result.is_err());
+        pubkeys[0] = U256::from(Fq::from(-1)) + U256::one(); // Set the first pubkey to an out-of-range value
 
-        if let Err(err) = result {
-            match err {
-                crate::common::signature_content::SignatureContentError::InvalidPubkeysLength {
-                    expected,
-                    actual,
-                } => {
-                    assert_eq!(expected, crate::constants::NUM_SENDERS_IN_BLOCK);
-                    assert_eq!(actual, 0);
-                }
-                _ => panic!("Unexpected error type"),
-            }
-        }
+        // Test the format validation
+        let result = signature
+            .is_valid_format(&pubkeys)
+            .expect("Format validation failed");
+        assert!(!result);
+
+        let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::default());
+        let pubkeys_t = pubkeys
+            .iter()
+            .map(|x| U256Target::constant(&mut builder, *x))
+            .collect::<Vec<_>>();
+        let signature_t = SignatureContentTarget::constant(&mut builder, &signature);
+        let result_t = signature_t.is_valid_format::<F, C, D>(&mut builder, &pubkeys_t);
+
+        let mut pw = PartialWitness::new();
+        pw.set_bool_target(result_t, result);
+
+        let circuit = builder.build::<C>();
+        let proof = circuit.prove(pw).unwrap();
+        assert!(circuit.verify(proof).is_ok());
+    }
+
+    #[test]
+    fn test_format_validation_not_recoverable() {
+        let rng = &mut rand::thread_rng();
+        let (_keyset, signature) = SignatureContent::rand(rng);
+
+        // random pubkeys that are not recoverable
+        let mut pubkeys = (0..NUM_SENDERS_IN_BLOCK)
+            .map(|_| KeySet::rand(rng).pubkey)
+            .collect::<Vec<_>>();
+        pubkeys.sort();
+
+        // Test the format validation
+        let result = signature
+            .is_valid_format(&pubkeys)
+            .expect("Format validation failed");
+        assert!(!result);
+
+        let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::default());
+        let pubkeys_t = pubkeys
+            .iter()
+            .map(|x| U256Target::constant(&mut builder, *x))
+            .collect::<Vec<_>>();
+        let signature_t = SignatureContentTarget::constant(&mut builder, &signature);
+        let result_t = signature_t.is_valid_format::<F, C, D>(&mut builder, &pubkeys_t);
+
+        let mut pw = PartialWitness::new();
+        pw.set_bool_target(result_t, result);
+
+        let circuit = builder.build::<C>();
+        let proof = circuit.prove(pw).unwrap();
+        assert!(circuit.verify(proof).is_ok());
+    }
+
+    #[test]
+    fn test_format_validation_invalid_message_point() {
+        let rng = &mut rand::thread_rng();
+        let (keyset, mut signature) = SignatureContent::rand(rng);
+        let pubkeys = keyset
+            .iter()
+            .map(|keyset| keyset.pubkey)
+            .collect::<Vec<_>>();
+
+        // set the message point to an invalid value
+        signature.message_point = G2Affine::rand(rng).into();
+
+        // Test the format validation
+        let result = signature
+            .is_valid_format(&pubkeys)
+            .expect("Format validation failed");
+        assert!(!result);
+
+        let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::default());
+        let pubkeys_t = pubkeys
+            .iter()
+            .map(|x| U256Target::constant(&mut builder, *x))
+            .collect::<Vec<_>>();
+        let signature_t = SignatureContentTarget::constant(&mut builder, &signature);
+        let result_t = signature_t.is_valid_format::<F, C, D>(&mut builder, &pubkeys_t);
+
+        let mut pw = PartialWitness::new();
+        pw.set_bool_target(result_t, result);
+
+        let circuit = builder.build::<C>();
+        let proof = circuit.prove(pw).unwrap();
+        assert!(circuit.verify(proof).is_ok());
     }
 }
