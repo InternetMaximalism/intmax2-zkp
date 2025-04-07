@@ -4,11 +4,10 @@ pub mod error;
 pub mod flatten;
 pub mod format_validation;
 pub mod key_set;
-pub mod serialize;
 pub mod sign_tools;
 pub mod utils;
 
-use ark_bn254::{Bn254, Fq, Fr, G1Affine, G2Affine};
+use ark_bn254::{Bn254, Fr, G1Affine, G2Affine};
 use ark_ec::{pairing::Pairing as _, AffineRepr as _};
 use block_sign_payload::{
     hash_to_weight, BlockSignPayload, BlockSignPayloadTarget, BLOCK_SIGN_PAYLOAD_LEN,
@@ -36,7 +35,7 @@ use crate::{
     ethereum_types::{
         bytes16::{Bytes16, Bytes16Target, BYTES16_LEN},
         bytes32::{Bytes32, Bytes32Target, BYTES32_LEN},
-        u256::{U256, U256_LEN},
+        u256::U256_LEN,
         u32limb_trait::{U32LimbTargetTrait, U32LimbTrait},
     },
     utils::poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget},
@@ -248,10 +247,4 @@ impl SignatureContentTarget {
     {
         Bytes32Target::from_slice(&builder.keccak256::<C>(&self.to_vec::<F>()))
     }
-}
-
-pub(super) fn pubkey_range_check(pubkey: U256) -> bool {
-    let pubkey_bg: BigUint = pubkey.into();
-    let modulus = BigUint::from(Fq::from(-1)) + 1u32;
-    pubkey_bg < modulus
 }

@@ -21,7 +21,7 @@ use plonky2_bn254::{
 };
 
 use crate::{
-    common::signature_content::{pubkey_range_check, SignatureContentError},
+    common::signature_content::SignatureContentError,
     constants::NUM_SENDERS_IN_BLOCK,
     ethereum_types::{
         bytes16::Bytes16,
@@ -127,6 +127,12 @@ impl SignatureContentTarget {
         result = builder.and(result, is_message_eq);
         result
     }
+}
+
+fn pubkey_range_check(pubkey: U256) -> bool {
+    let pubkey_bg: BigUint = pubkey.into();
+    let modulus = BigUint::from(Fq::from(-1)) + 1u32;
+    pubkey_bg < modulus
 }
 
 #[cfg(test)]
