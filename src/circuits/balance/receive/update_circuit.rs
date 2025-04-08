@@ -297,3 +297,52 @@ where
             .map_err(|e| UpdateError::ProofGenerationError(format!("{:?}", e)))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::{
+        circuits::{
+            test_utils::state_manager::ValidityStateManager,
+            validity::validity_processor::ValidityProcessor,
+        },
+        common::{public_state::PublicState, signature_content::key_set::KeySet},
+        ethereum_types::address::Address,
+    };
+    use plonky2::{
+        field::goldilocks_field::GoldilocksField, plonk::config::PoseidonGoldilocksConfig,
+    };
+    use std::sync::Arc;
+
+    use super::UpdateCircuit;
+
+    type F = GoldilocksField;
+    type C = PoseidonGoldilocksConfig;
+    const D: usize = 2;
+
+    #[test]
+    fn test_update_circuit() {
+        let mut rng = rand::thread_rng();
+        let validity_processor = Arc::new(ValidityProcessor::<F, C, D>::new());
+        let mut validity_state_manager =
+            ValidityStateManager::new(validity_processor.clone(), Address::default());
+        let validity_vd = validity_processor.get_verifier_data();
+        let key = KeySet::rand(&mut rng);
+
+        // post empty block
+        validity_state_manager.tick(false, &[], 0, 0).unwrap();
+
+        let update_witness = validity_state_manager
+            .get_update_witness(key.pubkey, 1, 0, true)
+            .unwrap();
+
+        let update_circuit = UpdateCircuit::<F, C, D>::new(&validity_processor.get_verifier_data());
+        let proof = update_circuit
+            .prove(
+                &update_witness
+                    .to_value(&validity_vd, key.pubkey, &PublicState::genesis())
+                    .unwrap(),
+            )
+            .unwrap();
+        update_circuit.data.verify(proof).unwrap();
+    }
+}

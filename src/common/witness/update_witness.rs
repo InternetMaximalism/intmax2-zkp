@@ -1,8 +1,16 @@
-use crate::common::error::CommonError;
+use crate::{
+    circuits::balance::receive::{error::UpdateError, update_circuit::UpdateValue},
+    common::error::CommonError,
+    ethereum_types::u256::U256,
+};
 use plonky2::{
     field::extension::Extendable,
     hash::hash_types::RichField,
-    plonk::{config::GenericConfig, proof::ProofWithPublicInputs},
+    plonk::{
+        circuit_data::VerifierCircuitData,
+        config::{AlgebraicHasher, GenericConfig},
+        proof::ProofWithPublicInputs,
+    },
 };
 use serde::{Deserialize, Serialize};
 
@@ -41,7 +49,9 @@ where
 {
     pub fn prev_account_membership_proof(&self) -> Result<AccountMembershipProof, CommonError> {
         if !self.is_prev_account_tree {
-            return Err(CommonError::InvalidWitness("prev account tree is not available".to_string()));
+            return Err(CommonError::InvalidWitness(
+                "prev account tree is not available".to_string(),
+            ));
         }
         Ok(self.account_membership_proof.clone())
     }
@@ -56,5 +66,24 @@ where
 
     pub fn public_state(&self) -> PublicState {
         self.validity_pis().public_state
+    }
+
+    pub fn to_value(
+        &self,
+        validity_vd: &VerifierCircuitData<F, C, D>,
+        pubkey: U256,
+        prev_public_state: &PublicState,
+    ) -> Result<UpdateValue<F, C, D>, UpdateError>
+    where
+        <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
+    {
+        UpdateValue::new(
+            validity_vd,
+            pubkey,
+            &self.validity_proof,
+            prev_public_state,
+            &self.block_merkle_proof,
+            &self.account_membership_proof,
+        )
     }
 }

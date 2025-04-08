@@ -402,7 +402,7 @@ mod tests {
 
         // alice send transfer
         let transfer = Transfer {
-            recipient: alice_key.pubkey.into(),
+            recipient: U256::rand(&mut rng).into(),
             token_index: rng.gen(),
             amount: U256::zero(), // should be zero, otherwise it will be cause insufficient balance
             salt: Salt::rand(&mut rng),
