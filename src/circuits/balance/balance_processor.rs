@@ -80,10 +80,12 @@ where
         spent_proof: &ProofWithPublicInputs<F, C, D>,
         prev_proof: &Option<ProofWithPublicInputs<F, C, D>>,
     ) -> Result<ProofWithPublicInputs<F, C, D>, BalanceError> {
-        let prev_balance_pis = get_prev_balance_pis(pubkey, prev_proof)
-            .map_err(|e| BalanceError::InvalidInput(
-                format!("Failed to get previous balance public inputs: {:?}", e)
-            ))?;
+        let prev_balance_pis = get_prev_balance_pis(pubkey, prev_proof).map_err(|e| {
+            BalanceError::InvalidInput(format!(
+                "Failed to get previous balance public inputs: {:?}",
+                e
+            ))
+        })?;
         let transition_proof = self
             .balance_transition_processor
             .prove_send(
@@ -98,9 +100,9 @@ where
         let proof = self
             .balance_circuit
             .prove(pubkey, &transition_proof, prev_proof)
-            .map_err(|e| BalanceError::VerificationFailed(
-                format!("Failed to prove send: {:?}", e)
-            ))?;
+            .map_err(|e| {
+                BalanceError::VerificationFailed(format!("Failed to prove send: {:?}", e))
+            })?;
         Ok(proof)
     }
 
@@ -111,10 +113,12 @@ where
         update_witness: &UpdateWitness<F, C, D>,
         prev_proof: &Option<ProofWithPublicInputs<F, C, D>>,
     ) -> Result<ProofWithPublicInputs<F, C, D>, BalanceError> {
-        let prev_balance_pis = get_prev_balance_pis(pubkey, prev_proof)
-            .map_err(|e| BalanceError::InvalidInput(
-                format!("Failed to get previous balance public inputs: {:?}", e)
-            ))?;
+        let prev_balance_pis = get_prev_balance_pis(pubkey, prev_proof).map_err(|e| {
+            BalanceError::InvalidInput(format!(
+                "Failed to get previous balance public inputs: {:?}",
+                e
+            ))
+        })?;
         let transition_proof = self
             .balance_transition_processor
             .prove_update(
@@ -127,9 +131,9 @@ where
         let proof = self
             .balance_circuit
             .prove(pubkey, &transition_proof, prev_proof)
-            .map_err(|e| BalanceError::VerificationFailed(
-                format!("Failed to prove update: {:?}", e)
-            ))?;
+            .map_err(|e| {
+                BalanceError::VerificationFailed(format!("Failed to prove update: {:?}", e))
+            })?;
         Ok(proof)
     }
 
@@ -139,10 +143,12 @@ where
         receive_transfer_witness: &ReceiveTransferWitness<F, C, D>,
         prev_proof: &Option<ProofWithPublicInputs<F, C, D>>,
     ) -> Result<ProofWithPublicInputs<F, C, D>, BalanceError> {
-        let prev_balance_pis = get_prev_balance_pis(pubkey, prev_proof)
-            .map_err(|e| BalanceError::InvalidInput(
-                format!("Failed to get previous balance public inputs: {:?}", e)
-            ))?;
+        let prev_balance_pis = get_prev_balance_pis(pubkey, prev_proof).map_err(|e| {
+            BalanceError::InvalidInput(format!(
+                "Failed to get previous balance public inputs: {:?}",
+                e
+            ))
+        })?;
         let transition_proof = self
             .balance_transition_processor
             .prove_receive_transfer(
@@ -154,9 +160,12 @@ where
         let proof = self
             .balance_circuit
             .prove(pubkey, &transition_proof, prev_proof)
-            .map_err(|e| BalanceError::VerificationFailed(
-                format!("Failed to prove receive transfer: {:?}", e)
-            ))?;
+            .map_err(|e| {
+                BalanceError::VerificationFailed(format!(
+                    "Failed to prove receive transfer: {:?}",
+                    e
+                ))
+            })?;
         Ok(proof)
     }
 
@@ -166,10 +175,12 @@ where
         receive_deposit_witness: &ReceiveDepositWitness,
         prev_proof: &Option<ProofWithPublicInputs<F, C, D>>,
     ) -> Result<ProofWithPublicInputs<F, C, D>, BalanceError> {
-        let prev_balance_pis = get_prev_balance_pis(pubkey, prev_proof)
-            .map_err(|e| BalanceError::InvalidInput(
-                format!("Failed to get previous balance public inputs: {:?}", e)
-            ))?;
+        let prev_balance_pis = get_prev_balance_pis(pubkey, prev_proof).map_err(|e| {
+            BalanceError::InvalidInput(format!(
+                "Failed to get previous balance public inputs: {:?}",
+                e
+            ))
+        })?;
         let transition_proof = self
             .balance_transition_processor
             .prove_receive_deposit(
@@ -181,9 +192,12 @@ where
         let proof = self
             .balance_circuit
             .prove(pubkey, &transition_proof, prev_proof)
-            .map_err(|e| BalanceError::VerificationFailed(
-                format!("Failed to prove receive deposit: {:?}", e)
-            ))?;
+            .map_err(|e| {
+                BalanceError::VerificationFailed(format!(
+                    "Failed to prove receive deposit: {:?}",
+                    e
+                ))
+            })?;
         Ok(proof)
     }
 }
@@ -269,22 +283,36 @@ mod tests {
         let transfer = Transfer::rand(&mut rng);
 
         let (spent_witness, _) =
-            construct_spent_and_transfer_witness(&mut alice_state, &[transfer])
-                .map_err(|e| BalanceError::Other(format!("Failed to construct spent and transfer witness: {:?}", e)))?;
-        let spent_witness_value = spent_witness.to_value()
-            .map_err(|e| BalanceError::Other(format!("Failed to convert spent witness to value: {:?}", e)))?;
-        let spent_proof = spent_circuit.prove(&spent_witness_value)
+            construct_spent_and_transfer_witness(&mut alice_state, &[transfer]).map_err(|e| {
+                BalanceError::Other(format!(
+                    "Failed to construct spent and transfer witness: {:?}",
+                    e
+                ))
+            })?;
+        let spent_witness_value = spent_witness.to_value().map_err(|e| {
+            BalanceError::Other(format!("Failed to convert spent witness to value: {:?}", e))
+        })?;
+        let spent_proof = spent_circuit
+            .prove(&spent_witness_value)
             .map_err(|e| BalanceError::Other(format!("Failed to prove spent circuit: {:?}", e)))?;
         let tx_request = MockTxRequest {
             tx: spent_witness.tx,
             sender_key: alice_key,
             will_return_sig: true,
         };
-        let tx_witnesses = validity_state_manager.tick(true, &[tx_request], 0, 0)
-            .map_err(|e| BalanceError::Other(format!("Failed to tick validity state manager with transaction: {:?}", e)))?;
-        let update_witness =
-            validity_state_manager.get_update_witness(alice_key.pubkey, 1, 0, true)
-                .map_err(|e| BalanceError::Other(format!("Failed to get update witness for alice: {:?}", e)))?;
+        let tx_witnesses = validity_state_manager
+            .tick(true, &[tx_request], 0, 0)
+            .map_err(|e| {
+                BalanceError::Other(format!(
+                    "Failed to tick validity state manager with transaction: {:?}",
+                    e
+                ))
+            })?;
+        let update_witness = validity_state_manager
+            .get_update_witness(alice_key.pubkey, 1, 0, true)
+            .map_err(|e| {
+                BalanceError::Other(format!("Failed to get update witness for alice: {:?}", e))
+            })?;
 
         let _alice_balance_proof = balance_processor.prove_send(
             &validity_processor.get_verifier_data(),
@@ -307,14 +335,17 @@ mod tests {
             ValidityStateManager::new(validity_processor.clone(), Address::default());
 
         // post empty block
-        validity_state_manager.tick(false, &[], 0, 0)
-            .map_err(|e| BalanceError::Other(format!("Failed to tick validity state manager: {:?}", e)))?;
+        validity_state_manager.tick(false, &[], 0, 0).map_err(|e| {
+            BalanceError::Other(format!("Failed to tick validity state manager: {:?}", e))
+        })?;
 
         // alice update balance
         let alice_key = KeySet::rand(&mut rng);
-        let update_witness =
-            validity_state_manager.get_update_witness(alice_key.pubkey, 1, 0, false)
-                .map_err(|e| BalanceError::Other(format!("Failed to get update witness for alice: {:?}", e)))?;
+        let update_witness = validity_state_manager
+            .get_update_witness(alice_key.pubkey, 1, 0, false)
+            .map_err(|e| {
+                BalanceError::Other(format!("Failed to get update witness for alice: {:?}", e))
+            })?;
         let _alice_balance_proof = balance_processor.prove_update(
             &validity_processor.get_verifier_data(),
             alice_key.pubkey,
@@ -348,7 +379,8 @@ mod tests {
         let spent_circuit = SpentCircuit::new();
 
         // public state
-        let mut validity_state_manager = ValidityStateManager::new(validity_processor.clone(), Address::default());
+        let mut validity_state_manager =
+            ValidityStateManager::new(validity_processor.clone(), Address::default());
 
         // local state
         let alice_key = KeySet::rand(&mut rng);
@@ -365,24 +397,38 @@ mod tests {
         };
 
         let (spent_witness, transfer_witnesses) =
-            construct_spent_and_transfer_witness(&mut alice_state, &[transfer])
-                .map_err(|e| BalanceError::Other(format!("Failed to construct spent and transfer witness: {:?}", e)))?;
+            construct_spent_and_transfer_witness(&mut alice_state, &[transfer]).map_err(|e| {
+                BalanceError::Other(format!(
+                    "Failed to construct spent and transfer witness: {:?}",
+                    e
+                ))
+            })?;
         let transfer_witness = transfer_witnesses[0].clone();
-        let spent_witness_value = spent_witness.to_value()
-            .map_err(|e| BalanceError::Other(format!("Failed to convert spent witness to value: {:?}", e)))?;
-        let spent_proof = spent_circuit.prove(&spent_witness_value)
+        let spent_witness_value = spent_witness.to_value().map_err(|e| {
+            BalanceError::Other(format!("Failed to convert spent witness to value: {:?}", e))
+        })?;
+        let spent_proof = spent_circuit
+            .prove(&spent_witness_value)
             .map_err(|e| BalanceError::Other(format!("Failed to prove spent circuit: {:?}", e)))?;
         let tx_request = MockTxRequest {
             tx: spent_witness.tx,
             sender_key: alice_key,
             will_return_sig: true,
         };
-        let tx_witnesses = validity_state_manager.tick(true, &[tx_request], 0, 0)
-            .map_err(|e| BalanceError::Other(format!("Failed to tick validity state manager with transaction: {:?}", e)))?;
+        let tx_witnesses = validity_state_manager
+            .tick(true, &[tx_request], 0, 0)
+            .map_err(|e| {
+                BalanceError::Other(format!(
+                    "Failed to tick validity state manager with transaction: {:?}",
+                    e
+                ))
+            })?;
         let tx_witness = tx_witnesses[0].clone();
-        let update_witness =
-            validity_state_manager.get_update_witness(alice_key.pubkey, 1, 0, true)
-                .map_err(|e| BalanceError::Other(format!("Failed to get update witness for alice: {:?}", e)))?;
+        let update_witness = validity_state_manager
+            .get_update_witness(alice_key.pubkey, 1, 0, true)
+            .map_err(|e| {
+                BalanceError::Other(format!("Failed to get update witness for alice: {:?}", e))
+            })?;
         let alice_balance_proof = balance_processor.prove_send(
             &validity_processor.get_verifier_data(),
             alice_key.pubkey,
@@ -393,9 +439,11 @@ mod tests {
         )?;
 
         // bob update balance proof
-        let update_witness =
-            validity_state_manager.get_update_witness(bob_key.pubkey, 1, 0, false)
-                .map_err(|e| BalanceError::Other(format!("Failed to get update witness for bob: {:?}", e)))?;
+        let update_witness = validity_state_manager
+            .get_update_witness(bob_key.pubkey, 1, 0, false)
+            .map_err(|e| {
+                BalanceError::Other(format!("Failed to get update witness for bob: {:?}", e))
+            })?;
         let bob_balance_proof = balance_processor.prove_update(
             &validity_processor.get_verifier_data(),
             bob_key.pubkey,
@@ -406,9 +454,18 @@ mod tests {
             &mut bob_state,
             transfer,
             Salt::rand(&mut rng),
-        ).map_err(|e| BalanceError::Other(format!("Failed to create private transition witness from transfer: {:?}", e)))?;
-        let block_merkle_proof = validity_state_manager.get_block_merkle_proof(1, 1)
-            .map_err(|e| BalanceError::Other(format!("Failed to get block merkle proof: {:?}", e)))?;
+        )
+        .map_err(|e| {
+            BalanceError::Other(format!(
+                "Failed to create private transition witness from transfer: {:?}",
+                e
+            ))
+        })?;
+        let block_merkle_proof = validity_state_manager
+            .get_block_merkle_proof(1, 1)
+            .map_err(|e| {
+                BalanceError::Other(format!("Failed to get block merkle proof: {:?}", e))
+            })?;
         let receive_transfer_witness = ReceiveTransferWitness {
             transfer_witness,
             private_transition_witness,
@@ -446,17 +503,27 @@ mod tests {
             token_index: rng.gen(),
             is_eligible: true,
         };
-        let deposit_index = validity_state_manager.deposit(&deposit)
+        let deposit_index = validity_state_manager
+            .deposit(&deposit)
             .map_err(|e| BalanceError::Other(format!("Failed to deposit: {:?}", e)))?;
 
         // post empty block to sync deposit tree
-        validity_state_manager.tick(false, &[], 0, 0)
-            .map_err(|e| BalanceError::Other(format!("Failed to tick validity state manager for deposit sync: {:?}", e)))?;
+        validity_state_manager.tick(false, &[], 0, 0).map_err(|e| {
+            BalanceError::Other(format!(
+                "Failed to tick validity state manager for deposit sync: {:?}",
+                e
+            ))
+        })?;
 
         // alice update balance proof
-        let update_witness =
-            validity_state_manager.get_update_witness(alice_key.pubkey, 1, 0, false)
-                .map_err(|e| BalanceError::Other(format!("Failed to get update witness for alice in deposit test: {:?}", e)))?;
+        let update_witness = validity_state_manager
+            .get_update_witness(alice_key.pubkey, 1, 0, false)
+            .map_err(|e| {
+                BalanceError::Other(format!(
+                    "Failed to get update witness for alice in deposit test: {:?}",
+                    e
+                ))
+            })?;
         let alice_balance_proof = balance_processor.prove_update(
             &validity_processor.get_verifier_data(),
             alice_key.pubkey,
@@ -465,20 +532,25 @@ mod tests {
         )?;
 
         // alice receive deposit proof
-        let deposit_merkle_proof =
-            validity_state_manager.get_deposit_merkle_proof(1, deposit_index)
-                .map_err(|e| BalanceError::Other(format!("Failed to get deposit merkle proof: {:?}", e)))?;
+        let deposit_merkle_proof = validity_state_manager
+            .get_deposit_merkle_proof(1, deposit_index)
+            .map_err(|e| {
+                BalanceError::Other(format!("Failed to get deposit merkle proof: {:?}", e))
+            })?;
         let deposit_witness = DepositWitness {
             deposit_salt,
             deposit_index,
             deposit: deposit.clone(),
             deposit_merkle_proof,
         };
-        let private_transition_witness = PrivateTransitionWitness::new_from_deposit(
-            &mut alice_state,
-            deposit,
-            Salt::rand(&mut rng),
-        ).map_err(|e| BalanceError::Other(format!("Failed to create private transition witness from deposit: {:?}", e)))?;
+        let private_transition_witness =
+            PrivateTransitionWitness::from_deposit(&mut alice_state, &deposit, Salt::rand(&mut rng))
+                .map_err(|e| {
+                    BalanceError::Other(format!(
+                        "Failed to create private transition witness from deposit: {:?}",
+                        e
+                    ))
+                })?;
         let receive_deposit_witness = ReceiveDepositWitness {
             deposit_witness,
             private_transition_witness,

@@ -1,3 +1,4 @@
+use super::error::ReceiveError;
 use crate::{
     common::{
         deposit::{get_pubkey_salt_hash, get_pubkey_salt_hash_circuit, Deposit, DepositTarget},
@@ -16,7 +17,6 @@ use crate::{
         poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget, POSEIDON_HASH_OUT_LEN},
     },
 };
-use super::error::ReceiveError;
 use plonky2::{
     field::{extension::Extendable, types::Field},
     gates::constant::ConstantGate,
@@ -50,36 +50,38 @@ pub struct ReceiveDepositPublicInputs {
 
 impl ReceiveDepositPublicInputs {
     pub fn to_u64_vec(&self) -> Result<Vec<u64>, ReceiveError> {
-        let vec = [self.prev_private_commitment.to_u64_vec(),
+        let vec = [
+            self.prev_private_commitment.to_u64_vec(),
             self.new_private_commitment.to_u64_vec(),
             self.pubkey.to_u64_vec(),
-            self.public_state.to_u64_vec()]
+            self.public_state.to_u64_vec(),
+        ]
         .concat();
         if vec.len() != RECEIVE_DEPOSIT_PUBLIC_INPUTS_LEN {
-            return Err(ReceiveError::InvalidInput(
-                format!("ReceiveDepositPublicInputs length mismatch: expected {}, got {}", 
-                    RECEIVE_DEPOSIT_PUBLIC_INPUTS_LEN, vec.len())
-            ));
+            return Err(ReceiveError::InvalidInput(format!(
+                "ReceiveDepositPublicInputs length mismatch: expected {}, got {}",
+                RECEIVE_DEPOSIT_PUBLIC_INPUTS_LEN,
+                vec.len()
+            )));
         }
         Ok(vec)
     }
 
     pub fn from_u64_slice(input: &[u64]) -> Result<Self, ReceiveError> {
         if input.len() != RECEIVE_DEPOSIT_PUBLIC_INPUTS_LEN {
-            return Err(ReceiveError::InvalidInput(
-                format!("ReceiveDepositPublicInputs length mismatch: expected {}, got {}", 
-                    RECEIVE_DEPOSIT_PUBLIC_INPUTS_LEN, input.len())
-            ));
+            return Err(ReceiveError::InvalidInput(format!(
+                "ReceiveDepositPublicInputs length mismatch: expected {}, got {}",
+                RECEIVE_DEPOSIT_PUBLIC_INPUTS_LEN,
+                input.len()
+            )));
         }
-        
+
         let prev_private_commitment = PoseidonHashOut::from_u64_slice(&input[0..4]);
         let new_private_commitment = PoseidonHashOut::from_u64_slice(&input[4..8]);
         let pubkey = U256::from_u64_slice(&input[8..16])
-            .map_err(|e| ReceiveError::InvalidInput(
-                format!("Failed to parse pubkey: {:?}", e)
-            ))?;
+            .map_err(|e| ReceiveError::InvalidInput(format!("Failed to parse pubkey: {:?}", e)))?;
         let public_state = PublicState::from_u64_slice(&input[16..16 + PUBLIC_STATE_LEN]);
-        
+
         Ok(ReceiveDepositPublicInputs {
             prev_private_commitment,
             new_private_commitment,
@@ -99,16 +101,19 @@ pub struct ReceiveDepositPublicInputsTarget {
 
 impl ReceiveDepositPublicInputsTarget {
     pub fn to_vec(&self) -> Result<Vec<Target>, ReceiveError> {
-        let vec = [self.prev_private_commitment.to_vec(),
+        let vec = [
+            self.prev_private_commitment.to_vec(),
             self.new_private_commitment.to_vec(),
             self.pubkey.to_vec(),
-            self.public_state.to_vec()]
+            self.public_state.to_vec(),
+        ]
         .concat();
         if vec.len() != RECEIVE_DEPOSIT_PUBLIC_INPUTS_LEN {
-            return Err(ReceiveError::InvalidInput(
-                format!("ReceiveDepositPublicInputsTarget length mismatch: expected {}, got {}", 
-                    RECEIVE_DEPOSIT_PUBLIC_INPUTS_LEN, vec.len())
-            ));
+            return Err(ReceiveError::InvalidInput(format!(
+                "ReceiveDepositPublicInputsTarget length mismatch: expected {}, got {}",
+                RECEIVE_DEPOSIT_PUBLIC_INPUTS_LEN,
+                vec.len()
+            )));
         }
         Ok(vec)
     }
@@ -120,7 +125,7 @@ impl ReceiveDepositPublicInputsTarget {
                     RECEIVE_DEPOSIT_PUBLIC_INPUTS_LEN, input.len())
             ));
         }
-        
+
         let prev_private_commitment = PoseidonHashOutTarget::from_slice(&input[0..4]);
         let new_private_commitment = PoseidonHashOutTarget::from_slice(&input[4..8]);
         let pubkey = U256Target::from_slice(&input[8..16]);
@@ -160,42 +165,42 @@ impl ReceiveDepositValue {
         // verify deposit inclusion
         let pubkey_salt_hash = get_pubkey_salt_hash(pubkey, deposit_salt);
         if pubkey_salt_hash != deposit.pubkey_salt_hash {
-            return Err(ReceiveError::VerificationFailed(
-                format!("Invalid pubkey salt hash: expected {:?}, got {:?}", 
-                    deposit.pubkey_salt_hash, pubkey_salt_hash)
-            ));
+            return Err(ReceiveError::VerificationFailed(format!(
+                "Invalid pubkey salt hash: expected {:?}, got {:?}",
+                deposit.pubkey_salt_hash, pubkey_salt_hash
+            )));
         }
-        
+
         deposit_merkle_proof
             .verify(
                 deposit,
                 deposit_index as u64,
                 public_state.deposit_tree_root,
             )
-            .map_err(|e| ReceiveError::VerificationFailed(
-                format!("Invalid deposit merkle proof: {}", e)
-            ))?;
+            .map_err(|e| {
+                ReceiveError::VerificationFailed(format!("Invalid deposit merkle proof: {}", e))
+            })?;
 
         let nullifier: Bytes32 = deposit.poseidon_hash().into();
         if deposit.token_index != private_state_transition.token_index {
-            return Err(ReceiveError::VerificationFailed(
-                format!("Invalid token index: expected {}, got {}", 
-                    private_state_transition.token_index, deposit.token_index)
-            ));
+            return Err(ReceiveError::VerificationFailed(format!(
+                "Invalid token index: expected {}, got {}",
+                private_state_transition.token_index, deposit.token_index
+            )));
         }
-        
+
         if deposit.amount != private_state_transition.amount {
-            return Err(ReceiveError::VerificationFailed(
-                format!("Invalid amount: expected {}, got {}", 
-                    private_state_transition.amount, deposit.amount)
-            ));
+            return Err(ReceiveError::VerificationFailed(format!(
+                "Invalid amount: expected {}, got {}",
+                private_state_transition.amount, deposit.amount
+            )));
         }
-        
+
         if nullifier != private_state_transition.nullifier {
-            return Err(ReceiveError::VerificationFailed(
-                format!("Invalid nullifier: expected {:?}, got {:?}", 
-                    private_state_transition.nullifier, nullifier)
-            ));
+            return Err(ReceiveError::VerificationFailed(format!(
+                "Invalid nullifier: expected {:?}, got {:?}",
+                private_state_transition.nullifier, nullifier
+            )));
         }
 
         let prev_private_commitment = private_state_transition.prev_private_state.commitment();
@@ -322,7 +327,7 @@ where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F> + 'static,
     C::Hasher: AlgebraicHasher<F>,
- {
+{
     fn default() -> Self {
         Self::new()
     }
@@ -344,7 +349,9 @@ where
             new_private_commitment: target.new_private_commitment,
             public_state: target.public_state.clone(),
         };
-        let pis_vec = pis.to_vec().expect("Failed to convert public inputs to vector");
+        let pis_vec = pis
+            .to_vec()
+            .expect("Failed to convert public inputs to vector");
         builder.register_public_inputs(&pis_vec);
         // add constant gate
         let constant_gate = ConstantGate::new(config.num_constants);
@@ -364,6 +371,106 @@ where
     ) -> Result<ProofWithPublicInputs<F, C, D>, ReceiveError> {
         let mut pw = PartialWitness::<F>::new();
         self.target.set_witness(&mut pw, value);
-        self.data.prove(pw).map_err(|e| ReceiveError::ProofGenerationError(format!("Failed to generate proof: {:?}", e)))
+        self.data.prove(pw).map_err(|e| {
+            ReceiveError::ProofGenerationError(format!("Failed to generate proof: {:?}", e))
+        })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use plonky2::{
+        field::goldilocks_field::GoldilocksField, plonk::config::PoseidonGoldilocksConfig,
+    };
+    use rand::Rng as _;
+
+    use crate::{
+        circuits::{
+            test_utils::witness_generator::construct_validity_and_tx_witness,
+            validity::validity_pis::ValidityPublicInputs,
+        },
+        common::{
+            deposit::{get_pubkey_salt_hash, Deposit},
+            private_state::FullPrivateState,
+            salt::Salt,
+            signature_content::key_set::KeySet,
+            trees::{
+                account_tree::AccountTree, block_hash_tree::BlockHashTree,
+                deposit_tree::DepositTree,
+            },
+            witness::private_transition_witness::PrivateTransitionWitness,
+        },
+        ethereum_types::{address::Address, u256::U256, u32limb_trait::U32LimbTrait as _},
+    };
+
+    use super::{ReceiveDepositCircuit, ReceiveDepositValue};
+
+    type F = GoldilocksField;
+    type C = PoseidonGoldilocksConfig;
+    const D: usize = 2;
+
+    #[test]
+    fn test_receive_deposit_circuit() {
+        let mut rng = rand::thread_rng();
+
+        let mut account_tree = AccountTree::initialize();
+        let mut block_tree = BlockHashTree::initialize();
+        let mut deposit_tree = DepositTree::initialize();
+        let prev_validity_pis = ValidityPublicInputs::genesis();
+
+        let key = KeySet::rand(&mut rng);
+
+        let deposit_salt = Salt::rand(&mut rng);
+        let deposit_salt_hash = get_pubkey_salt_hash(key.pubkey, deposit_salt);
+        let deposit = Deposit {
+            depositor: Address::rand(&mut rng),
+            pubkey_salt_hash: deposit_salt_hash,
+            amount: U256::rand_small(&mut rng),
+            token_index: rng.gen(),
+            is_eligible: false,
+        };
+        let deposit_index = deposit_tree.len() as u32;
+        deposit_tree.push(deposit.clone());
+
+        // post empty block to sync account tree
+        let (validity_witness, _) = construct_validity_and_tx_witness(
+            prev_validity_pis,
+            &mut account_tree,
+            &mut block_tree,
+            &deposit_tree,
+            false,
+            0,
+            Address::default(),
+            0,
+            &[],
+            0,
+        )
+        .unwrap();
+        let validity_pis = validity_witness.to_validity_pis().unwrap();
+
+        let mut full_private_state = FullPrivateState::new();
+        let private_state_transition_witness = PrivateTransitionWitness::from_deposit(
+            &mut full_private_state,
+            &deposit,
+            Salt::rand(&mut rng),
+        )
+        .unwrap();
+        let deposit_merkle_proof = deposit_tree.prove(deposit_index as u64);
+        let receive_deposit_value = ReceiveDepositValue::new(
+            key.pubkey,
+            deposit_salt,
+            deposit_index,
+            &deposit,
+            &deposit_merkle_proof,
+            &validity_pis.public_state,
+            &private_state_transition_witness.to_value().unwrap(),
+        )
+        .unwrap();
+
+        let receive_deposit_circuit = ReceiveDepositCircuit::<F, C, D>::new();
+        let proof = receive_deposit_circuit
+            .prove(&receive_deposit_value)
+            .unwrap();
+        receive_deposit_circuit.data.verify(proof.clone()).unwrap();
     }
 }

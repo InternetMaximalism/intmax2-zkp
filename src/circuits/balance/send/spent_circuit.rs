@@ -170,19 +170,19 @@ impl SpentValue {
     ) -> Result<Self, CommonError> {
         if prev_balances.len() != NUM_TRANSFERS_IN_TX {
             return Err(CommonError::InvalidData(
-                "invalid number of balances".to_string()
+                "invalid number of balances".to_string(),
             ));
         }
-        
+
         if transfers.len() != NUM_TRANSFERS_IN_TX {
             return Err(CommonError::InvalidData(
-                "invalid number of transfers".to_string()
+                "invalid number of transfers".to_string(),
             ));
         }
-        
+
         if asset_merkle_proofs.len() != NUM_TRANSFERS_IN_TX {
             return Err(CommonError::InvalidData(
-                "invalid number of proofs".to_string()
+                "invalid number of proofs".to_string(),
             ));
         }
         let mut insufficient_bits = vec![];
@@ -194,7 +194,12 @@ impl SpentValue {
         {
             proof
                 .verify(prev_balance, transfer.token_index as u64, asset_tree_root)
-                .map_err(|e| CommonError::InvalidProof(format!("asset merkle proof verification failed: {}", e)))?;
+                .map_err(|e| {
+                    CommonError::InvalidProof(format!(
+                        "asset merkle proof verification failed: {}",
+                        e
+                    ))
+                })?;
             let new_balance = prev_balance.sub(transfer.amount);
             asset_tree_root = proof.get_root(&new_balance, transfer.token_index as u64);
             insufficient_bits.push(new_balance.is_insufficient);
@@ -371,7 +376,9 @@ where
     pub fn prove(&self, value: &SpentValue) -> Result<ProofWithPublicInputs<F, C, D>, CommonError> {
         let mut pw = PartialWitness::<F>::new();
         self.target.set_witness(&mut pw, value);
-        self.data.prove(pw).map_err(|e| CommonError::InvalidProof(e.to_string()))
+        self.data
+            .prove(pw)
+            .map_err(|e| CommonError::InvalidProof(e.to_string()))
     }
 }
 
@@ -400,7 +407,7 @@ mod tests {
     type C = PoseidonGoldilocksConfig;
 
     #[test]
-    fn spent_circuit() {
+    fn test_spent_circuit() {
         let mut rng = rand::thread_rng();
         let mut asset_tree = AssetTree::new(ASSET_TREE_HEIGHT);
         let prev_balances = (0..NUM_TRANSFERS_IN_TX)

@@ -1,6 +1,9 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
+    circuits::balance::receive::receive_targets::{
+        error::ReceiveTargetsError, private_state_transition::PrivateStateTransitionValue,
+    },
     common::{
         deposit::Deposit,
         error::CommonError,
@@ -62,7 +65,7 @@ impl PrivateTransitionWitness {
         })
     }
 
-    pub fn new_from_transfer(
+    pub fn from_transfer(
         full_private_state: &mut FullPrivateState,
         transfer: Transfer,
         new_salt: Salt,
@@ -77,9 +80,9 @@ impl PrivateTransitionWitness {
         )
     }
 
-    pub fn new_from_deposit(
+    pub fn from_deposit(
         full_private_state: &mut FullPrivateState,
-        deposit: Deposit,
+        deposit: &Deposit,
         new_salt: Salt,
     ) -> Result<Self, CommonError> {
         let nullifier: Bytes32 = deposit.poseidon_hash().into();
@@ -89,6 +92,19 @@ impl PrivateTransitionWitness {
             deposit.amount,
             nullifier,
             new_salt,
+        )
+    }
+
+    pub fn to_value(&self) -> Result<PrivateStateTransitionValue, ReceiveTargetsError> {
+        PrivateStateTransitionValue::new(
+            self.token_index,
+            self.amount,
+            self.nullifier,
+            self.new_salt,
+            &self.prev_private_state,
+            &self.nullifier_proof,
+            &self.prev_asset_leaf,
+            &self.asset_merkle_proof,
         )
     }
 }

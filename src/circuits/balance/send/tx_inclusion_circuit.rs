@@ -427,17 +427,13 @@ where
 //     #[test]
 //     fn tx_inclusion_circuit() {
 //         let mut rng = rand::thread_rng();
-//         // let mut block_builder = MockBlockBuilder::new();
-//         // let mut wallet = MockWallet::new_rand(&mut rng);
-//         // let mut sync_prover = SyncValidityProver::<F, C, D>::new();
-
 //         let transfer = Transfer {
 //             recipient: GenericAddress::rand_pubkey(&mut rng),
 //             token_index: 0,
 //             amount: U256::rand_small(&mut rng),
 //             salt: Salt::rand(&mut rng),
 //         };
-
+        
 //         // send tx
 //         let send_witness = wallet.send_tx_and_update(&mut rng, &mut block_builder, &[transfer]);
 //         // update validity proofs
