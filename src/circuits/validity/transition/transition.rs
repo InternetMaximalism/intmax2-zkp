@@ -443,7 +443,7 @@ mod tests {
             validity::{
                 transition::{
                     account_registration::{AccountRegistrationCircuit, AccountRegistrationValue},
-                    account_update::AccountUpdateCircuit,
+                    account_update::{AccountUpdateCircuit, AccountUpdateValue},
                     transition::ValidityTransitionValue,
                 },
                 validity_pis::ValidityPublicInputs,
@@ -559,21 +559,26 @@ mod tests {
         let mut account_tree = AccountTree::initialize();
         let mut block_tree = BlockHashTree::initialize();
         let deposit_tree = DepositTree::initialize();
+        let mut prev_validity_pis = ValidityPublicInputs::genesis();
 
-        let prev_validity_pis = ValidityPublicInputs::genesis();
-        let tx_requests = (0..NUM_SENDERS_IN_BLOCK)
-            .map(|_| MockTxRequest {
+        // create a block that registers new accounts
+        let keys = (0..NUM_SENDERS_IN_BLOCK)
+            .map(|_| KeySet::rand(&mut rng))
+            .collect::<Vec<_>>();
+        let tx_requests = keys
+            .iter()
+            .map(|key| MockTxRequest {
                 tx: Tx::rand(&mut rng),
-                sender_key: KeySet::rand(&mut rng),
-                will_return_sig: rng.gen_bool(0.5),
+                sender_key: key.clone(),
+                will_return_sig: true, // all sender return sigs to register to the account tree
             })
             .collect::<Vec<_>>();
-        let (validity_witness, _) = construct_validity_and_tx_witness(
+        let (registration_validity_witness, _) = construct_validity_and_tx_witness(
             prev_validity_pis,
             &mut account_tree,
             &mut block_tree,
             &deposit_tree,
-            true,
+            true, // registration block
             0,
             Address::default(),
             0,
@@ -581,26 +586,55 @@ mod tests {
             0,
         )
         .unwrap();
+        prev_validity_pis = registration_validity_witness.to_validity_pis().unwrap();
+
+        // check account registration
+        for key in keys.iter() {
+            let account = account_tree.index(key.pubkey);
+            assert!(account.is_some());
+        }
+
+        // create a non-registration block
+        let tx_requests = keys
+            .iter()
+            .map(|key| MockTxRequest {
+                tx: Tx::rand(&mut rng),
+                sender_key: key.clone(),
+                will_return_sig: rng.gen_bool(0.5), // some senders return sigs
+            })
+            .collect::<Vec<_>>();
+        let (validity_witness, _) = construct_validity_and_tx_witness(
+            prev_validity_pis,
+            &mut account_tree,
+            &mut block_tree,
+            &deposit_tree,
+            false, // non-registration block
+            0,
+            Address::default(),
+            0,
+            &tx_requests,
+            0,
+        )
+        .unwrap();
+
         let block_witness = validity_witness.block_witness.clone();
         let validity_transition_witness = validity_witness.validity_transition_witness.clone();
 
         let account_registration_circuit = AccountRegistrationCircuit::<F, C, D>::new();
         let account_update_circuit = AccountUpdateCircuit::<F, C, D>::new();
 
-        let account_registration_value = AccountRegistrationValue::new(
+        let account_update_value = AccountUpdateValue::new(
             block_witness.prev_account_tree_root,
             block_witness.prev_next_account_id,
             block_witness.block.block_number,
             block_witness.get_sender_tree().leaves(),
             validity_transition_witness
-                .account_registration_proofs
+                .account_update_proofs
                 .clone()
                 .unwrap(),
         )
         .unwrap();
-        let account_registration_proof = account_registration_circuit
-            .prove(&account_registration_value)
-            .unwrap();
+        let account_update_proof = account_update_circuit.prove(&account_update_value).unwrap();
 
         let validity_transition_value = ValidityTransitionValue::new(
             &account_registration_circuit,
@@ -612,8 +646,8 @@ mod tests {
             block_witness.prev_account_tree_root,
             block_witness.prev_next_account_id,
             block_witness.prev_block_tree_root,
-            Some(account_registration_proof),
             None,
+            Some(account_update_proof),
             validity_transition_witness.block_merkle_proof.clone(),
         )
         .unwrap();
