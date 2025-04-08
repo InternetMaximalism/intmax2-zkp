@@ -1,3 +1,4 @@
+use super::error::ReceiveTargetsError;
 use crate::{
     circuits::balance::balance_pis::{BalancePublicInputs, BalancePublicInputsTarget},
     common::{
@@ -12,7 +13,6 @@ use crate::{
         leafable::{Leafable as _, LeafableTarget},
     },
 };
-use super::error::ReceiveTargetsError;
 use plonky2::{
     field::extension::Extendable,
     hash::hash_types::RichField,
@@ -35,7 +35,7 @@ pub struct TransferInclusionValue<
     const D: usize,
 > {
     pub transfer: Transfer,  // transfer to be proved included
-    pub transfer_index: u32, // the index of the transfer in the tranfer merkle tree
+    pub transfer_index: u32, // the index of the transfer in the transfer merkle tree
     pub transfer_merkle_proof: TransferMerkleProof, // transfer merkle proof that proves i
     pub tx: Tx,              // tx that includes the transfer
     pub balance_proof: ProofWithPublicInputs<F, C, D>, // balance proof that includes the tx
@@ -56,55 +56,66 @@ where
         tx: &Tx,
         balance_proof: &ProofWithPublicInputs<F, C, D>,
     ) -> Result<Self, ReceiveTargetsError> {
-        let balance_pis = BalancePublicInputs::from_pis(&balance_proof.public_inputs)
-            .map_err(|e| ReceiveTargetsError::VerificationFailed(
-                format!("Failed to parse balance public inputs: {}", e)
-            ))?;
+        let balance_pis =
+            BalancePublicInputs::from_pis(&balance_proof.public_inputs).map_err(|e| {
+                ReceiveTargetsError::VerificationFailed(format!(
+                    "Failed to parse balance public inputs: {}",
+                    e
+                ))
+            })?;
         let balance_circuit_vd = vd_from_pis_slice::<F, C, D>(
             &balance_proof.public_inputs,
             &balance_verifier_data.common.config,
         )
-        .map_err(|e| ReceiveTargetsError::VerificationFailed(
-            format!("Failed to parse balance vd: {}", e)
-        ))?;
-        
+        .map_err(|e| {
+            ReceiveTargetsError::VerificationFailed(format!("Failed to parse balance vd: {}", e))
+        })?;
+
         if balance_circuit_vd != balance_verifier_data.verifier_only {
             return Err(ReceiveTargetsError::VerificationFailed(
-                "Balance vd mismatch".to_string()
+                "Balance vd mismatch".to_string(),
             ));
         }
-        
+
         balance_verifier_data
             .verify(balance_proof.clone())
-            .map_err(|e| ReceiveTargetsError::VerificationFailed(
-                format!("Failed to verify balance proof: {}", e)
-            ))?;
-            
+            .map_err(|e| {
+                ReceiveTargetsError::VerificationFailed(format!(
+                    "Failed to verify balance proof: {}",
+                    e
+                ))
+            })?;
+
         if balance_pis.last_tx_hash != tx.hash() {
-            return Err(ReceiveTargetsError::VerificationFailed(
-                format!("Last tx hash mismatch: expected {:?}, got {:?}", 
-                    tx.hash(), balance_pis.last_tx_hash)
-            ));
+            return Err(ReceiveTargetsError::VerificationFailed(format!(
+                "Last tx hash mismatch: expected {:?}, got {:?}",
+                tx.hash(),
+                balance_pis.last_tx_hash
+            )));
         }
-        
+
         let _is_insufficient = balance_pis
             .last_tx_insufficient_flags
             .random_access(transfer_index as usize);
-            
+
         #[cfg(not(feature = "skip_insufficient_check"))]
         if _is_insufficient {
-            return Err(ReceiveTargetsError::VerificationFailed(
-                format!("Transfer is insufficient at index {}", transfer_index)
-            ));
+            return Err(ReceiveTargetsError::VerificationFailed(format!(
+                "Transfer is insufficient at index {}",
+                transfer_index
+            )));
         }
-        
+
         // check merkle proof
         transfer_merkle_proof
             .verify(transfer, transfer_index as u64, tx.transfer_tree_root)
-            .map_err(|e| ReceiveTargetsError::VerificationFailed(
-                format!("Invalid transfer merkle proof: {}", e)
-            ))?;
-            
+            .map_err(|e| {
+                ReceiveTargetsError::VerificationFailed(format!(
+                    "Invalid transfer merkle proof: {}",
+                    e
+                ))
+            })?;
+
         Ok(Self {
             transfer: *transfer,
             transfer_index,
@@ -200,7 +211,6 @@ impl<const D: usize> TransferInclusionTarget<D> {
 }
 
 #[cfg(test)]
-#[cfg(feature = "skip_insufficient_check")]
 mod tests {
     use std::sync::Arc;
 
@@ -212,6 +222,7 @@ mod tests {
             config::PoseidonGoldilocksConfig,
         },
     };
+    use rand::Rng;
 
     use crate::{
         circuits::{
@@ -226,7 +237,11 @@ mod tests {
             },
             validity::validity_processor::ValidityProcessor,
         },
-        common::{private_state::FullPrivateState, signature_content::key_set::KeySet, transfer::Transfer},
+        common::{
+            generic_address::GenericAddress, private_state::FullPrivateState, salt::Salt,
+            signature_content::key_set::KeySet, transfer::Transfer,
+        },
+        ethereum_types::{address::Address, u256::U256, u32limb_trait::U32LimbTrait},
     };
 
     use super::TransferInclusionValue;
@@ -236,40 +251,53 @@ mod tests {
     const D: usize = 2;
 
     #[test]
-    fn transfer_inclusion() -> Result<(), anyhow::Error> {
+    fn test_transfer_inclusion() {
         let mut rng = rand::thread_rng();
         let validity_processor = Arc::new(ValidityProcessor::<F, C, D>::new());
         let balance_processor = BalanceProcessor::new(&validity_processor.get_verifier_data());
         let spent_circuit = SpentCircuit::new();
-        let mut validity_state_manager = ValidityStateManager::new(validity_processor.clone());
+        let mut validity_state_manager =
+            ValidityStateManager::new(validity_processor.clone(), Address::default());
 
         // local state
         let alice_key = KeySet::rand(&mut rng);
         let mut alice_state = FullPrivateState::new();
 
         // alice send transfer
-        let transfer = Transfer::rand(&mut rng);
+        let transfer = Transfer {
+            recipient: GenericAddress::from_address(Address::rand(&mut rng)),
+            token_index: rng.gen(),
+            amount: U256::zero(), // should be zero, otherwise it will be cause insufficient balance
+            salt: Salt::rand(&mut rng),
+        };
 
         let (spent_witness, transfer_witnesses) =
-            construct_spent_and_transfer_witness(&mut alice_state, &[transfer])?;
-        let spent_proof = spent_circuit.prove(&spent_witness.to_value()?)?;
+            construct_spent_and_transfer_witness(&mut alice_state, &[transfer]).unwrap();
+        let spent_proof = spent_circuit
+            .prove(&spent_witness.to_value().unwrap())
+            .unwrap();
         let tx_request = MockTxRequest {
             tx: spent_witness.tx,
             sender_key: alice_key,
             will_return_sig: true,
         };
         let transfer_witness = transfer_witnesses[0].clone();
-        let tx_witnesses = validity_state_manager.tick(true, &[tx_request])?;
-        let update_witness =
-            validity_state_manager.get_update_witness(alice_key.pubkey, 1, 0, true)?;
-        let alice_balance_proof = balance_processor.prove_send(
-            &validity_processor.get_verifier_data(),
-            alice_key.pubkey,
-            &tx_witnesses[0],
-            &update_witness,
-            &spent_proof,
-            &None,
-        )?;
+        let tx_witnesses = validity_state_manager
+            .tick(true, &[tx_request], 0, 0)
+            .unwrap();
+        let update_witness = validity_state_manager
+            .get_update_witness(alice_key.pubkey, 1, 0, true)
+            .unwrap();
+        let alice_balance_proof = balance_processor
+            .prove_send(
+                &validity_processor.get_verifier_data(),
+                alice_key.pubkey,
+                &tx_witnesses[0],
+                &update_witness,
+                &spent_proof,
+                &None,
+            )
+            .unwrap();
 
         let transfer_inclusion_value = TransferInclusionValue::new(
             &balance_processor.get_verifier_data(),
@@ -278,7 +306,8 @@ mod tests {
             &transfer_witness.transfer_merkle_proof,
             &transfer_witness.tx,
             &alice_balance_proof,
-        )?;
+        )
+        .unwrap();
 
         let mut builder = CircuitBuilder::new(CircuitConfig::default());
         let target = TransferInclusionTarget::new::<F, C>(
@@ -290,8 +319,7 @@ mod tests {
         target.set_witness(&mut pw, &transfer_inclusion_value);
 
         let data = builder.build::<C>();
-        let _ = data.prove(pw)?;
-
-        Ok(())
+        let proof = data.prove(pw).unwrap();
+        data.verify(proof.clone()).unwrap();
     }
 }

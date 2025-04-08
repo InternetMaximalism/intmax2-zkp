@@ -270,7 +270,7 @@ mod tests {
     const D: usize = 2;
 
     #[test]
-    fn private_state_transition() {
+    fn test_private_state_transition() {
         let mut rng = rand::thread_rng();
         let transfer = Transfer::rand(&mut rng);
         let _pubkey = transfer.recipient.to_pubkey().unwrap();
