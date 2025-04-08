@@ -1,3 +1,9 @@
+//! Validity Transition Wrapper Circuit
+//!
+//! The validity transition wrapper verifies main validation and validity transition proofs,
+//! ensuring consistency between them. It also acts as a proof aggregation layer to keep
+//! the validity circuit size manageable.
+
 use super::error::ValidityTransitionError;
 use plonky2::{
     field::extension::Extendable,
@@ -23,7 +29,6 @@ use crate::{
 
 use super::transition::{ValidityTransitionTarget, ValidityTransitionValue};
 
-/// Circuit to prove the transition from old validity pis to new validity pis.
 #[derive(Debug)]
 pub struct ValidityTransitionWrapperCircuit<F, C, const D: usize>
 where
@@ -42,6 +47,8 @@ where
     C: GenericConfig<D, F = F> + 'static,
     C::Hasher: AlgebraicHasher<F>,
 {
+    /// Creates a new ValidityTransitionWrapperCircuit that combines and verifies
+    /// main validation, account registration, and account update proofs.
     pub fn new(
         main_validation_vd: &VerifierCircuitData<F, C, D>,
         account_registration_vd: &VerifierCircuitData<F, C, D>,
@@ -55,6 +62,7 @@ where
             ValidityTransitionTarget::new(account_registration_vd, account_update_vd, &mut builder);
         let prev_pis = ValidityPublicInputsTarget::new(&mut builder, false);
 
+        // Connect state roots and account ids to previous state
         prev_pis
             .public_state
             .block_tree_root
@@ -68,17 +76,16 @@ where
             transition_target.prev_next_account_id,
         );
 
-        // connect main_validation_pis to transition_target
+        // Connect main validation inputs to previous state
         main_validation_pis
             .account_tree_root
             .connect(&mut builder, prev_pis.public_state.account_tree_root);
         main_validation_pis
             .prev_block_hash
             .connect(&mut builder, prev_pis.public_state.block_hash);
-
-        // connect main_validation_pis to transition_target
         main_validation_pis.connect(&mut builder, &transition_target.main_validation_pis);
 
+        // Create new public inputs target with final state
         let new_pis = ValidityPublicInputsTarget {
             public_state: PublicStateTarget {
                 prev_account_tree_root: transition_target.prev_account_tree_root,
@@ -95,9 +102,9 @@ where
             is_valid_block: main_validation_pis.is_valid,
         };
 
+        // Register public inputs and build circuit
         let concat_pis = [prev_pis.to_vec(), new_pis.to_vec()].concat();
         builder.register_public_inputs(&concat_pis);
-
         let data = builder.build::<C>();
 
         Self {
@@ -115,6 +122,8 @@ where
     C: GenericConfig<D, F = F> + 'static,
     C::Hasher: AlgebraicHasher<F>,
 {
+    /// Generates a proof for the validity transition wrapper circuit by combining
+    /// main validation proof with validity transition value.
     pub(crate) fn prove(
         &self,
         main_validation_proof: &ProofWithPublicInputs<F, C, D>,
@@ -123,7 +132,7 @@ where
         account_registration_proof_dummy: DummyProof<F, C, D>,
         account_update_proof_dummy: DummyProof<F, C, D>,
     ) -> Result<ProofWithPublicInputs<F, C, D>, ValidityTransitionError> {
-        // Validate inputs
+        // Validate consistency of roots
         if prev_pis.public_state.block_tree_root != transition_value.prev_block_tree_root {
             return Err(ValidityTransitionError::BlockTreeRootMismatch {
                 expected: prev_pis.public_state.block_tree_root,
@@ -138,6 +147,7 @@ where
             });
         }
 
+        // Set witness values
         let mut pw = PartialWitness::<F>::new();
         self.transition_target.set_witness(
             &mut pw,
