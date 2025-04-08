@@ -11,3 +11,12 @@ pub enum ReceiveError {
     #[error("Proof generation error: {0}")]
     ProofGenerationError(String),
 }
+
+#[derive(Debug, Error)]
+pub enum UpdateError {
+    #[error("Verification failed: {0}")]
+    VerificationFailed(String),
+
+    #[error("Proof generation error: {0}")]
+    ProofGenerationError(String),
+}
