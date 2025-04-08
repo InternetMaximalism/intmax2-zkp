@@ -82,14 +82,14 @@ where
         let prev_block_tree_root = validity_witness.block_witness.prev_block_tree_root;
         let prev_next_account_id = validity_witness.block_witness.prev_next_account_id;
 
-        let block_pis = validity_witness
+        let main_validation_pis = validity_witness
             .block_witness
             .to_main_validation_pis()
             .map_err(|e| ValidityTransitionError::InvalidValidityWitness(format!(
                 "Failed to convert block witness to main validation pis: {}", e
             )))?;
 
-        let account_registration_proof = if block_pis.is_valid && block_pis.is_registration_block {
+        let account_registration_proof = if main_validation_pis.is_valid && main_validation_pis.is_registration_block {
             let account_registration_proofs = validity_witness
                 .validity_transition_witness
                 .account_registration_proofs
@@ -104,7 +104,7 @@ where
             let value = AccountRegistrationValue::new(
                 prev_account_tree_root,
                 prev_next_account_id,
-                block_pis.block_number,
+                main_validation_pis.block_number,
                 sender_leaves.clone(),
                 account_registration_proofs,
             )?;
@@ -119,7 +119,7 @@ where
             None
         };
         
-        let account_update_proof = if block_pis.is_valid && (!block_pis.is_registration_block) {
+        let account_update_proof = if main_validation_pis.is_valid && (!main_validation_pis.is_registration_block) {
             let account_update_proofs = validity_witness
                 .validity_transition_witness
                 .account_update_proofs
@@ -134,7 +134,7 @@ where
             let value = AccountUpdateValue::new(
                 prev_account_tree_root,
                 prev_next_account_id,
-                block_pis.block_number,
+                main_validation_pis.block_number,
                 prev_sender_leaves.clone(),
                 account_update_proofs,
             )?;
@@ -152,7 +152,7 @@ where
         let transition_value = ValidityTransitionValue::new(
             &self.account_registration_circuit,
             &self.account_update_circuit,
-            block_pis,
+            main_validation_pis,
             prev_account_tree_root,
             prev_next_account_id,
             prev_block_tree_root,

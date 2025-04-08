@@ -208,7 +208,7 @@ mod tests {
     type C = PoseidonGoldilocksConfig;
 
     #[test]
-    fn test_main_validation_processor() -> anyhow::Result<()> {
+    fn test_main_validation_processor() {
         let main_validation_processor = MainValidationProcessor::<F, C, D>::new();
         let mut rng = rand::thread_rng();
 
@@ -235,14 +235,15 @@ mod tests {
             0,
             &tx_requests,
             0,
-        )?;
-        let instant = std::time::Instant::now();
-        let _main_validation_proof =
-            main_validation_processor.prove(&validity_witness.block_witness)?;
-        println!(
-            "main validation proof generation time: {:?}",
-            instant.elapsed()
-        );
-        Ok(())
+        )
+        .unwrap();
+        let main_validation_proof = main_validation_processor
+            .prove(&validity_witness.block_witness)
+            .unwrap();
+        main_validation_processor
+            .main_validation_circuit
+            .data
+            .verify(main_validation_proof.clone())
+            .unwrap();
     }
 }

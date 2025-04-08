@@ -169,10 +169,10 @@ impl BlockWitness {
         account_tree: &mut AccountTree,
         block_tree: &mut BlockHashTree,
     ) -> Result<ValidityWitness, CommonError> {
-        let block_pis = self
+        let main_validation_pis = self
             .to_main_validation_pis()
             .map_err(|e| CommonError::BlockWitnessConversionFailed(e.to_string()))?;
-        if block_pis.block_number != block_tree.len() as u32 {
+        if main_validation_pis.block_number != block_tree.len() as u32 {
             return Err(CommonError::InvalidBlock(
                 "block number mismatch".to_string(),
             ));
@@ -185,14 +185,14 @@ impl BlockWitness {
         // Update account tree
         let sender_leaves = get_sender_leaves(&self.pubkeys, self.signature.sender_flag);
         let account_registration_proofs = {
-            if block_pis.is_valid && block_pis.is_registration_block {
+            if main_validation_pis.is_valid && main_validation_pis.is_registration_block {
                 let mut account_registration_proofs = Vec::new();
                 for sender_leaf in &sender_leaves {
                     let is_dummy_pubkey = sender_leaf.sender.is_dummy_pubkey();
                     let will_update = sender_leaf.signature_included && !is_dummy_pubkey;
                     let proof = if will_update {
                         account_tree
-                            .prove_and_insert(sender_leaf.sender, block_pis.block_number as u64)
+                            .prove_and_insert(sender_leaf.sender, main_validation_pis.block_number as u64)
                             .map_err(|e| {
                                 CommonError::AccountTreeProveAndInsertFailed(e.to_string())
                             })?
@@ -208,9 +208,9 @@ impl BlockWitness {
         };
 
         let account_update_proofs = {
-            if block_pis.is_valid && (!block_pis.is_registration_block) {
+            if main_validation_pis.is_valid && (!main_validation_pis.is_registration_block) {
                 let mut account_update_proofs = Vec::new();
-                let block_number = block_pis.block_number;
+                let block_number = main_validation_pis.block_number;
                 for sender_leaf in sender_leaves.iter() {
                     let account_id = account_tree.index(sender_leaf.sender).unwrap();
                     let prev_leaf = account_tree.get_leaf(account_id);
