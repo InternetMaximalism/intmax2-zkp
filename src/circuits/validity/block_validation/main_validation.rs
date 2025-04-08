@@ -290,8 +290,8 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         let is_pubkey_eq = signature.pubkey_hash == pubkey_hash;
 
         if is_registration_block {
-            // When pubkey is directly given, the constraint is that signature.pubkey_hash and
-            // pubkey_hash match.
+            // if given pubkey hash is not equal to the calculated pubkey hash, it means that the
+            // given pubkeys are wrong, so we should return an error.
             if !is_pubkey_eq {
                 return Err(BlockValidationError::PubkeyHashMismatch {
                     expected: pubkey_hash,
@@ -767,5 +767,300 @@ where
             ))
         })?;
         Ok(proof)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use plonky2::{
+        field::goldilocks_field::GoldilocksField, plonk::config::PoseidonGoldilocksConfig,
+    };
+    use rand::Rng;
+
+    use crate::{
+        circuits::{
+            test_utils::witness_generator::{construct_validity_and_tx_witness, MockTxRequest},
+            validity::{
+                block_validation::{
+                    account_exclusion::{AccountExclusionCircuit, AccountExclusionValue},
+                    account_inclusion::{AccountInclusionCircuit, AccountInclusionValue},
+                    aggregation::{AggregationCircuit, AggregationValue},
+                    format_validation::{FormatValidationCircuit, FormatValidationValue},
+                },
+                validity_pis::ValidityPublicInputs,
+            },
+        },
+        common::{
+            signature_content::key_set::KeySet,
+            trees::{
+                account_tree::AccountTree, block_hash_tree::BlockHashTree,
+                deposit_tree::DepositTree,
+            },
+            tx::Tx,
+        },
+        constants::NUM_SENDERS_IN_BLOCK,
+        ethereum_types::{
+            account_id::{AccountId, AccountIdPacked},
+            address::Address,
+        },
+    };
+
+    use super::{MainValidationCircuit, MainValidationValue};
+
+    type F = GoldilocksField;
+    const D: usize = 2;
+    type C = PoseidonGoldilocksConfig;
+
+    #[test]
+    fn test_main_validation_registration_block() {
+        let mut rng = rand::thread_rng();
+
+        let mut account_tree = AccountTree::initialize();
+        let mut block_tree = BlockHashTree::initialize();
+        let deposit_tree = DepositTree::initialize();
+
+        let prev_validity_pis = ValidityPublicInputs::genesis();
+        let tx_requests = (0..NUM_SENDERS_IN_BLOCK)
+            .map(|_| MockTxRequest {
+                tx: Tx::rand(&mut rng),
+                sender_key: KeySet::rand(&mut rng),
+                will_return_sig: rng.gen_bool(0.5),
+            })
+            .collect::<Vec<_>>();
+        let (validity_witness, _) = construct_validity_and_tx_witness(
+            prev_validity_pis,
+            &mut account_tree,
+            &mut block_tree,
+            &deposit_tree,
+            true, // registration block
+            0,
+            Address::default(),
+            0,
+            &tx_requests,
+            0,
+        )
+        .unwrap();
+
+        let account_inclusion_circuit = AccountInclusionCircuit::<F, C, D>::new();
+        let account_exclusion_circuit = AccountExclusionCircuit::<F, C, D>::new();
+        let format_validation_circuit = FormatValidationCircuit::<F, C, D>::new();
+        let aggregation_circuit = AggregationCircuit::<F, C, D>::new();
+
+        let block_witness = validity_witness.block_witness.clone();
+        let sender_leaves = block_witness.get_sender_tree().leaves();
+
+        let account_exclusion_value = AccountExclusionValue::new(
+            block_witness.prev_account_tree_root,
+            block_witness.account_membership_proofs.unwrap(),
+            sender_leaves.clone(),
+        )
+        .unwrap();
+        assert!(account_exclusion_value.is_valid);
+        let account_exclusion_proof = account_exclusion_circuit
+            .prove(&account_exclusion_value)
+            .unwrap();
+
+        let format_validation_value = FormatValidationValue::new(
+            block_witness.pubkeys.clone(),
+            block_witness.signature.clone(),
+        )
+        .unwrap();
+        assert!(format_validation_value.is_valid);
+        let format_validation_proof = format_validation_circuit
+            .prove(&format_validation_value)
+            .unwrap();
+
+        let aggregation_value = AggregationValue::new(
+            block_witness.pubkeys.clone(),
+            block_witness.signature.clone(),
+        );
+        assert!(aggregation_value.is_valid);
+        let aggregation_proof = aggregation_circuit.prove(&aggregation_value).unwrap();
+
+        let main_validation_value = MainValidationValue::new(
+            &account_inclusion_circuit,
+            &account_exclusion_circuit,
+            &format_validation_circuit,
+            &aggregation_circuit,
+            block_witness.block.clone(),
+            block_witness.signature.clone(),
+            block_witness.pubkeys.clone(),
+            block_witness.prev_account_tree_root,
+            None,
+            Some(account_exclusion_proof),
+            format_validation_proof,
+            Some(aggregation_proof),
+        )
+        .unwrap();
+        assert!(main_validation_value.is_valid);
+
+        let main_validation_circuit = MainValidationCircuit::new(
+            &account_inclusion_circuit.data.verifier_data(),
+            &account_exclusion_circuit.data.verifier_data(),
+            &format_validation_circuit.data.verifier_data(),
+            &aggregation_circuit.data.verifier_data(),
+        );
+        let main_validation_proof = main_validation_circuit
+            .prove(
+                account_inclusion_circuit.dummy_proof,
+                account_exclusion_circuit.dummy_proof,
+                aggregation_circuit.dummy_proof,
+                &main_validation_value,
+            )
+            .unwrap();
+
+        main_validation_circuit
+            .data
+            .verify(main_validation_proof.clone())
+            .unwrap();
+    }
+
+    #[test]
+    fn test_main_validation_non_registration_block() {
+        let mut rng = rand::thread_rng();
+
+        let mut account_tree = AccountTree::initialize();
+        let mut block_tree = BlockHashTree::initialize();
+        let deposit_tree = DepositTree::initialize();
+        let mut prev_validity_pis = ValidityPublicInputs::genesis();
+
+        // create a block that registers new accounts
+        let keys = (0..NUM_SENDERS_IN_BLOCK)
+            .map(|_| KeySet::rand(&mut rng))
+            .collect::<Vec<_>>();
+        let tx_requests = keys
+            .iter()
+            .map(|key| MockTxRequest {
+                tx: Tx::rand(&mut rng),
+                sender_key: key.clone(),
+                will_return_sig: true, // all sender return sigs to register to the account tree
+            })
+            .collect::<Vec<_>>();
+        let (registration_validity_witness, _) = construct_validity_and_tx_witness(
+            prev_validity_pis,
+            &mut account_tree,
+            &mut block_tree,
+            &deposit_tree,
+            true, // registration block
+            0,
+            Address::default(),
+            0,
+            &tx_requests,
+            0,
+        )
+        .unwrap();
+        prev_validity_pis = registration_validity_witness.to_validity_pis().unwrap();
+
+        // check account registration
+        for key in keys.iter() {
+            let account = account_tree.index(key.pubkey);
+            assert!(account.is_some());
+        }
+
+        // create a non-registration block
+        let tx_requests = keys
+            .iter()
+            .map(|key| MockTxRequest {
+                tx: Tx::rand(&mut rng),
+                sender_key: key.clone(),
+                will_return_sig: rng.gen_bool(0.5), // some senders return sigs
+            })
+            .collect::<Vec<_>>();
+        let (validity_witness, _) = construct_validity_and_tx_witness(
+            prev_validity_pis,
+            &mut account_tree,
+            &mut block_tree,
+            &deposit_tree,
+            false, // non-registration block
+            0,
+            Address::default(),
+            0,
+            &tx_requests,
+            0,
+        )
+        .unwrap();
+
+        let account_inclusion_circuit = AccountInclusionCircuit::<F, C, D>::new();
+        let account_exclusion_circuit = AccountExclusionCircuit::<F, C, D>::new();
+        let format_validation_circuit = FormatValidationCircuit::<F, C, D>::new();
+        let aggregation_circuit = AggregationCircuit::<F, C, D>::new();
+
+        let block_witness = validity_witness.block_witness.clone();
+        let pubkeys = block_witness.pubkeys.clone();
+
+        // get account id packed
+        let account_ids = pubkeys
+            .iter()
+            .map(|pubkey| {
+                let account = account_tree.index(*pubkey);
+                AccountId(account.unwrap())
+            })
+            .collect::<Vec<_>>();
+        let account_id_packed = AccountIdPacked::pack(&account_ids);
+
+        let account_inclusion_value = AccountInclusionValue::new(
+            block_witness.prev_account_tree_root,
+            account_id_packed,
+            block_witness.account_merkle_proofs.unwrap(),
+            pubkeys.clone(),
+        )
+        .unwrap();
+        assert!(account_inclusion_value.is_valid);
+        let account_inclusion_proof = account_inclusion_circuit
+            .prove(&account_inclusion_value)
+            .unwrap();
+
+        let format_validation_value = FormatValidationValue::new(
+            block_witness.pubkeys.clone(),
+            block_witness.signature.clone(),
+        )
+        .unwrap();
+        assert!(format_validation_value.is_valid);
+        let format_validation_proof = format_validation_circuit
+            .prove(&format_validation_value)
+            .unwrap();
+
+        let aggregation_value = AggregationValue::new(
+            block_witness.pubkeys.clone(),
+            block_witness.signature.clone(),
+        );
+        assert!(aggregation_value.is_valid);
+        let aggregation_proof = aggregation_circuit.prove(&aggregation_value).unwrap();
+
+        let main_validation_value = MainValidationValue::new(
+            &account_inclusion_circuit,
+            &account_exclusion_circuit,
+            &format_validation_circuit,
+            &aggregation_circuit,
+            block_witness.block.clone(),
+            block_witness.signature.clone(),
+            block_witness.pubkeys.clone(),
+            block_witness.prev_account_tree_root,
+            Some(account_inclusion_proof),
+            None,
+            format_validation_proof,
+            Some(aggregation_proof),
+        )
+        .unwrap();
+
+        let main_validation_circuit = MainValidationCircuit::new(
+            &account_inclusion_circuit.data.verifier_data(),
+            &account_exclusion_circuit.data.verifier_data(),
+            &format_validation_circuit.data.verifier_data(),
+            &aggregation_circuit.data.verifier_data(),
+        );
+        let main_validation_proof = main_validation_circuit
+            .prove(
+                account_inclusion_circuit.dummy_proof,
+                account_exclusion_circuit.dummy_proof,
+                aggregation_circuit.dummy_proof,
+                &main_validation_value,
+            )
+            .unwrap();
+
+        main_validation_circuit
+            .data
+            .verify(main_validation_proof.clone())
+            .unwrap();
     }
 }
