@@ -36,7 +36,7 @@ impl AddressListTree {
     pub fn new(address_list: &[Address]) -> Result<Self, InnocenceError> {
         let mut tree = IndexedMerkleTree::new(ADDRESS_LIST_TREE_HEIGHT);
         for address in address_list {
-            let generic_address = GenericAddress::from_address(*address);
+            let generic_address = GenericAddress::from(*address);
             tree.insert(generic_address.data, 0)
                 .map_err(|e| InnocenceError::AllowListTreeCreationFailed(e.to_string()))?;
         }
@@ -48,7 +48,7 @@ impl AddressListTree {
     }
 
     pub fn prove_membership(&self, address: Address) -> AddressMembershipProof {
-        let generic_address = GenericAddress::from_address(address);
+        let generic_address = GenericAddress::from(address);
         let proof = self.0.prove_membership(generic_address.data);
         AddressMembershipProof(proof)
     }
@@ -56,7 +56,7 @@ impl AddressListTree {
 
 impl AddressMembershipProof {
     pub fn verify(&self, address: Address, root: PoseidonHashOut) -> Result<(), InnocenceError> {
-        let generic_address = GenericAddress::from_address(address);
+        let generic_address = GenericAddress::from(address);
         self.0
             .verify(generic_address.data, root)
             .map_err(|e| InnocenceError::AllowListMembershipProofVerificationFailed(e.to_string()))

@@ -2,7 +2,8 @@
 //!
 //! This circuit verifies that a transfer is included in a transaction by:
 //! 1. Verifying the balance proof is valid
-//! 2. Checking that the last_tx_hash in the balance PIs corresponds to the tx containing the transfer
+//! 2. Checking that the last_tx_hash in the balance PIs corresponds to the tx containing the
+//!    transfer
 //! 3. Verifying that the corresponding insufficient flag is false
 //! 4. Validating the transfer's inclusion in the transfer merkle tree
 //!
@@ -63,7 +64,8 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
 where
     <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
 {
-    /// Creates a new TransferInclusionValue by validating the transfer's inclusion in a transaction.
+    /// Creates a new TransferInclusionValue by validating the transfer's inclusion in a
+    /// transaction.
     ///
     /// This function:
     /// 1. Parses and verifies the balance proof
@@ -296,8 +298,8 @@ mod tests {
             validity::validity_processor::ValidityProcessor,
         },
         common::{
-            generic_address::GenericAddress, private_state::FullPrivateState, salt::Salt,
-            signature_content::key_set::KeySet, transfer::Transfer,
+            private_state::FullPrivateState, salt::Salt, signature_content::key_set::KeySet,
+            transfer::Transfer,
         },
         ethereum_types::{address::Address, u256::U256, u32limb_trait::U32LimbTrait},
     };
@@ -323,7 +325,7 @@ mod tests {
 
         // alice send transfer
         let transfer = Transfer {
-            recipient: GenericAddress::from_address(Address::rand(&mut rng)),
+            recipient: Address::rand(&mut rng).into(),
             token_index: rng.gen(),
             amount: U256::zero(), // should be zero, otherwise it will be cause insufficient balance
             salt: Salt::rand(&mut rng),

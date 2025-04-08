@@ -390,7 +390,6 @@ mod tests {
 
     use crate::{
         common::{
-            generic_address::GenericAddress,
             private_state::PrivateState,
             salt::Salt,
             transfer::Transfer,
@@ -423,7 +422,7 @@ mod tests {
         };
         let transfers = (0..NUM_TRANSFERS_IN_TX)
             .map(|i| Transfer {
-                recipient: GenericAddress::rand_pubkey(&mut rng),
+                recipient: U256::rand(&mut rng).into(),
                 token_index: i as u32,
                 amount: U256::rand_small(&mut rng), // small amount to avoid overflow
                 salt: Salt::rand(&mut rng),

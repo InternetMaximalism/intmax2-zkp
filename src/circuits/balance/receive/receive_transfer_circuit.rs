@@ -1,3 +1,4 @@
+use super::error::ReceiveError;
 use crate::{
     common::{
         public_state::{PublicState, PublicStateTarget, PUBLIC_STATE_LEN},
@@ -16,7 +17,6 @@ use crate::{
         poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget},
     },
 };
-use super::error::ReceiveError;
 use plonky2::{
     field::extension::Extendable,
     hash::hash_types::RichField,
@@ -163,53 +163,44 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
                 transfer_inclusion.public_state.block_number as u64,
                 public_state.block_tree_root,
             )
-            .map_err(|e| ReceiveError::VerificationFailed(
-                format!("Block merkle proof verification failed: {:?}", e)
-            ))?;
+            .map_err(|e| {
+                ReceiveError::VerificationFailed(format!(
+                    "Block merkle proof verification failed: {:?}",
+                    e
+                ))
+            })?;
 
         let transfer = transfer_inclusion.transfer;
         let nullifier: Bytes32 = transfer.commitment().into();
-        let pubkey = transfer
-            .recipient
-            .to_pubkey()
-            .map_err(|e| ReceiveError::VerificationFailed(
-                format!("Transfer recipient is not pubkey: {:?}", e)
-            ))?;
-            
+        let pubkey = transfer.recipient.to_pubkey().map_err(|e| {
+            ReceiveError::VerificationFailed(format!("Transfer recipient is not pubkey: {:?}", e))
+        })?;
+
         if private_state_transition.token_index != transfer.token_index {
-            return Err(ReceiveError::VerificationFailed(
-                format!(
-                    "Token index mismatch: expected {}, got {}", 
-                    transfer.token_index, 
-                    private_state_transition.token_index
-                )
-            ));
+            return Err(ReceiveError::VerificationFailed(format!(
+                "Token index mismatch: expected {}, got {}",
+                transfer.token_index, private_state_transition.token_index
+            )));
         }
-        
+
         if private_state_transition.amount != transfer.amount {
-            return Err(ReceiveError::VerificationFailed(
-                format!(
-                    "Amount mismatch: expected {:?}, got {:?}", 
-                    transfer.amount, 
-                    private_state_transition.amount
-                )
-            ));
+            return Err(ReceiveError::VerificationFailed(format!(
+                "Amount mismatch: expected {:?}, got {:?}",
+                transfer.amount, private_state_transition.amount
+            )));
         }
-        
+
         if private_state_transition.nullifier != nullifier {
-            return Err(ReceiveError::VerificationFailed(
-                format!(
-                    "Nullifier mismatch: expected {:?}, got {:?}", 
-                    nullifier, 
-                    private_state_transition.nullifier
-                )
-            ));
+            return Err(ReceiveError::VerificationFailed(format!(
+                "Nullifier mismatch: expected {:?}, got {:?}",
+                nullifier, private_state_transition.nullifier
+            )));
         }
-        
+
         let prev_private_commitment = private_state_transition.prev_private_state.commitment();
         let new_private_commitment = private_state_transition.new_private_state.commitment();
         let balance_circuit_vd = transfer_inclusion.balance_circuit_vd.clone();
-        
+
         Ok(ReceiveTransferValue {
             pubkey,
             public_state: public_state.clone(),
@@ -359,6 +350,124 @@ where
     ) -> Result<ProofWithPublicInputs<F, C, D>, ReceiveError> {
         let mut pw = PartialWitness::<F>::new();
         self.target.set_witness(&mut pw, value);
-        self.data.prove(pw).map_err(|e| ReceiveError::ProofGenerationError(format!("{:?}", e)))
+        self.data
+            .prove(pw)
+            .map_err(|e| ReceiveError::ProofGenerationError(format!("{:?}", e)))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+
+    use plonky2::{
+        field::goldilocks_field::GoldilocksField, plonk::config::PoseidonGoldilocksConfig,
+    };
+    use rand::Rng;
+
+    use crate::{
+        circuits::{
+            balance::{balance_processor::BalanceProcessor, send::spent_circuit::SpentCircuit},
+            test_utils::{
+                state_manager::ValidityStateManager,
+                witness_generator::{construct_spent_and_transfer_witness, MockTxRequest},
+            },
+            validity::validity_processor::ValidityProcessor,
+        },
+        common::{
+            private_state::FullPrivateState, salt::Salt, signature_content::key_set::KeySet,
+            transfer::Transfer, witness::private_transition_witness::PrivateTransitionWitness,
+        },
+        ethereum_types::{address::Address, u256::U256, u32limb_trait::U32LimbTrait},
+    };
+
+    use super::{ReceiveTransferValue, TransferInclusionValue};
+
+    type F = GoldilocksField;
+    type C = PoseidonGoldilocksConfig;
+    const D: usize = 2;
+
+    #[test]
+    fn test_receive_transfer_circuit() {
+        let mut rng = rand::thread_rng();
+        let validity_processor = Arc::new(ValidityProcessor::<F, C, D>::new());
+        let balance_processor = BalanceProcessor::new(&validity_processor.get_verifier_data());
+        let spent_circuit = SpentCircuit::new();
+        let mut validity_state_manager =
+            ValidityStateManager::new(validity_processor.clone(), Address::default());
+
+        // local state
+        let alice_key = KeySet::rand(&mut rng);
+        let mut alice_state = FullPrivateState::new();
+
+        // alice send transfer
+        let transfer = Transfer {
+            recipient: alice_key.pubkey.into(),
+            token_index: rng.gen(),
+            amount: U256::zero(), // should be zero, otherwise it will be cause insufficient balance
+            salt: Salt::rand(&mut rng),
+        };
+
+        let (spent_witness, transfer_witnesses) =
+            construct_spent_and_transfer_witness(&mut alice_state, &[transfer]).unwrap();
+        let spent_proof = spent_circuit
+            .prove(&spent_witness.to_value().unwrap())
+            .unwrap();
+        let tx_request = MockTxRequest {
+            tx: spent_witness.tx,
+            sender_key: alice_key,
+            will_return_sig: true,
+        };
+        let transfer_witness = transfer_witnesses[0].clone();
+        let tx_witnesses = validity_state_manager
+            .tick(true, &[tx_request], 0, 0)
+            .unwrap();
+
+        let update_witness = validity_state_manager
+            .get_update_witness(alice_key.pubkey, 1, 0, true)
+            .unwrap();
+        let alice_balance_proof = balance_processor
+            .prove_send(
+                &validity_processor.get_verifier_data(),
+                alice_key.pubkey,
+                &tx_witnesses[0],
+                &update_witness,
+                &spent_proof,
+                &None,
+            )
+            .unwrap();
+
+        let transfer_inclusion_value = TransferInclusionValue::new(
+            &balance_processor.get_verifier_data(),
+            &transfer,
+            transfer_witness.transfer_index,
+            &transfer_witness.transfer_merkle_proof,
+            &transfer_witness.tx,
+            &alice_balance_proof,
+        )
+        .unwrap();
+        let private_state_transition = PrivateTransitionWitness::from_transfer(
+            &mut alice_state,
+            transfer,
+            Salt::rand(&mut rng),
+        )
+        .unwrap();
+        let public_state = update_witness.public_state();
+        let block_merkle_proof = validity_state_manager.get_block_merkle_proof(1, 1).unwrap();
+
+        let receive_transfer_value = ReceiveTransferValue::new(
+            &public_state,
+            &block_merkle_proof,
+            &transfer_inclusion_value,
+            &private_state_transition.to_value().unwrap(),
+        )
+        .unwrap();
+        let receive_transfer_circuit =
+            super::ReceiveTransferCircuit::<F, C, D>::new(&balance_processor.common_data());
+
+        let proof = receive_transfer_circuit
+            .prove(&receive_transfer_value)
+            .unwrap();
+        receive_transfer_circuit.data.verify(proof).unwrap();
     }
 }

@@ -14,8 +14,8 @@ use std::env;
 use crate::{
     circuits::balance::balance_processor::BalanceProcessor,
     common::{
-        generic_address::GenericAddress, salt::Salt, signature_content::key_set::KeySet,
-        transfer::Transfer, trees::asset_tree::AssetLeaf,
+        salt::Salt, signature_content::key_set::KeySet, transfer::Transfer,
+        trees::asset_tree::AssetLeaf,
     },
     ethereum_types::{address::Address, u32limb_trait::U32LimbTrait as _},
     mock::{
@@ -90,7 +90,7 @@ fn e2e_test() {
 
     // transfer 50wei ETH to bob
     let transfer_to_bob = Transfer {
-        recipient: GenericAddress::from_pubkey(bob_key.pubkey),
+        recipient: bob_key.pubkey.into(),
         token_index: 0,
         amount: 50.into(),
         salt: Salt::rand(&mut rng),
@@ -129,7 +129,7 @@ fn e2e_test() {
     // bob withdraw 10wei ETH
     let bob_eth_address = Address::rand(&mut rng);
     let withdrawal = Transfer {
-        recipient: GenericAddress::from_address(bob_eth_address),
+        recipient: bob_eth_address.into(),
         token_index: 0,
         amount: 10.into(),
         salt: Salt::rand(&mut rng),

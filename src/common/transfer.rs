@@ -16,6 +16,7 @@ use super::{
 };
 use crate::{
     ethereum_types::{
+        address::Address,
         u256::{U256Target, U256, U256_LEN},
         u32limb_trait::{U32LimbTargetTrait as _, U32LimbTrait as _},
     },
@@ -62,7 +63,7 @@ impl Transfer {
 
     pub fn rand<R: Rng>(rng: &mut R) -> Self {
         Self {
-            recipient: GenericAddress::rand_pubkey(rng),
+            recipient: U256::rand(rng).into(),
             token_index: rng.gen(),
             amount: U256::rand_small(rng),
             salt: Salt::rand(rng),
@@ -71,7 +72,7 @@ impl Transfer {
 
     pub fn rand_to<R: Rng>(rng: &mut R, to: U256) -> Self {
         Self {
-            recipient: GenericAddress::from_pubkey(to),
+            recipient: to.into(),
             token_index: rng.gen(),
             amount: U256::rand_small(rng),
             salt: Salt::rand(rng),
@@ -80,7 +81,7 @@ impl Transfer {
 
     pub fn rand_withdrawal<R: Rng>(rng: &mut R) -> Self {
         Self {
-            recipient: GenericAddress::rand_address(rng),
+            recipient: Address::rand(rng).into(),
             token_index: rng.gen(),
             amount: U256::rand_small(rng),
             salt: Salt::rand(rng),
