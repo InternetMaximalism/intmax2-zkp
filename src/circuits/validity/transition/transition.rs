@@ -1,3 +1,22 @@
+//! Validity Transition Circuit for Account and Block Hash Tree Updates
+//!
+//! The validity transition circuit updates the account tree and block hash tree based on
+//! the main_validation_pis values. It performs the following operations:
+//!
+//! 1. Account Registration (for registration blocks):
+//!    - When main_validation_pis.is_valid=true and user's signature is included,
+//!    - Registers the account in the account tree
+//!    - Assigns an account ID to the user
+//!    - Updates the last block number to the current block number
+//!
+//! 2. Account Update (for non-registration blocks):
+//!    - When main_validation_pis.is_valid=true and user's signature is included,
+//!    - Updates the account's last block number to the current block number
+//!
+//! 3. Block Hash Tree Update:
+//!    - Inserts main_validation_pis.block_hash into the block hash tree
+//!    - This operation is performed regardless of whether main_validation_pis.is_valid is true or false
+
 use plonky2::{
     field::extension::Extendable,
     hash::hash_types::RichField,
@@ -37,6 +56,11 @@ use super::{
     account_update::AccountUpdateCircuit, error::ValidityTransitionError,
 };
 
+/// Represents the values used in the validity transition circuit.
+///
+/// This struct contains all the inputs and outputs for the validity transition process,
+/// including the main validation public inputs, account tree roots, block tree roots,
+/// account IDs, and proofs for account registration and update operations.
 pub(crate) struct ValidityTransitionValue<
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
@@ -57,6 +81,16 @@ pub(crate) struct ValidityTransitionValue<
 impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     ValidityTransitionValue<F, C, D>
 {
+    /// Creates a new ValidityTransitionValue by processing the main validation public inputs
+    /// and updating the account and block hash trees accordingly.
+    ///
+    /// This function performs three main operations:
+    /// 1. Account registration: For registration blocks with valid transactions and included signatures,
+    ///    registers accounts in the account tree and assigns account IDs.
+    /// 2. Account update: For non-registration blocks with valid transactions and included signatures,
+    ///    updates the last block number for existing accounts.
+    /// 3. Block hash tree update: Inserts the block hash into the block hash tree regardless of
+    ///    transaction validity.
     #[allow(clippy::too_many_arguments)]
     pub(crate) fn new(
         account_registration_circuit: &AccountRegistrationCircuit<F, C, D>,
@@ -227,6 +261,11 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     }
 }
 
+/// Target representation of the validity transition circuit for use in ZKP circuit building.
+///
+/// This struct contains the circuit targets for all inputs and outputs of the validity transition
+/// process, allowing the circuit to enforce the constraints for account registration, account
+/// update, and block hash tree update operations.
 #[derive(Debug, Clone)]
 pub(crate) struct ValidityTransitionTarget<const D: usize> {
     pub(crate) main_validation_pis: MainValidationPublicInputsTarget,
@@ -242,6 +281,16 @@ pub(crate) struct ValidityTransitionTarget<const D: usize> {
 }
 
 impl<const D: usize> ValidityTransitionTarget<D> {
+    /// Creates a new ValidityTransitionTarget with circuit constraints that enforce the
+    /// validity transition rules.
+    ///
+    /// The circuit enforces three main operations:
+    /// 1. Account registration: For registration blocks with valid transactions and included signatures,
+    ///    registers accounts in the account tree and assigns account IDs.
+    /// 2. Account update: For non-registration blocks with valid transactions and included signatures,
+    ///    updates the last block number for existing accounts.
+    /// 3. Block hash tree update: Inserts the block hash into the block hash tree regardless of
+    ///    transaction validity.
     pub(crate) fn new<F: RichField + Extendable<D>, C: GenericConfig<D, F = F> + 'static>(
         account_registration_verifier_data: &VerifierCircuitData<F, C, D>,
         account_update_verifier_data: &VerifierCircuitData<F, C, D>,
@@ -376,6 +425,11 @@ impl<const D: usize> ValidityTransitionTarget<D> {
         }
     }
 
+    /// Sets the witness values for the validity transition circuit.
+    ///
+    /// This function assigns concrete values to all targets in the circuit based on the
+    /// provided ValidityTransitionValue, which contains the actual values for account
+    /// registration, account update, and block hash tree update operations.
     pub(crate) fn set_witness<
         F: RichField + Extendable<D>,
         C: GenericConfig<D, F = F>,
