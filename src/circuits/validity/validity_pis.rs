@@ -3,7 +3,7 @@ use plonky2::{
     hash::hash_types::RichField,
     iop::{
         target::{BoolTarget, Target},
-        witness::Witness,
+        witness::WitnessWrite,
     },
     plonk::circuit_builder::CircuitBuilder,
 };
@@ -73,7 +73,8 @@ impl ValidityPublicInputs {
         assert_eq!(input.len(), VALIDITY_PUBLIC_INPUTS_LEN);
         let public_state = PublicState::from_u64_slice(&input[0..PUBLIC_STATE_LEN]);
         let tx_tree_root =
-            Bytes32::from_u64_slice(&input[PUBLIC_STATE_LEN..PUBLIC_STATE_LEN + BYTES32_LEN]).unwrap();
+            Bytes32::from_u64_slice(&input[PUBLIC_STATE_LEN..PUBLIC_STATE_LEN + BYTES32_LEN])
+                .unwrap();
         let sender_tree_root = PoseidonHashOut::from_u64_slice(
             &input[PUBLIC_STATE_LEN + BYTES32_LEN
                 ..PUBLIC_STATE_LEN + BYTES32_LEN + POSEIDON_HASH_OUT_LEN],
@@ -191,7 +192,7 @@ impl ValidityPublicInputsTarget {
         );
     }
 
-    pub fn set_witness<F: RichField, W: Witness<F>>(
+    pub fn set_witness<F: RichField, W: WitnessWrite<F>>(
         &self,
         witness: &mut W,
         value: &ValidityPublicInputs,
@@ -201,5 +202,54 @@ impl ValidityPublicInputsTarget {
         self.sender_tree_root
             .set_witness(witness, value.sender_tree_root);
         witness.set_bool_target(self.is_valid_block, value.is_valid_block);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rand::thread_rng;
+
+    #[test]
+    fn test_validity_pis_genesis() {
+        let genesis = ValidityPublicInputs::genesis();
+
+        // Check that the genesis state has expected values
+        assert_eq!(genesis.public_state, PublicState::genesis());
+        assert_eq!(genesis.tx_tree_root, Bytes32::default());
+        assert_eq!(genesis.sender_tree_root, PoseidonHashOut::default());
+        assert_eq!(genesis.is_valid_block, false);
+    }
+
+    #[test]
+    fn test_validity_pis_to_u64_vec_and_from_u64_slice() {
+        // Create a ValidityPublicInputs instance
+        let public_state = PublicState::genesis();
+        let tx_tree_root = Bytes32::default();
+        let mut rng = thread_rng();
+        let sender_tree_root = PoseidonHashOut::rand(&mut rng);
+        let is_valid_block = true;
+
+        let original = ValidityPublicInputs {
+            public_state,
+            tx_tree_root,
+            sender_tree_root,
+            is_valid_block,
+        };
+
+        // Convert to u64 vector
+        let u64_vec = original.to_u64_vec();
+
+        // Check the length
+        assert_eq!(u64_vec.len(), VALIDITY_PUBLIC_INPUTS_LEN);
+
+        // Convert back from u64 slice
+        let recovered = ValidityPublicInputs::from_u64_slice(&u64_vec);
+
+        // Check that we get the original value back
+        assert_eq!(recovered.public_state, original.public_state);
+        assert_eq!(recovered.tx_tree_root, original.tx_tree_root);
+        assert_eq!(recovered.sender_tree_root, original.sender_tree_root);
+        assert_eq!(recovered.is_valid_block, original.is_valid_block);
     }
 }
