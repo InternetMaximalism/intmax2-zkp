@@ -51,7 +51,7 @@ pub(crate) struct ValidityTransitionValue<
     pub(crate) new_next_account_id: u64,
     pub(crate) account_registration_proof: Option<ProofWithPublicInputs<F, C, D>>,
     pub(crate) account_update_proof: Option<ProofWithPublicInputs<F, C, D>>,
-    pub(crate) block_hash_merkle_proof: BlockHashMerkleProof,
+    pub(crate) block_merkle_proof: BlockHashMerkleProof,
 }
 
 impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
@@ -67,7 +67,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         prev_block_tree_root: PoseidonHashOut,
         account_registration_proof: Option<ProofWithPublicInputs<F, C, D>>,
         account_update_proof: Option<ProofWithPublicInputs<F, C, D>>,
-        block_hash_merkle_proof: BlockHashMerkleProof,
+        block_merkle_proof: BlockHashMerkleProof,
     ) -> Result<Self, ValidityTransitionError> {
         // account registration
         let is_account_registration =
@@ -196,7 +196,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
 
         // block hash tree update
         let block_number = main_validation_pis.block_number;
-        block_hash_merkle_proof
+        block_merkle_proof
             .verify(
                 &Bytes32::default(),
                 block_number as u64,
@@ -210,7 +210,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
             })?;
 
         let new_block_tree_root =
-            block_hash_merkle_proof.get_root(&main_validation_pis.block_hash, block_number as u64);
+            block_merkle_proof.get_root(&main_validation_pis.block_hash, block_number as u64);
 
         Ok(Self {
             main_validation_pis,
@@ -222,7 +222,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
             new_account_tree_root,
             account_registration_proof,
             account_update_proof,
-            block_hash_merkle_proof,
+            block_merkle_proof,
         })
     }
 }
@@ -238,7 +238,7 @@ pub(crate) struct ValidityTransitionTarget<const D: usize> {
     pub(crate) new_next_account_id: Target,
     pub(crate) account_registration_proof: ProofWithPublicInputsTarget<D>,
     pub(crate) account_update_proof: ProofWithPublicInputsTarget<D>,
-    pub(crate) block_hash_merkle_proof: BlockHashMerkleProofTarget,
+    pub(crate) block_merkle_proof: BlockHashMerkleProofTarget,
 }
 
 impl<const D: usize> ValidityTransitionTarget<D> {
@@ -255,8 +255,7 @@ impl<const D: usize> ValidityTransitionTarget<D> {
         let prev_account_tree_root = PoseidonHashOutTarget::new(builder);
         let prev_next_account_id = builder.add_virtual_target();
         let prev_block_tree_root = PoseidonHashOutTarget::new(builder);
-        let block_hash_merkle_proof =
-            BlockHashMerkleProofTarget::new(builder, BLOCK_HASH_TREE_HEIGHT);
+        let block_merkle_proof = BlockHashMerkleProofTarget::new(builder, BLOCK_HASH_TREE_HEIGHT);
 
         let mut new_account_tree_root = prev_account_tree_root;
         let mut new_next_account_id = prev_next_account_id;
@@ -351,13 +350,13 @@ impl<const D: usize> ValidityTransitionTarget<D> {
 
         let block_number = main_validation_pis.block_number;
         let empty_leaf = Bytes32Target::zero::<F, D, Bytes32>(builder);
-        block_hash_merkle_proof.verify::<F, C, D>(
+        block_merkle_proof.verify::<F, C, D>(
             builder,
             &empty_leaf,
             block_number,
             prev_block_tree_root,
         );
-        let new_block_tree_root = block_hash_merkle_proof.get_root::<F, C, D>(
+        let new_block_tree_root = block_merkle_proof.get_root::<F, C, D>(
             builder,
             &main_validation_pis.block_hash,
             block_number,
@@ -373,7 +372,7 @@ impl<const D: usize> ValidityTransitionTarget<D> {
             new_next_account_id,
             account_registration_proof,
             account_update_proof,
-            block_hash_merkle_proof,
+            block_merkle_proof,
         }
     }
 
@@ -421,8 +420,8 @@ impl<const D: usize> ValidityTransitionTarget<D> {
             .clone()
             .unwrap_or(account_update_proof_dummy.proof);
         witness.set_proof_with_pis_target(&self.account_update_proof, &account_update_proof);
-        self.block_hash_merkle_proof
-            .set_witness(witness, &value.block_hash_merkle_proof);
+        self.block_merkle_proof
+            .set_witness(witness, &value.block_merkle_proof);
     }
 }
 
@@ -443,11 +442,9 @@ mod tests {
             test_utils::witness_generator::{construct_validity_and_tx_witness, MockTxRequest},
             validity::{
                 transition::{
-                    account_registration::{
-                        self, AccountRegistrationCircuit, AccountRegistrationValue,
-                    },
+                    account_registration::{AccountRegistrationCircuit, AccountRegistrationValue},
                     account_update::AccountUpdateCircuit,
-                    transition::{ValidityTransitionTarget, ValidityTransitionValue},
+                    transition::ValidityTransitionValue,
                 },
                 validity_pis::ValidityPublicInputs,
             },
@@ -463,6 +460,8 @@ mod tests {
         constants::NUM_SENDERS_IN_BLOCK,
         ethereum_types::address::Address,
     };
+
+    use super::ValidityTransitionTarget;
 
     type F = GoldilocksField;
     const D: usize = 2;
@@ -497,36 +496,144 @@ mod tests {
             0,
         )
         .unwrap();
+        let block_witness = validity_witness.block_witness.clone();
+        let validity_transition_witness = validity_witness.validity_transition_witness.clone();
 
         let account_registration_circuit = AccountRegistrationCircuit::<F, C, D>::new();
         let account_update_circuit = AccountUpdateCircuit::<F, C, D>::new();
 
-        // let value = ValidityTransitionValue::new(
-        //     &account_registration_circuit,
-        //     &account_update_circuit,
-        //     validity_witness.block_witness.to_main_validation_pis(),
-        //     prev_account_tree_root,
-        //     prev_block_tree_root,
-        //     Some(account_registration_proof),
-        //     None,
-        //     transition_witness.block_merkle_proof,
-        // );
+        let account_registration_value = AccountRegistrationValue::new(
+            block_witness.prev_account_tree_root,
+            block_witness.prev_next_account_id,
+            block_witness.block.block_number,
+            block_witness.get_sender_tree().leaves(),
+            validity_transition_witness
+                .account_registration_proofs
+                .clone()
+                .unwrap(),
+        )
+        .unwrap();
+        let account_registration_proof = account_registration_circuit
+            .prove(&account_registration_value)
+            .unwrap();
 
-        // let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::default());
-        // let target = ValidityTransitionTarget::new(
-        //     &account_registration_circuit,
-        //     &account_update_circuit,
-        //     &mut builder,
-        // );
+        let validity_transition_value = ValidityTransitionValue::new(
+            &account_registration_circuit,
+            &account_update_circuit,
+            validity_witness
+                .block_witness
+                .to_main_validation_pis()
+                .unwrap(),
+            block_witness.prev_account_tree_root,
+            block_witness.prev_next_account_id,
+            block_witness.prev_block_tree_root,
+            Some(account_registration_proof),
+            None,
+            validity_transition_witness.block_merkle_proof.clone(),
+        )
+        .unwrap();
 
-        // let data = builder.build::<C>();
-        // let mut pw = PartialWitness::new();
-        // target.set_witness(
-        //     &mut pw,
-        //     account_registration_circuit.dummy_proof.clone(),
-        //     account_update_circuit.dummy_proof.clone(),
-        //     &value,
-        // );
-        // let _proof = data.prove(pw).unwrap();
+        let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::default());
+        let target = ValidityTransitionTarget::new(
+            &account_registration_circuit.data.verifier_data(),
+            &account_update_circuit.data.verifier_data(),
+            &mut builder,
+        );
+
+        let data = builder.build::<C>();
+        let mut pw = PartialWitness::new();
+        target.set_witness(
+            &mut pw,
+            account_registration_circuit.dummy_proof.clone(),
+            account_update_circuit.dummy_proof.clone(),
+            &validity_transition_value,
+        );
+        let proof = data.prove(pw).unwrap();
+        data.verify(proof.clone()).unwrap();
+    }
+
+    #[test]
+    fn test_validity_transition_circuit_non_registration_block() {
+        let mut rng = rand::thread_rng();
+
+        let mut account_tree = AccountTree::initialize();
+        let mut block_tree = BlockHashTree::initialize();
+        let deposit_tree = DepositTree::initialize();
+
+        let prev_validity_pis = ValidityPublicInputs::genesis();
+        let tx_requests = (0..NUM_SENDERS_IN_BLOCK)
+            .map(|_| MockTxRequest {
+                tx: Tx::rand(&mut rng),
+                sender_key: KeySet::rand(&mut rng),
+                will_return_sig: rng.gen_bool(0.5),
+            })
+            .collect::<Vec<_>>();
+        let (validity_witness, _) = construct_validity_and_tx_witness(
+            prev_validity_pis,
+            &mut account_tree,
+            &mut block_tree,
+            &deposit_tree,
+            true,
+            0,
+            Address::default(),
+            0,
+            &tx_requests,
+            0,
+        )
+        .unwrap();
+        let block_witness = validity_witness.block_witness.clone();
+        let validity_transition_witness = validity_witness.validity_transition_witness.clone();
+
+        let account_registration_circuit = AccountRegistrationCircuit::<F, C, D>::new();
+        let account_update_circuit = AccountUpdateCircuit::<F, C, D>::new();
+
+        let account_registration_value = AccountRegistrationValue::new(
+            block_witness.prev_account_tree_root,
+            block_witness.prev_next_account_id,
+            block_witness.block.block_number,
+            block_witness.get_sender_tree().leaves(),
+            validity_transition_witness
+                .account_registration_proofs
+                .clone()
+                .unwrap(),
+        )
+        .unwrap();
+        let account_registration_proof = account_registration_circuit
+            .prove(&account_registration_value)
+            .unwrap();
+
+        let validity_transition_value = ValidityTransitionValue::new(
+            &account_registration_circuit,
+            &account_update_circuit,
+            validity_witness
+                .block_witness
+                .to_main_validation_pis()
+                .unwrap(),
+            block_witness.prev_account_tree_root,
+            block_witness.prev_next_account_id,
+            block_witness.prev_block_tree_root,
+            Some(account_registration_proof),
+            None,
+            validity_transition_witness.block_merkle_proof.clone(),
+        )
+        .unwrap();
+
+        let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::default());
+        let target = ValidityTransitionTarget::new(
+            &account_registration_circuit.data.verifier_data(),
+            &account_update_circuit.data.verifier_data(),
+            &mut builder,
+        );
+
+        let data = builder.build::<C>();
+        let mut pw = PartialWitness::new();
+        target.set_witness(
+            &mut pw,
+            account_registration_circuit.dummy_proof.clone(),
+            account_update_circuit.dummy_proof.clone(),
+            &validity_transition_value,
+        );
+        let proof = data.prove(pw).unwrap();
+        data.verify(proof.clone()).unwrap();
     }
 }

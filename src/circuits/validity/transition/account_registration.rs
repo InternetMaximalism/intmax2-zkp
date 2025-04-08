@@ -48,6 +48,7 @@ use super::account_transition_pis::AccountTransitionPublicInputsTarget;
 /// This structure contains all the inputs and outputs for the account registration process,
 /// including the previous and new account tree roots, account IDs, and the proofs needed
 /// to verify the correct registration of new accounts.
+#[derive(Debug, Clone)]
 pub struct AccountRegistrationValue {
     pub prev_account_tree_root: PoseidonHashOut,
     pub prev_next_account_id: u64,

@@ -47,6 +47,7 @@ use super::account_transition_pis::AccountTransitionPublicInputsTarget;
 /// This structure contains all the inputs and outputs for the account update process,
 /// including the previous and new account tree roots, and the proofs needed
 /// to verify the correct updating of last block numbers.
+#[derive(Debug, Clone)]
 pub(crate) struct AccountUpdateValue {
     pub(crate) prev_account_tree_root: PoseidonHashOut,
     pub(crate) new_account_tree_root: PoseidonHashOut,
@@ -85,20 +86,22 @@ impl AccountUpdateValue {
                 actual: sender_leaves.len(),
             });
         }
-        
+
         if account_update_proofs.len() != NUM_SENDERS_IN_BLOCK {
             return Err(ValidityTransitionError::InvalidAccountUpdateProofsCount {
                 expected: NUM_SENDERS_IN_BLOCK,
                 actual: account_update_proofs.len(),
             });
         }
-        
-        let sender_tree_root = get_merkle_root_from_leaves(SENDER_TREE_HEIGHT, &sender_leaves)
-            .unwrap();
+
+        let sender_tree_root =
+            get_merkle_root_from_leaves(SENDER_TREE_HEIGHT, &sender_leaves).unwrap();
 
         let mut account_tree_root = prev_account_tree_root;
-        for (i, (sender_leaf, account_update_proof)) in
-            sender_leaves.iter().zip(account_update_proofs.iter()).enumerate()
+        for (i, (sender_leaf, account_update_proof)) in sender_leaves
+            .iter()
+            .zip(account_update_proofs.iter())
+            .enumerate()
         {
             let prev_last_block_number = account_update_proof.prev_leaf.value as u32;
             let last_block_number = if sender_leaf.signature_included {
@@ -113,9 +116,12 @@ impl AccountUpdateValue {
                     last_block_number as u64,
                     account_tree_root,
                 )
-                .map_err(|e| ValidityTransitionError::InvalidAccountUpdateProof(
-                    format!("Invalid account update proof at index {}: {}", i, e)
-                ))?;
+                .map_err(|e| {
+                    ValidityTransitionError::InvalidAccountUpdateProof(format!(
+                        "Invalid account update proof at index {}: {}",
+                        i, e
+                    ))
+                })?;
         }
 
         Ok(Self {
@@ -151,7 +157,8 @@ impl AccountUpdateTarget {
     ///
     /// The circuit enforces that:
     /// 1. The sender tree root is correctly computed from the sender leaves
-    /// 2. For each sender with a signature, the last block number is updated to the current block number
+    /// 2. For each sender with a signature, the last block number is updated to the current block
+    ///    number
     /// 3. For each sender without a signature, the last block number remains unchanged
     /// 4. The account tree root is correctly updated after all updates
     pub(crate) fn new<
@@ -302,7 +309,8 @@ where
     ) -> Result<ProofWithPublicInputs<F, C, D>, ValidityTransitionError> {
         let mut pw = PartialWitness::<F>::new();
         self.target.set_witness(&mut pw, value);
-        self.data.prove(pw)
+        self.data
+            .prove(pw)
             .map_err(|e| ValidityTransitionError::ProofGenerationError(format!("{:?}", e)))
     }
 }
@@ -359,7 +367,9 @@ mod tests {
             } else {
                 prev_last_block_number
             };
-            let proof = tree.prove_and_update(sender_leaf.sender, last_block_number as u64).unwrap();
+            let proof = tree
+                .prove_and_update(sender_leaf.sender, last_block_number as u64)
+                .unwrap();
             account_update_proofs.push(proof);
         }
         let new_account_tree_root = tree.get_root();
@@ -370,24 +380,22 @@ mod tests {
             block_number,
             sender_leaves,
             account_update_proofs,
-        ).unwrap();
-        
+        )
+        .unwrap();
+
         // Verify the account tree root was updated correctly
         assert_eq!(
-            account_update_value.new_account_tree_root,
-            new_account_tree_root,
+            account_update_value.new_account_tree_root, new_account_tree_root,
             "Account tree root mismatch after update"
         );
 
         // Generate the ZK proof
         let account_update_circuit = AccountUpdateCircuit::<F, C, D>::new();
-        let _proof = account_update_circuit
-            .prove(&account_update_value)
-            .unwrap();
-        
+        let _proof = account_update_circuit.prove(&account_update_value).unwrap();
+
         // If we got here without errors, the proof was generated successfully
     }
-    
+
     /// Tests the account update circuit with a scenario where no signatures are included.
     ///
     /// This test verifies that when no senders have signatures, their last block numbers
@@ -397,77 +405,76 @@ mod tests {
         let mut rng = rand::thread_rng();
         let mut tree = AccountTree::initialize();
         let mut next_account_id = 2;
-        
+
         // Create accounts in the account tree
         let pubkeys = (0..NUM_SENDERS_IN_BLOCK)
             .map(|_| U256::rand(&mut rng))
             .collect::<Vec<_>>();
-        
+
         // Set initial last block number for all accounts
         let initial_block_number: u64 = 10;
         for pubkey in &pubkeys {
             tree.insert(*pubkey, initial_block_number).unwrap();
             next_account_id += 1;
         }
-        
+
         let prev_account_tree_root = tree.get_root();
-        
+
         // Create sender leaves with no signatures included
         let sender_flag = Bytes16::rand(&mut rng);
         let mut sender_leaves = get_sender_leaves(&pubkeys, sender_flag);
-        
+
         // Ensure no sender has a signature
         for leaf in &mut sender_leaves {
             leaf.signature_included = false;
         }
-        
+
         let block_number: u32 = 1000;
         let mut account_update_proofs = Vec::new();
-        
+
         // Create proofs for each sender (but no updates will happen since no signatures)
         for sender_leaf in sender_leaves.iter() {
             let account_id = tree.index(sender_leaf.sender).unwrap();
             let prev_leaf = tree.get_leaf(account_id);
             let prev_last_block_number = prev_leaf.value as u32;
-            
+
             // Last block number should remain unchanged
             let last_block_number = prev_last_block_number;
-            
-            let proof = tree.prove_and_update(sender_leaf.sender, last_block_number as u64).unwrap();
+
+            let proof = tree
+                .prove_and_update(sender_leaf.sender, last_block_number as u64)
+                .unwrap();
             account_update_proofs.push(proof);
         }
-        
+
         let new_account_tree_root = tree.get_root();
-        
+
         // The account tree root should remain unchanged since no updates occurred
         assert_eq!(
-            prev_account_tree_root,
-            new_account_tree_root,
+            prev_account_tree_root, new_account_tree_root,
             "Account tree root should not change when no signatures are included"
         );
-        
+
         let account_update_value = AccountUpdateValue::new(
             prev_account_tree_root,
             next_account_id,
             block_number,
             sender_leaves,
             account_update_proofs,
-        ).unwrap();
-        
+        )
+        .unwrap();
+
         // Verify the account tree root was not changed
         assert_eq!(
-            account_update_value.new_account_tree_root,
-            prev_account_tree_root,
+            account_update_value.new_account_tree_root, prev_account_tree_root,
             "Account tree root should not change when no signatures are included"
         );
-        
+
         // Generate the ZK proof
         let account_update_circuit = AccountUpdateCircuit::<F, C, D>::new();
-        let _proof = account_update_circuit
-            .prove(&account_update_value)
-            .unwrap();
+        let _proof = account_update_circuit.prove(&account_update_value).unwrap();
     }
-    
+
     /// Tests the account update circuit with a mixed scenario where some senders have signatures
     /// and others don't.
     ///
@@ -478,40 +485,40 @@ mod tests {
         let mut rng = rand::thread_rng();
         let mut tree = AccountTree::initialize();
         let mut next_account_id = 2;
-        
+
         // Create accounts in the account tree
         let pubkeys = (0..NUM_SENDERS_IN_BLOCK)
             .map(|_| U256::rand(&mut rng))
             .collect::<Vec<_>>();
-        
+
         // Set initial last block number for all accounts
         let initial_block_number: u64 = 10;
         for pubkey in &pubkeys {
             tree.insert(*pubkey, initial_block_number).unwrap();
             next_account_id += 1;
         }
-        
+
         let prev_account_tree_root = tree.get_root();
-        
+
         // Create sender leaves with random signature inclusion
         let sender_flag = Bytes16::rand(&mut rng);
         let mut sender_leaves = get_sender_leaves(&pubkeys, sender_flag);
-        
+
         // Randomly set signature inclusion for each sender
         for leaf in &mut sender_leaves {
             leaf.signature_included = rng.gen_bool(0.5);
         }
-        
+
         let block_number: u32 = 1000;
         let mut account_update_proofs = Vec::new();
         let mut expected_updated_accounts = 0;
-        
+
         // Create proofs for each sender
         for sender_leaf in sender_leaves.iter() {
             let account_id = tree.index(sender_leaf.sender).unwrap();
             let prev_leaf = tree.get_leaf(account_id);
             let prev_last_block_number = prev_leaf.value as u32;
-            
+
             // Update last block number only if signature is included
             let last_block_number = if sender_leaf.signature_included {
                 expected_updated_accounts += 1;
@@ -519,47 +526,45 @@ mod tests {
             } else {
                 prev_last_block_number
             };
-            
-            let proof = tree.prove_and_update(sender_leaf.sender, last_block_number as u64).unwrap();
+
+            let proof = tree
+                .prove_and_update(sender_leaf.sender, last_block_number as u64)
+                .unwrap();
             account_update_proofs.push(proof);
         }
-        
+
         let new_account_tree_root = tree.get_root();
-        
+
         // The account tree root should change if at least one account was updated
         if expected_updated_accounts > 0 {
             assert_ne!(
-                prev_account_tree_root,
-                new_account_tree_root,
+                prev_account_tree_root, new_account_tree_root,
                 "Account tree root should change when at least one signature is included"
             );
         } else {
             assert_eq!(
-                prev_account_tree_root,
-                new_account_tree_root,
+                prev_account_tree_root, new_account_tree_root,
                 "Account tree root should not change when no signatures are included"
             );
         }
-        
+
         let account_update_value = AccountUpdateValue::new(
             prev_account_tree_root,
             next_account_id,
             block_number,
             sender_leaves,
             account_update_proofs,
-        ).unwrap();
-        
+        )
+        .unwrap();
+
         // Verify the account tree root matches the expected value
         assert_eq!(
-            account_update_value.new_account_tree_root,
-            new_account_tree_root,
+            account_update_value.new_account_tree_root, new_account_tree_root,
             "Account tree root mismatch after mixed signature updates"
         );
-        
+
         // Generate the ZK proof
         let account_update_circuit = AccountUpdateCircuit::<F, C, D>::new();
-        let _proof = account_update_circuit
-            .prove(&account_update_value)
-            .unwrap();
+        let _proof = account_update_circuit.prove(&account_update_value).unwrap();
     }
 }
