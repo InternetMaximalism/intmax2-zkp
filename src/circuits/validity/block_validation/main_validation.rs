@@ -1,3 +1,16 @@
+//! Main validation circuit for block validation.
+//!
+//! This circuit handles the non-state-transition parts of block validity verification:
+//! 1. Account exclusion (for registration blocks): Verifies accounts didn't exist previously
+//! 2. Account inclusion (for non-registration blocks): Verifies accounts existed previously
+//! 3. Format validation: Verifies pubkeys are valid G1 x-coordinates, are strictly descending
+//!    (ensuring no duplicate accounts), and message points are correctly calculated
+//! 4. Aggregation: Verifies the weighted public key aggregation is correctly computed
+//!
+//! The main validation circuit must be able to generate ZKPs for any contract-submittable block,
+//! and is_valid must be deterministically calculated regardless of the block content or
+//! ZKP generation method.
+
 use crate::{
     circuits::validity::block_validation::error::BlockValidationError,
     common::{
@@ -243,6 +256,10 @@ impl MainValidationPublicInputsTarget {
     }
 }
 
+/// Contains all the values needed to generate a proof for the main validation circuit.
+///
+/// This structure holds the block data, signatures, proofs from sub-circuits, and
+/// computed values needed to verify the block's validity without state transitions.
 pub struct MainValidationValue<
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
@@ -516,7 +533,18 @@ pub struct MainValidationTarget<const D: usize> {
     is_valid: BoolTarget,
 }
 
+/// Implementation of MainValidationTarget for circuit construction.
 impl<const D: usize> MainValidationTarget<D> {
+    /// Creates a new MainValidationTarget with circuit constraints for block validation.
+    ///
+    /// This method builds the circuit logic for validating blocks by:
+    /// 1. Verifying pubkey hash consistency
+    /// 2. For registration blocks: verifying account exclusion via sub-circuit
+    /// 3. For non-registration blocks: verifying account inclusion via sub-circuit
+    /// 4. Verifying format validation via sub-circuit
+    /// 5. Conditionally verifying aggregation if all previous validations pass
+    ///
+    /// The is_valid flag is computed based on the combined result of all validations.
     pub fn new<F: RichField + Extendable<D>, C: GenericConfig<D, F = F> + 'static>(
         account_inclusion_vd: &VerifierCircuitData<F, C, D>,
         account_exclusion_vd: &VerifierCircuitData<F, C, D>,
@@ -647,6 +675,11 @@ impl<const D: usize> MainValidationTarget<D> {
         }
     }
 
+    /// Sets the witness values for all targets in the MainValidationTarget.
+    ///
+    /// This method populates the witness with values from MainValidationValue,
+    /// handling both registration and non-registration block cases appropriately.
+    /// It uses dummy proofs when actual proofs are not available.
     pub fn set_witness<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, W: Witness<F>>(
         &self,
         witness: &mut W,
@@ -697,6 +730,15 @@ impl<const D: usize> MainValidationTarget<D> {
     }
 }
 
+/// Main circuit for validating blocks without performing state transitions.
+///
+/// This circuit combines account exclusion/inclusion, format validation, and
+/// aggregation verification to determine if a block is valid. It verifies:
+/// - For registration blocks: accounts didn't exist previously (account exclusion)
+/// - For non-registration blocks: accounts existed previously (account inclusion)
+/// - Pubkeys are valid G1 x-coordinates and strictly descending (format validation)
+/// - Message points are correctly calculated (format validation)
+/// - Weighted public key aggregation is correctly computed (aggregation)
 #[derive(Debug)]
 pub struct MainValidationCircuit<F, C, const D: usize>
 where
@@ -745,6 +787,13 @@ where
         Self { data, target }
     }
 
+    /// Generates a proof for the main validation circuit.
+    ///
+    /// This method creates a ZKP that verifies all aspects of block validity without
+    /// performing state transitions. It uses dummy proofs when necessary for conditional
+    /// verification paths that aren't taken.
+    ///
+    /// Returns a proof with public inputs that can be verified by the contract.
     pub fn prove(
         &self,
         account_inclusion_proof_dummy: DummyProof<F, C, D>,
