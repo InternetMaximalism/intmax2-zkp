@@ -28,7 +28,7 @@ where
     #[cfg(not(feature = "dummy_validity_proof"))]
     pub transition_processor: ValidityTransitionProcessor<F, C, D>,
     #[cfg(feature = "dummy_validity_proof")]
-    pub dummy_transition_circuit: DummyTransitionWrapperCircuit<F, C, D>,
+    pub dummy_transition_circuit: DummyValidityTransitionWrapperCircuit<F, C, D>,
     pub validity_circuit: ValidityCircuit<F, C, D>,
 }
 
@@ -61,7 +61,7 @@ where
         );
 
         #[cfg(feature = "dummy_validity_proof")]
-        let dummy_transition_circuit = DummyTransitionWrapperCircuit::new();
+        let dummy_transition_circuit = DummyValidityTransitionWrapperCircuit::new();
         #[cfg(feature = "dummy_validity_proof")]
         let validity_circuit = ValidityCircuit::new(&dummy_transition_circuit.data.verifier_data());
         Self {
