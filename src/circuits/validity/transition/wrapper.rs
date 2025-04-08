@@ -152,3 +152,135 @@ where
             .map_err(|e| ValidityTransitionError::ProofGenerationError(format!("{:?}", e)))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use plonky2::{
+        field::goldilocks_field::GoldilocksField, plonk::config::PoseidonGoldilocksConfig,
+    };
+    use rand::Rng;
+
+    use crate::{
+        circuits::{
+            test_utils::witness_generator::{construct_validity_and_tx_witness, MockTxRequest},
+            validity::{
+                block_validation::processor::MainValidationProcessor,
+                transition::{
+                    account_registration::{AccountRegistrationCircuit, AccountRegistrationValue},
+                    account_update::AccountUpdateCircuit,
+                    transition::ValidityTransitionValue,
+                },
+                validity_pis::ValidityPublicInputs,
+            },
+        },
+        common::{
+            signature_content::key_set::KeySet,
+            trees::{
+                account_tree::AccountTree, block_hash_tree::BlockHashTree,
+                deposit_tree::DepositTree,
+            },
+            tx::Tx,
+        },
+        constants::NUM_SENDERS_IN_BLOCK,
+        ethereum_types::address::Address,
+    };
+
+    use super::TransitionWrapperCircuit;
+
+    type F = GoldilocksField;
+    const D: usize = 2;
+    type C = PoseidonGoldilocksConfig;
+
+    #[test]
+    fn test_transition_wrapper_circuit() {
+        let mut rng = rand::thread_rng();
+
+        let mut account_tree = AccountTree::initialize();
+        let mut block_tree = BlockHashTree::initialize();
+        let deposit_tree = DepositTree::initialize();
+
+        let prev_validity_pis = ValidityPublicInputs::genesis();
+        let tx_requests = (0..NUM_SENDERS_IN_BLOCK)
+            .map(|_| MockTxRequest {
+                tx: Tx::rand(&mut rng),
+                sender_key: KeySet::rand(&mut rng),
+                will_return_sig: rng.gen_bool(0.5),
+            })
+            .collect::<Vec<_>>();
+        let (validity_witness, _) = construct_validity_and_tx_witness(
+            prev_validity_pis.clone(),
+            &mut account_tree,
+            &mut block_tree,
+            &deposit_tree,
+            true,
+            0,
+            Address::default(),
+            0,
+            &tx_requests,
+            0,
+        )
+        .unwrap();
+        let block_witness = validity_witness.block_witness.clone();
+        let validity_transition_witness = validity_witness.validity_transition_witness.clone();
+
+        let main_validation_processor = MainValidationProcessor::<F, C, D>::new();
+        let main_validation_proof = main_validation_processor.prove(&block_witness).unwrap();
+
+        let account_registration_circuit = AccountRegistrationCircuit::<F, C, D>::new();
+        let account_update_circuit = AccountUpdateCircuit::<F, C, D>::new();
+
+        let account_registration_value = AccountRegistrationValue::new(
+            block_witness.prev_account_tree_root,
+            block_witness.prev_next_account_id,
+            block_witness.block.block_number,
+            block_witness.get_sender_tree().leaves(),
+            validity_transition_witness
+                .account_registration_proofs
+                .clone()
+                .unwrap(),
+        )
+        .unwrap();
+        let account_registration_proof = account_registration_circuit
+            .prove(&account_registration_value)
+            .unwrap();
+
+        let validity_transition_value = ValidityTransitionValue::new(
+            &account_registration_circuit,
+            &account_update_circuit,
+            validity_witness
+                .block_witness
+                .to_main_validation_pis()
+                .unwrap(),
+            block_witness.prev_account_tree_root,
+            block_witness.prev_next_account_id,
+            block_witness.prev_block_tree_root,
+            Some(account_registration_proof),
+            None,
+            validity_transition_witness.block_merkle_proof.clone(),
+        )
+        .unwrap();
+
+        let transition_wrapper_circuit = TransitionWrapperCircuit::<F, C, D>::new(
+            &main_validation_processor
+                .main_validation_circuit
+                .data
+                .verifier_data(),
+            &account_registration_circuit.data.verifier_data(),
+            &account_update_circuit.data.verifier_data(),
+        );
+        let transition_wrapper_proof = transition_wrapper_circuit
+            .prove(
+                &main_validation_proof,
+                &validity_transition_value,
+                &prev_validity_pis,
+                account_registration_circuit.dummy_proof,
+                account_update_circuit.dummy_proof,
+            )
+            .unwrap();
+
+        transition_wrapper_circuit
+            .data
+            .verify(transition_wrapper_proof)
+            .unwrap();
+    }
+}
