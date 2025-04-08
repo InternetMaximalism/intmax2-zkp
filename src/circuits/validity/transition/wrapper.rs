@@ -25,7 +25,7 @@ use super::transition::{ValidityTransitionTarget, ValidityTransitionValue};
 
 /// Circuit to prove the transition from old validity pis to new validity pis.
 #[derive(Debug)]
-pub struct TransitionWrapperCircuit<F, C, const D: usize>
+pub struct ValidityTransitionWrapperCircuit<F, C, const D: usize>
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
@@ -36,7 +36,7 @@ where
     pub(crate) prev_pis: ValidityPublicInputsTarget,
 }
 
-impl<F, C, const D: usize> TransitionWrapperCircuit<F, C, D>
+impl<F, C, const D: usize> ValidityTransitionWrapperCircuit<F, C, D>
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F> + 'static,
@@ -109,7 +109,7 @@ where
     }
 }
 
-impl<F, C, const D: usize> TransitionWrapperCircuit<F, C, D>
+impl<F, C, const D: usize> ValidityTransitionWrapperCircuit<F, C, D>
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F> + 'static,
@@ -185,7 +185,7 @@ mod tests {
         ethereum_types::address::Address,
     };
 
-    use super::TransitionWrapperCircuit;
+    use super::ValidityTransitionWrapperCircuit;
 
     type F = GoldilocksField;
     const D: usize = 2;
@@ -260,7 +260,7 @@ mod tests {
         )
         .unwrap();
 
-        let transition_wrapper_circuit = TransitionWrapperCircuit::<F, C, D>::new(
+        let transition_wrapper_circuit = ValidityTransitionWrapperCircuit::<F, C, D>::new(
             &main_validation_processor
                 .main_validation_circuit
                 .data
