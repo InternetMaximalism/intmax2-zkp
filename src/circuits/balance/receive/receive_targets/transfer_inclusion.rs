@@ -1,3 +1,14 @@
+//! Transfer inclusion circuit for verifying transfers in balance proofs.
+//!
+//! This circuit verifies that a transfer is included in a transaction by:
+//! 1. Verifying the balance proof is valid
+//! 2. Checking that the last_tx_hash in the balance PIs corresponds to the tx containing the transfer
+//! 3. Verifying that the corresponding insufficient flag is false
+//! 4. Validating the transfer's inclusion in the transfer merkle tree
+//!
+//! This circuit is used when receiving tokens, allowing recipients to verify
+//! that a sender's balance proof includes the transfer they're claiming.
+
 use super::error::ReceiveTargetsError;
 use crate::{
     circuits::balance::balance_pis::{BalancePublicInputs, BalancePublicInputsTarget},
@@ -27,20 +38,24 @@ use plonky2::{
     },
 };
 
-// Data to verify that the balance proof includes the transfer and that the transfer is valid
+/// TransferInclusionValue contains all the data needed to verify that a transfer
+/// is included in a transaction and that the corresponding balance proof is valid.
+///
+/// This structure is used when receiving tokens, allowing recipients to verify
+/// that a sender's balance proof includes the transfer they're claiming.
 #[derive(Debug, Clone)]
 pub struct TransferInclusionValue<
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F> + 'static,
     const D: usize,
 > {
-    pub transfer: Transfer,  // transfer to be proved included
-    pub transfer_index: u32, // the index of the transfer in the transfer merkle tree
-    pub transfer_merkle_proof: TransferMerkleProof, // transfer merkle proof that proves i
-    pub tx: Tx,              // tx that includes the transfer
-    pub balance_proof: ProofWithPublicInputs<F, C, D>, // balance proof that includes the tx
-    pub balance_circuit_vd: VerifierOnlyCircuitData<C, D>, // balance circuit verifier data
-    pub public_state: PublicState, // public state of the balance proof
+    pub transfer: Transfer,  // Transfer to be proved included
+    pub transfer_index: u32, // The index of the transfer in the transfer merkle tree
+    pub transfer_merkle_proof: TransferMerkleProof, // Merkle proof for transfer inclusion
+    pub tx: Tx,              // Transaction that includes the transfer
+    pub balance_proof: ProofWithPublicInputs<F, C, D>, // Balance proof that includes the tx
+    pub balance_circuit_vd: VerifierOnlyCircuitData<C, D>, // Balance circuit verifier data
+    pub public_state: PublicState, // Public state from the balance proof
 }
 
 impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
@@ -48,6 +63,24 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
 where
     <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
 {
+    /// Creates a new TransferInclusionValue by validating the transfer's inclusion in a transaction.
+    ///
+    /// This function:
+    /// 1. Parses and verifies the balance proof
+    /// 2. Checks that the last_tx_hash in the balance PIs matches the tx hash
+    /// 3. Verifies that the corresponding insufficient flag is false
+    /// 4. Validates the transfer's inclusion in the transfer merkle tree
+    ///
+    /// # Arguments
+    /// * `balance_verifier_data` - Verifier data for the balance circuit
+    /// * `transfer` - Transfer to be verified
+    /// * `transfer_index` - Index of the transfer in the transfer merkle tree
+    /// * `transfer_merkle_proof` - Merkle proof for the transfer
+    /// * `tx` - Transaction that includes the transfer
+    /// * `balance_proof` - Balance proof that includes the transaction
+    ///
+    /// # Returns
+    /// A Result containing either the new TransferInclusionValue or an error
     pub fn new(
         balance_verifier_data: &VerifierCircuitData<F, C, D>,
         transfer: &Transfer,
@@ -128,6 +161,10 @@ where
     }
 }
 
+/// Target version of TransferInclusionValue for use in ZKP circuits.
+///
+/// This struct contains circuit targets for all components needed to verify
+/// a transfer's inclusion in a transaction and the validity of the balance proof.
 #[derive(Debug, Clone)]
 pub struct TransferInclusionTarget<const D: usize> {
     pub transfer: TransferTarget,
@@ -140,6 +177,22 @@ pub struct TransferInclusionTarget<const D: usize> {
 }
 
 impl<const D: usize> TransferInclusionTarget<D> {
+    /// Creates a new TransferInclusionTarget with circuit constraints that enforce
+    /// the transfer inclusion verification rules.
+    ///
+    /// The circuit enforces:
+    /// 1. Valid balance proof verification
+    /// 2. Matching last_tx_hash with the tx hash
+    /// 3. False insufficient flag for the transfer
+    /// 4. Valid transfer merkle proof
+    ///
+    /// # Arguments
+    /// * `balance_common_data` - Common circuit data for the balance circuit
+    /// * `builder` - Circuit builder
+    /// * `is_checked` - Whether to add constraints for checking the values
+    ///
+    /// # Returns
+    /// A new TransferInclusionTarget with all necessary targets and constraints
     pub fn new<F: RichField + Extendable<D>, C: GenericConfig<D, F = F> + 'static>(
         balance_common_data: &CommonCircuitData<F, D>,
         builder: &mut CircuitBuilder<F, D>,
@@ -185,6 +238,11 @@ impl<const D: usize> TransferInclusionTarget<D> {
         }
     }
 
+    /// Sets the witness values for all targets in this TransferInclusionTarget.
+    ///
+    /// # Arguments
+    /// * `witness` - Witness to set values in
+    /// * `value` - TransferInclusionValue containing the values to set
     pub fn set_witness<
         F: RichField + Extendable<D>,
         C: GenericConfig<D, F = F>,
