@@ -137,13 +137,19 @@ where
             pw.set_bool_target(self.is_first_step, false);
             pw.set_proof_with_pis_target(&self.prev_proof, prev_proof.as_ref().unwrap());
         }
-        self.data.prove(pw).map_err(|e| ValidityProverError::ValidityCircuitProofError(e.to_string()))
+        self.data
+            .prove(pw)
+            .map_err(|e| ValidityProverError::ValidityCircuitProofError(e.to_string()))
     }
 
-    pub fn verify(&self, proof: &ProofWithPublicInputs<F, C, D>) -> Result<(), ValidityProverError> {
+    pub fn verify(
+        &self,
+        proof: &ProofWithPublicInputs<F, C, D>,
+    ) -> Result<(), ValidityProverError> {
         check_cyclic_proof_verifier_data(proof, &self.data.verifier_only, &self.data.common)
             .map_err(|e| ValidityProverError::Plonky2Error(e.to_string()))?;
-        self.data.verify(proof.clone())
+        self.data
+            .verify(proof.clone())
             .map_err(|e| ValidityProverError::Plonky2Error(e.to_string()))
     }
 }
@@ -184,68 +190,175 @@ where
     common
 }
 
-// #[cfg(test)]
-// mod tests {
-//     type F = GoldilocksField;
-//     type C = PoseidonGoldilocksConfig;
-//     const D: usize = 2;
-//     use crate::{
-//         mock::block_builder::MockBlockBuilder,
-// utils::test_utils::tx::generate_random_tx_requests,     };
-//     use plonky2::{
-//         field::goldilocks_field::GoldilocksField, plonk::config::PoseidonGoldilocksConfig,
-//     };
+#[cfg(test)]
+mod tests {
+    use plonky2::{
+        field::goldilocks_field::GoldilocksField, plonk::config::PoseidonGoldilocksConfig,
+    };
+    use rand::Rng;
 
-//     use super::ValidityCircuit;
+    use crate::{
+        circuits::{
+            test_utils::witness_generator::{construct_validity_and_tx_witness, MockTxRequest},
+            validity::{
+                transition::dummy_wrapper::DummyValidityTransitionWrapperCircuit,
+                validity_pis::ValidityPublicInputs,
+            },
+        },
+        common::{
+            signature_content::key_set::KeySet,
+            trees::{
+                account_tree::AccountTree, block_hash_tree::BlockHashTree,
+                deposit_tree::DepositTree,
+            },
+            tx::Tx,
+            witness::validity_witness::ValidityWitness,
+        },
+        constants::NUM_SENDERS_IN_BLOCK,
+        ethereum_types::address::Address,
+    };
 
-//     #[cfg(not(feature = "dummy_validity_proof"))]
-//     #[test]
-//     fn validity_circuit() {
-//         use crate::circuits::validity::transition::processor::TransitionProcessor;
-//         let mut rng = rand::thread_rng();
-//         let mut block_builder = MockBlockBuilder::new();
+    type F = GoldilocksField;
+    type C = PoseidonGoldilocksConfig;
+    const D: usize = 2;
 
-//         let txs = generate_random_tx_requests(&mut rng);
-//         let validity_witness = block_builder.post_block(true, txs);
-//         let prev_block_number = validity_witness.get_block_number() - 1;
-//         let prev_pis = block_builder
-//             .aux_info
-//             .get(&prev_block_number)
-//             .unwrap()
-//             .validity_witness
-//             .to_validity_pis();
+    fn generate_test_witness() -> Vec<ValidityWitness> {
+        let mut rng = rand::thread_rng();
 
-//         let transition_processor = TransitionProcessor::<F, C, D>::new();
-//         let transition_proof = transition_processor
-//             .prove(&prev_pis, &validity_witness)
-//             .unwrap();
-//         let validity_circuit =
-//             ValidityCircuit::<F, C, D>::new(&transition_processor.transition_wrapper_circuit);
-//         validity_circuit.prove(&transition_proof, &None).unwrap();
-//     }
+        let mut account_tree = AccountTree::initialize();
+        let mut block_tree = BlockHashTree::initialize();
+        let deposit_tree = DepositTree::initialize();
+        let mut prev_validity_pis = ValidityPublicInputs::genesis();
 
-//     #[cfg(feature = "dummy_validity_proof")]
-//     #[test]
-//     fn dummy_validity_circuit() {
-//         use crate::circuits::validity::transition::dummy_wrapper::DummyTransitionWrapperCircuit;
+        // create a block that registers new accounts
+        let keys = (0..NUM_SENDERS_IN_BLOCK)
+            .map(|_| KeySet::rand(&mut rng))
+            .collect::<Vec<_>>();
+        let tx_requests = keys
+            .iter()
+            .map(|key| MockTxRequest {
+                tx: Tx::rand(&mut rng),
+                sender_key: key.clone(),
+                will_return_sig: true, // all sender return sigs to register to the account tree
+            })
+            .collect::<Vec<_>>();
+        let (validity_witness1, _) = construct_validity_and_tx_witness(
+            prev_validity_pis,
+            &mut account_tree,
+            &mut block_tree,
+            &deposit_tree,
+            true, // registration block
+            0,
+            Address::default(),
+            0,
+            &tx_requests,
+            0,
+        )
+        .unwrap();
+        prev_validity_pis = validity_witness1.to_validity_pis().unwrap();
 
-//         let mut rng = rand::thread_rng();
-//         let mut block_builder = MockBlockBuilder::new();
-//         let txs = generate_random_tx_requests(&mut rng);
-//         let validity_witness = block_builder.post_block(true, txs);
-//         let prev_block_number = validity_witness.get_block_number() - 1;
-//         let prev_pis = block_builder
-//             .aux_info
-//             .get(&prev_block_number)
-//             .unwrap()
-//             .validity_witness
-//             .to_validity_pis();
+        // create a non-registration block
+        let tx_requests = keys
+            .iter()
+            .map(|key| MockTxRequest {
+                tx: Tx::rand(&mut rng),
+                sender_key: key.clone(),
+                will_return_sig: rng.gen_bool(0.5), // some senders return sigs
+            })
+            .collect::<Vec<_>>();
+        let (validity_witness2, _) = construct_validity_and_tx_witness(
+            prev_validity_pis,
+            &mut account_tree,
+            &mut block_tree,
+            &deposit_tree,
+            false, // non-registration block
+            0,
+            Address::default(),
+            0,
+            &tx_requests,
+            0,
+        )
+        .unwrap();
+        vec![validity_witness1, validity_witness2]
+    }
 
-//         let dummy_transition_wrapper = DummyTransitionWrapperCircuit::<F, C, D>::new();
-//         let transition_proof = dummy_transition_wrapper
-//             .prove(&prev_pis, &validity_witness)
-//             .unwrap();
-//         let validity_circuit = ValidityCircuit::<F, C, D>::new(&dummy_transition_wrapper);
-//         validity_circuit.prove(&transition_proof, &None).unwrap();
-//     }
-// }
+    #[test]
+    fn test_validity_circuit() {
+        use crate::circuits::validity::transition::processor::ValidityTransitionProcessor;
+
+        let validity_witnesses = generate_test_witness();
+
+        let validity_transition_processor = ValidityTransitionProcessor::<F, C, D>::new();
+        let validity_circuit = super::ValidityCircuit::<F, C, D>::new(
+            &validity_transition_processor
+                .transition_wrapper_circuit
+                .data
+                .verifier_data(),
+        );
+
+        let mut prev_validity_pis = ValidityPublicInputs::genesis();
+        let transition_proof1 = validity_transition_processor
+            .prove(&prev_validity_pis, &validity_witnesses[0])
+            .unwrap();
+        let validity_proof1 = validity_circuit.prove(&transition_proof1, &None).unwrap();
+
+        // Verify the first proof
+        validity_circuit
+            .data
+            .verify(validity_proof1.clone())
+            .unwrap();
+
+        // update the previous validity pis
+        prev_validity_pis = ValidityPublicInputs::from_pis(&validity_proof1.public_inputs);
+
+        let transition_proof2 = validity_transition_processor
+            .prove(&prev_validity_pis, &validity_witnesses[1])
+            .unwrap();
+        let validity_proof2 = validity_circuit
+            .prove(&transition_proof2, &Some(validity_proof1))
+            .unwrap();
+        // Verify the second proof
+        validity_circuit
+            .data
+            .verify(validity_proof2.clone())
+            .unwrap();
+    }
+
+    #[test]
+    fn test_dummy_validity_circuit() {
+        let validity_witnesses = generate_test_witness();
+
+        let dummy_transition_wrapper_circuit =
+            DummyValidityTransitionWrapperCircuit::<F, C, D>::new();
+        let validity_circuit = super::ValidityCircuit::<F, C, D>::new(
+            &dummy_transition_wrapper_circuit.data.verifier_data(),
+        );
+
+        let mut prev_validity_pis = ValidityPublicInputs::genesis();
+        let transition_proof1 = dummy_transition_wrapper_circuit
+            .prove(&prev_validity_pis, &validity_witnesses[0])
+            .unwrap();
+        let validity_proof1 = validity_circuit.prove(&transition_proof1, &None).unwrap();
+
+        // Verify the first proof
+        validity_circuit
+            .data
+            .verify(validity_proof1.clone())
+            .unwrap();
+
+        // update the previous validity pis
+        prev_validity_pis = ValidityPublicInputs::from_pis(&validity_proof1.public_inputs);
+
+        let transition_proof2 = dummy_transition_wrapper_circuit
+            .prove(&prev_validity_pis, &validity_witnesses[1])
+            .unwrap();
+        let validity_proof2 = validity_circuit
+            .prove(&transition_proof2, &Some(validity_proof1))
+            .unwrap();
+        // Verify the second proof
+        validity_circuit
+            .data
+            .verify(validity_proof2.clone())
+            .unwrap();
+    }
+}
