@@ -37,7 +37,9 @@ impl FromStr for Address {
     type Err = EthereumTypeError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Self::from_hex(s).map_err(|e| EthereumTypeError::HexParseError(format!("Failed to parse Address: {}", e)))
+        Self::from_hex(s).map_err(|e| {
+            EthereumTypeError::HexParseError(format!("Failed to parse Address: {}", e))
+        })
     }
 }
 

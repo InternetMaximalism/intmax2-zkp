@@ -21,7 +21,9 @@ use plonky2_bn254::{
 };
 
 use crate::ethereum_types::{
-    bytes32::Bytes32, u256::{U256Target, U256}, u32limb_trait::{U32LimbTargetTrait as _, U32LimbTrait}
+    bytes32::Bytes32,
+    u256::{U256Target, U256},
+    u32limb_trait::{U32LimbTargetTrait as _, U32LimbTrait},
 };
 
 #[derive(Clone, Default, Debug, PartialEq)]

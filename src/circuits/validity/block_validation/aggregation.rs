@@ -1,7 +1,7 @@
 //! Aggregation circuit for block validation.
 //!
-//! This circuit verifies that the weighted aggregation of public keys matches the aggregate 
-//! public key in the signature. It ensures that the weighted aggregation of public keys bound 
+//! This circuit verifies that the weighted aggregation of public keys matches the aggregate
+//! public key in the signature. It ensures that the weighted aggregation of public keys bound
 //! by a pubkey commitment equals the aggregate public key bound by a signature commitment.
 //! The weights are derived from hashing each public key with the pubkey hash.
 //!
@@ -139,16 +139,16 @@ impl AggregationPublicInputsTarget {
 pub struct AggregationValue {
     /// The set of public keys to be aggregated
     pub pubkeys: Vec<U256>,
-    
+
     /// The signature content containing the aggregate public key
     pub signature: SignatureContent,
-    
+
     /// Commitment to the set of public keys
     pub pubkey_commitment: PoseidonHashOut,
-    
+
     /// Commitment to the signature content
     pub signature_commitment: PoseidonHashOut,
-    
+
     /// Flag indicating whether the aggregation is valid
     pub is_valid: bool,
 }

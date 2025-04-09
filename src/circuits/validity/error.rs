@@ -1,8 +1,7 @@
-use crate::utils::poseidon_hash_out::PoseidonHashOut;
 use super::{
-    block_validation::error::BlockValidationError,
-    transition::error::ValidityTransitionError,
+    block_validation::error::BlockValidationError, transition::error::ValidityTransitionError,
 };
+use crate::utils::poseidon_hash_out::PoseidonHashOut;
 
 #[derive(Debug, thiserror::Error)]
 pub enum ValidityProverError {

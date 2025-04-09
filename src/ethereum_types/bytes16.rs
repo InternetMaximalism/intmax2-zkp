@@ -39,7 +39,9 @@ impl FromStr for Bytes16 {
     type Err = EthereumTypeError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Self::from_hex(s).map_err(|e| EthereumTypeError::HexParseError(format!("Failed to parse Bytes16: {}", e)))
+        Self::from_hex(s).map_err(|e| {
+            EthereumTypeError::HexParseError(format!("Failed to parse Bytes16: {}", e))
+        })
     }
 }
 
@@ -63,7 +65,11 @@ impl TryFrom<BigUint> for Bytes16 {
     fn try_from(value: BigUint) -> Result<Self, Self::Error> {
         let mut digits = value.to_u32_digits();
         if digits.len() > BYTES16_LEN {
-            return Err(EthereumTypeError::ValueTooLarge(format!("Value has {} digits, but Bytes16 can only hold {}", digits.len(), BYTES16_LEN)));
+            return Err(EthereumTypeError::ValueTooLarge(format!(
+                "Value has {} digits, but Bytes16 can only hold {}",
+                digits.len(),
+                BYTES16_LEN
+            )));
         }
         digits.resize(BYTES16_LEN, 0);
         digits.reverse(); // little endian to big endian

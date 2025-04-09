@@ -22,7 +22,9 @@ where
     let generator_serializer = DefaultGeneratorSerializer::<C, D>::default();
     let bytes = circuit_data
         .to_bytes(&gate_serializer, &generator_serializer)
-        .map_err(|e| SerializeError::SerializationFailed(format!("failed to serialize circuit {}", e)))?;
+        .map_err(|e| {
+            SerializeError::SerializationFailed(format!("failed to serialize circuit {}", e))
+        })?;
     Ok(bytes)
 }
 
@@ -37,6 +39,8 @@ where
     let gate_serializer = DefaultGateSerializer;
     let generator_serializer = DefaultGeneratorSerializer::<C, D>::default();
     let circuit_data = CircuitData::from_bytes(bytes, &gate_serializer, &generator_serializer)
-        .map_err(|e| SerializeError::DeserializationFailed(format!("failed to deserialize circuit {}", e)))?;
+        .map_err(|e| {
+            SerializeError::DeserializationFailed(format!("failed to deserialize circuit {}", e))
+        })?;
     Ok(circuit_data)
 }

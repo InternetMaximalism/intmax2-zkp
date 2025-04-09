@@ -4,7 +4,8 @@
 //! satisfy the following conditions:
 //! 1. Pubkeys are strictly in descending order, except for dummy keys (value 1)
 //! 2. All pubkeys are within the Fq range
-//! 3. Pubkeys can be used as x-coordinates of G1 points (x^3 + 3 is a perfect square, allowing y recovery)
+//! 3. Pubkeys can be used as x-coordinates of G1 points (x^3 + 3 is a perfect square, allowing y
+//!    recovery)
 //! 4. The message_point in signature content is correctly calculated from the block sign payload
 //!
 //! These validations ensure that the public keys and signature are properly formatted
@@ -47,10 +48,10 @@ pub const FORMAT_VALIDATION_PUBLIC_INPUTS_LEN: usize = 2 * POSEIDON_HASH_OUT_LEN
 pub struct FormatValidationPublicInputs {
     /// Commitment to the set of public keys
     pub pubkey_commitment: PoseidonHashOut,
-    
+
     /// Commitment to the signature content
     pub signature_commitment: PoseidonHashOut,
-    
+
     /// Flag indicating whether the format is valid
     pub is_valid: bool,
 }
@@ -60,10 +61,10 @@ pub struct FormatValidationPublicInputs {
 pub struct FormatValidationPublicInputsTarget {
     /// Target for the commitment to the set of public keys
     pub pubkey_commitment: PoseidonHashOutTarget,
-    
+
     /// Target for the commitment to the signature content
     pub signature_commitment: PoseidonHashOutTarget,
-    
+
     /// Target for the validity flag
     pub is_valid: BoolTarget,
 }
@@ -130,16 +131,16 @@ impl FormatValidationPublicInputsTarget {
 pub struct FormatValidationValue {
     /// The set of public keys to be validated
     pub pubkeys: Vec<U256>,
-    
+
     /// The signature content to be validated
     pub signature: SignatureContent,
-    
+
     /// Commitment to the set of public keys
     pub pubkey_commitment: PoseidonHashOut,
-    
+
     /// Commitment to the signature content
     pub signature_commitment: PoseidonHashOut,
-    
+
     /// Flag indicating whether the format is valid
     pub is_valid: bool,
 }
@@ -152,16 +153,16 @@ pub struct FormatValidationValue {
 pub struct FormatValidationTarget {
     /// Targets for the set of public keys
     pub pubkeys: Vec<U256Target>,
-    
+
     /// Target for the signature content
     pub signature: SignatureContentTarget,
-    
+
     /// Target for the commitment to the set of public keys
     pub pubkey_commitment: PoseidonHashOutTarget,
-    
+
     /// Target for the commitment to the signature content
     pub signature_commitment: PoseidonHashOutTarget,
-    
+
     /// Target for the validity flag
     pub is_valid: BoolTarget,
 }

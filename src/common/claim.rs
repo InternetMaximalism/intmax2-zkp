@@ -60,11 +60,13 @@ impl Claim {
         let amount = U256::from_u32_slice(&slice[ADDRESS_LEN..ADDRESS_LEN + U256_LEN]).unwrap();
         let nullifier = Bytes32::from_u32_slice(
             &slice[ADDRESS_LEN + U256_LEN..ADDRESS_LEN + U256_LEN + BYTES32_LEN],
-        ).unwrap();
+        )
+        .unwrap();
         let block_hash = Bytes32::from_u32_slice(
             &slice[ADDRESS_LEN + U256_LEN + BYTES32_LEN
                 ..ADDRESS_LEN + U256_LEN + BYTES32_LEN + BYTES32_LEN],
-        ).unwrap();
+        )
+        .unwrap();
         let block_number = slice[ADDRESS_LEN + U256_LEN + BYTES32_LEN + BYTES32_LEN];
         Self {
             recipient,

@@ -37,16 +37,16 @@ impl SpentWitness {
     ) -> Result<Self, CommonError> {
         if transfers.len() != NUM_TRANSFERS_IN_TX {
             return Err(CommonError::InvalidData(
-                "invalid number of transfers".to_string()
+                "invalid number of transfers".to_string(),
             ));
         }
-        
+
         let transfer_tree_root = get_merkle_root_from_leaves(TRANSFER_TREE_HEIGHT, transfers)
             .map_err(|e| CommonError::InvalidData(e.to_string()))?;
-            
+
         if transfer_tree_root != tx.transfer_tree_root {
             return Err(CommonError::InvalidData(
-                "transfer tree root mismatch".to_string()
+                "transfer tree root mismatch".to_string(),
             ));
         }
         let mut asset_merkle_proofs = vec![];
@@ -88,7 +88,7 @@ impl SpentWitness {
     ) -> Result<(), CommonError> {
         if full_private_state.to_private_state() != self.prev_private_state {
             return Err(CommonError::InvalidData(
-                "prev private state mismatch".to_string()
+                "prev private state mismatch".to_string(),
             ));
         }
         let prev_private_commitment = full_private_state.to_private_state().commitment();
@@ -118,7 +118,7 @@ impl SpentWitness {
 
         if full_private_state.to_private_state().commitment() != value.new_private_commitment {
             return Err(CommonError::InvalidData(
-                "new private state mismatch".to_string()
+                "new private state mismatch".to_string(),
             ));
         }
         Ok(())

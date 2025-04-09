@@ -43,7 +43,6 @@ pub type SenderMerkleProofTarget = IncrementalMerkleProofTarget<SenderLeafTarget
 
 pub const SENDER_LEAF_LEN: usize = U256_LEN + 1;
 
-
 /// A struct that contains the sender and a flag indicating whether the sender's signature is
 /// included.
 #[derive(Default, Debug, Clone, Serialize, Deserialize)]

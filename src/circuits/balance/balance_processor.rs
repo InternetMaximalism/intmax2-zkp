@@ -543,14 +543,17 @@ mod tests {
             deposit: deposit.clone(),
             deposit_merkle_proof,
         };
-        let private_transition_witness =
-            PrivateTransitionWitness::from_deposit(&mut alice_state, &deposit, Salt::rand(&mut rng))
-                .map_err(|e| {
-                    BalanceError::Other(format!(
-                        "Failed to create private transition witness from deposit: {:?}",
-                        e
-                    ))
-                })?;
+        let private_transition_witness = PrivateTransitionWitness::from_deposit(
+            &mut alice_state,
+            &deposit,
+            Salt::rand(&mut rng),
+        )
+        .map_err(|e| {
+            BalanceError::Other(format!(
+                "Failed to create private transition witness from deposit: {:?}",
+                e
+            ))
+        })?;
         let receive_deposit_witness = ReceiveDepositWitness {
             deposit_witness,
             private_transition_witness,

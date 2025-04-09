@@ -67,14 +67,17 @@ impl Withdrawal {
         assert_eq!(slice.len(), WITHDRAWAL_LEN);
         let recipient = Address::from_u32_slice(&slice[0..ADDRESS_LEN]).unwrap();
         let token_index = slice[ADDRESS_LEN];
-        let amount = U256::from_u32_slice(&slice[ADDRESS_LEN + 1..ADDRESS_LEN + 1 + U256_LEN]).unwrap();
+        let amount =
+            U256::from_u32_slice(&slice[ADDRESS_LEN + 1..ADDRESS_LEN + 1 + U256_LEN]).unwrap();
         let nullifier = Bytes32::from_u32_slice(
             &slice[ADDRESS_LEN + 1 + U256_LEN..ADDRESS_LEN + 1 + U256_LEN + BYTES32_LEN],
-        ).unwrap();
+        )
+        .unwrap();
         let block_hash = Bytes32::from_u32_slice(
             &slice[ADDRESS_LEN + 1 + U256_LEN + BYTES32_LEN
                 ..ADDRESS_LEN + 1 + U256_LEN + BYTES32_LEN + BYTES32_LEN],
-        ).unwrap();
+        )
+        .unwrap();
         let block_number = slice[ADDRESS_LEN + 1 + U256_LEN + BYTES32_LEN + BYTES32_LEN];
         Self {
             recipient,

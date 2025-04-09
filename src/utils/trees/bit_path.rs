@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 /// `BitPath` represents a path in a binary tree as a sequence of bits.
-/// 
+///
 /// It efficiently stores the path using:
 /// - `length`: The number of bits in the path (max 64)
 /// - `value`: A u64 where each bit represents a direction in the tree (0 for left, 1 for right)
@@ -69,7 +69,7 @@ impl BitPath {
     /// * `None` - If the path is empty
     ///
     /// # Note
-    /// This operation extracts the bit at position `length-1`, 
+    /// This operation extracts the bit at position `length-1`,
     /// masks it out from the value, and decrements the length.
     pub fn pop(&mut self) -> Option<bool> {
         if self.length == 0 {
@@ -226,7 +226,7 @@ mod tests {
     }
 
     /// Tests the bit reversal functionality
-    /// 
+    ///
     /// This test creates a path with value 5 (binary: 0000000101) and length 10,
     /// then reverses it and verifies the resulting bit pattern is correct.
     #[test]
@@ -242,7 +242,7 @@ mod tests {
     }
 
     /// Tests the sibling path calculation
-    /// 
+    ///
     /// This test verifies that the sibling() method correctly flips the last bit
     /// by comparing it with a manually constructed sibling path.
     #[test]
@@ -260,7 +260,7 @@ mod tests {
     }
 
     /// Tests BitPath with random bit vectors
-    /// 
+    ///
     /// This test creates a random bit vector, converts it to a BitPath,
     /// then pops a bit from both the vector and the path to verify
     /// they remain equivalent after modification.

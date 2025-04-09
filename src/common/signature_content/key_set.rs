@@ -100,13 +100,12 @@ impl U256Target {
 
 #[cfg(test)]
 mod tests {
-    use plonky2_bn254::fields::sgn::Sgn as _;
     use num::BigUint;
+    use plonky2_bn254::fields::sgn::Sgn as _;
 
-    use crate::common::{signature_content::key_set::KeySet, trees::account_tree::AccountTree};
-    use crate::ethereum_types::{
-        u256::U256,
-        u32limb_trait::U32LimbTrait,
+    use crate::{
+        common::{signature_content::key_set::KeySet, trees::account_tree::AccountTree},
+        ethereum_types::{u256::U256, u32limb_trait::U32LimbTrait},
     };
 
     #[test]
@@ -128,65 +127,113 @@ mod tests {
     #[test]
     fn test_key_set_new() {
         // Create a KeySet with a known private key
-        let privkey = U256::try_from(BigUint::parse_bytes(b"12345678901234567890123456789012345678901234567890", 10).unwrap()).unwrap();
+        let privkey = U256::try_from(
+            BigUint::parse_bytes(b"12345678901234567890123456789012345678901234567890", 10)
+                .unwrap(),
+        )
+        .unwrap();
         let key_set = KeySet::new(privkey);
-        
+
         // Verify that the private key is stored correctly
         assert_eq!(key_set.privkey, privkey);
-        
+
         // Verify that the public key is derived correctly
         let pubkey_g1 = key_set.pubkey_g1();
-        assert!(!pubkey_g1.y.sgn(), "Public key y-coordinate should have negative sign");
-        assert_eq!(key_set.pubkey, U256::try_from(BigUint::from(pubkey_g1.x)).unwrap());
+        assert!(
+            !pubkey_g1.y.sgn(),
+            "Public key y-coordinate should have negative sign"
+        );
+        assert_eq!(
+            key_set.pubkey,
+            U256::try_from(BigUint::from(pubkey_g1.x)).unwrap()
+        );
     }
 
     #[test]
     fn test_key_set_privkey_fr() {
-        let privkey = U256::try_from(BigUint::parse_bytes(b"12345678901234567890123456789012345678901234567890", 10).unwrap()).unwrap();
+        let privkey = U256::try_from(
+            BigUint::parse_bytes(b"12345678901234567890123456789012345678901234567890", 10)
+                .unwrap(),
+        )
+        .unwrap();
         let key_set = KeySet::new(privkey);
-        
+
         // Convert private key to Fr and back to verify conversion
         let privkey_fr = key_set.privkey_fr();
         let privkey_back: U256 = BigUint::from(privkey_fr).try_into().unwrap();
-        
-        assert_eq!(privkey_back, key_set.privkey, "Private key conversion to Fr and back should be lossless");
+
+        assert_eq!(
+            privkey_back, key_set.privkey,
+            "Private key conversion to Fr and back should be lossless"
+        );
     }
 
     #[test]
     fn test_key_set_pubkey_g1() {
         let key_set = KeySet::rand(&mut rand::thread_rng());
         let pubkey_g1 = key_set.pubkey_g1();
-        
+
         // Verify that the x-coordinate matches the stored public key
         let pubkey_from_g1: U256 = BigUint::from(pubkey_g1.x).try_into().unwrap();
-        assert_eq!(pubkey_from_g1, key_set.pubkey, "Public key x-coordinate should match stored pubkey");
-        
+        assert_eq!(
+            pubkey_from_g1, key_set.pubkey,
+            "Public key x-coordinate should match stored pubkey"
+        );
+
         // Verify that the y-coordinate has negative sign
-        assert!(!pubkey_g1.y.sgn(), "Public key y-coordinate should have negative sign");
+        assert!(
+            !pubkey_g1.y.sgn(),
+            "Public key y-coordinate should have negative sign"
+        );
     }
 
     #[test]
     fn test_key_set_dummy() {
         let dummy_key_set = KeySet::dummy();
-        
+
         // Verify dummy key set properties
-        assert_eq!(dummy_key_set.privkey, U256::from_u32_slice(&[0, 0, 0, 0, 0, 0, 0, 0]).unwrap(), "Dummy private key should be zero");
-        assert_eq!(dummy_key_set.pubkey, U256::dummy_pubkey(), "Dummy public key should be U256::dummy_pubkey()");
-        assert!(dummy_key_set.is_dummy(), "is_dummy() should return true for dummy key set");
-        
+        assert_eq!(
+            dummy_key_set.privkey,
+            U256::from_u32_slice(&[0, 0, 0, 0, 0, 0, 0, 0]).unwrap(),
+            "Dummy private key should be zero"
+        );
+        assert_eq!(
+            dummy_key_set.pubkey,
+            U256::dummy_pubkey(),
+            "Dummy public key should be U256::dummy_pubkey()"
+        );
+        assert!(
+            dummy_key_set.is_dummy(),
+            "is_dummy() should return true for dummy key set"
+        );
+
         // Verify non-dummy key set
         let real_key_set = KeySet::rand(&mut rand::thread_rng());
-        assert!(!real_key_set.is_dummy(), "is_dummy() should return false for non-dummy key set");
+        assert!(
+            !real_key_set.is_dummy(),
+            "is_dummy() should return false for non-dummy key set"
+        );
     }
 
     #[test]
     fn test_key_set_u256_dummy_pubkey() {
         // Test U256 dummy pubkey methods
         let dummy_pubkey = U256::dummy_pubkey();
-        assert_eq!(dummy_pubkey, U256::from_u32_slice(&[0, 0, 0, 0, 0, 0, 0, 1]).unwrap(), "Dummy pubkey should be U256::one()");
-        
-        assert!(dummy_pubkey.is_dummy_pubkey(), "is_dummy_pubkey() should return true for dummy pubkey");
-        assert!(!U256::try_from(BigUint::parse_bytes(b"123456789", 10).unwrap()).unwrap().is_dummy_pubkey(), 
-                "is_dummy_pubkey() should return false for non-dummy pubkey");
+        assert_eq!(
+            dummy_pubkey,
+            U256::from_u32_slice(&[0, 0, 0, 0, 0, 0, 0, 1]).unwrap(),
+            "Dummy pubkey should be U256::one()"
+        );
+
+        assert!(
+            dummy_pubkey.is_dummy_pubkey(),
+            "is_dummy_pubkey() should return true for dummy pubkey"
+        );
+        assert!(
+            !U256::try_from(BigUint::parse_bytes(b"123456789", 10).unwrap())
+                .unwrap()
+                .is_dummy_pubkey(),
+            "is_dummy_pubkey() should return false for non-dummy pubkey"
+        );
     }
 }

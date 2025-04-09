@@ -96,7 +96,9 @@ impl FromStr for AccountIdPacked {
     type Err = EthereumTypeError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Self::from_hex(s).map_err(|e| EthereumTypeError::HexParseError(format!("Failed to parse AccountIdPacked: {}", e)))
+        Self::from_hex(s).map_err(|e| {
+            EthereumTypeError::HexParseError(format!("Failed to parse AccountIdPacked: {}", e))
+        })
     }
 }
 
@@ -182,14 +184,14 @@ impl AccountIdPacked {
                 actual: input.len(),
             });
         }
-        
+
         if input.len() % ACCOUNT_ID_BYTES_LEN != 0 {
             return Err(EthereumTypeError::InvalidLength {
                 expected: format!("a multiple of {}", ACCOUNT_ID_BYTES_LEN),
                 actual: input.len(),
             });
         }
-        
+
         let dummy_account_id_bytes = AccountId::dummy().to_bytes_be();
         let mut inputs = input.to_vec();
         while inputs.len() < ACCOUNT_ID_BYTES_LEN * NUM_SENDERS_IN_BLOCK {

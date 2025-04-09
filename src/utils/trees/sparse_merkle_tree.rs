@@ -235,7 +235,10 @@ mod tests {
             bytes32::{Bytes32, Bytes32Target},
             u32limb_trait::{U32LimbTargetTrait, U32LimbTrait as _},
         },
-        utils::{leafable_hasher::LeafableHasher, poseidon_hash_out::PoseidonHashOutTarget, trees::merkle_tree::HasherFromTarget},
+        utils::{
+            leafable_hasher::LeafableHasher, poseidon_hash_out::PoseidonHashOutTarget,
+            trees::merkle_tree::HasherFromTarget,
+        },
     };
 
     use super::*;

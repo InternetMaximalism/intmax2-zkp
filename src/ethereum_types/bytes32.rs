@@ -39,7 +39,9 @@ impl FromStr for Bytes32 {
     type Err = EthereumTypeError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Self::from_hex(s).map_err(|e| EthereumTypeError::HexParseError(format!("Failed to parse Bytes32: {}", e)))
+        Self::from_hex(s).map_err(|e| {
+            EthereumTypeError::HexParseError(format!("Failed to parse Bytes32: {}", e))
+        })
     }
 }
 

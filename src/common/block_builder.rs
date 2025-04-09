@@ -45,18 +45,16 @@ impl BlockProposal {
                 self.block_sign_payload.tx_tree_root.reduce_to_hash_out(),
             )
             .map_err(|e| CommonError::TxMerkleProofVerificationFailed(e.to_string()))?;
-        
+
         if get_pubkey_hash(&self.pubkeys) != self.pubkeys_hash {
             return Err(CommonError::InvalidData("Invalid pubkeys hash".to_string()));
         }
-        
+
         Ok(())
     }
 
     pub fn sign(&self, key: KeySet) -> UserSignature {
-        let signature: FlatG2 = self
-            .block_sign_payload
-            .sign(key.privkey, self.pubkeys_hash);
+        let signature: FlatG2 = self.block_sign_payload.sign(key.privkey, self.pubkeys_hash);
         UserSignature {
             pubkey: key.pubkey,
             signature,
@@ -149,16 +147,16 @@ impl UserSignature {
         let pubkey_g1: G1Affine = G1Affine::recover_from_x(self.pubkey.into());
         let weighted_pubkey_g1: G1Affine = (pubkey_g1 * Fr::from(BigUint::from(weight))).into();
         let message_point = block_sign_payload.message_point();
-        
+
         if Bn254::pairing(weighted_pubkey_g1, G2Affine::from(message_point))
             != Bn254::pairing(
                 G1Affine::generator(),
-                G2Affine::from(self.signature.clone())
+                G2Affine::from(self.signature.clone()),
             )
         {
             return Err(CommonError::InvalidSignature);
         }
-        
+
         Ok(())
     }
 }

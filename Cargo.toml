@@ -35,6 +35,6 @@ chrono = "0.4.40"
 base64 = "0.22.1"
 
 [features]
-default = []
+default = ["dummy_validity_proof"]
 dummy_validity_proof = []
 skip_insufficient_check = []

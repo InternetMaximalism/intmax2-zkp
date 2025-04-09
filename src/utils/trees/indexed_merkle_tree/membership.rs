@@ -76,19 +76,22 @@ impl IndexedMerkleTree {
 impl MembershipProof {
     /// Verify the membership/non-membership proof
     pub fn verify(&self, key: U256, root: PoseidonHashOut) -> Result<(), IndexedMerkleTreeError> {
-        self.leaf_proof.verify(&self.leaf, self.leaf_index, root)
+        self.leaf_proof
+            .verify(&self.leaf, self.leaf_index, root)
             .map_err(IndexedMerkleTreeError::MerkleProofError)?;
-            
+
         if self.is_included {
             if self.leaf.key != key {
-                return Err(IndexedMerkleTreeError::KeyMismatch { 
-                    expected: key.to_string(), 
-                    actual: self.leaf.key.to_string() 
+                return Err(IndexedMerkleTreeError::KeyMismatch {
+                    expected: key.to_string(),
+                    actual: self.leaf.key.to_string(),
                 });
             }
-        } else if !(self.leaf.key < key && (key < self.leaf.next_key || self.leaf.next_key == U256::default())) {
+        } else if !(self.leaf.key < key
+            && (key < self.leaf.next_key || self.leaf.next_key == U256::default()))
+        {
             return Err(IndexedMerkleTreeError::KeyNotUpperBounded(format!(
-                "key: {}, leaf.key: {}, leaf.next_key: {}", 
+                "key: {}, leaf.key: {}, leaf.next_key: {}",
                 key, self.leaf.key, self.leaf.next_key
             )));
         }

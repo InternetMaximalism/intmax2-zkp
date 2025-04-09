@@ -51,6 +51,8 @@ where
     ) -> Result<ProofWithPublicInputs<F, OuterC, D>, WrapperError> {
         let mut pw = PartialWitness::new();
         pw.set_proof_with_pis_target(&self.wrap_proof, inner_proof);
-        self.data.prove(pw).map_err(|e| WrapperError::ProofGenerationFailed(format!("{}", e)))
+        self.data
+            .prove(pw)
+            .map_err(|e| WrapperError::ProofGenerationFailed(format!("{}", e)))
     }
 }

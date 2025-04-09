@@ -36,7 +36,9 @@ impl ValidityWitness {
                 block.block_number as u64,
                 prev_block_tree_root,
             )
-            .map_err(|e| CommonError::InvalidProof(format!("Block merkle proof is invalid: {}", e)))?;
+            .map_err(|e| {
+                CommonError::InvalidProof(format!("Block merkle proof is invalid: {}", e))
+            })?;
         let block_tree_root = self
             .validity_transition_witness
             .block_merkle_proof
@@ -76,7 +78,12 @@ impl ValidityWitness {
                         block.block_number as u64,
                         account_tree_root,
                     )
-                    .map_err(|e| CommonError::InvalidProof(format!("Invalid account registration proof: {}", e)))?;
+                    .map_err(|e| {
+                        CommonError::InvalidProof(format!(
+                            "Invalid account registration proof: {}",
+                            e
+                        ))
+                    })?;
                 if will_update {
                     next_account_id += 1;
                 }
@@ -87,7 +94,9 @@ impl ValidityWitness {
                 .validity_transition_witness
                 .account_update_proofs
                 .as_ref()
-                .ok_or(CommonError::MissingData("account_update_proofs should be given".to_string()))?;
+                .ok_or(CommonError::MissingData(
+                    "account_update_proofs should be given".to_string(),
+                ))?;
             for (sender_leaf, account_update_proof) in self
                 .validity_transition_witness
                 .sender_leaves
@@ -107,7 +116,9 @@ impl ValidityWitness {
                         last_block_number as u64,
                         account_tree_root,
                     )
-                    .map_err(|e| CommonError::InvalidProof(format!("Invalid account update proof: {}", e)))?;
+                    .map_err(|e| {
+                        CommonError::InvalidProof(format!("Invalid account update proof: {}", e))
+                    })?;
             }
         }
 

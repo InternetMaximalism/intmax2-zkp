@@ -49,7 +49,7 @@ mod tests {
 
     #[test]
     fn test_claim() {
-        // 
+        //
         let lock_config = LockTimeConfig::normal();
 
         let mut rng = rand::thread_rng();

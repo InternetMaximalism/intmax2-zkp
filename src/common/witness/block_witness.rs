@@ -192,7 +192,10 @@ impl BlockWitness {
                     let will_update = sender_leaf.signature_included && !is_dummy_pubkey;
                     let proof = if will_update {
                         account_tree
-                            .prove_and_insert(sender_leaf.sender, main_validation_pis.block_number as u64)
+                            .prove_and_insert(
+                                sender_leaf.sender,
+                                main_validation_pis.block_number as u64,
+                            )
                             .map_err(|e| {
                                 CommonError::AccountTreeProveAndInsertFailed(e.to_string())
                             })?

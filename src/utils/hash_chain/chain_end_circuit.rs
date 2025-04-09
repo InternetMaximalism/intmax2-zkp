@@ -137,6 +137,8 @@ where
         let mut pw = PartialWitness::<F>::new();
         pw.set_proof_with_pis_target(&self.proof, proof);
         self.aggregator.set_witness(&mut pw, aggregator);
-        self.data.prove(pw).map_err(|e| super::error::HashChainError::ChainEndProofError(e.to_string()))
+        self.data
+            .prove(pw)
+            .map_err(|e| super::error::HashChainError::ChainEndProofError(e.to_string()))
     }
 }

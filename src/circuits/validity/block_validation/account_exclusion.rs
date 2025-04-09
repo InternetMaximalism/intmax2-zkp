@@ -123,7 +123,7 @@ impl AccountExclusionValue {
                 sender_leaves.len()
             )));
         }
-        
+
         if sender_leaves.len() != NUM_SENDERS_IN_BLOCK {
             return Err(BlockValidationError::AccountExclusionValue(format!(
                 "Expected {} sender leaves, got {}",
@@ -134,10 +134,14 @@ impl AccountExclusionValue {
 
         let mut result = true;
         for (sender_leaf, proof) in sender_leaves.iter().zip(account_membership_proofs.iter()) {
-            proof.verify(sender_leaf.sender, account_tree_root)
-                .map_err(|e| BlockValidationError::AccountExclusionValue(format!(
-                    "Failed to verify account membership proof: {}", e
-                )))?;
+            proof
+                .verify(sender_leaf.sender, account_tree_root)
+                .map_err(|e| {
+                    BlockValidationError::AccountExclusionValue(format!(
+                        "Failed to verify account membership proof: {}",
+                        e
+                    ))
+                })?;
 
             // For each sender, the constraint is satisfied if either:
             // 1. The sender is not in the account tree (proof.is_included == false) and has a
@@ -147,12 +151,15 @@ impl AccountExclusionValue {
             let is_valid = !proof.is_included || !sender_leaf.signature_included;
             result = result && is_valid;
         }
-        
+
         let sender_tree_root = get_merkle_root_from_leaves(SENDER_TREE_HEIGHT, &sender_leaves)
-            .map_err(|e| BlockValidationError::AccountExclusionValue(format!(
-                "Failed to get merkle root from leaves: {}", e
-            )))?;
-            
+            .map_err(|e| {
+                BlockValidationError::AccountExclusionValue(format!(
+                    "Failed to get merkle root from leaves: {}",
+                    e
+                ))
+            })?;
+
         Ok(Self {
             account_tree_root,
             account_membership_proofs,
@@ -313,7 +320,8 @@ where
     ) -> Result<ProofWithPublicInputs<F, C, D>, BlockValidationError> {
         let mut pw = PartialWitness::<F>::new();
         self.target.set_witness(&mut pw, value);
-        self.data.prove(pw)
+        self.data
+            .prove(pw)
             .map_err(|e| BlockValidationError::Plonky2Error(e.to_string()))
     }
 }
@@ -378,7 +386,8 @@ mod tests {
         }
 
         let value =
-            AccountExclusionValue::new(account_tree_root, account_membership_proofs, sender_leaves).unwrap();
+            AccountExclusionValue::new(account_tree_root, account_membership_proofs, sender_leaves)
+                .unwrap();
 
         // The value should be valid since we constructed it to satisfy the constraint
         assert!(value.is_valid);
@@ -438,7 +447,8 @@ mod tests {
         }
 
         let value =
-            AccountExclusionValue::new(account_tree_root, account_membership_proofs, sender_leaves).unwrap();
+            AccountExclusionValue::new(account_tree_root, account_membership_proofs, sender_leaves)
+                .unwrap();
 
         // The value should be invalid since we constructed it to violate the constraint
         assert!(!value.is_valid);

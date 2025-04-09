@@ -114,7 +114,7 @@ where
         #[cfg(feature = "dummy_validity_proof")]
         let transition_proof = self
             .dummy_transition_circuit
-            .prove(&prev_pis, &validity_witness)
+            .prove(&prev_pis, validity_witness)
             .map_err(ValidityProverError::from)?;
 
         // Generate validity circuit proof

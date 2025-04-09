@@ -124,12 +124,12 @@ mod tests {
     fn test_account_transition_pis_from_u64_slice_success() {
         // Create a valid input slice
         let mut input = vec![0u64; ACCOUNT_TRANSITION_PUBLIC_INPUTS_LEN];
-        
+
         // Set some recognizable values
         let prev_root = PoseidonHashOut::rand(&mut thread_rng());
         let new_root = PoseidonHashOut::rand(&mut thread_rng());
         let sender_root = PoseidonHashOut::rand(&mut thread_rng());
-        
+
         // Fill the input slice
         input[0..4].copy_from_slice(&prev_root.elements);
         input[4] = 123; // prev_next_account_id
@@ -137,13 +137,13 @@ mod tests {
         input[9] = 456; // new_next_account_id
         input[10..14].copy_from_slice(&sender_root.elements);
         input[14] = 789; // block_number
-        
+
         // Parse the input
         let result = AccountTransitionPublicInputs::from_u64_slice(&input);
         assert!(result.is_ok());
-        
+
         let pis = result.unwrap();
-        
+
         // Verify the parsed values
         assert_eq!(pis.prev_account_tree_root, prev_root);
         assert_eq!(pis.prev_next_account_id, 123);
@@ -152,113 +152,129 @@ mod tests {
         assert_eq!(pis.sender_tree_root, sender_root);
         assert_eq!(pis.block_number, 789);
     }
-    
+
     #[test]
     fn test_account_transition_pis_from_u64_slice_error() {
         // Create an invalid input slice (too short)
         let input = vec![0u64; ACCOUNT_TRANSITION_PUBLIC_INPUTS_LEN - 1];
-        
+
         // Parse the input
         let result = AccountTransitionPublicInputs::from_u64_slice(&input);
         assert!(result.is_err());
-        
+
         // Verify the error
         match result {
-            Err(ValidityTransitionError::AccountTransitionInputLengthMismatch { expected, actual }) => {
+            Err(ValidityTransitionError::AccountTransitionInputLengthMismatch {
+                expected,
+                actual,
+            }) => {
                 assert_eq!(expected, ACCOUNT_TRANSITION_PUBLIC_INPUTS_LEN);
                 assert_eq!(actual, ACCOUNT_TRANSITION_PUBLIC_INPUTS_LEN - 1);
             }
             _ => panic!("Expected AccountTransitionInputLengthMismatch error"),
         }
-        
+
         // Create another invalid input slice (too long)
         let input = vec![0u64; ACCOUNT_TRANSITION_PUBLIC_INPUTS_LEN + 1];
-        
+
         // Parse the input
         let result = AccountTransitionPublicInputs::from_u64_slice(&input);
         assert!(result.is_err());
-        
+
         // Verify the error
         match result {
-            Err(ValidityTransitionError::AccountTransitionInputLengthMismatch { expected, actual }) => {
+            Err(ValidityTransitionError::AccountTransitionInputLengthMismatch {
+                expected,
+                actual,
+            }) => {
                 assert_eq!(expected, ACCOUNT_TRANSITION_PUBLIC_INPUTS_LEN);
                 assert_eq!(actual, ACCOUNT_TRANSITION_PUBLIC_INPUTS_LEN + 1);
             }
             _ => panic!("Expected AccountTransitionInputLengthMismatch error"),
         }
     }
-    
+
     #[test]
     fn test_account_transition_pis_target_to_vec() {
         // Create a target instance with default targets
         let prev_root = [Target::default(); 4];
         let new_root = [Target::default(); 4];
         let sender_root = [Target::default(); 4];
-        
+
         let target = AccountTransitionPublicInputsTarget {
-            prev_account_tree_root: PoseidonHashOutTarget { elements: prev_root },
+            prev_account_tree_root: PoseidonHashOutTarget {
+                elements: prev_root,
+            },
             prev_next_account_id: Target::default(),
             new_account_tree_root: PoseidonHashOutTarget { elements: new_root },
             new_next_account_id: Target::default(),
-            sender_tree_root: PoseidonHashOutTarget { elements: sender_root },
+            sender_tree_root: PoseidonHashOutTarget {
+                elements: sender_root,
+            },
             block_number: Target::default(),
         };
-        
+
         // Convert to vec
         let vec = target.to_vec();
-        
+
         // Verify the length
         assert_eq!(vec.len(), ACCOUNT_TRANSITION_PUBLIC_INPUTS_LEN);
-        
+
         // Verify the structure (we can't check specific values since we're using default targets)
         assert_eq!(vec.len(), 15);
     }
-    
+
     #[test]
     fn test_account_transition_pis_target_from_slice_success() {
         // Create a valid input slice
         let input = vec![Target::default(); ACCOUNT_TRANSITION_PUBLIC_INPUTS_LEN];
-        
+
         // Parse the input
         let result = AccountTransitionPublicInputsTarget::from_slice(&input);
         assert!(result.is_ok());
-        
+
         let target = result.unwrap();
-        
+
         // Verify the structure is correct (we can't check specific values)
         assert_eq!(target.prev_account_tree_root.elements.len(), 4);
         assert_eq!(target.new_account_tree_root.elements.len(), 4);
         assert_eq!(target.sender_tree_root.elements.len(), 4);
     }
-    
+
     #[test]
     fn test_account_transition_pis_target_from_slice_error() {
         // Create an invalid input slice (too short)
         let input = vec![Target::default(); ACCOUNT_TRANSITION_PUBLIC_INPUTS_LEN - 1];
-        
+
         // Parse the input
         let result = AccountTransitionPublicInputsTarget::from_slice(&input);
         assert!(result.is_err());
-        
+
         // Verify the error
         match result {
-            Err(ValidityTransitionError::AccountTransitionInputLengthMismatch { expected, actual }) => {
+            Err(ValidityTransitionError::AccountTransitionInputLengthMismatch {
+                expected,
+                actual,
+            }) => {
                 assert_eq!(expected, ACCOUNT_TRANSITION_PUBLIC_INPUTS_LEN);
                 assert_eq!(actual, ACCOUNT_TRANSITION_PUBLIC_INPUTS_LEN - 1);
             }
             _ => panic!("Expected AccountTransitionInputLengthMismatch error"),
         }
-        
+
         // Create another invalid input slice (too long)
         let input = vec![Target::default(); ACCOUNT_TRANSITION_PUBLIC_INPUTS_LEN + 1];
-        
+
         // Parse the input
         let result = AccountTransitionPublicInputsTarget::from_slice(&input);
         assert!(result.is_err());
-        
+
         // Verify the error
         match result {
-            Err(ValidityTransitionError::AccountTransitionInputLengthMismatch { expected, actual }) => {
+            Err(ValidityTransitionError::AccountTransitionInputLengthMismatch {
+                expected,
+                actual,
+            }) => {
                 assert_eq!(expected, ACCOUNT_TRANSITION_PUBLIC_INPUTS_LEN);
                 assert_eq!(actual, ACCOUNT_TRANSITION_PUBLIC_INPUTS_LEN + 1);
             }

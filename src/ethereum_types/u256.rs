@@ -56,11 +56,23 @@ impl FromStr for U256 {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         if s.starts_with("0x") {
-            let b: Bytes32 = s.parse().map_err(|e| EthereumTypeError::HexParseError(format!("Failed to parse U256 from hex: {}", e)))?;
+            let b: Bytes32 = s.parse().map_err(|e| {
+                EthereumTypeError::HexParseError(format!("Failed to parse U256 from hex: {}", e))
+            })?;
             Ok(b.into())
         } else {
-            let b = BigUint::from_str_radix(s, 10).map_err(|e| EthereumTypeError::IntegerParseError(format!("Failed to parse U256 from decimal: {}", e)))?;
-            let u: U256 = b.try_into().map_err(|e| EthereumTypeError::ConversionError(format!("Failed to convert BigUint to U256: {}", e)))?;
+            let b = BigUint::from_str_radix(s, 10).map_err(|e| {
+                EthereumTypeError::IntegerParseError(format!(
+                    "Failed to parse U256 from decimal: {}",
+                    e
+                ))
+            })?;
+            let u: U256 = b.try_into().map_err(|e| {
+                EthereumTypeError::ConversionError(format!(
+                    "Failed to convert BigUint to U256: {}",
+                    e
+                ))
+            })?;
             Ok(u)
         }
     }
@@ -109,7 +121,11 @@ impl TryFrom<BigUint> for U256 {
     fn try_from(value: BigUint) -> Result<Self, Self::Error> {
         let mut digits = value.to_u32_digits();
         if digits.len() > U256_LEN {
-            return Err(EthereumTypeError::ValueTooLarge(format!("Value has {} digits, but U256 can only hold {}", digits.len(), U256_LEN)));
+            return Err(EthereumTypeError::ValueTooLarge(format!(
+                "Value has {} digits, but U256 can only hold {}",
+                digits.len(),
+                U256_LEN
+            )));
         }
         digits.resize(U256_LEN, 0);
         digits.reverse(); // little endian to big endian

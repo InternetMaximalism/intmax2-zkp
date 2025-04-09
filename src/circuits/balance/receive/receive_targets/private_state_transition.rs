@@ -88,20 +88,26 @@ impl PrivateStateTransitionValue {
         let prev_private_commitment = prev_private_state.commitment();
         let new_nullifier_tree_root = nullifier_proof
             .get_new_root(prev_private_state.nullifier_tree_root, nullifier)
-            .map_err(|e| ReceiveTargetsError::VerificationFailed(
-                format!("Invalid nullifier merkle proof: {}", e)
-            ))?;
-        
+            .map_err(|e| {
+                ReceiveTargetsError::VerificationFailed(format!(
+                    "Invalid nullifier merkle proof: {}",
+                    e
+                ))
+            })?;
+
         asset_merkle_proof
             .verify(
                 prev_asset_leaf,
                 token_index as u64,
                 prev_private_state.asset_tree_root,
             )
-            .map_err(|e| ReceiveTargetsError::VerificationFailed(
-                format!("Invalid asset merkle proof: {}", e)
-            ))?;
-            
+            .map_err(|e| {
+                ReceiveTargetsError::VerificationFailed(format!(
+                    "Invalid asset merkle proof: {}",
+                    e
+                ))
+            })?;
+
         let new_asset_leaf = prev_asset_leaf.add(amount);
         let new_asset_tree_root = asset_merkle_proof.get_root(&new_asset_leaf, token_index as u64);
         let new_private_state = PrivateState {
@@ -111,7 +117,7 @@ impl PrivateStateTransitionValue {
             salt: new_salt,
             ..prev_private_state.clone()
         };
-        
+
         Ok(Self {
             token_index,
             amount,
@@ -127,7 +133,7 @@ impl PrivateStateTransitionValue {
 }
 
 /// Target version of PrivateStateTransitionValue for use in ZKP circuits.
-/// 
+///
 /// This struct contains circuit targets for all components needed to verify a private state
 /// transition, including token updates and nullifier insertions.
 #[derive(Debug, Clone)]

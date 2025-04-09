@@ -56,8 +56,13 @@ impl NullifierTree {
             .collect()
     }
 
-    pub fn prove_and_insert(&mut self, nullifier: Bytes32) -> Result<NullifierInsertionProof, CommonError> {
-        let proof = self.0.prove_and_insert(nullifier.into(), 0)
+    pub fn prove_and_insert(
+        &mut self,
+        nullifier: Bytes32,
+    ) -> Result<NullifierInsertionProof, CommonError> {
+        let proof = self
+            .0
+            .prove_and_insert(nullifier.into(), 0)
             .map_err(|e| CommonError::NullifierAlreadyExists(e.to_string()))?;
         Ok(NullifierInsertionProof(proof))
     }
@@ -69,7 +74,9 @@ impl NullifierInsertionProof {
         prev_root: PoseidonHashOut,
         nullifier: Bytes32,
     ) -> Result<PoseidonHashOut, CommonError> {
-        let root = self.0.get_new_root(nullifier.into(), 0, prev_root)
+        let root = self
+            .0
+            .get_new_root(nullifier.into(), 0, prev_root)
             .map_err(|e| CommonError::InvalidData(e.to_string()))?;
         Ok(root)
     }
@@ -83,7 +90,7 @@ impl NullifierInsertionProof {
         let expected_new_root = self.get_new_root(prev_root, nullifier)?;
         if new_root != expected_new_root {
             return Err(CommonError::InvalidData(
-                "new root is not equal to the expected new root".to_string()
+                "new root is not equal to the expected new root".to_string(),
             ));
         }
         Ok(())

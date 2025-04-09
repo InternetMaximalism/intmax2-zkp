@@ -75,16 +75,19 @@ where
 
 /// Calculate the merkle root from the given leaf and the height of the merkle tree.
 /// Returns an error if the number of leaves is not equal to 2^height.
-fn get_merkle_root_from_full_leaves<V: Leafable>(height: usize, leaves: &[V]) -> Result<HashOut<V>, GetRootFromLeavesError> {
+fn get_merkle_root_from_full_leaves<V: Leafable>(
+    height: usize,
+    leaves: &[V],
+) -> Result<HashOut<V>, GetRootFromLeavesError> {
     if leaves.len() != 1 << height {
         return Err(GetRootFromLeavesError::TooManyLeaves(leaves.len()));
     }
-    
+
     let mut layer = leaves.iter().map(|v| v.hash()).collect::<Vec<_>>();
     if layer.is_empty() {
         return Err(GetRootFromLeavesError::TooManyLeaves(0));
     }
-    
+
     while layer.len() > 1 {
         if layer.len() % 2 == 1 {
             return Err(GetRootFromLeavesError::NotPowerOfTwo(layer.len()));
@@ -111,18 +114,25 @@ where
 {
     // Note: For circuit building, we still use assertions since errors during circuit building
     // are generally unrecoverable and should be caught during development.
-    assert_eq!(leaves.len(), 1 << height, "Number of leaves must be 2^height");
-    
+    assert_eq!(
+        leaves.len(),
+        1 << height,
+        "Number of leaves must be 2^height"
+    );
+
     let mut layer = leaves
         .iter()
         .map(|v| v.hash::<F, C, D>(builder))
         .collect::<Vec<_>>();
-    
+
     assert_ne!(layer.len(), 0, "Layer cannot be empty");
-    
+
     while layer.len() > 1 {
-        assert!(layer.len() % 2 == 0, "Number of leaves must be a power of 2");
-        
+        assert!(
+            layer.len() % 2 == 0,
+            "Number of leaves must be a power of 2"
+        );
+
         layer = (0..(layer.len() / 2))
             .map(|i| {
                 HasherFromTarget::<VT>::two_to_one_target::<F, C, D>(
@@ -133,7 +143,7 @@ where
             })
             .collect::<Vec<_>>();
     }
-    
+
     layer[0].clone()
 }
 

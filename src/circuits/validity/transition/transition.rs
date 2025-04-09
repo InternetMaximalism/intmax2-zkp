@@ -15,7 +15,8 @@
 //!
 //! 3. Block Hash Tree Update:
 //!    - Inserts main_validation_pis.block_hash into the block hash tree
-//!    - This operation is performed regardless of whether main_validation_pis.is_valid is true or false
+//!    - This operation is performed regardless of whether main_validation_pis.is_valid is true or
+//!      false
 
 use plonky2::{
     field::extension::Extendable,
@@ -85,10 +86,10 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     /// and updating the account and block hash trees accordingly.
     ///
     /// This function performs three main operations:
-    /// 1. Account registration: For registration blocks with valid transactions and included signatures,
-    ///    registers accounts in the account tree and assigns account IDs.
-    /// 2. Account update: For non-registration blocks with valid transactions and included signatures,
-    ///    updates the last block number for existing accounts.
+    /// 1. Account registration: For registration blocks with valid transactions and included
+    ///    signatures, registers accounts in the account tree and assigns account IDs.
+    /// 2. Account update: For non-registration blocks with valid transactions and included
+    ///    signatures, updates the last block number for existing accounts.
     /// 3. Block hash tree update: Inserts the block hash into the block hash tree regardless of
     ///    transaction validity.
     #[allow(clippy::too_many_arguments)]
@@ -285,10 +286,10 @@ impl<const D: usize> ValidityTransitionTarget<D> {
     /// validity transition rules.
     ///
     /// The circuit enforces three main operations:
-    /// 1. Account registration: For registration blocks with valid transactions and included signatures,
-    ///    registers accounts in the account tree and assigns account IDs.
-    /// 2. Account update: For non-registration blocks with valid transactions and included signatures,
-    ///    updates the last block number for existing accounts.
+    /// 1. Account registration: For registration blocks with valid transactions and included
+    ///    signatures, registers accounts in the account tree and assigns account IDs.
+    /// 2. Account update: For non-registration blocks with valid transactions and included
+    ///    signatures, updates the last block number for existing accounts.
     /// 3. Block hash tree update: Inserts the block hash into the block hash tree regardless of
     ///    transaction validity.
     pub(crate) fn new<F: RichField + Extendable<D>, C: GenericConfig<D, F = F> + 'static>(

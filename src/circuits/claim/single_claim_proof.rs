@@ -63,70 +63,66 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         validity_proof: &ProofWithPublicInputs<F, C, D>,
         deposit_time_proof: &ProofWithPublicInputs<F, C, D>,
     ) -> Result<Self, ClaimError> {
-        validity_vd
-            .verify(validity_proof.clone())
-            .map_err(|e| ClaimError::VerificationFailed(
-                format!("Validity proof is invalid: {:?}", e)
-            ))?;
-            
+        validity_vd.verify(validity_proof.clone()).map_err(|e| {
+            ClaimError::VerificationFailed(format!("Validity proof is invalid: {:?}", e))
+        })?;
+
         let validity_pis = ValidityPublicInputs::from_pis(&validity_proof.public_inputs);
-        
+
         deposit_time_vd
             .verify(deposit_time_proof.clone())
-            .map_err(|e| ClaimError::VerificationFailed(
-                format!("Deposit time proof is invalid: {:?}", e)
-            ))?;
-            
+            .map_err(|e| {
+                ClaimError::VerificationFailed(format!("Deposit time proof is invalid: {:?}", e))
+            })?;
+
         let deposit_time_pis =
             DepositTimePublicInputs::from_u64_slice(&deposit_time_proof.public_inputs.to_u64_vec());
-            
+
         block_merkle_proof
             .verify(
                 &deposit_time_pis.block_hash,
                 deposit_time_pis.block_number as u64,
                 validity_pis.public_state.block_tree_root,
             )
-            .map_err(|e| ClaimError::VerificationFailed(
-                format!("Block merkle proof is invalid: {:?}", e)
-            ))?;
-            
+            .map_err(|e| {
+                ClaimError::VerificationFailed(format!("Block merkle proof is invalid: {:?}", e))
+            })?;
+
         account_membership_proof
             .verify(
                 deposit_time_pis.pubkey,
                 validity_pis.public_state.account_tree_root,
             )
-            .map_err(|e| ClaimError::VerificationFailed(
-                format!("Account membership proof is invalid: {:?}", e)
-            ))?;
-            
+            .map_err(|e| {
+                ClaimError::VerificationFailed(format!(
+                    "Account membership proof is invalid: {:?}",
+                    e
+                ))
+            })?;
+
         let last_block_number = account_membership_proof.get_value() as u32;
-        
+
         if deposit_time_pis.block_number <= last_block_number {
-            return Err(ClaimError::InvalidBlockNumber(
-                format!(
-                    "Last block number {} of the account is not older than the deposit block number {}", 
-                    last_block_number, 
-                    deposit_time_pis.block_number
-                )
-            ));
+            return Err(ClaimError::InvalidBlockNumber(format!(
+                "Last block number {} of the account is not older than the deposit block number {}",
+                last_block_number, deposit_time_pis.block_number
+            )));
         }
-        
+
         if validity_pis.public_state.timestamp
             < deposit_time_pis.block_timestamp + (deposit_time_pis.lock_time as u64)
         {
-            return Err(ClaimError::InvalidLockTime(
-                format!(
-                    "Lock time is not passed yet. Deposit time: {}, lock time: {}, current time: {}", 
-                    deposit_time_pis.block_timestamp, 
-                    deposit_time_pis.lock_time, 
-                    validity_pis.public_state.timestamp
-                )
-            ));
+            return Err(ClaimError::InvalidLockTime(format!(
+                "Lock time is not passed yet. Deposit time: {}, lock time: {}, current time: {}",
+                deposit_time_pis.block_timestamp,
+                deposit_time_pis.lock_time,
+                validity_pis.public_state.timestamp
+            )));
         }
 
         let block_hash = validity_pis.public_state.block_hash;
         let block_number = validity_pis.public_state.block_number;
-        
+
         Ok(Self {
             recipient,
             block_hash,
@@ -275,6 +271,8 @@ where
     ) -> Result<ProofWithPublicInputs<F, C, D>, ClaimError> {
         let mut pw = PartialWitness::<F>::new();
         self.target.set_witness(&mut pw, value);
-        self.data.prove(pw).map_err(|e| ClaimError::ProofGenerationError(format!("{:?}", e)))
+        self.data
+            .prove(pw)
+            .map_err(|e| ClaimError::ProofGenerationError(format!("{:?}", e)))
     }
 }

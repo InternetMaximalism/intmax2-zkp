@@ -165,77 +165,72 @@ where
         sender_leaf: &SenderLeaf,
         sender_merkle_proof: &SenderMerkleProof,
     ) -> Result<Self, SendError> {
-        validity_vd
-            .verify(validity_proof.clone())
-            .map_err(|e| SendError::VerificationFailed(
-                format!("Validity proof is invalid: {:?}", e)
-            ))?;
-            
+        validity_vd.verify(validity_proof.clone()).map_err(|e| {
+            SendError::VerificationFailed(format!("Validity proof is invalid: {:?}", e))
+        })?;
+
         let validity_pis = ValidityPublicInputs::from_u64_slice(
             &validity_proof.public_inputs[0..VALIDITY_PUBLIC_INPUTS_LEN].to_u64_vec(),
         );
-        
+
         block_merkle_proof
             .verify(
                 &prev_public_state.block_hash,
                 prev_public_state.block_number as u64,
                 validity_pis.public_state.block_tree_root,
             )
-            .map_err(|e| SendError::VerificationFailed(
-                format!("Block merkle proof is invalid: {:?}", e)
-            ))?;
-            
+            .map_err(|e| {
+                SendError::VerificationFailed(format!("Block merkle proof is invalid: {:?}", e))
+            })?;
+
         prev_account_membership_proof
             .verify(pubkey, validity_pis.public_state.prev_account_tree_root)
-            .map_err(|e| SendError::VerificationFailed(
-                format!("Account membership proof is invalid: {:?}", e)
-            ))?;
-            
+            .map_err(|e| {
+                SendError::VerificationFailed(format!(
+                    "Account membership proof is invalid: {:?}",
+                    e
+                ))
+            })?;
+
         let last_block_number = prev_account_membership_proof.get_value() as u32;
-        
+
         if last_block_number > prev_public_state.block_number {
             return Err(SendError::VerificationFailed(
                 format!(
                     "There is a sent tx before the last block: last_block_number={}, prev_block_number={}", 
-                    last_block_number, 
+                    last_block_number,
                     prev_public_state.block_number
                 )
             ));
         }
 
-        let tx_tree_root: PoseidonHashOut = validity_pis
-            .tx_tree_root
-            .try_into()
-            .map_err(|e| SendError::VerificationFailed(
-                format!("Tx tree root is invalid: {:?}", e)
-            ))?;
-            
+        let tx_tree_root: PoseidonHashOut = validity_pis.tx_tree_root.try_into().map_err(|e| {
+            SendError::VerificationFailed(format!("Tx tree root is invalid: {:?}", e))
+        })?;
+
         tx_merkle_proof
             .verify(tx, sender_index as u64, tx_tree_root)
-            .map_err(|e| SendError::VerificationFailed(
-                format!("Tx merkle proof is invalid: {:?}", e)
-            ))?;
-            
+            .map_err(|e| {
+                SendError::VerificationFailed(format!("Tx merkle proof is invalid: {:?}", e))
+            })?;
+
         sender_merkle_proof
             .verify(
                 sender_leaf,
                 sender_index as u64,
                 validity_pis.sender_tree_root,
             )
-            .map_err(|e| SendError::VerificationFailed(
-                format!("Sender merkle proof is invalid: {:?}", e)
-            ))?;
+            .map_err(|e| {
+                SendError::VerificationFailed(format!("Sender merkle proof is invalid: {:?}", e))
+            })?;
 
         if sender_leaf.sender != pubkey {
-            return Err(SendError::VerificationFailed(
-                format!(
-                    "Sender pubkey mismatch: expected {:?}, got {:?}", 
-                    pubkey, 
-                    sender_leaf.sender
-                )
-            ));
+            return Err(SendError::VerificationFailed(format!(
+                "Sender pubkey mismatch: expected {:?}, got {:?}",
+                pubkey, sender_leaf.sender
+            )));
         }
-        
+
         let is_valid = sender_leaf.signature_included && validity_pis.is_valid_block;
 
         Ok(Self {
@@ -403,73 +398,92 @@ where
     ) -> Result<ProofWithPublicInputs<F, C, D>, SendError> {
         let mut pw = PartialWitness::<F>::new();
         self.target.set_witness(&mut pw, value);
-        self.data.prove(pw).map_err(|e| SendError::ProofGenerationError(format!("{:?}", e)))
+        self.data
+            .prove(pw)
+            .map_err(|e| SendError::ProofGenerationError(format!("{:?}", e)))
     }
 }
 
-// #[cfg(test)]
-// mod tests {
-//     use plonky2::{
-//         field::goldilocks_field::GoldilocksField, plonk::config::PoseidonGoldilocksConfig,
-//     };
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
 
-//     use crate::{
-//         common::{generic_address::GenericAddress, salt::Salt, transfer::Transfer},
-//         ethereum_types::u256::U256,
-//     };
+    use plonky2::{
+        field::goldilocks_field::GoldilocksField, plonk::config::PoseidonGoldilocksConfig,
+    };
 
-//     use super::TxInclusionValue;
+    use crate::{
+        circuits::{
+            test_utils::{
+                state_manager::ValidityStateManager,
+                witness_generator::{construct_spent_and_transfer_witness, MockTxRequest},
+            },
+            validity::validity_processor::ValidityProcessor,
+        },
+        common::{
+            private_state::FullPrivateState, public_state::PublicState,
+            signature_content::key_set::KeySet, transfer::Transfer,
+        },
+        ethereum_types::address::Address,
+    };
 
-//     type F = GoldilocksField;
-//     type C = PoseidonGoldilocksConfig;
-//     const D: usize = 2;
+    use super::{TxInclusionCircuit, TxInclusionValue};
 
-//     #[test]
-//     fn tx_inclusion_circuit() {
-//         let mut rng = rand::thread_rng();
-//         let transfer = Transfer {
-//             recipient: GenericAddress::rand_pubkey(&mut rng),
-//             token_index: 0,
-//             amount: U256::rand_small(&mut rng),
-//             salt: Salt::rand(&mut rng),
-//         };
-        
-//         // send tx
-//         let send_witness = wallet.send_tx_and_update(&mut rng, &mut block_builder, &[transfer]);
-//         // update validity proofs
-//         sync_prover.sync(&block_builder);
+    type F = GoldilocksField;
+    type C = PoseidonGoldilocksConfig;
+    const D: usize = 2;
 
-//         let prev_public_state = wallet.get_balance_pis().public_state;
-//         let update_witness = sync_prover.get_update_witness(
-//             &block_builder,
-//             wallet.get_pubkey(),
-//             block_builder.last_block_number(),
-//             prev_public_state.block_number,
-//             true,
-//         );
+    #[test]
+    fn test_tx_inclusion_circuit() {
+        let mut rng = rand::thread_rng();
 
-//         let pubkey = wallet.key_set.pubkey;
-//         let tx_index = send_witness.tx_witness.tx_index;
-//         let sender_tree = send_witness.tx_witness.get_sender_tree();
-//         let sender_leaf = sender_tree.get_leaf(tx_index);
-//         let sender_merkle_proof = sender_tree.prove(tx_index);
-//         let value = TxInclusionValue::new(
-//             &sync_prover.validity_processor.validity_circuit,
-//             pubkey,
-//             &prev_public_state,
-//             &update_witness.validity_proof,
-//             &update_witness.block_merkle_proof,
-//             &update_witness.account_membership_proof,
-//             send_witness.tx_witness.tx_index,
-//             &send_witness.tx_witness.tx,
-//             &send_witness.tx_witness.tx_merkle_proof,
-//             &sender_leaf,
-//             &sender_merkle_proof,
-//         )
-//         .expect("failed to create tx inclusion value");
-//         let tx_inclusion_circuit = super::TxInclusionCircuit::<F, C, D>::new(
-//             &sync_prover.validity_processor.validity_circuit,
-//         );
-//         let _ = tx_inclusion_circuit.prove(&value).unwrap();
-//     }
-// }
+        let key = KeySet::rand(&mut rng);
+        let mut full_private_state = FullPrivateState::new();
+
+        let validity_processor = Arc::new(ValidityProcessor::<F, C, D>::new());
+        let mut validity_state_manager =
+            ValidityStateManager::new(validity_processor.clone(), Address::default());
+
+        let transfer = Transfer::rand(&mut rng);
+        let (spent_witness, _) =
+            construct_spent_and_transfer_witness(&mut full_private_state, &[transfer]).unwrap();
+        let tx_request = MockTxRequest {
+            tx: spent_witness.tx,
+            sender_key: key,
+            will_return_sig: true,
+        };
+        let tx_witnesses = validity_state_manager
+            .tick(true, &[tx_request], 0, 0)
+            .unwrap();
+        let block_number = validity_state_manager.get_block_number();
+
+        let tx_witness = tx_witnesses[0].clone();
+        let update_witness = validity_state_manager
+            .get_update_witness(key.pubkey, block_number, 0, true)
+            .unwrap();
+        let sender_tree = tx_witness.get_sender_tree();
+        let sender_leaf = sender_tree.get_leaf(tx_witness.tx_index as u64);
+        let sender_merkle_proof = sender_tree.prove(tx_witness.tx_index as u64);
+        let tx_inclusion_value = TxInclusionValue::new(
+            &validity_processor.get_verifier_data(),
+            key.pubkey,
+            &PublicState::genesis(),
+            &update_witness.validity_proof,
+            &update_witness.block_merkle_proof,
+            &update_witness.prev_account_membership_proof().unwrap(),
+            tx_witness.tx_index,
+            &tx_witness.tx,
+            &tx_witness.tx_merkle_proof,
+            &sender_leaf,
+            &sender_merkle_proof,
+        )
+        .unwrap();
+        let tx_inclusion_circuit =
+            TxInclusionCircuit::<F, C, D>::new(&validity_processor.get_verifier_data());
+        let tx_inclusion_proof = tx_inclusion_circuit.prove(&tx_inclusion_value).unwrap();
+        tx_inclusion_circuit
+            .data
+            .verify(tx_inclusion_proof)
+            .unwrap();
+    }
+}
