@@ -451,7 +451,8 @@ mod tests {
         assert!(value.is_valid);
         let circuit = SpentCircuit::<F, C, D>::new();
         let instant = std::time::Instant::now();
-        let _proof = circuit.prove(&value).unwrap();
+        let proof = circuit.prove(&value).unwrap();
+        circuit.data.verify(proof).unwrap();
         dbg!(instant.elapsed());
         dbg!(circuit.data.common.degree_bits());
     }

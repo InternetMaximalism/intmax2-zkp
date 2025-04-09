@@ -184,7 +184,7 @@ impl WithdrawalTarget {
 }
 
 pub fn get_withdrawal_nullifier(transfer: &Transfer) -> Bytes32 {
-    let transfer_commitment = transfer.commitment();
+    let transfer_commitment = transfer.poseidon_hash();
     let input = [transfer_commitment.to_u64_vec(), transfer.salt.to_u64_vec()].concat();
     let input_hash = PoseidonHashOut::hash_inputs_u64(&input);
     let nullifier: Bytes32 = input_hash.into();
@@ -195,7 +195,7 @@ pub fn get_withdrawal_nullifier_circuit<F: RichField + Extendable<D>, const D: u
     builder: &mut CircuitBuilder<F, D>,
     transfer: &TransferTarget,
 ) -> Bytes32Target {
-    let transfer_commitment = transfer.commitment(builder);
+    let transfer_commitment = transfer.poseidon_hash(builder);
     let input = [transfer_commitment.to_vec(), transfer.salt.to_vec()].concat();
     let input_hash = PoseidonHashOutTarget::hash_inputs(builder, &input);
 

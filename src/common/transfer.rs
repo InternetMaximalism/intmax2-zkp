@@ -17,6 +17,7 @@ use super::{
 use crate::{
     ethereum_types::{
         address::Address,
+        bytes32::{Bytes32, Bytes32Target},
         u256::{U256Target, U256, U256_LEN},
         u32limb_trait::{U32LimbTargetTrait as _, U32LimbTrait as _},
     },
@@ -88,8 +89,12 @@ impl Transfer {
         }
     }
 
-    pub fn commitment(&self) -> PoseidonHashOut {
+    pub fn poseidon_hash(&self) -> PoseidonHashOut {
         PoseidonHashOut::hash_inputs_u64(&self.to_u64_vec())
+    }
+
+    pub fn nullifier(&self) -> Bytes32 {
+        self.poseidon_hash().into()
     }
 }
 
@@ -149,11 +154,19 @@ impl TransferTarget {
         self.salt.set_witness(witness, value.salt);
     }
 
-    pub fn commitment<F: RichField + Extendable<D>, const D: usize>(
+    pub fn poseidon_hash<F: RichField + Extendable<D>, const D: usize>(
         &self,
         builder: &mut CircuitBuilder<F, D>,
     ) -> PoseidonHashOutTarget {
         PoseidonHashOutTarget::hash_inputs(builder, &self.to_vec())
+    }
+
+    pub fn nullifier<F: RichField + Extendable<D>, const D: usize>(
+        &self,
+        builder: &mut CircuitBuilder<F, D>,
+    ) -> Bytes32Target {
+        let poseidon_hash = self.poseidon_hash(builder);
+        Bytes32Target::from_hash_out(builder, poseidon_hash)
     }
 }
 

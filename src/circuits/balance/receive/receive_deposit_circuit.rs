@@ -8,7 +8,6 @@ use crate::{
     },
     constants::DEPOSIT_TREE_HEIGHT,
     ethereum_types::{
-        bytes32::{Bytes32, Bytes32Target},
         u256::{U256Target, U256, U256_LEN},
         u32limb_trait::{U32LimbTargetTrait as _, U32LimbTrait as _},
     },
@@ -181,7 +180,7 @@ impl ReceiveDepositValue {
                 ReceiveError::VerificationFailed(format!("Invalid deposit merkle proof: {}", e))
             })?;
 
-        let nullifier: Bytes32 = deposit.poseidon_hash().into();
+        let nullifier = deposit.nullifier();
         if deposit.token_index != private_state_transition.token_index {
             return Err(ReceiveError::VerificationFailed(format!(
                 "Invalid token index: expected {}, got {}",
@@ -261,8 +260,7 @@ impl ReceiveDepositTarget {
         );
 
         // verify private_state update
-        let deposit_hash = deposit.poseidon_hash(builder);
-        let nullifier: Bytes32Target = Bytes32Target::from_hash_out(builder, deposit_hash);
+        let nullifier = deposit.nullifier(builder);
         builder.connect(deposit.token_index, private_state_transition.token_index);
         deposit
             .amount

@@ -191,7 +191,7 @@ where
     ) -> Result<ProofWithPublicInputs<F, C, D>, TransitionError> {
         // assertion
         let transfer = receive_transfer_witness.transfer_witness.transfer;
-        let nullifier: Bytes32 = transfer.commitment().into();
+        let nullifier: Bytes32 = transfer.poseidon_hash().into();
         let private_witness = receive_transfer_witness.private_transition_witness.clone();
 
         if nullifier != private_witness.nullifier {

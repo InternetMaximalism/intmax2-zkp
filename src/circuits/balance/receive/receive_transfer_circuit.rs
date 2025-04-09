@@ -6,7 +6,6 @@ use crate::{
     },
     constants::BLOCK_HASH_TREE_HEIGHT,
     ethereum_types::{
-        bytes32::{Bytes32, Bytes32Target},
         u256::{U256Target, U256},
         u32limb_trait::{U32LimbTargetTrait as _, U32LimbTrait},
     },
@@ -171,7 +170,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
             })?;
 
         let transfer = transfer_inclusion.transfer;
-        let nullifier: Bytes32 = transfer.commitment().into();
+        let nullifier = transfer.nullifier();
         let pubkey = transfer.recipient.to_pubkey().map_err(|e| {
             ReceiveError::VerificationFailed(format!("Transfer recipient is not pubkey: {:?}", e))
         })?;
@@ -249,8 +248,7 @@ impl<const D: usize> ReceiveTransferTarget<D> {
         );
 
         let transfer = transfer_inclusion.transfer.clone();
-        let transfer_commitment = transfer.commitment(builder);
-        let nullifier: Bytes32Target = Bytes32Target::from_hash_out(builder, transfer_commitment);
+        let nullifier = transfer.nullifier(builder);
         let pubkey = transfer.recipient.to_pubkey(builder);
         builder.connect(private_state_transition.token_index, transfer.token_index);
         private_state_transition

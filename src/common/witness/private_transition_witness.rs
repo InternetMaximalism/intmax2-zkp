@@ -70,7 +70,7 @@ impl PrivateTransitionWitness {
         transfer: Transfer,
         new_salt: Salt,
     ) -> Result<Self, CommonError> {
-        let nullifier: Bytes32 = transfer.commitment().into();
+        let nullifier: Bytes32 = transfer.poseidon_hash().into();
         Self::new(
             full_private_state,
             transfer.token_index,

@@ -297,7 +297,7 @@ mod tests {
         let new_asset_leaf = prev_asset_leaf.add(transfer.amount);
         asset_tree.update(transfer.token_index as u64, new_asset_leaf);
 
-        let nullifier: Bytes32 = transfer.commitment().into();
+        let nullifier: Bytes32 = transfer.poseidon_hash().into();
         let nullifier_proof = nullifier_tree.prove_and_insert(nullifier).unwrap();
 
         let new_salt = Salt::rand(&mut rng);
