@@ -602,8 +602,9 @@ mod tests {
                 balance_pis::BalancePublicInputs,
                 balance_processor::BalanceProcessor,
                 receive::{
-                    receive_deposit_circuit::ReceiveDepositCircuit,
-                    receive_transfer_circuit::ReceiveTransferCircuit,
+                    receive_deposit_circuit::{ReceiveDepositCircuit, ReceiveDepositValue},
+                    receive_targets::transfer_inclusion::TransferInclusionValue,
+                    receive_transfer_circuit::{ReceiveTransferCircuit, ReceiveTransferValue},
                     update_circuit::UpdateCircuit,
                 },
                 send::sender_processor::SenderProcessor,
@@ -611,12 +612,16 @@ mod tests {
             test_utils::witness_generator::{construct_spent_and_transfer_witness, MockTxRequest},
         },
         common::{
-            private_state::FullPrivateState, public_state::PublicState, salt::Salt,
-            signature_content::key_set::KeySet, transfer::Transfer,
+            deposit::{get_pubkey_salt_hash, Deposit},
+            private_state::FullPrivateState,
+            public_state::PublicState,
+            salt::Salt,
+            signature_content::key_set::KeySet,
+            transfer::Transfer,
+            witness::private_transition_witness::PrivateTransitionWitness,
         },
-        ethereum_types::{address::Address, u256::U256},
+        ethereum_types::{address::Address, u256::U256, u32limb_trait::U32LimbTrait},
     };
-
     use plonky2::{
         field::goldilocks_field::GoldilocksField,
         plonk::{circuit_data::CircuitConfig, config::PoseidonGoldilocksConfig},
@@ -788,14 +793,6 @@ mod tests {
     #[cfg(feature = "skip_insufficient_check")]
     #[test]
     fn test_transition_circuit_receive_transfer() {
-        use crate::{
-            circuits::balance::receive::{
-                self, receive_targets::transfer_inclusion::TransferInclusionValue,
-                receive_transfer_circuit::ReceiveTransferValue,
-            },
-            common::witness::private_transition_witness::PrivateTransitionWitness,
-        };
-
         let mut rng = rand::thread_rng();
         let validity_processor = Arc::new(ValidityProcessor::<F, C, D>::new());
         let mut validity_state_manager =
@@ -901,6 +898,8 @@ mod tests {
             .prove(&receive_transfer_value)
             .unwrap();
 
+        let balance_pis =
+            BalancePublicInputs::from_pis(&balance_proof.unwrap().public_inputs).unwrap();
         let transition_value = BalanceTransitionValue::new(
             &CircuitConfig::default(),
             BalanceTransitionType::ReceiveTransfer,
@@ -912,7 +911,7 @@ mod tests {
             None,
             None,
             None,
-            BalancePublicInputs::new(key.pubkey),
+            balance_pis,
             balance_vd.verifier_only,
         )
         .unwrap();
@@ -934,236 +933,113 @@ mod tests {
             .unwrap();
         transition_circuit.data.verify(transition_proof).unwrap();
     }
-    // #[test]
-    // fn test_transition_circuit_receive_transfer() {
-    //     let mut rng = rand::thread_rng();
-    //     let validity_processor = Arc::new(ValidityProcessor::<F, C, D>::new());
-    //     let mut validity_state_manager =
-    //         ValidityStateManager::new(validity_processor.clone(), Address::default());
 
-    //     // post empty block
-    //     validity_state_manager.tick(false, &[], 0, 0).unwrap();
+    #[test]
+    fn test_transition_circuit_receive_deposit() {
+        let mut rng = rand::thread_rng();
+        let validity_processor = Arc::new(ValidityProcessor::<F, C, D>::new());
+        let balance_processor = BalanceProcessor::new(&validity_processor.get_verifier_data());
+        let mut validity_state_manager =
+            ValidityStateManager::new(validity_processor.clone(), Address::default());
+        let validity_vd = validity_processor.get_verifier_data();
+        let balance_vd = balance_processor.get_verifier_data();
+        let balance_common = balance_vd.common.clone();
 
-    //     // update balance
-    //     let key = KeySet::rand(&mut rng);
-    //     let update_witness = validity_state_manager
-    //         .get_update_witness(key.pubkey, 1, 0, false)
-    //         .unwrap();
+        // local state
+        let key = KeySet::rand(&mut rng);
+        let mut full_private_state = FullPrivateState::new();
 
-    //     let balance_common = common_data_for_balance_circuit::<F, C, D>();
-    //     let validity_vd = validity_processor.get_verifier_data();
-    //     let receive_transfer_circuit = ReceiveTransferCircuit::<F, C, D>::new(&balance_common);
-    //     let receive_deposit_circuit = ReceiveDepositCircuit::<F, C, D>::new();
-    //     let update_circuit = UpdateCircuit::<F, C, D>::new(&validity_vd);
-    //     let sender_processor = SenderProcessor::<F, C, D>::new(&validity_vd);
-    //     let balance_vd = BalanceProcessor::new(&validity_vd).get_verifier_data();
+        // deposit
+        let deposit_salt = Salt::rand(&mut rng);
+        let deposit_salt_hash = get_pubkey_salt_hash(key.pubkey, deposit_salt);
+        let deposit = Deposit {
+            depositor: Address::rand(&mut rng),
+            pubkey_salt_hash: deposit_salt_hash,
+            amount: U256::rand_small(&mut rng),
+            token_index: rng.gen(),
+            is_eligible: true,
+        };
+        let deposit_index = validity_state_manager.deposit(&deposit).unwrap();
 
-    //     let update_proof = update_circuit
-    //         .prove(
-    //             &update_witness
-    //                 .to_value(&validity_vd, key.pubkey, &PublicState::genesis())
-    //                 .unwrap(),
-    //         )
-    //         .unwrap();
+        // post empty block to sync deposit tree
+        validity_state_manager.tick(false, &[], 0, 0).unwrap();
 
-    //     let transition_value = BalanceTransitionValue::new(
-    //         &CircuitConfig::default(),
-    //         BalanceTransitionType::Update,
-    //         &receive_transfer_circuit,
-    //         &receive_deposit_circuit,
-    //         &update_circuit,
-    //         &sender_processor.sender_circuit,
-    //         None,
-    //         None,
-    //         Some(update_proof),
-    //         None,
-    //         BalancePublicInputs::new(key.pubkey),
-    //         balance_vd.verifier_only,
-    //     )
-    //     .unwrap();
+        // update balance proof
+        let update_witness = validity_state_manager
+            .get_update_witness(key.pubkey, 1, 0, false)
+            .unwrap();
+        let balance_proof = balance_processor
+            .prove_update(
+                &validity_processor.get_verifier_data(),
+                key.pubkey,
+                &update_witness,
+                &None,
+            )
+            .unwrap();
 
-    //     let transition_circuit = BalanceTransitionCircuit::<F, C, D>::new(
-    //         &receive_transfer_circuit.data.verifier_data(),
-    //         &receive_deposit_circuit.data.verifier_data(),
-    //         &update_circuit.data.verifier_data(),
-    //         &sender_processor.sender_circuit.data.verifier_data(),
-    //     );
-    //     let transition_proof = transition_circuit
-    //         .prove(
-    //             &receive_transfer_circuit,
-    //             &receive_deposit_circuit,
-    //             &update_circuit,
-    //             &sender_processor.sender_circuit,
-    //             &transition_value,
-    //         )
-    //         .unwrap();
+        // receive deposit proof
+        let deposit_merkle_proof = validity_state_manager
+            .get_deposit_merkle_proof(1, deposit_index)
+            .unwrap();
+        let private_transition_witness = PrivateTransitionWitness::from_deposit(
+            &mut full_private_state,
+            &deposit,
+            Salt::rand(&mut rng),
+        )
+        .unwrap();
 
-    //     transition_circuit.data.verify(transition_proof).unwrap();
-    // }
+        let receive_transfer_circuit = ReceiveTransferCircuit::<F, C, D>::new(&balance_common);
+        let receive_deposit_circuit = ReceiveDepositCircuit::<F, C, D>::new();
+        let update_circuit = UpdateCircuit::<F, C, D>::new(&validity_vd);
+        let sender_processor = SenderProcessor::<F, C, D>::new(&validity_vd);
 
-    // #[test]
-    // fn test_balance_processor_receive_transfer() {
-    //     use rand::Rng;
+        let receive_deposit_value = ReceiveDepositValue::new(
+            key.pubkey,
+            deposit_salt,
+            deposit_index,
+            &deposit,
+            &deposit_merkle_proof,
+            &update_witness.public_state(),
+            &private_transition_witness.to_value().unwrap(),
+        )
+        .unwrap();
 
-    //     use crate::{
-    //         common::{
-    //             salt::Salt,
-    //             witness::{
-    //                 private_transition_witness::PrivateTransitionWitness,
-    //                 receive_transfer_witness::ReceiveTransferWitness,
-    //             },
-    //         },
-    //         ethereum_types::u256::U256,
-    //     };
+        let receive_deposit_proof = receive_deposit_circuit
+            .prove(&receive_deposit_value)
+            .unwrap();
 
-    //     let mut rng = rand::thread_rng();
-    //     let validity_processor = Arc::new(ValidityProcessor::<F, C, D>::new());
-    //     let balance_processor = BalanceProcessor::new(&validity_processor.get_verifier_data());
-    //     let spent_circuit = SpentCircuit::new();
+        let balance_pis = BalancePublicInputs::from_pis(&balance_proof.public_inputs).unwrap();
+        let transition_value = BalanceTransitionValue::new(
+            &CircuitConfig::default(),
+            BalanceTransitionType::ReceiveDeposit,
+            &receive_transfer_circuit,
+            &receive_deposit_circuit,
+            &update_circuit,
+            &sender_processor.sender_circuit,
+            None,
+            Some(receive_deposit_proof),
+            None,
+            None,
+            balance_pis,
+            balance_vd.verifier_only,
+        )
+        .unwrap();
 
-    //     // public state
-    //     let mut validity_state_manager =
-    //         ValidityStateManager::new(validity_processor.clone(), Address::default());
-
-    //     // local state
-    //     let alice_key = KeySet::rand(&mut rng);
-    //     let mut alice_state = FullPrivateState::new();
-    //     let bob_key = KeySet::rand(&mut rng);
-    //     let mut bob_state = FullPrivateState::new();
-
-    //     // alice send transfer
-    //     let transfer = Transfer {
-    //         recipient: bob_key.pubkey.into(),
-    //         token_index: rng.gen(),
-    //         amount: U256::rand_small(&mut rng),
-    //         salt: Salt::rand(&mut rng),
-    //     };
-
-    //     let (spent_witness, transfer_witnesses) =
-    //         construct_spent_and_transfer_witness(&mut alice_state, &[transfer]).unwrap();
-    //     let transfer_witness = transfer_witnesses[0].clone();
-    //     let spent_witness_value = spent_witness.to_value().unwrap();
-    //     let spent_proof = spent_circuit.prove(&spent_witness_value).unwrap();
-    //     let tx_request = MockTxRequest {
-    //         tx: spent_witness.tx,
-    //         sender_key: alice_key,
-    //         will_return_sig: true,
-    //     };
-    //     let tx_witnesses = validity_state_manager
-    //         .tick(true, &[tx_request], 0, 0)
-    //         .unwrap();
-    //     let tx_witness = tx_witnesses[0].clone();
-    //     let update_witness = validity_state_manager
-    //         .get_update_witness(alice_key.pubkey, 1, 0, true)
-    //         .unwrap();
-    //     let alice_balance_proof = balance_processor
-    //         .prove_send(
-    //             &validity_processor.get_verifier_data(),
-    //             alice_key.pubkey,
-    //             &tx_witness,
-    //             &update_witness,
-    //             &spent_proof,
-    //             &None,
-    //         )
-    //         .unwrap();
-
-    //     // bob update balance proof
-    //     let update_witness = validity_state_manager
-    //         .get_update_witness(bob_key.pubkey, 1, 0, false)
-    //         .unwrap();
-    //     let bob_balance_proof = balance_processor
-    //         .prove_update(
-    //             &validity_processor.get_verifier_data(),
-    //             bob_key.pubkey,
-    //             &update_witness,
-    //             &None,
-    //         )
-    //         .unwrap();
-    //     let private_transition_witness =
-    //         PrivateTransitionWitness::from_transfer(&mut bob_state, transfer, Salt::rand(&mut
-    // rng))             .unwrap();
-    //     let block_merkle_proof = validity_state_manager.get_block_merkle_proof(1, 1).unwrap();
-    //     let receive_transfer_witness = ReceiveTransferWitness {
-    //         transfer_witness,
-    //         private_transition_witness,
-    //         sender_balance_proof: alice_balance_proof,
-    //         block_merkle_proof,
-    //     };
-    //     balance_processor
-    //         .prove_receive_transfer(
-    //             bob_key.pubkey,
-    //             &receive_transfer_witness,
-    //             &Some(bob_balance_proof),
-    //         )
-    //         .unwrap();
-    // }
-
-    // #[test]
-    // fn test_balance_processor_receive_deposit() {
-    //     let mut rng = rand::thread_rng();
-    //     let validity_processor = Arc::new(ValidityProcessor::<F, C, D>::new());
-    //     let balance_processor = BalanceProcessor::new(&validity_processor.get_verifier_data());
-    //     let mut validity_state_manager =
-    //         ValidityStateManager::new(validity_processor.clone(), Address::default());
-
-    //     // local state
-    //     let alice_key = KeySet::rand(&mut rng);
-    //     let mut alice_state = FullPrivateState::new();
-
-    //     // deposit
-    //     let deposit_salt = Salt::rand(&mut rng);
-    //     let deposit_salt_hash = get_pubkey_salt_hash(alice_key.pubkey, deposit_salt);
-    //     let deposit = Deposit {
-    //         depositor: Address::rand(&mut rng),
-    //         pubkey_salt_hash: deposit_salt_hash,
-    //         amount: U256::rand_small(&mut rng),
-    //         token_index: rng.gen(),
-    //         is_eligible: true,
-    //     };
-    //     let deposit_index = validity_state_manager.deposit(&deposit).unwrap();
-
-    //     // post empty block to sync deposit tree
-    //     validity_state_manager.tick(false, &[], 0, 0).unwrap();
-
-    //     // alice update balance proof
-    //     let update_witness = validity_state_manager
-    //         .get_update_witness(alice_key.pubkey, 1, 0, false)
-    //         .unwrap();
-    //     let alice_balance_proof = balance_processor
-    //         .prove_update(
-    //             &validity_processor.get_verifier_data(),
-    //             alice_key.pubkey,
-    //             &update_witness,
-    //             &None,
-    //         )
-    //         .unwrap();
-
-    //     // alice receive deposit proof
-    //     let deposit_merkle_proof = validity_state_manager
-    //         .get_deposit_merkle_proof(1, deposit_index)
-    //         .unwrap();
-    //     let deposit_witness = DepositWitness {
-    //         deposit_salt,
-    //         deposit_index,
-    //         deposit: deposit.clone(),
-    //         deposit_merkle_proof,
-    //     };
-    //     let private_transition_witness = PrivateTransitionWitness::from_deposit(
-    //         &mut alice_state,
-    //         &deposit,
-    //         Salt::rand(&mut rng),
-    //     )
-    //     .unwrap();
-    //     let receive_deposit_witness = ReceiveDepositWitness {
-    //         deposit_witness,
-    //         private_transition_witness,
-    //     };
-    //     let _alice_balance_proof = balance_processor
-    //         .prove_receive_deposit(
-    //             alice_key.pubkey,
-    //             &receive_deposit_witness,
-    //             &Some(alice_balance_proof),
-    //         )
-    //         .unwrap();
-    // }
+        let transition_circuit = BalanceTransitionCircuit::<F, C, D>::new(
+            &receive_transfer_circuit.data.verifier_data(),
+            &receive_deposit_circuit.data.verifier_data(),
+            &update_circuit.data.verifier_data(),
+            &sender_processor.sender_circuit.data.verifier_data(),
+        );
+        let transition_proof = transition_circuit
+            .prove(
+                &receive_transfer_circuit,
+                &receive_deposit_circuit,
+                &update_circuit,
+                &sender_processor.sender_circuit,
+                &transition_value,
+            )
+            .unwrap();
+        transition_circuit.data.verify(transition_proof).unwrap();
+    }
 }
