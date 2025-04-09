@@ -367,4 +367,110 @@ where
 }
 
 #[cfg(test)]
-mod tests {}
+mod tests {
+    use std::sync::Arc;
+
+    use plonky2::{
+        field::goldilocks_field::GoldilocksField, plonk::config::PoseidonGoldilocksConfig,
+    };
+
+    use crate::{
+        circuits::{
+            balance::{
+                balance_pis::BalancePublicInputs,
+                send::{
+                    spent_circuit::SpentCircuit,
+                    tx_inclusion_circuit::{TxInclusionCircuit, TxInclusionValue},
+                },
+            },
+            test_utils::{
+                state_manager::ValidityStateManager,
+                witness_generator::{construct_spent_and_transfer_witness, MockTxRequest},
+            },
+            validity::validity_processor::ValidityProcessor,
+        },
+        common::{
+            private_state::FullPrivateState, public_state::PublicState,
+            signature_content::key_set::KeySet, transfer::Transfer,
+        },
+        ethereum_types::address::Address,
+    };
+
+    use super::{SenderCircuit, SenderValue};
+
+    type F = GoldilocksField;
+    type C = PoseidonGoldilocksConfig;
+    const D: usize = 2;
+
+    #[test]
+    fn test_sender_circuit() {
+        let mut rng = rand::thread_rng();
+
+        let key = KeySet::rand(&mut rng);
+        let mut full_private_state = FullPrivateState::new();
+
+        let validity_processor = Arc::new(ValidityProcessor::<F, C, D>::new());
+        let mut validity_state_manager =
+            ValidityStateManager::new(validity_processor.clone(), Address::default());
+
+        let transfer = Transfer::rand(&mut rng);
+        let (spent_witness, _) =
+            construct_spent_and_transfer_witness(&mut full_private_state, &[transfer]).unwrap();
+
+        let spent_circuit = SpentCircuit::<F, C, D>::new();
+        let spent_proof = spent_circuit
+            .prove(&spent_witness.to_value().unwrap())
+            .unwrap();
+        let tx_request = MockTxRequest {
+            tx: spent_witness.tx,
+            sender_key: key,
+            will_return_sig: true,
+        };
+        let tx_witnesses = validity_state_manager
+            .tick(true, &[tx_request], 0, 0)
+            .unwrap();
+        let block_number = validity_state_manager.get_block_number();
+
+        let tx_witness = tx_witnesses[0].clone();
+        let update_witness = validity_state_manager
+            .get_update_witness(key.pubkey, block_number, 0, true)
+            .unwrap();
+        let sender_tree = tx_witness.get_sender_tree();
+        let sender_leaf = sender_tree.get_leaf(tx_witness.tx_index as u64);
+        let sender_merkle_proof = sender_tree.prove(tx_witness.tx_index as u64);
+        let tx_inclusion_value = TxInclusionValue::new(
+            &validity_processor.get_verifier_data(),
+            key.pubkey,
+            &PublicState::genesis(),
+            &update_witness.validity_proof,
+            &update_witness.block_merkle_proof,
+            &update_witness.prev_account_membership_proof().unwrap(),
+            tx_witness.tx_index,
+            &tx_witness.tx,
+            &tx_witness.tx_merkle_proof,
+            &sender_leaf,
+            &sender_merkle_proof,
+        )
+        .unwrap();
+        let tx_inclusion_circuit =
+            TxInclusionCircuit::<F, C, D>::new(&validity_processor.get_verifier_data());
+        let tx_inclusion_proof = tx_inclusion_circuit.prove(&tx_inclusion_value).unwrap();
+
+        let balance_pis = BalancePublicInputs::new(key.pubkey);
+        let sender_value = SenderValue::new(
+            &spent_circuit,
+            &tx_inclusion_circuit,
+            &spent_proof,
+            &tx_inclusion_proof,
+            &balance_pis,
+        )
+        .unwrap();
+
+        let sender_circuit = SenderCircuit::<F, C, D>::new(
+            &spent_circuit.data.verifier_data(),
+            &tx_inclusion_circuit.data.verifier_data(),
+        );
+        let sender_proof = sender_circuit.prove(&sender_value).unwrap();
+        sender_circuit.data.verify(sender_proof).unwrap();
+    }
+}
