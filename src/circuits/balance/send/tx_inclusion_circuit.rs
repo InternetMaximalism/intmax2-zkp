@@ -1,3 +1,15 @@
+//! Transaction inclusion circuit for validating transaction presence in blocks.
+//!
+//! This circuit proves the transition of a public state by:
+//! 1. Verifying that the validity proof for the new public state is correct
+//! 2. Confirming that the block hash of the old public state is included in the block tree of the new public state
+//! 3. Checking that the sender's last transaction block number is the same as or older than the old public state's block number
+//! 4. Validating that the transaction is included in the block
+//!
+//! The tx inclusion circuit sets is_valid=true only when the block is valid and the user's signature
+//! is included in the block. This is_valid flag is used by the sender circuit to determine
+//! whether to transition the private state.
+
 use super::error::SendError;
 use plonky2::{
     field::extension::Extendable,
@@ -42,8 +54,14 @@ use crate::{
     },
 };
 
+/// Length of the public inputs for the transaction inclusion circuit.
+/// Includes previous and new public states, public key, transaction data, and validity flag.
 pub const TX_INCLUSION_PUBLIC_INPUTS_LEN: usize = PUBLIC_STATE_LEN * 2 + U256_LEN + TX_LEN + 1;
 
+/// Public inputs for the transaction inclusion circuit.
+///
+/// These values are publicly visible outputs of the circuit that can be verified
+/// without knowing the private witness data.
 #[derive(Clone, Debug)]
 pub struct TxInclusionPublicInputs {
     pub prev_public_state: PublicState,
@@ -54,6 +72,13 @@ pub struct TxInclusionPublicInputs {
 }
 
 impl TxInclusionPublicInputs {
+    /// Constructs TxInclusionPublicInputs from a slice of u64 values.
+    ///
+    /// # Arguments
+    /// * `input` - Slice of u64 values representing the public inputs
+    ///
+    /// # Returns
+    /// A new TxInclusionPublicInputs struct
     pub fn from_u64_slice(input: &[u64]) -> Self {
         assert_eq!(input.len(), TX_INCLUSION_PUBLIC_INPUTS_LEN);
         let prev_public_state = PublicState::from_u64_slice(&input[0..PUBLIC_STATE_LEN]);
@@ -76,6 +101,9 @@ impl TxInclusionPublicInputs {
     }
 }
 
+/// Target version of TxInclusionPublicInputs for use in ZKP circuits.
+///
+/// This struct contains circuit targets for all components of the public inputs.
 #[derive(Clone, Debug)]
 pub struct TxInclusionPublicInputsTarget {
     pub prev_public_state: PublicStateTarget,
@@ -86,6 +114,10 @@ pub struct TxInclusionPublicInputsTarget {
 }
 
 impl TxInclusionPublicInputsTarget {
+    /// Converts the target to a vector of individual targets.
+    ///
+    /// # Returns
+    /// A vector of targets representing all public inputs
     pub fn to_vec(&self) -> Vec<Target> {
         let mut vec = Vec::new();
         vec.extend_from_slice(&self.prev_public_state.to_vec());
@@ -97,6 +129,13 @@ impl TxInclusionPublicInputsTarget {
         vec
     }
 
+    /// Constructs TxInclusionPublicInputsTarget from a slice of targets.
+    ///
+    /// # Arguments
+    /// * `input` - Slice of targets representing the public inputs
+    ///
+    /// # Returns
+    /// A new TxInclusionPublicInputsTarget struct
     pub fn from_slice(input: &[Target]) -> Self {
         assert_eq!(input.len(), TX_INCLUSION_PUBLIC_INPUTS_LEN);
         let prev_public_state = PublicStateTarget::from_slice(&input[0..PUBLIC_STATE_LEN]);
@@ -118,6 +157,10 @@ impl TxInclusionPublicInputsTarget {
     }
 }
 
+/// Witness values for the transaction inclusion circuit.
+///
+/// This struct contains all the private witness data needed to prove the
+/// validity of a transaction's inclusion in a block.
 pub struct TxInclusionValue<
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F> + 'static,
@@ -144,21 +187,38 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
 where
     <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
 {
+    /// Creates a new TxInclusionValue by validating and computing the state transition.
+    ///
+    /// This function:
+    /// 1. Verifies the validity proof for the new public state
+    /// 2. Verifies the block merkle proof showing the old block is included in the new block tree
+    /// 3. Verifies the account membership proof showing no transactions were sent between blocks
+    /// 4. Verifies the transaction merkle proof showing the transaction is included in the block
+    /// 5. Verifies the sender merkle proof and checks the sender's signature is included
+    ///
+    /// # Arguments
+    /// * `validity_vd` - Verifier data for the validity circuit
+    /// * `pubkey` - Public key of the sender
+    /// * `prev_public_state` - Public state of the old balance proof
+    /// * `validity_proof` - Validity proof of the new public state containing the transaction
+    /// * `block_merkle_proof` - Proof that the old block is included in the new block tree
+    /// * `prev_account_membership_proof` - Proof showing the sender's last transaction block number
+    /// * `sender_index` - Index of the sender in the sender tree
+    /// * `tx` - Transaction being verified
+    /// * `tx_merkle_proof` - Proof that the transaction is included in the transaction tree
+    /// * `sender_leaf` - Sender leaf containing signature inclusion information
+    /// * `sender_merkle_proof` - Proof that the sender leaf is included in the sender tree
+    ///
+    /// # Returns
+    /// A Result containing either the new TxInclusionValue or an error
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         validity_vd: &VerifierCircuitData<F, C, D>,
         pubkey: U256,
-        prev_public_state: &PublicState, // public state of the old balance proof
-        validity_proof: &ProofWithPublicInputs<F, C, D>, /* validity proof of the new public
-                                          * state which contains the tx */
-        block_merkle_proof: &BlockHashMerkleProof, /* block merkle proof that shows the
-                                                    * block of prev_public_state is included in
-                                                    * the
-                                                    * block tree of validity_proof */
-        prev_account_membership_proof: &AccountMembershipProof, /* account membership proof that
-                                                                 * shows no tx has been sent
-                                                                 * before
-                                                                 * the block of validity proof. */
+        prev_public_state: &PublicState,
+        validity_proof: &ProofWithPublicInputs<F, C, D>,
+        block_merkle_proof: &BlockHashMerkleProof,
+        prev_account_membership_proof: &AccountMembershipProof,
         sender_index: u32,
         tx: &Tx,
         tx_merkle_proof: &TxMerkleProof,
@@ -250,6 +310,10 @@ where
     }
 }
 
+/// Target version of TxInclusionValue for use in ZKP circuits.
+///
+/// This struct contains circuit targets for all components needed to verify
+/// the transaction's inclusion in a block.
 pub struct TxInclusionTarget<const D: usize> {
     pub pubkey: U256Target,
     pub prev_public_state: PublicStateTarget,
@@ -266,6 +330,23 @@ pub struct TxInclusionTarget<const D: usize> {
 }
 
 impl<const D: usize> TxInclusionTarget<D> {
+    /// Creates a new TxInclusionTarget with circuit constraints that enforce
+    /// the transaction inclusion rules.
+    ///
+    /// The circuit enforces:
+    /// 1. Valid validity proof for the new public state
+    /// 2. Valid block merkle proof showing the old block is included in the new block tree
+    /// 3. Valid account membership proof showing the sender's last transaction block number
+    /// 4. Valid transaction merkle proof showing the transaction is included in the block
+    /// 5. Valid sender merkle proof and signature inclusion check
+    ///
+    /// # Arguments
+    /// * `validity_vd` - Verifier data for the validity circuit
+    /// * `builder` - Circuit builder
+    /// * `is_checked` - Whether to add constraints for checking the values
+    ///
+    /// # Returns
+    /// A new TxInclusionTarget with all necessary targets and constraints
     pub fn new<F: RichField + Extendable<D>, C: GenericConfig<D, F = F> + 'static>(
         validity_vd: &VerifierCircuitData<F, C, D>,
         builder: &mut CircuitBuilder<F, D>,
@@ -331,6 +412,11 @@ impl<const D: usize> TxInclusionTarget<D> {
         }
     }
 
+    /// Sets the witness values for all targets in this TxInclusionTarget.
+    ///
+    /// # Arguments
+    /// * `witness` - Witness to set values in
+    /// * `value` - TxInclusionValue containing the values to set
     pub fn set_witness<
         F: RichField + Extendable<D>,
         C: GenericConfig<D, F = F> + 'static,
@@ -362,6 +448,14 @@ impl<const D: usize> TxInclusionTarget<D> {
     }
 }
 
+/// The transaction inclusion circuit for validating transaction presence in blocks.
+///
+/// This circuit proves that:
+/// 1. The validity proof for the new public state is correct
+/// 2. The block hash of the old public state is included in the block tree of the new public state
+/// 3. The sender's last transaction block number is the same as or older than the old public state's block number
+/// 4. The transaction is included in the block
+/// 5. The sender's signature is included in the block (if the block is valid)
 pub struct TxInclusionCircuit<F, C, const D: usize>
 where
     F: RichField + Extendable<D>,
@@ -377,6 +471,13 @@ where
     C: GenericConfig<D, F = F> + 'static,
     C::Hasher: AlgebraicHasher<F>,
 {
+    /// Creates a new TxInclusionCircuit with all necessary constraints.
+    ///
+    /// # Arguments
+    /// * `validity_vd` - Verifier data for the validity circuit
+    ///
+    /// # Returns
+    /// A new TxInclusionCircuit ready to generate and verify proofs
     pub fn new(validity_vd: &VerifierCircuitData<F, C, D>) -> Self {
         let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::default());
         let target = TxInclusionTarget::new::<F, C>(validity_vd, &mut builder, true);
@@ -392,6 +493,13 @@ where
         Self { data, target }
     }
 
+    /// Generates a ZK proof for the given TxInclusionValue.
+    ///
+    /// # Arguments
+    /// * `value` - TxInclusionValue containing the witness data
+    ///
+    /// # Returns
+    /// A Result containing either the proof with public inputs or an error
     pub fn prove(
         &self,
         value: &TxInclusionValue<F, C, D>,
