@@ -30,8 +30,3 @@ pub enum ValidityProverError {
     Plonky2Error(String),
 }
 
-impl From<anyhow::Error> for ValidityProverError {
-    fn from(err: anyhow::Error) -> Self {
-        ValidityProverError::Plonky2Error(err.to_string())
-    }
-}
