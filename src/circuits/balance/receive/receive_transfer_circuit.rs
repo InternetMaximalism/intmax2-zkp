@@ -1,3 +1,14 @@
+//! Receive transfer circuit for verifying and processing incoming transfers.
+//!
+//! This circuit proves the correctness of a private state transition when receiving a transfer by:
+//! 1. Verifying the transfer is included in the sender's balance proof (`transfer_inclusion`)
+//! 2. Confirming the sender's block hash is included in the recipient's block tree
+//! 3. Adding the transfer's nullifier to the nullifier tree to prevent double-spending
+//! 4. Adding the transfer to the asset tree, updating the recipient's balance
+//!
+//! The receive transfer circuit handles private state transitions without updating
+//! public state, so no validity proof is required.
+
 use super::error::ReceiveError;
 use crate::{
     common::{
@@ -39,6 +50,13 @@ use super::receive_targets::{
     transfer_inclusion::{TransferInclusionTarget, TransferInclusionValue},
 };
 
+/// Public inputs for the receive transfer circuit.
+///
+/// This struct contains all the public inputs needed to verify a receive transfer proof:
+/// - Previous and new private state commitments to verify state transition
+/// - Recipient's public key
+/// - Public state containing the block tree root for block hash verification
+/// - Balance circuit verifier data for transfer inclusion verification
 #[derive(Debug, Clone)]
 pub struct ReceiveTransferPublicInputs<
     F: RichField + Extendable<D>,
@@ -89,6 +107,10 @@ where
     }
 }
 
+/// Target version of ReceiveTransferPublicInputs for use in ZKP circuits.
+///
+/// This struct contains circuit targets for all components needed to verify
+/// a receive transfer proof in the circuit.
 #[derive(Debug, Clone)]
 pub struct ReceiveTransferPublicInputsTarget {
     pub prev_private_commitment: PoseidonHashOutTarget,
@@ -127,6 +149,17 @@ impl ReceiveTransferPublicInputsTarget {
     }
 }
 
+/// Contains all the data needed to verify a receive transfer operation.
+///
+/// This struct holds all the components required to prove the correctness of a private state
+/// transition when receiving a transfer:
+/// - Recipient's public key
+/// - Public state with block tree root for block hash verification
+/// - Block merkle proof to verify sender's block hash inclusion
+/// - Transfer inclusion data to verify the transfer is in the sender's balance proof
+/// - Private state transition data for asset and nullifier tree updates
+/// - Previous and new private state commitments
+/// - Balance circuit verifier data for transfer inclusion verification
 #[derive(Debug, Clone)]
 pub struct ReceiveTransferValue<
     F: RichField + Extendable<D>,
@@ -146,6 +179,23 @@ pub struct ReceiveTransferValue<
 impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     ReceiveTransferValue<F, C, D>
 {
+    /// Creates a new ReceiveTransferValue by validating and computing the state transition.
+    ///
+    /// This function:
+    /// 1. Verifies the sender's block hash is included in the recipient's block tree
+    /// 2. Extracts the transfer and computes its nullifier
+    /// 3. Verifies the recipient's public key matches the transfer recipient
+    /// 4. Validates that the private state transition matches the transfer (token index, amount, nullifier)
+    /// 5. Computes the private state commitments
+    ///
+    /// # Arguments
+    /// * `public_state` - Recipient's public state with block tree root
+    /// * `block_merkle_proof` - Proof that sender's block hash is in recipient's block tree
+    /// * `transfer_inclusion` - Data proving the transfer is in sender's balance proof
+    /// * `private_state_transition` - Data for updating recipient's private state
+    ///
+    /// # Returns
+    /// A Result containing either the new ReceiveTransferValue or an error
     pub fn new(
         public_state: &PublicState,
         block_merkle_proof: &BlockHashMerkleProof,
@@ -213,6 +263,14 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     }
 }
 
+/// Target version of ReceiveTransferValue for use in ZKP circuits.
+///
+/// This struct contains circuit targets for all components needed to verify
+/// a receive transfer operation in the circuit, including:
+/// - Block hash verification targets
+/// - Transfer inclusion verification targets
+/// - Private state transition targets
+/// - Commitment targets for the private state before and after the transfer
 #[derive(Debug, Clone)]
 pub struct ReceiveTransferTarget<const D: usize> {
     pub pubkey: U256Target,
@@ -226,6 +284,22 @@ pub struct ReceiveTransferTarget<const D: usize> {
 }
 
 impl<const D: usize> ReceiveTransferTarget<D> {
+    /// Creates a new ReceiveTransferTarget with circuit constraints that enforce
+    /// the receive transfer verification rules.
+    ///
+    /// The circuit enforces:
+    /// 1. Valid block hash inclusion in the recipient's block tree
+    /// 2. Valid transfer inclusion in the sender's balance proof
+    /// 3. Matching token index, amount, and nullifier between transfer and private state transition
+    /// 4. Correct computation of private state commitments
+    ///
+    /// # Arguments
+    /// * `balance_common_data` - Common circuit data for the balance circuit
+    /// * `builder` - Circuit builder
+    /// * `is_checked` - Whether to add constraints for checking the values
+    ///
+    /// # Returns
+    /// A new ReceiveTransferTarget with all necessary targets and constraints
     pub fn new<F: RichField + Extendable<D>, C: GenericConfig<D, F = F> + 'static>(
         balance_common_data: &CommonCircuitData<F, D>,
         builder: &mut CircuitBuilder<F, D>,
@@ -277,6 +351,11 @@ impl<const D: usize> ReceiveTransferTarget<D> {
         }
     }
 
+    /// Sets the witness values for all targets in this ReceiveTransferTarget.
+    ///
+    /// # Arguments
+    /// * `witness` - Witness to set values in
+    /// * `value` - ReceiveTransferValue containing the values to set
     pub fn set_witness<
         F: RichField + Extendable<D>,
         C: GenericConfig<D, F = F>,
@@ -304,6 +383,15 @@ impl<const D: usize> ReceiveTransferTarget<D> {
     }
 }
 
+/// Main circuit for verifying receive transfer operations.
+///
+/// This circuit combines all the components needed to verify a receive transfer:
+/// - Block hash verification
+/// - Transfer inclusion verification
+/// - Private state transition verification
+///
+/// It provides methods to build the circuit and generate proofs that can be
+/// verified by others to confirm the correctness of a receive transfer operation.
 pub struct ReceiveTransferCircuit<F, C, const D: usize>
 where
     F: RichField + Extendable<D>,
@@ -320,6 +408,19 @@ where
     C: GenericConfig<D, F = F> + 'static,
     C::Hasher: AlgebraicHasher<F>,
 {
+    /// Creates a new ReceiveTransferCircuit with all necessary constraints.
+    ///
+    /// This function:
+    /// 1. Creates a new circuit builder
+    /// 2. Adds all targets and constraints for receive transfer verification
+    /// 3. Registers the public inputs
+    /// 4. Builds the circuit
+    ///
+    /// # Arguments
+    /// * `balance_common_data` - Common circuit data for the balance circuit
+    ///
+    /// # Returns
+    /// A new ReceiveTransferCircuit ready to generate proofs
     pub fn new(balance_common_data: &CommonCircuitData<F, D>) -> Self {
         let config = CircuitConfig::default();
         let mut builder = CircuitBuilder::<F, D>::new(config.clone());
@@ -342,6 +443,18 @@ where
         }
     }
 
+    /// Generates a proof for the given receive transfer value.
+    ///
+    /// This function:
+    /// 1. Creates a partial witness
+    /// 2. Sets all witness values from the provided ReceiveTransferValue
+    /// 3. Generates a proof that can be verified by others
+    ///
+    /// # Arguments
+    /// * `value` - ReceiveTransferValue containing all the data needed for the proof
+    ///
+    /// # Returns
+    /// A Result containing either the proof or an error if proof generation fails
     pub fn prove(
         &self,
         value: &ReceiveTransferValue<F, C, D>,

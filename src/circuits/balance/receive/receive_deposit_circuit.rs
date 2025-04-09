@@ -1,3 +1,15 @@
+//! Receive Deposit Circuit for processing deposits into the private state.
+//!
+//! This circuit proves the correctness of adding a deposit to the asset tree and 
+//! inserting the corresponding nullifier into the nullifier tree. The circuit ensures:
+//! 1. Valid deposit merkle proof against the public state's deposit tree root
+//! 2. Correct derivation of pubkey_salt_hash from the user's public key and salt
+//! 3. Proper insertion of the nullifier into the nullifier tree
+//! 4. Correct addition of the deposit to the asset tree
+//!
+//! This transition only updates the private state and does not modify the public state,
+//! so no validity proof is required.
+
 use super::error::ReceiveError;
 use crate::{
     common::{
@@ -39,6 +51,12 @@ use super::receive_targets::private_state_transition::{
 pub const RECEIVE_DEPOSIT_PUBLIC_INPUTS_LEN: usize =
     POSEIDON_HASH_OUT_LEN * 2 + U256_LEN + PUBLIC_STATE_LEN;
 
+/// Public inputs for the receive deposit circuit.
+///
+/// These inputs are publicly verifiable and include:
+/// - The previous and new private state commitments to prove valid state transition
+/// - The user's public key for verification
+/// - The public state containing the deposit tree root for deposit verification
 #[derive(Debug, Clone)]
 pub struct ReceiveDepositPublicInputs {
     pub prev_private_commitment: PoseidonHashOut,
@@ -90,6 +108,10 @@ impl ReceiveDepositPublicInputs {
     }
 }
 
+/// Target version of ReceiveDepositPublicInputs for use in ZKP circuits.
+///
+/// Contains circuit targets for all public inputs needed to verify a deposit receipt,
+/// matching the structure of ReceiveDepositPublicInputs.
 #[derive(Debug, Clone)]
 pub struct ReceiveDepositPublicInputsTarget {
     pub prev_private_commitment: PoseidonHashOutTarget,
@@ -138,20 +160,45 @@ impl ReceiveDepositPublicInputsTarget {
     }
 }
 
+/// Value struct containing all data needed for the receive deposit circuit.
+///
+/// This struct holds all the values required to:
+/// - Verify the deposit's inclusion in the deposit tree
+/// - Verify the user's ownership of the deposit via pubkey and salt
+/// - Process the private state transition (adding to asset tree and inserting nullifier)
 #[derive(Debug, Clone)]
 pub struct ReceiveDepositValue {
-    pub pubkey: U256,
-    pub deposit_salt: Salt,
-    pub deposit_index: u32,
-    pub deposit: Deposit,
-    pub deposit_merkle_proof: DepositMerkleProof,
-    pub public_state: PublicState,
-    pub private_state_transition: PrivateStateTransitionValue,
-    pub prev_private_commitment: PoseidonHashOut,
-    pub new_private_commitment: PoseidonHashOut,
+    pub pubkey: U256,                                   // User's public key
+    pub deposit_salt: Salt,                             // Salt used to claim the deposit
+    pub deposit_index: u32,                             // Index of the deposit in the deposit tree
+    pub deposit: Deposit,                               // The deposit being claimed
+    pub deposit_merkle_proof: DepositMerkleProof,       // Proof of deposit inclusion
+    pub public_state: PublicState,                      // Current public state
+    pub private_state_transition: PrivateStateTransitionValue, // Private state transition details
+    pub prev_private_commitment: PoseidonHashOut,       // Previous private state commitment
+    pub new_private_commitment: PoseidonHashOut,        // New private state commitment
 }
 
 impl ReceiveDepositValue {
+    /// Creates a new ReceiveDepositValue by validating the deposit and private state transition.
+    ///
+    /// This function performs several critical verifications:
+    /// 1. Verifies the pubkey and salt hash match the deposit's pubkey_salt_hash
+    /// 2. Verifies the deposit's inclusion in the deposit tree using the merkle proof
+    /// 3. Ensures the private state transition uses the correct token index, amount, and nullifier
+    /// 4. Computes the previous and new private state commitments
+    ///
+    /// # Arguments
+    /// * `pubkey` - User's public key claiming the deposit
+    /// * `deposit_salt` - Salt used to claim the deposit
+    /// * `deposit_index` - Index of the deposit in the deposit tree
+    /// * `deposit` - The deposit being claimed
+    /// * `deposit_merkle_proof` - Proof of deposit inclusion in the deposit tree
+    /// * `public_state` - Current public state containing the deposit tree root
+    /// * `private_state_transition` - Private state transition details
+    ///
+    /// # Returns
+    /// A Result containing either the new ReceiveDepositValue or an error
     pub fn new(
         pubkey: U256,
         deposit_salt: Salt,
@@ -219,20 +266,39 @@ impl ReceiveDepositValue {
     }
 }
 
+/// Target version of ReceiveDepositValue for use in ZKP circuits.
+///
+/// Contains circuit targets for all components needed to verify a deposit receipt,
+/// including deposit verification and private state transition.
 #[derive(Debug, Clone)]
 pub struct ReceiveDepositTarget {
-    pub pubkey: U256Target,
-    pub deposit_salt: SaltTarget,
-    pub deposit_index: Target,
-    pub deposit: DepositTarget,
-    pub deposit_merkle_proof: DepositMerkleProofTarget,
-    pub public_state: PublicStateTarget,
-    pub private_state_transition: PrivateStateTransitionTarget,
-    pub prev_private_commitment: PoseidonHashOutTarget,
-    pub new_private_commitment: PoseidonHashOutTarget,
+    pub pubkey: U256Target,                             // User's public key target
+    pub deposit_salt: SaltTarget,                       // Salt used to claim the deposit
+    pub deposit_index: Target,                          // Index of the deposit in the tree
+    pub deposit: DepositTarget,                         // The deposit being claimed
+    pub deposit_merkle_proof: DepositMerkleProofTarget, // Proof of deposit inclusion
+    pub public_state: PublicStateTarget,                // Current public state
+    pub private_state_transition: PrivateStateTransitionTarget, // Private state transition
+    pub prev_private_commitment: PoseidonHashOutTarget, // Previous private state commitment
+    pub new_private_commitment: PoseidonHashOutTarget,  // New private state commitment
 }
 
 impl ReceiveDepositTarget {
+    /// Creates a new ReceiveDepositTarget with circuit constraints that enforce
+    /// the deposit receipt rules.
+    ///
+    /// The circuit enforces:
+    /// 1. Valid pubkey_salt_hash derivation matching the deposit's pubkey_salt_hash
+    /// 2. Valid deposit merkle proof against the public state's deposit tree root
+    /// 3. Correct token index, amount, and nullifier in the private state transition
+    /// 4. Proper computation of private state commitments
+    ///
+    /// # Arguments
+    /// * `builder` - Circuit builder
+    /// * `is_checked` - Whether to add constraints for checking the values
+    ///
+    /// # Returns
+    /// A new ReceiveDepositTarget with all necessary targets and constraints
     pub fn new<F: RichField + Extendable<D>, C: GenericConfig<D, F = F> + 'static, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
         is_checked: bool,
@@ -285,6 +351,11 @@ impl ReceiveDepositTarget {
         }
     }
 
+    /// Sets the witness values for all targets in this ReceiveDepositTarget.
+    ///
+    /// # Arguments
+    /// * `witness` - Witness to set values in
+    /// * `value` - ReceiveDepositValue containing the values to set
     pub fn set_witness<W: WitnessWrite<F>, F: Field>(
         &self,
         witness: &mut W,
@@ -309,15 +380,21 @@ impl ReceiveDepositTarget {
     }
 }
 
+/// Main circuit for verifying deposit receipts and private state transitions.
+///
+/// This circuit combines all the components needed to verify that a deposit is:
+/// 1. Valid and included in the deposit tree
+/// 2. Owned by the user (via pubkey and salt)
+/// 3. Correctly processed into the private state (asset tree and nullifier tree)
 #[derive(Debug)]
 pub struct ReceiveDepositCircuit<F, C, const D: usize>
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
 {
-    pub data: CircuitData<F, C, D>,
-    pub target: ReceiveDepositTarget,
-    pub dummy_proof: DummyProof<F, C, D>,
+    pub data: CircuitData<F, C, D>,           // Circuit data containing the compiled circuit
+    pub target: ReceiveDepositTarget,          // Target containing all circuit constraints
+    pub dummy_proof: DummyProof<F, C, D>,      // Dummy proof for testing
 }
 
 impl<F, C, const D: usize> Default for ReceiveDepositCircuit<F, C, D>
@@ -337,6 +414,16 @@ where
     C: GenericConfig<D, F = F> + 'static,
     C::Hasher: AlgebraicHasher<F>,
 {
+    /// Creates a new ReceiveDepositCircuit with all necessary constraints.
+    ///
+    /// This function:
+    /// 1. Creates a new circuit builder with default configuration
+    /// 2. Adds all targets and constraints via ReceiveDepositTarget
+    /// 3. Registers the public inputs (prev/new commitments, pubkey, public state)
+    /// 4. Builds the circuit and creates a dummy proof for testing
+    ///
+    /// # Returns
+    /// A new ReceiveDepositCircuit ready for proving
     pub fn new() -> Self {
         let config = CircuitConfig::default();
         let mut builder = CircuitBuilder::<F, D>::new(config.clone());
@@ -363,6 +450,18 @@ where
         }
     }
 
+    /// Generates a ZK proof for the given ReceiveDepositValue.
+    ///
+    /// This function:
+    /// 1. Creates a partial witness from the provided value
+    /// 2. Sets all witness values in the circuit
+    /// 3. Generates a proof that can be verified by anyone
+    ///
+    /// # Arguments
+    /// * `value` - The ReceiveDepositValue containing all data needed for the proof
+    ///
+    /// # Returns
+    /// A Result containing either the proof or an error if proof generation fails
     pub fn prove(
         &self,
         value: &ReceiveDepositValue,

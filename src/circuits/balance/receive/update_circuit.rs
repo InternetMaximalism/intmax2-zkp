@@ -1,3 +1,16 @@
+//! Update circuit for updating a user's public state.
+//!
+//! This circuit proves the update of a user's public state to a new public state.
+//! It is used when a user wants to update their public state without having sent
+//! any transactions between the old and new public states. If the user has sent
+//! transactions during this period, they must use the sender circuit instead.
+//!
+//! The update circuit enforces the following constraints:
+//! 1. The validity proof for the new public state is correct
+//! 2. The block hash of the old public state is included in the new public state's block tree
+//! 3. The user's last block number (when they last sent a transaction) is the same or older
+//!    than the old public state's block number
+
 use super::error::UpdateError;
 use plonky2::{
     field::extension::Extendable,
@@ -35,6 +48,10 @@ use crate::{
 
 pub const UPDATE_PUBLIC_INPUTS_LEN: usize = U256_LEN + PUBLIC_STATE_LEN * 2;
 
+/// Public inputs for the update circuit.
+///
+/// Contains the user's public key and both the previous and new public states
+/// that are being updated between.
 #[derive(Debug, Clone)]
 pub struct UpdatePublicInputs {
     pub pubkey: U256,
@@ -42,6 +59,7 @@ pub struct UpdatePublicInputs {
     pub new_public_state: PublicState,
 }
 
+/// Target version of UpdatePublicInputs for use in ZKP circuits.
 #[derive(Debug, Clone)]
 pub struct UpdatePublicInputsTarget {
     pub pubkey: U256Target,
@@ -101,6 +119,14 @@ impl UpdatePublicInputsTarget {
     }
 }
 
+/// Values required for the update circuit.
+///
+/// This struct contains all the values needed to prove a valid update of a user's public state:
+/// - The user's public key
+/// - The previous and new public states
+/// - A validity proof for the new public state
+/// - A merkle proof showing the old block hash is included in the new block tree
+/// - An account membership proof to verify the user's last transaction block number
 #[derive(Debug, Clone)]
 pub struct UpdateValue<
     F: RichField + Extendable<D>,
@@ -122,6 +148,24 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F> + 'static, const D
 where
     <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
 {
+    /// Creates a new UpdateValue by validating all the components needed for a public state update.
+    ///
+    /// This function performs the following validations:
+    /// 1. Verifies the validity proof for the new public state
+    /// 2. Verifies the block merkle proof showing the old block hash is included in the new block tree
+    /// 3. Verifies the account membership proof to get the user's last transaction block number
+    /// 4. Checks that the user's last transaction block number is not newer than the previous public state
+    ///
+    /// # Arguments
+    /// * `validity_vd` - Verifier data for the validity circuit
+    /// * `pubkey` - The user's public key
+    /// * `validity_proof` - Proof of validity for the new public state
+    /// * `prev_public_state` - The previous public state
+    /// * `block_merkle_proof` - Proof that the old block hash is included in the new block tree
+    /// * `account_membership_proof` - Proof of the user's account in the new state's account tree
+    ///
+    /// # Returns
+    /// A Result containing either the new UpdateValue or an error if any validation fails
     pub fn new(
         validity_vd: &VerifierCircuitData<F, C, D>,
         pubkey: U256,
@@ -175,6 +219,11 @@ where
     }
 }
 
+/// Target version of UpdateValue for use in ZKP circuits.
+///
+/// This struct contains circuit targets for all components needed to verify a public state update,
+/// including the user's public key, previous and new public states, validity proof,
+/// block merkle proof, and account membership proof.
 #[derive(Debug, Clone)]
 pub struct UpdateTarget<const D: usize> {
     pub pubkey: U256Target,
@@ -186,6 +235,20 @@ pub struct UpdateTarget<const D: usize> {
 }
 
 impl<const D: usize> UpdateTarget<D> {
+    /// Creates a new UpdateTarget with circuit constraints that enforce the update circuit rules.
+    ///
+    /// This method builds the circuit constraints that verify:
+    /// 1. The validity proof for the new public state is correct (via add_proof_target_and_verify_cyclic)
+    /// 2. The block hash of the old public state is included in the new public state's block tree
+    /// 3. The user's last transaction block number is not newer than the previous public state
+    ///
+    /// # Arguments
+    /// * `validity_vd` - Verifier data for the validity circuit
+    /// * `builder` - Circuit builder to add constraints to
+    /// * `is_checked` - Whether to add range check constraints for the targets
+    ///
+    /// # Returns
+    /// A new UpdateTarget with all necessary targets and constraints
     pub fn new<F: RichField + Extendable<D>, C: GenericConfig<D, F = F> + 'static>(
         validity_vd: &VerifierCircuitData<F, C, D>,
         builder: &mut CircuitBuilder<F, D>,
@@ -228,6 +291,11 @@ impl<const D: usize> UpdateTarget<D> {
         }
     }
 
+    /// Sets the witness values for all targets in this UpdateTarget.
+    ///
+    /// # Arguments
+    /// * `witness` - Witness to set values in
+    /// * `value` - UpdateValue containing the values to set
     pub fn set_witness<
         F: RichField + Extendable<D>,
         C: GenericConfig<D, F = F> + 'static,
@@ -252,6 +320,11 @@ impl<const D: usize> UpdateTarget<D> {
     }
 }
 
+/// The main update circuit for proving valid public state updates.
+///
+/// This circuit verifies that a user's public state can be updated to a new public state
+/// without having sent any transactions in between. It enforces the constraints defined
+/// in the UpdateTarget.
 pub struct UpdateCircuit<F, C, const D: usize>
 where
     F: RichField + Extendable<D>,
@@ -268,6 +341,18 @@ where
     C: GenericConfig<D, F = F> + 'static,
     C::Hasher: AlgebraicHasher<F>,
 {
+    /// Creates a new UpdateCircuit with the necessary circuit data and targets.
+    ///
+    /// This method builds the circuit that enforces the update constraints by:
+    /// 1. Creating an UpdateTarget with the validity verifier data
+    /// 2. Registering the public inputs (pubkey, prev_public_state, new_public_state)
+    /// 3. Building the circuit data
+    ///
+    /// # Arguments
+    /// * `validity_vd` - Verifier data for the validity circuit
+    ///
+    /// # Returns
+    /// A new UpdateCircuit ready to generate proofs
     pub fn new(validity_vd: &VerifierCircuitData<F, C, D>) -> Self {
         let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::default());
         let target = UpdateTarget::new::<F, C>(validity_vd, &mut builder, true);
@@ -286,6 +371,17 @@ where
         }
     }
 
+    /// Generates a proof for the update circuit using the provided UpdateValue.
+    ///
+    /// This method:
+    /// 1. Creates a partial witness from the UpdateValue
+    /// 2. Generates a proof using the circuit data
+    ///
+    /// # Arguments
+    /// * `value` - The UpdateValue containing all the values needed for the proof
+    ///
+    /// # Returns
+    /// A Result containing either the generated proof or an error if proof generation fails
     pub fn prove(
         &self,
         value: &UpdateValue<F, C, D>,
