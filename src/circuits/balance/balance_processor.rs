@@ -260,15 +260,15 @@ mod tests {
     const D: usize = 2;
 
     #[test]
-    fn balance_processor_setup() {
+    fn test_balance_processor_setup() {
         let validity_processor = ValidityProcessor::<F, C, D>::new();
         let _balance_processor =
             BalanceProcessor::new(&validity_processor.validity_circuit.data.verifier_data());
     }
 
     #[test]
-    fn balance_processor_send() -> Result<(), BalanceError> {
-        let mut rng = rand::thread_rng();
+    fn test_balance_processor_send() -> Result<(), BalanceError> {
+        let mut rng: rand::prelude::ThreadRng = rand::thread_rng();
         let validity_processor = Arc::new(ValidityProcessor::<F, C, D>::new());
         let balance_processor = BalanceProcessor::new(&validity_processor.get_verifier_data());
         let mut validity_state_manager =
@@ -327,7 +327,7 @@ mod tests {
     }
 
     #[test]
-    fn balance_processor_update() -> Result<(), BalanceError> {
+    fn test_balance_processor_update() -> Result<(), BalanceError> {
         let mut rng = rand::thread_rng();
         let validity_processor = Arc::new(ValidityProcessor::<F, C, D>::new());
         let balance_processor = BalanceProcessor::new(&validity_processor.get_verifier_data());
@@ -358,7 +358,7 @@ mod tests {
 
     #[test]
     #[cfg(feature = "skip_insufficient_check")]
-    fn balance_processor_receive_transfer() -> Result<(), BalanceError> {
+    fn test_balance_processor_receive_transfer() -> Result<(), BalanceError> {
         use rand::Rng;
 
         use crate::{
@@ -478,7 +478,7 @@ mod tests {
     }
 
     #[test]
-    fn balance_processor_deposit() -> Result<(), BalanceError> {
+    fn test_balance_processor_receive_deposit() -> Result<(), BalanceError> {
         let mut rng = rand::thread_rng();
         let validity_processor = Arc::new(ValidityProcessor::<F, C, D>::new());
         let balance_processor = BalanceProcessor::new(&validity_processor.get_verifier_data());
