@@ -268,9 +268,9 @@ where
     C: GenericConfig<D, F = F> + 'static,
     C::Hasher: AlgebraicHasher<F>,
 {
-    pub fn new(validity_circuit: &VerifierCircuitData<F, C, D>) -> Self {
+    pub fn new(validity_vd: &VerifierCircuitData<F, C, D>) -> Self {
         let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::default());
-        let target = UpdateTarget::new::<F, C>(validity_circuit, &mut builder, true);
+        let target = UpdateTarget::new::<F, C>(validity_vd, &mut builder, true);
         let pis = UpdatePublicInputsTarget {
             pubkey: target.pubkey,
             prev_public_state: target.prev_public_state.clone(),
