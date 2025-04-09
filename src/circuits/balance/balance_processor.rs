@@ -363,7 +363,6 @@ mod tests {
 
         use crate::{
             common::{
-                generic_address::GenericAddress,
                 salt::Salt,
                 witness::{
                     private_transition_witness::PrivateTransitionWitness,
@@ -390,7 +389,7 @@ mod tests {
 
         // alice send transfer
         let transfer = Transfer {
-            recipient: GenericAddress::from_pubkey(bob_key.pubkey),
+            recipient: bob_key.pubkey.into(),
             token_index: rng.gen(),
             amount: U256::rand_small(&mut rng),
             salt: Salt::rand(&mut rng),
@@ -450,17 +449,14 @@ mod tests {
             &update_witness,
             &None,
         )?;
-        let private_transition_witness = PrivateTransitionWitness::new_from_transfer(
-            &mut bob_state,
-            transfer,
-            Salt::rand(&mut rng),
-        )
-        .map_err(|e| {
-            BalanceError::Other(format!(
-                "Failed to create private transition witness from transfer: {:?}",
-                e
-            ))
-        })?;
+        let private_transition_witness =
+            PrivateTransitionWitness::from_transfer(&mut bob_state, transfer, Salt::rand(&mut rng))
+                .map_err(|e| {
+                    BalanceError::Other(format!(
+                        "Failed to create private transition witness from transfer: {:?}",
+                        e
+                    ))
+                })?;
         let block_merkle_proof = validity_state_manager
             .get_block_merkle_proof(1, 1)
             .map_err(|e| {
