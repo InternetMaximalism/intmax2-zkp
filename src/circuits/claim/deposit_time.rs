@@ -60,13 +60,13 @@ const DEPOSIT_TIME_PUBLIC_INPUTS_LEN: usize =
 /// eligibility for claiming and to calculate the lock time before it can be claimed.
 #[derive(Debug, Clone)]
 pub struct DepositTimePublicInputs {
-    pub pubkey: U256,              // Public key of the claimer
-    pub nullifier: Bytes32,        // Nullifier to prevent double-claiming
-    pub deposit_amount: U256,      // Amount of the deposit
-    pub lock_time: u32,            // Time period the deposit must be locked before claiming
-    pub block_timestamp: u64,      // Timestamp of the block containing the deposit
-    pub block_hash: Bytes32,       // Hash of the block containing the deposit
-    pub block_number: u32,         // Number of the block containing the deposit
+    pub pubkey: U256,         // Public key of the claimer
+    pub nullifier: Bytes32,   // Nullifier to prevent double-claiming
+    pub deposit_amount: U256, // Amount of the deposit
+    pub lock_time: u32,       // Time period the deposit must be locked before claiming
+    pub block_timestamp: u64, // Timestamp of the block containing the deposit
+    pub block_hash: Bytes32,  // Hash of the block containing the deposit
+    pub block_number: u32,    // Number of the block containing the deposit
 }
 
 impl DepositTimePublicInputs {
@@ -131,13 +131,13 @@ impl DepositTimePublicInputs {
 /// in the proof for verification.
 #[derive(Debug, Clone)]
 pub struct DepositTimePublicInputsTarget {
-    pub pubkey: U256Target,        // Target for claimer's public key
-    pub nullifier: Bytes32Target,  // Target for deposit nullifier
+    pub pubkey: U256Target,         // Target for claimer's public key
+    pub nullifier: Bytes32Target,   // Target for deposit nullifier
     pub deposit_amount: U256Target, // Target for deposit amount
-    pub lock_time: Target,         // Target for lock time duration
+    pub lock_time: Target,          // Target for lock time duration
     pub block_timestamp: U64Target, // Target for block timestamp
-    pub block_hash: Bytes32Target, // Target for block hash
-    pub block_number: Target,      // Target for block number
+    pub block_hash: Bytes32Target,  // Target for block hash
+    pub block_number: Target,       // Target for block number
 }
 
 impl DepositTimePublicInputsTarget {
@@ -187,16 +187,16 @@ impl DepositTimePublicInputsTarget {
 /// Contains all the data required to prove that a deposit was included in a specific block
 /// for the first time and to calculate its lock time and nullifier.
 pub struct DepositTimeValue {
-    pub prev_block: Block,         // Previous block (to prove deposit wasn't included yet)
-    pub block: Block,              // Block containing the deposit
+    pub prev_block: Block, // Previous block (to prove deposit wasn't included yet)
+    pub block: Block,      // Block containing the deposit
     pub prev_deposit_merkle_proof: DepositMerkleProof, // Proof of non-inclusion in previous block
     pub deposit_merkle_proof: DepositMerkleProof, // Proof of inclusion in current block
-    pub deposit: Deposit,          // The deposit being verified
-    pub deposit_index: u32,        // Index of the deposit in the deposit tree
-    pub deposit_salt: Salt,        // Salt used to hide the public key in the deposit
-    pub block_hash: Bytes32,       // Hash of the block containing the deposit
-    pub pubkey: U256,              // Public key of the claimer
-    pub nullifier: Bytes32,        // Calculated nullifier for the deposit
+    pub deposit: Deposit,  // The deposit being verified
+    pub deposit_index: u32, // Index of the deposit in the deposit tree
+    pub deposit_salt: Salt, // Salt used to hide the public key in the deposit
+    pub block_hash: Bytes32, // Hash of the block containing the deposit
+    pub pubkey: U256,      // Public key of the claimer
+    pub nullifier: Bytes32, // Calculated nullifier for the deposit
     pub determine_lock_time_value: DetermineLockTimeValue, // Lock time calculation data
 }
 
@@ -302,16 +302,16 @@ impl DepositTimeValue {
 /// inclusion in a block and calculate its lock time and nullifier.
 #[derive(Debug, Clone)]
 pub struct DepositTimeTarget {
-    pub prev_block: BlockTarget,   // Target for previous block
-    pub block: BlockTarget,        // Target for block containing the deposit
+    pub prev_block: BlockTarget, // Target for previous block
+    pub block: BlockTarget,      // Target for block containing the deposit
     pub prev_deposit_merkle_proof: DepositMerkleProofTarget, // Target for non-inclusion proof
     pub deposit_merkle_proof: DepositMerkleProofTarget, // Target for inclusion proof
-    pub deposit: DepositTarget,    // Target for the deposit
-    pub deposit_index: Target,     // Target for deposit index
-    pub deposit_salt: SaltTarget,  // Target for deposit salt
+    pub deposit: DepositTarget,  // Target for the deposit
+    pub deposit_index: Target,   // Target for deposit index
+    pub deposit_salt: SaltTarget, // Target for deposit salt
     pub block_hash: Bytes32Target, // Target for block hash
-    pub pubkey: U256Target,        // Target for claimer's public key
-    pub nullifier: Bytes32Target,  // Target for deposit nullifier
+    pub pubkey: U256Target,      // Target for claimer's public key
+    pub nullifier: Bytes32Target, // Target for deposit nullifier
     pub determine_lock_time_target: DetermineLockTimeTarget, // Target for lock time calculation
 }
 
@@ -525,7 +525,8 @@ mod tests {
     /// 2. Creates a deposit with the pubkey_salt_hash and marks it as eligible
     /// 3. Creates a previous block without the deposit
     /// 4. Creates a current block with the deposit
-    /// 5. Generates proofs of non-inclusion in the previous block and inclusion in the current block
+    /// 5. Generates proofs of non-inclusion in the previous block and inclusion in the current
+    ///    block
     /// 6. Creates a DepositTimeValue with all the necessary data
     /// 7. Creates a DepositTimeCircuit and generates a proof
     /// 8. Verifies the proof is valid
@@ -587,6 +588,7 @@ mod tests {
         .unwrap();
 
         let circuit = super::DepositTimeCircuit::<F, C, D>::new(&lock_config);
-        let _proof = circuit.prove(&value).unwrap();
+        let proof = circuit.prove(&value).unwrap();
+        circuit.data.verify(proof).unwrap();
     }
 }

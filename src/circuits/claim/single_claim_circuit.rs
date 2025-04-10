@@ -359,3 +359,102 @@ where
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+
+    use crate::{
+        circuits::{
+            claim::{deposit_time::DepositTimeCircuit, determine_lock_time::LockTimeConfig},
+            test_utils::state_manager::ValidityStateManager,
+            validity::validity_processor::ValidityProcessor,
+        },
+        common::{
+            deposit::{get_pubkey_salt_hash, Deposit},
+            salt::Salt,
+            signature_content::key_set::KeySet,
+            witness::deposit_time_witness::DepositTimeWitness,
+        },
+        ethereum_types::{address::Address, u256::U256, u32limb_trait::U32LimbTrait},
+    };
+    use plonky2::{
+        field::goldilocks_field::GoldilocksField, plonk::config::PoseidonGoldilocksConfig,
+    };
+    use rand::Rng as _;
+
+    use super::{SingleClaimCircuit, SingleClaimValue};
+
+    type F = GoldilocksField;
+    type C = PoseidonGoldilocksConfig;
+    const D: usize = 2;
+
+    #[test]
+    fn test_single_claim_circuit() {
+        let lock_config = LockTimeConfig::normal();
+
+        let mut rng = rand::thread_rng();
+        let validity_processor = Arc::new(ValidityProcessor::<F, C, D>::new());
+        let mut validity_state_manager =
+            ValidityStateManager::new(validity_processor.clone(), Address::default());
+        let key = KeySet::rand(&mut rng);
+
+        // deposit
+        let deposit_salt = Salt::rand(&mut rng);
+        let deposit_salt_hash = get_pubkey_salt_hash(key.pubkey, deposit_salt);
+        let deposit = Deposit {
+            depositor: Address::rand(&mut rng),
+            pubkey_salt_hash: deposit_salt_hash,
+            amount: U256::rand_small(&mut rng),
+            token_index: rng.gen(),
+            is_eligible: true,
+        };
+        let deposit_index = validity_state_manager.deposit(&deposit).unwrap();
+
+        // post empty block to sync deposit tree
+        validity_state_manager.tick(false, &[], 0, 0).unwrap();
+
+        // lock time max passed in this block
+        validity_state_manager
+            .tick(false, &[], 0, lock_config.lock_time_max as u64)
+            .unwrap();
+
+        let update_witness = validity_state_manager
+            .get_update_witness(key.pubkey, 2, 1, false)
+            .unwrap();
+        let deposit_time_public_witness = validity_state_manager
+            .get_deposit_time_public_witness(1, deposit_index)
+            .unwrap();
+
+        let deposit_time_witness = DepositTimeWitness {
+            public_witness: deposit_time_public_witness,
+            deposit_index,
+            deposit,
+            deposit_salt,
+            pubkey: key.pubkey,
+        };
+        let deposit_time_value = deposit_time_witness.to_value(&lock_config).unwrap();
+
+        let deposit_time_circuit = DepositTimeCircuit::<F, C, D>::new(&lock_config);
+        let deposit_time_proof = deposit_time_circuit.prove(&deposit_time_value).unwrap();
+
+        let single_claim_value = SingleClaimValue::new(
+            &validity_processor.get_verifier_data(),
+            &deposit_time_circuit.data.verifier_data(),
+            Address::rand(&mut rng),
+            &update_witness.block_merkle_proof,
+            &update_witness.account_membership_proof,
+            &update_witness.validity_proof,
+            &deposit_time_proof,
+        )
+        .unwrap();
+
+        let single_claim_circuit = SingleClaimCircuit::<F, C, D>::new(
+            &validity_processor.get_verifier_data(),
+            &deposit_time_circuit.data.verifier_data(),
+        );
+
+        let single_claim_proof = single_claim_circuit.prove(&single_claim_value).unwrap();
+        single_claim_circuit.verify(&single_claim_proof).unwrap();
+    }
+}
