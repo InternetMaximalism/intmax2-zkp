@@ -346,7 +346,7 @@ mod tests {
         };
         let packed_str = serde_json::to_string(&packed).unwrap();
         let packed_deserialized: SparseMerkleTreePacked<V> = serde_json::from_str(&packed_str)
-            .expect("failed to deserialize SparseMerkleTreePacked");
+            .unwrap();
         let tree_deserialized = SparseMerkleTree::<V>::unpack(packed_deserialized);
 
         assert_eq!(tree.get_root(), tree_deserialized.get_root());
