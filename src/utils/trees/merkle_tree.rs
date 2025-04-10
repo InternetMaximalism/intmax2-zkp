@@ -226,8 +226,8 @@ impl<VT: LeafableTarget> MerkleProofTarget<VT> {
     where
         <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
     {
-        let mut state = leaf_data.hash::<F, C, D>(builder);
         let index_bits = builder.split_le(index, self.height());
+        let mut state = leaf_data.hash::<F, C, D>(builder);
         for (bit, sibling) in index_bits.iter().zip(&self.siblings) {
             state = HasherFromTarget::<VT>::two_to_one_swapped::<F, C, D>(
                 builder, &state, sibling, *bit,
