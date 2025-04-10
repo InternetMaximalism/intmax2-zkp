@@ -1,4 +1,5 @@
-use hashbrown::HashMap;
+use std::collections::HashMap;
+
 use plonky2::{
     field::{extension::Extendable, types::Field},
     hash::hash_types::RichField,
@@ -345,8 +346,8 @@ mod tests {
             leaves: tree.leaves().into_iter().collect(),
         };
         let packed_str = serde_json::to_string(&packed).unwrap();
-        let packed_deserialized: SparseMerkleTreePacked<V> = serde_json::from_str(&packed_str)
-            .unwrap();
+        let packed_deserialized: SparseMerkleTreePacked<V> =
+            serde_json::from_str(&packed_str).unwrap();
         let tree_deserialized = SparseMerkleTree::<V>::unpack(packed_deserialized);
 
         assert_eq!(tree.get_root(), tree_deserialized.get_root());

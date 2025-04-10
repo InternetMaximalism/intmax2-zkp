@@ -2,7 +2,8 @@
 //!
 //! This circuit serves as a proof aggregation layer that switches between four different
 //! transition types based on circuit flags:
-//! 1. ReceiveTransfer - Processes incoming transfers by verifying transfer inclusion and updating private state
+//! 1. ReceiveTransfer - Processes incoming transfers by verifying transfer inclusion and updating
+//!    private state
 //! 2. ReceiveDeposit - Processes deposits by verifying deposit inclusion and updating private state
 //! 3. Update - Updates the user's public state without modifying private state
 //! 4. Sender - Updates both public and private states when sending transactions
@@ -73,15 +74,15 @@ pub struct BalanceTransitionValue<
     C: GenericConfig<D, F = F>,
     const D: usize,
 > {
-    pub circuit_type: BalanceTransitionType,           // Type of transition to apply
-    pub circuit_flags: [bool; 4],                      // Flags for each transition type (only one is true)
+    pub circuit_type: BalanceTransitionType, // Type of transition to apply
+    pub circuit_flags: [bool; 4],            // Flags for each transition type (only one is true)
     pub receive_transfer_proof: Option<ProofWithPublicInputs<F, C, D>>, // Proof for ReceiveTransfer
-    pub receive_deposit_proof: Option<ProofWithPublicInputs<F, C, D>>,  // Proof for ReceiveDeposit
-    pub update_proof: Option<ProofWithPublicInputs<F, C, D>>,           // Proof for Update
-    pub sender_proof: Option<ProofWithPublicInputs<F, C, D>>,           // Proof for Sender
-    pub prev_balance_pis: BalancePublicInputs,         // Previous balance public inputs
-    pub new_balance_pis: BalancePublicInputs,          // New balance public inputs (witness)
-    pub new_balance_pis_commitment: PoseidonHashOut,   // Commitment to new balance public inputs
+    pub receive_deposit_proof: Option<ProofWithPublicInputs<F, C, D>>, // Proof for ReceiveDeposit
+    pub update_proof: Option<ProofWithPublicInputs<F, C, D>>, // Proof for Update
+    pub sender_proof: Option<ProofWithPublicInputs<F, C, D>>, // Proof for Sender
+    pub prev_balance_pis: BalancePublicInputs, // Previous balance public inputs
+    pub new_balance_pis: BalancePublicInputs, // New balance public inputs (witness)
+    pub new_balance_pis_commitment: PoseidonHashOut, // Commitment to new balance public inputs
     pub balance_circuit_vd: VerifierOnlyCircuitData<C, D>, // Verifier data for balance circuit
 }
 
@@ -304,16 +305,17 @@ where
 /// and the logic to select between them based on circuit flags.
 #[derive(Debug, Clone)]
 pub struct BalanceTransitionTarget<const D: usize> {
-    pub circuit_type: Target,                          // Target for transition type index
-    pub circuit_flags: [BoolTarget; 4],                // Boolean flags for each transition type
+    pub circuit_type: Target,           // Target for transition type index
+    pub circuit_flags: [BoolTarget; 4], // Boolean flags for each transition type
     pub receive_transfer_proof: ProofWithPublicInputsTarget<D>, // Target for ReceiveTransfer proof
-    pub receive_deposit_proof: ProofWithPublicInputsTarget<D>,  // Target for ReceiveDeposit proof
-    pub update_proof: ProofWithPublicInputsTarget<D>,           // Target for Update proof
-    pub sender_proof: ProofWithPublicInputsTarget<D>,           // Target for Sender proof
-    pub prev_balance_pis: BalancePublicInputsTarget,   // Previous balance public inputs
-    pub new_balance_pis: BalancePublicInputsTarget,    // New balance public inputs (witness)
-    pub new_balance_pis_commitment: PoseidonHashOutTarget, // Commitment to new balance public inputs
-    pub balance_circuit_vd: VerifierCircuitTarget,     // Verifier data for balance circuit
+    pub receive_deposit_proof: ProofWithPublicInputsTarget<D>, // Target for ReceiveDeposit proof
+    pub update_proof: ProofWithPublicInputsTarget<D>, // Target for Update proof
+    pub sender_proof: ProofWithPublicInputsTarget<D>, // Target for Sender proof
+    pub prev_balance_pis: BalancePublicInputsTarget, // Previous balance public inputs
+    pub new_balance_pis: BalancePublicInputsTarget, // New balance public inputs (witness)
+    pub new_balance_pis_commitment: PoseidonHashOutTarget, /* Commitment to new balance public
+                                         * inputs */
+    pub balance_circuit_vd: VerifierCircuitTarget, // Verifier data for balance circuit
 }
 
 impl<const D: usize> BalanceTransitionTarget<D> {
@@ -582,18 +584,18 @@ impl<const D: usize> BalanceTransitionTarget<D> {
 
 /// Main circuit for verifying balance state transitions.
 ///
-/// This circuit combines all four transition types (ReceiveTransfer, ReceiveDeposit, Update, Sender)
-/// into a single circuit that can verify any of them based on circuit flags. It provides a unified
-/// interface for balance state transitions while allowing different transition types to be used
-/// as needed.
+/// This circuit combines all four transition types (ReceiveTransfer, ReceiveDeposit, Update,
+/// Sender) into a single circuit that can verify any of them based on circuit flags. It provides a
+/// unified interface for balance state transitions while allowing different transition types to be
+/// used as needed.
 pub struct BalanceTransitionCircuit<F, C, const D: usize>
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
 {
-    pub data: CircuitData<F, C, D>,                    // Circuit data containing the compiled circuit
-    pub target: BalanceTransitionTarget<D>,            // Target containing all circuit constraints
-    pub balance_circuit_vd: VerifierCircuitTarget,     // Verifier data for balance circuit
+    pub data: CircuitData<F, C, D>, // Circuit data containing the compiled circuit
+    pub target: BalanceTransitionTarget<D>, // Target containing all circuit constraints
+    pub balance_circuit_vd: VerifierCircuitTarget, // Verifier data for balance circuit
 }
 
 impl<F, C, const D: usize> BalanceTransitionCircuit<F, C, D>
@@ -702,8 +704,7 @@ mod tests {
                 balance_processor::BalanceProcessor,
                 receive::{
                     receive_deposit_circuit::{ReceiveDepositCircuit, ReceiveDepositValue},
-                    receive_targets::transfer_inclusion::TransferInclusionValue,
-                    receive_transfer_circuit::{ReceiveTransferCircuit, ReceiveTransferValue},
+                    receive_transfer_circuit::ReceiveTransferCircuit,
                     update_circuit::UpdateCircuit,
                 },
                 send::sender_processor::SenderProcessor,
@@ -892,6 +893,11 @@ mod tests {
     #[cfg(feature = "skip_insufficient_check")]
     #[test]
     fn test_transition_circuit_receive_transfer() {
+        use crate::circuits::balance::receive::{
+            receive_targets::transfer_inclusion::TransferInclusionValue,
+            receive_transfer_circuit::ReceiveTransferValue,
+        };
+
         let mut rng = rand::thread_rng();
         let validity_processor = Arc::new(ValidityProcessor::<F, C, D>::new());
         let mut validity_state_manager =

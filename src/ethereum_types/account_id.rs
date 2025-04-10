@@ -6,7 +6,7 @@ use super::{
     u32limb_trait::{self, U32LimbTargetTrait, U32LimbTrait},
 };
 use crate::constants::{ACCOUNT_ID_BITS, NUM_SENDERS_IN_BLOCK};
-use itertools::Itertools;
+use itertools::Itertools as _;
 use plonky2::{
     field::extension::Extendable,
     hash::hash_types::RichField,
