@@ -98,7 +98,7 @@ where
             amount: transfer.amount,           // Amount being withdrawn
             nullifier,                         // Unique identifier to prevent double withdrawals
             block_hash: transfer_inclusion_target.public_state.block_hash, /* Block hash for
-                                                                            * verification */
+                                                * verification */
             block_number: transfer_inclusion_target.public_state.block_number, /* Block number for verification */
         };
 
@@ -113,25 +113,13 @@ where
         }
     }
 
-    /// Generates a proof for a withdrawal based on a transfer inclusion value.
-    ///
-    /// This function:
-    /// 1. Creates a partial witness from the transfer inclusion value
-    /// 2. Generates a proof that the transfer is valid and included in a block
-    /// 3. The proof's public inputs will contain the withdrawal information
-    ///
-    /// # Arguments
-    /// * `transition_inclusion_value` - Value containing the transfer and balance proof
-    ///
-    /// # Returns
-    /// A Result containing either the proof with public inputs or an error
     pub fn prove(
         &self,
-        transition_inclusion_value: &TransferInclusionValue<F, C, D>,
+        transfer_inclusion_value: &TransferInclusionValue<F, C, D>,
     ) -> Result<ProofWithPublicInputs<F, C, D>, WithdrawalError> {
         let mut pw = PartialWitness::<F>::new();
         self.transfer_inclusion_target
-            .set_witness(&mut pw, transition_inclusion_value);
+            .set_witness(&mut pw, transfer_inclusion_value);
         self.data
             .prove(pw)
             .map_err(|e| WithdrawalError::ProofGenerationError(format!("{:?}", e)))
@@ -144,3 +132,110 @@ where
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use crate::{
+        circuits::{
+            balance::{
+                balance_processor::BalanceProcessor,
+                receive::receive_targets::transfer_inclusion::TransferInclusionValue,
+            },
+            test_utils::witness_generator::{construct_spent_and_transfer_witness, MockTxRequest},
+        },
+        common::{
+            private_state::FullPrivateState, salt::Salt, signature_content::key_set::KeySet,
+            transfer::Transfer,
+        },
+        ethereum_types::{address::Address, u256::U256, u32limb_trait::U32LimbTrait},
+    };
+    use plonky2::{
+        field::goldilocks_field::GoldilocksField, plonk::config::PoseidonGoldilocksConfig,
+    };
+    use rand::Rng;
+
+    use crate::circuits::test_utils::state_manager::ValidityStateManager;
+
+    type F = GoldilocksField;
+    type C = PoseidonGoldilocksConfig;
+    const D: usize = 2;
+
+    #[test]
+    fn test_single_withdrawal_circuit() {
+        use std::sync::Arc;
+
+        use crate::circuits::{
+            validity::validity_processor::ValidityProcessor,
+            withdrawal::single_withdrawal_circuit::SingleWithdrawalCircuit,
+        };
+
+        let mut rng = rand::thread_rng();
+        let validity_processor = Arc::new(ValidityProcessor::<F, C, D>::new());
+        let mut validity_state_manager =
+            ValidityStateManager::new(validity_processor.clone(), Address::default());
+        let balance_processor = BalanceProcessor::new(&validity_processor.get_verifier_data());
+
+        let key = KeySet::rand(&mut rng);
+        let mut full_private_state = FullPrivateState::new();
+
+        // generate withdrawal transfer
+        let transfer = Transfer {
+            recipient: Address::rand(&mut rng).into(),
+            token_index: rng.gen(),
+            amount: U256::zero(), // because the user don't have balance
+            salt: Salt::rand(&mut rng),
+        };
+        let (spent_witness, transfer_witnesses) =
+            construct_spent_and_transfer_witness(&mut full_private_state, &[transfer]).unwrap();
+        let transfer_witness = transfer_witnesses[0].clone();
+        let spent_proof = balance_processor
+            .balance_transition_processor
+            .sender_processor
+            .prove_spent(&spent_witness)
+            .unwrap();
+
+        // post block
+        let tx_request = MockTxRequest {
+            tx: spent_witness.tx,
+            sender_key: key,
+            will_return_sig: true,
+        };
+        let tx_witnesses = validity_state_manager
+            .tick(true, &[tx_request], 0, 0)
+            .unwrap();
+        let tx_witness = tx_witnesses[0].clone();
+        let update_witness = validity_state_manager
+            .get_update_witness(key.pubkey, 1, 0, true)
+            .unwrap();
+
+        let balance_proof = balance_processor
+            .prove_send(
+                &validity_processor.get_verifier_data(),
+                key.pubkey,
+                &tx_witness,
+                &update_witness,
+                &spent_proof,
+                &None,
+            )
+            .unwrap();
+
+        let transfer_inclusion_value = TransferInclusionValue::new(
+            &balance_processor.get_verifier_data(),
+            &transfer_witness.transfer,
+            transfer_witness.transfer_index,
+            &transfer_witness.transfer_merkle_proof,
+            &transfer_witness.tx,
+            &balance_proof,
+        )
+        .unwrap();
+
+        let single_withdrawal_circuit =
+            SingleWithdrawalCircuit::<F, C, D>::new(&balance_processor.get_verifier_data());
+        let single_withdrawal_proof = single_withdrawal_circuit
+            .prove(&transfer_inclusion_value)
+            .unwrap();
+
+        single_withdrawal_circuit
+            .verify(&single_withdrawal_proof)
+            .unwrap();
+    }
+}
