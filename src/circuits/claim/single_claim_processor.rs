@@ -9,13 +9,13 @@ use plonky2::{
 };
 
 use crate::{
-    circuits::claim::single_claim_proof::SingleClaimValue,
+    circuits::claim::single_claim_circuit::SingleClaimValue,
     common::witness::claim_witness::ClaimWitness,
 };
 
 use super::{
     deposit_time::DepositTimeCircuit, determine_lock_time::LockTimeConfig, error::ClaimError,
-    single_claim_proof::SingleClaimCircuit,
+    single_claim_circuit::SingleClaimCircuit,
 };
 
 #[derive(Debug)]
