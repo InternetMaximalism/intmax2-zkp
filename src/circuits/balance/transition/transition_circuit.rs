@@ -1,3 +1,15 @@
+//! Transition circuit for aggregating different balance state transitions.
+//!
+//! This circuit serves as a proof aggregation layer that switches between four different
+//! transition types based on circuit flags:
+//! 1. ReceiveTransfer - Processes incoming transfers by verifying transfer inclusion and updating private state
+//! 2. ReceiveDeposit - Processes deposits by verifying deposit inclusion and updating private state
+//! 3. Update - Updates the user's public state without modifying private state
+//! 4. Sender - Updates both public and private states when sending transactions
+//!
+//! The transition circuit selects which transition to apply based on circuit flags,
+//! verifies the corresponding proof, and computes the new balance public inputs.
+
 use super::error::TransitionError;
 use plonky2::{
     field::extension::Extendable,
@@ -49,22 +61,28 @@ pub enum BalanceTransitionType {
     Sender = 3,
 }
 
+/// Values required for the balance transition circuit.
+///
+/// This struct contains all the data needed to prove a valid transition between
+/// balance states using one of the four transition types (ReceiveTransfer, ReceiveDeposit,
+/// Update, or Sender). It holds the proofs for each transition type, but only one
+/// will be verified based on the circuit_type flag.
 #[derive(Debug, Clone)]
 pub struct BalanceTransitionValue<
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
     const D: usize,
 > {
-    pub circuit_type: BalanceTransitionType,
-    pub circuit_flags: [bool; 4],
-    pub receive_transfer_proof: Option<ProofWithPublicInputs<F, C, D>>,
-    pub receive_deposit_proof: Option<ProofWithPublicInputs<F, C, D>>,
-    pub update_proof: Option<ProofWithPublicInputs<F, C, D>>,
-    pub sender_proof: Option<ProofWithPublicInputs<F, C, D>>,
-    pub prev_balance_pis: BalancePublicInputs,
-    pub new_balance_pis: BalancePublicInputs, // witness for the `new_balance_pis_commitment`
-    pub new_balance_pis_commitment: PoseidonHashOut, // selected by the circuit
-    pub balance_circuit_vd: VerifierOnlyCircuitData<C, D>,
+    pub circuit_type: BalanceTransitionType,           // Type of transition to apply
+    pub circuit_flags: [bool; 4],                      // Flags for each transition type (only one is true)
+    pub receive_transfer_proof: Option<ProofWithPublicInputs<F, C, D>>, // Proof for ReceiveTransfer
+    pub receive_deposit_proof: Option<ProofWithPublicInputs<F, C, D>>,  // Proof for ReceiveDeposit
+    pub update_proof: Option<ProofWithPublicInputs<F, C, D>>,           // Proof for Update
+    pub sender_proof: Option<ProofWithPublicInputs<F, C, D>>,           // Proof for Sender
+    pub prev_balance_pis: BalancePublicInputs,         // Previous balance public inputs
+    pub new_balance_pis: BalancePublicInputs,          // New balance public inputs (witness)
+    pub new_balance_pis_commitment: PoseidonHashOut,   // Commitment to new balance public inputs
+    pub balance_circuit_vd: VerifierOnlyCircuitData<C, D>, // Verifier data for balance circuit
 }
 
 impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
@@ -279,21 +297,46 @@ where
     }
 }
 
+/// Target version of BalanceTransitionValue for use in ZKP circuits.
+///
+/// This struct contains circuit targets for all components needed to verify
+/// a balance state transition, including targets for the four different transition types
+/// and the logic to select between them based on circuit flags.
 #[derive(Debug, Clone)]
 pub struct BalanceTransitionTarget<const D: usize> {
-    pub circuit_type: Target,
-    pub circuit_flags: [BoolTarget; 4],
-    pub receive_transfer_proof: ProofWithPublicInputsTarget<D>,
-    pub receive_deposit_proof: ProofWithPublicInputsTarget<D>,
-    pub update_proof: ProofWithPublicInputsTarget<D>,
-    pub sender_proof: ProofWithPublicInputsTarget<D>,
-    pub prev_balance_pis: BalancePublicInputsTarget,
-    pub new_balance_pis: BalancePublicInputsTarget, // witness for the `new_balance_pis_commitment`
-    pub new_balance_pis_commitment: PoseidonHashOutTarget, // selected by the circuit
-    pub balance_circuit_vd: VerifierCircuitTarget,
+    pub circuit_type: Target,                          // Target for transition type index
+    pub circuit_flags: [BoolTarget; 4],                // Boolean flags for each transition type
+    pub receive_transfer_proof: ProofWithPublicInputsTarget<D>, // Target for ReceiveTransfer proof
+    pub receive_deposit_proof: ProofWithPublicInputsTarget<D>,  // Target for ReceiveDeposit proof
+    pub update_proof: ProofWithPublicInputsTarget<D>,           // Target for Update proof
+    pub sender_proof: ProofWithPublicInputsTarget<D>,           // Target for Sender proof
+    pub prev_balance_pis: BalancePublicInputsTarget,   // Previous balance public inputs
+    pub new_balance_pis: BalancePublicInputsTarget,    // New balance public inputs (witness)
+    pub new_balance_pis_commitment: PoseidonHashOutTarget, // Commitment to new balance public inputs
+    pub balance_circuit_vd: VerifierCircuitTarget,     // Verifier data for balance circuit
 }
 
 impl<const D: usize> BalanceTransitionTarget<D> {
+    /// Creates a new BalanceTransitionTarget with circuit constraints that enforce
+    /// the balance transition rules for all four transition types.
+    ///
+    /// This method builds a circuit that:
+    /// 1. Ensures exactly one circuit flag is set to true (the selected transition type)
+    /// 2. Conditionally verifies the proof for the selected transition type
+    /// 3. Validates that the proof's public inputs match the expected previous balance state
+    /// 4. Computes the new balance public inputs based on the selected transition
+    /// 5. Ensures the commitment to the new balance public inputs is correct
+    ///
+    /// # Arguments
+    /// * `receive_transfer_vd` - Verifier data for the ReceiveTransfer circuit
+    /// * `receive_deposit_vd` - Verifier data for the ReceiveDeposit circuit
+    /// * `update_vd` - Verifier data for the Update circuit
+    /// * `sender_vd` - Verifier data for the Sender circuit
+    /// * `config` - Circuit configuration
+    /// * `builder` - Circuit builder to add constraints to
+    ///
+    /// # Returns
+    /// A new BalanceTransitionTarget with all necessary targets and constraints
     pub fn new<F: RichField + Extendable<D>, C: GenericConfig<D, F = F> + 'static>(
         receive_transfer_vd: &VerifierCircuitData<F, C, D>,
         receive_deposit_vd: &VerifierCircuitData<F, C, D>,
@@ -447,6 +490,22 @@ impl<const D: usize> BalanceTransitionTarget<D> {
         }
     }
 
+    /// Sets the witness values for all targets in this BalanceTransitionTarget.
+    ///
+    /// This method:
+    /// 1. Sets the circuit type and flags based on the selected transition type
+    /// 2. Sets the proof for the selected transition type (or a dummy proof for unused types)
+    /// 3. Sets the previous and new balance public inputs
+    /// 4. Sets the commitment to the new balance public inputs
+    /// 5. Sets the balance circuit verifier data
+    ///
+    /// # Arguments
+    /// * `receive_transfer_circuit` - ReceiveTransfer circuit for dummy proofs
+    /// * `receive_deposit_circuit` - ReceiveDeposit circuit for dummy proofs
+    /// * `update_circuit` - Update circuit for dummy proofs
+    /// * `sender_circuit` - Sender circuit for dummy proofs
+    /// * `witness` - Witness to set values in
+    /// * `value` - BalanceTransitionValue containing the values to set
     pub fn set_witness<
         F: RichField + Extendable<D>,
         C: GenericConfig<D, F = F> + 'static,
@@ -521,14 +580,20 @@ impl<const D: usize> BalanceTransitionTarget<D> {
     }
 }
 
+/// Main circuit for verifying balance state transitions.
+///
+/// This circuit combines all four transition types (ReceiveTransfer, ReceiveDeposit, Update, Sender)
+/// into a single circuit that can verify any of them based on circuit flags. It provides a unified
+/// interface for balance state transitions while allowing different transition types to be used
+/// as needed.
 pub struct BalanceTransitionCircuit<F, C, const D: usize>
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
 {
-    pub data: CircuitData<F, C, D>,
-    pub target: BalanceTransitionTarget<D>,
-    pub balance_circuit_vd: VerifierCircuitTarget,
+    pub data: CircuitData<F, C, D>,                    // Circuit data containing the compiled circuit
+    pub target: BalanceTransitionTarget<D>,            // Target containing all circuit constraints
+    pub balance_circuit_vd: VerifierCircuitTarget,     // Verifier data for balance circuit
 }
 
 impl<F, C, const D: usize> BalanceTransitionCircuit<F, C, D>
@@ -537,6 +602,23 @@ where
     C: GenericConfig<D, F = F> + 'static,
     C::Hasher: AlgebraicHasher<F>,
 {
+    /// Creates a new BalanceTransitionCircuit with all necessary constraints.
+    ///
+    /// This method:
+    /// 1. Creates a new circuit builder with standard recursion ZK configuration
+    /// 2. Adds all targets and constraints via BalanceTransitionTarget
+    /// 3. Registers the public inputs (previous and new balance public inputs)
+    /// 4. Adds and connects the balance circuit verifier data
+    /// 5. Builds the circuit
+    ///
+    /// # Arguments
+    /// * `receive_transfer_vd` - Verifier data for the ReceiveTransfer circuit
+    /// * `receive_deposit_vd` - Verifier data for the ReceiveDeposit circuit
+    /// * `update_vd` - Verifier data for the Update circuit
+    /// * `sender_vd` - Verifier data for the Sender circuit
+    ///
+    /// # Returns
+    /// A new BalanceTransitionCircuit ready to generate proofs
     pub fn new(
         receive_transfer_vd: &VerifierCircuitData<F, C, D>,
         receive_deposit_vd: &VerifierCircuitData<F, C, D>,
@@ -570,6 +652,23 @@ where
         }
     }
 
+    /// Generates a ZK proof for the given balance transition value.
+    ///
+    /// This method:
+    /// 1. Creates a partial witness
+    /// 2. Sets all witness values from the provided BalanceTransitionValue
+    /// 3. Sets the balance circuit verifier data
+    /// 4. Generates a proof that can be verified by others
+    ///
+    /// # Arguments
+    /// * `receive_transfer_circuit` - ReceiveTransfer circuit for dummy proofs
+    /// * `receive_deposit_circuit` - ReceiveDeposit circuit for dummy proofs
+    /// * `update_circuit` - Update circuit for dummy proofs
+    /// * `sender_circuit` - Sender circuit for dummy proofs
+    /// * `value` - BalanceTransitionValue containing all the data needed for the proof
+    ///
+    /// # Returns
+    /// A Result containing either the proof or an error if proof generation fails
     pub fn prove(
         &self,
         receive_transfer_circuit: &ReceiveTransferCircuit<F, C, D>,
