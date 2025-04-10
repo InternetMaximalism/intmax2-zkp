@@ -1,3 +1,18 @@
+//! Innocence Circuit for validating deposits against allow/deny lists.
+//!
+//! This circuit implements an Incrementally Verifiable Computation (IVC) that proves:
+//! 1. All assets in a user's account came through deposits
+//! 2. The depositor addresses are not in a deny list
+//! 3. If allow list is enabled, the depositor addresses are in the allow list
+//!
+//! The circuit processes deposits sequentially, creating a proof for each deposit
+//! and its corresponding nullifier tree transition. Each step verifies:
+//! - The depositor's address against allow/deny lists
+//! - The valid insertion of the deposit's nullifier into the nullifier tree
+//! - The correct transition of the nullifier tree root
+//!
+//! This ensures that all assets in the system came from approved sources.
+
 use plonky2::{
     field::{extension::Extendable, types::PrimeField64},
     gates::noop::NoopGate,
@@ -33,17 +48,23 @@ use crate::{
 
 use super::innocence_inner_target::{InnocenceInnerTarget, InnocenceInnerValue};
 
+/// Length of public inputs for the innocence circuit
 pub const INNOCENCE_PUBLIC_INPUTS_LEN: usize = 1 + 3 * POSEIDON_HASH_OUT_LEN;
 
+/// Public inputs for the innocence circuit
+///
+/// These values are made public in the ZKP and are used to verify that deposits
+/// comply with allow/deny lists and to track the nullifier tree state.
 #[derive(Clone, Debug)]
 pub struct InnocencePublicInputs {
-    pub use_allow_list: bool,
-    pub allow_list_tree_root: PoseidonHashOut,
-    pub deny_list_tree_root: PoseidonHashOut,
-    pub nullifier_tree_root: PoseidonHashOut,
+    pub use_allow_list: bool, // Flag indicating if allow list checking is enabled
+    pub allow_list_tree_root: PoseidonHashOut, // Root of the allow list Merkle tree
+    pub deny_list_tree_root: PoseidonHashOut, // Root of the deny list Merkle tree
+    pub nullifier_tree_root: PoseidonHashOut, // Current root of the nullifier tree
 }
 
 impl InnocencePublicInputs {
+    /// Converts the public inputs to a vector of u64 values for serialization
     pub fn to_u64_vec(&self) -> Vec<u64> {
         let vec = vec![self.use_allow_list as u64]
             .into_iter()
@@ -55,6 +76,7 @@ impl InnocencePublicInputs {
         vec
     }
 
+    /// Creates public inputs from a slice of u64 values
     pub fn from_u64_slice(slice: &[u64]) -> Self {
         assert_eq!(slice.len(), INNOCENCE_PUBLIC_INPUTS_LEN);
         let use_allow_list = slice[0] != 0;
@@ -74,20 +96,26 @@ impl InnocencePublicInputs {
         }
     }
 
+    /// Creates public inputs from a slice of field elements
     pub fn from_pis<F: PrimeField64>(pis: &[F]) -> Self {
         Self::from_u64_slice(&pis[0..INNOCENCE_PUBLIC_INPUTS_LEN].to_u64_vec())
     }
 }
 
+/// Target version of InnocencePublicInputs for use in ZKP circuits
+///
+/// Contains circuit targets for all public inputs that will be exposed
+/// in the proof for verification.
 #[derive(Clone, Debug)]
 pub struct InnocencePublicInputsTarget {
-    pub use_allow_list: BoolTarget,
-    pub allow_list_tree_root: PoseidonHashOutTarget,
-    pub deny_list_tree_root: PoseidonHashOutTarget,
-    pub nullifier_tree_root: PoseidonHashOutTarget,
+    pub use_allow_list: BoolTarget, // Target for allow list flag
+    pub allow_list_tree_root: PoseidonHashOutTarget, // Target for allow list root
+    pub deny_list_tree_root: PoseidonHashOutTarget, // Target for deny list root
+    pub nullifier_tree_root: PoseidonHashOutTarget, // Target for nullifier tree root
 }
 
 impl InnocencePublicInputsTarget {
+    /// Converts the target public inputs to a vector of targets for registration
     pub fn to_vec(&self) -> Vec<Target> {
         let vec = vec![self.use_allow_list.target]
             .into_iter()
@@ -99,6 +127,7 @@ impl InnocencePublicInputsTarget {
         vec
     }
 
+    /// Creates target public inputs from a slice of targets
     pub fn from_slice(slice: &[Target]) -> Self {
         assert_eq!(slice.len(), INNOCENCE_PUBLIC_INPUTS_LEN);
         let use_allow_list = BoolTarget::new_unsafe(slice[0]);
@@ -118,21 +147,29 @@ impl InnocencePublicInputsTarget {
         }
     }
 
+    /// Creates target public inputs from a slice of public input targets
     pub fn from_pis(pis: &[Target]) -> Self {
         Self::from_slice(&pis[0..INNOCENCE_PUBLIC_INPUTS_LEN])
     }
 }
 
+/// Circuit for verifying deposits against allow/deny lists using IVC
+///
+/// This circuit implements an Incrementally Verifiable Computation (IVC) that processes
+/// deposits sequentially, creating a proof for each deposit and its corresponding
+/// nullifier tree transition. It ensures that all assets in the system came from
+/// approved sources by validating depositor addresses against allow/deny lists.
 pub struct InnocenceCircuit<F, C, const D: usize>
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
 {
-    is_first_step: BoolTarget,
-    inner_target: InnocenceInnerTarget,
-    prev_proof: ProofWithPublicInputsTarget<D>,
-    verifier_data_target: VerifierCircuitTarget,
-    pub data: CircuitData<F, C, D>,
+    is_first_step: BoolTarget, // Flag indicating if this is the first step in the IVC
+    inner_target: InnocenceInnerTarget, /* Target for the inner circuit that validates a single
+                                         * deposit */
+    prev_proof: ProofWithPublicInputsTarget<D>, // Target for the proof of the previous step
+    verifier_data_target: VerifierCircuitTarget, // Target for verifier data
+    pub data: CircuitData<F, C, D>,             // Circuit data
 }
 
 impl<F, C, const D: usize> Default for InnocenceCircuit<F, C, D>
@@ -152,11 +189,26 @@ where
     C: GenericConfig<D, F = F> + 'static,
     C::Hasher: AlgebraicHasher<F>,
 {
+    /// Creates a new InnocenceCircuit with the necessary constraints for IVC
+    ///
+    /// This circuit implements an Incrementally Verifiable Computation (IVC) that:
+    /// 1. Validates each deposit against allow/deny lists using the inner circuit
+    /// 2. Connects the nullifier tree roots between steps to ensure valid transitions
+    /// 3. Handles the first step specially by initializing with an empty nullifier tree
+    ///
+    /// # Returns
+    /// A new InnocenceCircuit ready to generate proofs
     pub fn new() -> Self {
         let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::default());
+
+        // Create targets for the IVC circuit
         let is_first_step = builder.add_virtual_bool_target_safe();
         let is_not_first_step = builder.not(is_first_step);
+
+        // Create the inner circuit target that validates a single deposit
         let inner_target = InnocenceInnerTarget::new::<F, C, D>(&mut builder, true);
+
+        // Register public inputs from the inner circuit
         let pis = InnocencePublicInputsTarget {
             use_allow_list: inner_target.use_allow_list,
             allow_list_tree_root: inner_target.allow_list_tree_root,
@@ -165,9 +217,11 @@ where
         };
         builder.register_public_inputs(&pis.to_vec());
 
+        // Set up the cyclic circuit for IVC
         let common_data = common_data_for_innocence_circuit::<F, C, D>();
         let verifier_data_target = builder.add_verifier_data_public_inputs();
 
+        // Add the previous proof target and verify it conditionally
         let prev_proof = builder.add_virtual_proof_with_pis(&common_data);
         builder
             .conditionally_verify_cyclic_proof_or_dummy::<C>(
@@ -178,7 +232,8 @@ where
             .unwrap();
         let prev_pis = InnocencePublicInputsTarget::from_pis(&prev_proof.public_inputs);
 
-        // connect
+        // Connect the previous proof's outputs to the current step's inputs
+        // This ensures continuity in the IVC chain
         builder.connect(
             prev_pis.use_allow_list.target,
             inner_target.use_allow_list.target,
@@ -193,6 +248,7 @@ where
             .nullifier_tree_root
             .connect(&mut builder, inner_target.prev_nullifier_tree_root);
 
+        // For the first step, ensure the previous nullifier tree root is the empty tree root
         let initial_nullifier_tree_root = NullifierTree::new().get_root();
         let initial_nullifier_tree_root_target =
             PoseidonHashOutTarget::constant(&mut builder, initial_nullifier_tree_root);
@@ -202,6 +258,7 @@ where
             is_first_step,
         );
 
+        // Build the circuit
         let (data, success) = builder.try_build_with_options::<C>(true);
         assert_eq!(data.common, common_data);
         assert!(success);
@@ -215,6 +272,19 @@ where
         }
     }
 
+    /// Generates a proof for a single step in the IVC chain
+    ///
+    /// This function:
+    /// 1. Sets the witness values for the inner circuit
+    /// 2. Handles the first step by creating a dummy proof with the initial nullifier tree
+    /// 3. For subsequent steps, connects to the previous proof
+    ///
+    /// # Arguments
+    /// * `inner_value` - InnocenceInnerValue containing the deposit and proofs for this step
+    /// * `prev_proof` - Optional previous proof in the IVC chain
+    ///
+    /// # Returns
+    /// A Result containing either the proof or an error
     pub fn prove(
         &self,
         inner_value: &InnocenceInnerValue,
@@ -223,13 +293,18 @@ where
         let mut pw = PartialWitness::<F>::new();
         pw.set_verifier_data_target(&self.verifier_data_target, &self.data.verifier_only);
         self.inner_target.set_witness(&mut pw, inner_value);
+
         if prev_proof.is_none() {
+            // This is the first step in the IVC chain
+            // Create initial public inputs with an empty nullifier tree
             let initial_pis = InnocencePublicInputs {
                 use_allow_list: inner_value.use_allow_list,
                 allow_list_tree_root: inner_value.allow_list_tree_root,
                 deny_list_tree_root: inner_value.deny_list_tree_root,
                 nullifier_tree_root: NullifierTree::new().get_root(),
             };
+
+            // Create a dummy proof for the first step
             let dummy_proof = cyclic_base_proof(
                 &self.data.common,
                 &self.data.verifier_only,
@@ -243,15 +318,19 @@ where
             pw.set_bool_target(self.is_first_step, true);
             pw.set_proof_with_pis_target(&self.prev_proof, &dummy_proof);
         } else {
+            // This is a subsequent step in the IVC chain
             pw.set_bool_target(self.is_first_step, false);
             pw.set_proof_with_pis_target(&self.prev_proof, prev_proof.as_ref().unwrap());
         }
+
+        // Generate the proof
         self.data
             .prove(pw)
             .map_err(|e| InnocenceError::InnocenceCircuitProofFailed(e.to_string()))
     }
 }
 
+/// Creates the common circuit data for the innocence circuit
 fn common_data_for_innocence_circuit<
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
@@ -344,6 +423,7 @@ mod tests {
         .unwrap();
 
         let circuit = InnocenceCircuit::<F, C, D>::new();
-        let _proof = circuit.prove(&value, &None).unwrap();
+        let proof = circuit.prove(&value, &None).unwrap();
+        circuit.data.verify(proof).unwrap();
     }
 }
