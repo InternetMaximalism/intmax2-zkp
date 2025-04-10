@@ -1,8 +1,12 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
+    circuits::balance::receive::receive_targets::{
+        error::ReceiveTargetsError, private_state_transition::PrivateStateTransitionValue,
+    },
     common::{
         deposit::Deposit,
+        error::CommonError,
         private_state::{FullPrivateState, PrivateState},
         salt::Salt,
         transfer::Transfer,
@@ -35,7 +39,7 @@ impl PrivateTransitionWitness {
         amount: U256,
         nullifier: Bytes32,
         new_salt: Salt,
-    ) -> anyhow::Result<Self> {
+    ) -> Result<Self, CommonError> {
         let prev_private_state = full_private_state.to_private_state();
         let prev_asset_leaf = full_private_state.asset_tree.get_leaf(token_index as u64);
         let asset_merkle_proof = full_private_state.asset_tree.prove(token_index as u64);
@@ -46,7 +50,7 @@ impl PrivateTransitionWitness {
         let nullifier_proof = full_private_state
             .nullifier_tree
             .prove_and_insert(nullifier)
-            .map_err(|e| anyhow::anyhow!("nullifier already exists: {}", e))?;
+            .map_err(|e| CommonError::NullifierAlreadyExists(e.to_string()))?;
         full_private_state.salt = new_salt;
         full_private_state.prev_private_commitment = prev_private_state.commitment();
         Ok(PrivateTransitionWitness {
@@ -61,12 +65,12 @@ impl PrivateTransitionWitness {
         })
     }
 
-    pub fn new_from_transfer(
+    pub fn from_transfer(
         full_private_state: &mut FullPrivateState,
         transfer: Transfer,
         new_salt: Salt,
-    ) -> anyhow::Result<Self> {
-        let nullifier: Bytes32 = transfer.commitment().into();
+    ) -> Result<Self, CommonError> {
+        let nullifier: Bytes32 = transfer.poseidon_hash().into();
         Self::new(
             full_private_state,
             transfer.token_index,
@@ -76,11 +80,11 @@ impl PrivateTransitionWitness {
         )
     }
 
-    pub fn new_from_deposit(
+    pub fn from_deposit(
         full_private_state: &mut FullPrivateState,
-        deposit: Deposit,
+        deposit: &Deposit,
         new_salt: Salt,
-    ) -> anyhow::Result<Self> {
+    ) -> Result<Self, CommonError> {
         let nullifier: Bytes32 = deposit.poseidon_hash().into();
         Self::new(
             full_private_state,
@@ -88,6 +92,19 @@ impl PrivateTransitionWitness {
             deposit.amount,
             nullifier,
             new_salt,
+        )
+    }
+
+    pub fn to_value(&self) -> Result<PrivateStateTransitionValue, ReceiveTargetsError> {
+        PrivateStateTransitionValue::new(
+            self.token_index,
+            self.amount,
+            self.nullifier,
+            self.new_salt,
+            &self.prev_private_state,
+            &self.nullifier_proof,
+            &self.prev_asset_leaf,
+            &self.asset_merkle_proof,
         )
     }
 }

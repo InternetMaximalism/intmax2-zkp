@@ -1,4 +1,16 @@
-use anyhow::ensure;
+//! Transaction inclusion circuit for validating transaction presence in blocks.
+//!
+//! This circuit proves the transition of a public state by:
+//! 1. Verifying that the validity proof for the new public state is correct
+//! 2. Confirming that the block hash of the old public state is included in the block tree of the new public state
+//! 3. Checking that the sender's last transaction block number is the same as or older than the old public state's block number
+//! 4. Validating that the transaction is included in the block
+//!
+//! The tx inclusion circuit sets is_valid=true only when the block is valid and the user's signature
+//! is included in the block. This is_valid flag is used by the sender circuit to determine
+//! whether to transition the private state.
+
+use super::error::SendError;
 use plonky2::{
     field::extension::Extendable,
     hash::hash_types::RichField,
@@ -42,8 +54,14 @@ use crate::{
     },
 };
 
+/// Length of the public inputs for the transaction inclusion circuit.
+/// Includes previous and new public states, public key, transaction data, and validity flag.
 pub const TX_INCLUSION_PUBLIC_INPUTS_LEN: usize = PUBLIC_STATE_LEN * 2 + U256_LEN + TX_LEN + 1;
 
+/// Public inputs for the transaction inclusion circuit.
+///
+/// These values are publicly visible outputs of the circuit that can be verified
+/// without knowing the private witness data.
 #[derive(Clone, Debug)]
 pub struct TxInclusionPublicInputs {
     pub prev_public_state: PublicState,
@@ -54,13 +72,21 @@ pub struct TxInclusionPublicInputs {
 }
 
 impl TxInclusionPublicInputs {
+    /// Constructs TxInclusionPublicInputs from a slice of u64 values.
+    ///
+    /// # Arguments
+    /// * `input` - Slice of u64 values representing the public inputs
+    ///
+    /// # Returns
+    /// A new TxInclusionPublicInputs struct
     pub fn from_u64_slice(input: &[u64]) -> Self {
         assert_eq!(input.len(), TX_INCLUSION_PUBLIC_INPUTS_LEN);
         let prev_public_state = PublicState::from_u64_slice(&input[0..PUBLIC_STATE_LEN]);
         let new_public_state =
             PublicState::from_u64_slice(&input[PUBLIC_STATE_LEN..PUBLIC_STATE_LEN * 2]);
         let pubkey =
-            U256::from_u64_slice(&input[PUBLIC_STATE_LEN * 2..PUBLIC_STATE_LEN * 2 + U256_LEN]).unwrap();
+            U256::from_u64_slice(&input[PUBLIC_STATE_LEN * 2..PUBLIC_STATE_LEN * 2 + U256_LEN])
+                .unwrap();
         let tx = Tx::from_u64_slice(
             &input[PUBLIC_STATE_LEN * 2 + U256_LEN..PUBLIC_STATE_LEN * 2 + U256_LEN + TX_LEN],
         );
@@ -75,6 +101,9 @@ impl TxInclusionPublicInputs {
     }
 }
 
+/// Target version of TxInclusionPublicInputs for use in ZKP circuits.
+///
+/// This struct contains circuit targets for all components of the public inputs.
 #[derive(Clone, Debug)]
 pub struct TxInclusionPublicInputsTarget {
     pub prev_public_state: PublicStateTarget,
@@ -85,6 +114,10 @@ pub struct TxInclusionPublicInputsTarget {
 }
 
 impl TxInclusionPublicInputsTarget {
+    /// Converts the target to a vector of individual targets.
+    ///
+    /// # Returns
+    /// A vector of targets representing all public inputs
     pub fn to_vec(&self) -> Vec<Target> {
         let mut vec = Vec::new();
         vec.extend_from_slice(&self.prev_public_state.to_vec());
@@ -96,6 +129,13 @@ impl TxInclusionPublicInputsTarget {
         vec
     }
 
+    /// Constructs TxInclusionPublicInputsTarget from a slice of targets.
+    ///
+    /// # Arguments
+    /// * `input` - Slice of targets representing the public inputs
+    ///
+    /// # Returns
+    /// A new TxInclusionPublicInputsTarget struct
     pub fn from_slice(input: &[Target]) -> Self {
         assert_eq!(input.len(), TX_INCLUSION_PUBLIC_INPUTS_LEN);
         let prev_public_state = PublicStateTarget::from_slice(&input[0..PUBLIC_STATE_LEN]);
@@ -117,6 +157,10 @@ impl TxInclusionPublicInputsTarget {
     }
 }
 
+/// Witness values for the transaction inclusion circuit.
+///
+/// This struct contains all the private witness data needed to prove the
+/// validity of a transaction's inclusion in a block.
 pub struct TxInclusionValue<
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F> + 'static,
@@ -143,66 +187,111 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
 where
     <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
 {
+    /// Creates a new TxInclusionValue by validating and computing the state transition.
+    ///
+    /// This function:
+    /// 1. Verifies the validity proof for the new public state
+    /// 2. Verifies the block merkle proof showing the old block is included in the new block tree
+    /// 3. Verifies the account membership proof showing no transactions were sent between blocks
+    /// 4. Verifies the transaction merkle proof showing the transaction is included in the block
+    /// 5. Verifies the sender merkle proof and checks the sender's signature is included
+    ///
+    /// # Arguments
+    /// * `validity_vd` - Verifier data for the validity circuit
+    /// * `pubkey` - Public key of the sender
+    /// * `prev_public_state` - Public state of the old balance proof
+    /// * `validity_proof` - Validity proof of the new public state containing the transaction
+    /// * `block_merkle_proof` - Proof that the old block is included in the new block tree
+    /// * `prev_account_membership_proof` - Proof showing the sender's last transaction block number
+    /// * `sender_index` - Index of the sender in the sender tree
+    /// * `tx` - Transaction being verified
+    /// * `tx_merkle_proof` - Proof that the transaction is included in the transaction tree
+    /// * `sender_leaf` - Sender leaf containing signature inclusion information
+    /// * `sender_merkle_proof` - Proof that the sender leaf is included in the sender tree
+    ///
+    /// # Returns
+    /// A Result containing either the new TxInclusionValue or an error
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         validity_vd: &VerifierCircuitData<F, C, D>,
         pubkey: U256,
-        prev_public_state: &PublicState, // public state of the old balance proof
-        validity_proof: &ProofWithPublicInputs<F, C, D>, /* validity proof of the new public
-                                          * state which contains the tx */
-        block_merkle_proof: &BlockHashMerkleProof, /* block merkle proof that shows the
-                                                    * block of prev_public_state is included in
-                                                    * the
-                                                    * block tree of validity_proof */
-        prev_account_membership_proof: &AccountMembershipProof, /* account membership proof that
-                                                                 * shows no tx has been sent
-                                                                 * before
-                                                                 * the block of validity proof. */
+        prev_public_state: &PublicState,
+        validity_proof: &ProofWithPublicInputs<F, C, D>,
+        block_merkle_proof: &BlockHashMerkleProof,
+        prev_account_membership_proof: &AccountMembershipProof,
         sender_index: u32,
         tx: &Tx,
         tx_merkle_proof: &TxMerkleProof,
         sender_leaf: &SenderLeaf,
         sender_merkle_proof: &SenderMerkleProof,
-    ) -> anyhow::Result<Self> {
-        validity_vd
-            .verify(validity_proof.clone())
-            .map_err(|e| anyhow::anyhow!("validity proof is invalid: {:?}", e))?;
+    ) -> Result<Self, SendError> {
+        validity_vd.verify(validity_proof.clone()).map_err(|e| {
+            SendError::VerificationFailed(format!("Validity proof is invalid: {:?}", e))
+        })?;
+
         let validity_pis = ValidityPublicInputs::from_u64_slice(
             &validity_proof.public_inputs[0..VALIDITY_PUBLIC_INPUTS_LEN].to_u64_vec(),
         );
+
         block_merkle_proof
             .verify(
                 &prev_public_state.block_hash,
                 prev_public_state.block_number as u64,
                 validity_pis.public_state.block_tree_root,
             )
-            .map_err(|e| anyhow::anyhow!("block merkle proof is invalid: {:?}", e))?;
+            .map_err(|e| {
+                SendError::VerificationFailed(format!("Block merkle proof is invalid: {:?}", e))
+            })?;
+
         prev_account_membership_proof
             .verify(pubkey, validity_pis.public_state.prev_account_tree_root)
-            .map_err(|e| anyhow::anyhow!("account membership proof is invalid: {:?}", e))?;
-        let last_block_number = prev_account_membership_proof.get_value() as u32;
-        ensure!(
-            last_block_number <= prev_public_state.block_number,
-            "there is a sent tx before the last block"
-        ); // no send tx till one before the last block
+            .map_err(|e| {
+                SendError::VerificationFailed(format!(
+                    "Account membership proof is invalid: {:?}",
+                    e
+                ))
+            })?;
 
-        let tx_tree_root: PoseidonHashOut = validity_pis
-            .tx_tree_root
-            .try_into()
-            .map_err(|e| anyhow::anyhow!("tx tree root is invalid: {:?}", e))?;
+        let last_block_number = prev_account_membership_proof.get_value() as u32;
+
+        if last_block_number > prev_public_state.block_number {
+            return Err(SendError::VerificationFailed(
+                format!(
+                    "There is a sent tx before the last block: last_block_number={}, prev_block_number={}", 
+                    last_block_number,
+                    prev_public_state.block_number
+                )
+            ));
+        }
+
+        let tx_tree_root: PoseidonHashOut = validity_pis.tx_tree_root.try_into().map_err(|e| {
+            SendError::VerificationFailed(format!("Tx tree root is invalid: {:?}", e))
+        })?;
+
         tx_merkle_proof
             .verify(tx, sender_index as u64, tx_tree_root)
-            .map_err(|e| anyhow::anyhow!("tx merkle proof is invalid: {:?}", e))?;
+            .map_err(|e| {
+                SendError::VerificationFailed(format!("Tx merkle proof is invalid: {:?}", e))
+            })?;
+
         sender_merkle_proof
             .verify(
                 sender_leaf,
                 sender_index as u64,
                 validity_pis.sender_tree_root,
             )
-            .map_err(|e| anyhow::anyhow!("sender merkle proof is invalid: {:?}", e))?;
+            .map_err(|e| {
+                SendError::VerificationFailed(format!("Sender merkle proof is invalid: {:?}", e))
+            })?;
 
-        ensure!(sender_leaf.sender == pubkey, "sender pubkey mismatch");
-        let is_valid = sender_leaf.did_return_sig && validity_pis.is_valid_block;
+        if sender_leaf.sender != pubkey {
+            return Err(SendError::VerificationFailed(format!(
+                "Sender pubkey mismatch: expected {:?}, got {:?}",
+                pubkey, sender_leaf.sender
+            )));
+        }
+
+        let is_valid = sender_leaf.signature_included && validity_pis.is_valid_block;
 
         Ok(Self {
             pubkey,
@@ -221,6 +310,10 @@ where
     }
 }
 
+/// Target version of TxInclusionValue for use in ZKP circuits.
+///
+/// This struct contains circuit targets for all components needed to verify
+/// the transaction's inclusion in a block.
 pub struct TxInclusionTarget<const D: usize> {
     pub pubkey: U256Target,
     pub prev_public_state: PublicStateTarget,
@@ -237,6 +330,23 @@ pub struct TxInclusionTarget<const D: usize> {
 }
 
 impl<const D: usize> TxInclusionTarget<D> {
+    /// Creates a new TxInclusionTarget with circuit constraints that enforce
+    /// the transaction inclusion rules.
+    ///
+    /// The circuit enforces:
+    /// 1. Valid validity proof for the new public state
+    /// 2. Valid block merkle proof showing the old block is included in the new block tree
+    /// 3. Valid account membership proof showing the sender's last transaction block number
+    /// 4. Valid transaction merkle proof showing the transaction is included in the block
+    /// 5. Valid sender merkle proof and signature inclusion check
+    ///
+    /// # Arguments
+    /// * `validity_vd` - Verifier data for the validity circuit
+    /// * `builder` - Circuit builder
+    /// * `is_checked` - Whether to add constraints for checking the values
+    ///
+    /// # Returns
+    /// A new TxInclusionTarget with all necessary targets and constraints
     pub fn new<F: RichField + Extendable<D>, C: GenericConfig<D, F = F> + 'static>(
         validity_vd: &VerifierCircuitData<F, C, D>,
         builder: &mut CircuitBuilder<F, D>,
@@ -285,7 +395,7 @@ impl<const D: usize> TxInclusionTarget<D> {
             validity_pis.sender_tree_root,
         );
         sender_leaf.sender.connect(builder, pubkey);
-        let is_valid = builder.and(sender_leaf.did_return_sig, validity_pis.is_valid_block);
+        let is_valid = builder.and(sender_leaf.signature_included, validity_pis.is_valid_block);
         Self {
             pubkey,
             prev_public_state,
@@ -302,6 +412,11 @@ impl<const D: usize> TxInclusionTarget<D> {
         }
     }
 
+    /// Sets the witness values for all targets in this TxInclusionTarget.
+    ///
+    /// # Arguments
+    /// * `witness` - Witness to set values in
+    /// * `value` - TxInclusionValue containing the values to set
     pub fn set_witness<
         F: RichField + Extendable<D>,
         C: GenericConfig<D, F = F> + 'static,
@@ -333,6 +448,14 @@ impl<const D: usize> TxInclusionTarget<D> {
     }
 }
 
+/// The transaction inclusion circuit for validating transaction presence in blocks.
+///
+/// This circuit proves that:
+/// 1. The validity proof for the new public state is correct
+/// 2. The block hash of the old public state is included in the block tree of the new public state
+/// 3. The sender's last transaction block number is the same as or older than the old public state's block number
+/// 4. The transaction is included in the block
+/// 5. The sender's signature is included in the block (if the block is valid)
 pub struct TxInclusionCircuit<F, C, const D: usize>
 where
     F: RichField + Extendable<D>,
@@ -348,6 +471,13 @@ where
     C: GenericConfig<D, F = F> + 'static,
     C::Hasher: AlgebraicHasher<F>,
 {
+    /// Creates a new TxInclusionCircuit with all necessary constraints.
+    ///
+    /// # Arguments
+    /// * `validity_vd` - Verifier data for the validity circuit
+    ///
+    /// # Returns
+    /// A new TxInclusionCircuit ready to generate and verify proofs
     pub fn new(validity_vd: &VerifierCircuitData<F, C, D>) -> Self {
         let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::default());
         let target = TxInclusionTarget::new::<F, C>(validity_vd, &mut builder, true);
@@ -363,83 +493,105 @@ where
         Self { data, target }
     }
 
+    /// Generates a ZK proof for the given TxInclusionValue.
+    ///
+    /// # Arguments
+    /// * `value` - TxInclusionValue containing the witness data
+    ///
+    /// # Returns
+    /// A Result containing either the proof with public inputs or an error
     pub fn prove(
         &self,
         value: &TxInclusionValue<F, C, D>,
-    ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
+    ) -> Result<ProofWithPublicInputs<F, C, D>, SendError> {
         let mut pw = PartialWitness::<F>::new();
         self.target.set_witness(&mut pw, value);
-        self.data.prove(pw)
+        self.data
+            .prove(pw)
+            .map_err(|e| SendError::ProofGenerationError(format!("{:?}", e)))
     }
 }
 
-// #[cfg(test)]
-// mod tests {
-//     use plonky2::{
-//         field::goldilocks_field::GoldilocksField, plonk::config::PoseidonGoldilocksConfig,
-//     };
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
 
-//     use crate::{
-//         common::{generic_address::GenericAddress, salt::Salt, transfer::Transfer},
-//         ethereum_types::u256::U256,
-//     };
+    use plonky2::{
+        field::goldilocks_field::GoldilocksField, plonk::config::PoseidonGoldilocksConfig,
+    };
 
-//     use super::TxInclusionValue;
+    use crate::{
+        circuits::{
+            test_utils::{
+                state_manager::ValidityStateManager,
+                witness_generator::{construct_spent_and_transfer_witness, MockTxRequest},
+            },
+            validity::validity_processor::ValidityProcessor,
+        },
+        common::{
+            private_state::FullPrivateState, public_state::PublicState,
+            signature_content::key_set::KeySet, transfer::Transfer,
+        },
+        ethereum_types::address::Address,
+    };
 
-//     type F = GoldilocksField;
-//     type C = PoseidonGoldilocksConfig;
-//     const D: usize = 2;
+    use super::{TxInclusionCircuit, TxInclusionValue};
 
-//     #[test]
-//     fn tx_inclusion_circuit() {
-//         let mut rng = rand::thread_rng();
-//         // let mut block_builder = MockBlockBuilder::new();
-//         // let mut wallet = MockWallet::new_rand(&mut rng);
-//         // let mut sync_prover = SyncValidityProver::<F, C, D>::new();
+    type F = GoldilocksField;
+    type C = PoseidonGoldilocksConfig;
+    const D: usize = 2;
 
-//         let transfer = Transfer {
-//             recipient: GenericAddress::rand_pubkey(&mut rng),
-//             token_index: 0,
-//             amount: U256::rand_small(&mut rng),
-//             salt: Salt::rand(&mut rng),
-//         };
+    #[test]
+    fn test_tx_inclusion_circuit() {
+        let mut rng = rand::thread_rng();
 
-//         // send tx
-//         let send_witness = wallet.send_tx_and_update(&mut rng, &mut block_builder, &[transfer]);
-//         // update validity proofs
-//         sync_prover.sync(&block_builder);
+        let key = KeySet::rand(&mut rng);
+        let mut full_private_state = FullPrivateState::new();
 
-//         let prev_public_state = wallet.get_balance_pis().public_state;
-//         let update_witness = sync_prover.get_update_witness(
-//             &block_builder,
-//             wallet.get_pubkey(),
-//             block_builder.last_block_number(),
-//             prev_public_state.block_number,
-//             true,
-//         );
+        let validity_processor = Arc::new(ValidityProcessor::<F, C, D>::new());
+        let mut validity_state_manager =
+            ValidityStateManager::new(validity_processor.clone(), Address::default());
 
-//         let pubkey = wallet.key_set.pubkey;
-//         let tx_index = send_witness.tx_witness.tx_index;
-//         let sender_tree = send_witness.tx_witness.get_sender_tree();
-//         let sender_leaf = sender_tree.get_leaf(tx_index);
-//         let sender_merkle_proof = sender_tree.prove(tx_index);
-//         let value = TxInclusionValue::new(
-//             &sync_prover.validity_processor.validity_circuit,
-//             pubkey,
-//             &prev_public_state,
-//             &update_witness.validity_proof,
-//             &update_witness.block_merkle_proof,
-//             &update_witness.account_membership_proof,
-//             send_witness.tx_witness.tx_index,
-//             &send_witness.tx_witness.tx,
-//             &send_witness.tx_witness.tx_merkle_proof,
-//             &sender_leaf,
-//             &sender_merkle_proof,
-//         )
-//         .expect("failed to create tx inclusion value");
-//         let tx_inclusion_circuit = super::TxInclusionCircuit::<F, C, D>::new(
-//             &sync_prover.validity_processor.validity_circuit,
-//         );
-//         let _ = tx_inclusion_circuit.prove(&value).unwrap();
-//     }
-// }
+        let transfer = Transfer::rand(&mut rng);
+        let (spent_witness, _) =
+            construct_spent_and_transfer_witness(&mut full_private_state, &[transfer]).unwrap();
+        let tx_request = MockTxRequest {
+            tx: spent_witness.tx,
+            sender_key: key,
+            will_return_sig: true,
+        };
+        let tx_witnesses = validity_state_manager
+            .tick(true, &[tx_request], 0, 0)
+            .unwrap();
+        let block_number = validity_state_manager.get_block_number();
+
+        let tx_witness = tx_witnesses[0].clone();
+        let update_witness = validity_state_manager
+            .get_update_witness(key.pubkey, block_number, 0, true)
+            .unwrap();
+        let sender_tree = tx_witness.get_sender_tree();
+        let sender_leaf = sender_tree.get_leaf(tx_witness.tx_index as u64);
+        let sender_merkle_proof = sender_tree.prove(tx_witness.tx_index as u64);
+        let tx_inclusion_value = TxInclusionValue::new(
+            &validity_processor.get_verifier_data(),
+            key.pubkey,
+            &PublicState::genesis(),
+            &update_witness.validity_proof,
+            &update_witness.block_merkle_proof,
+            &update_witness.prev_account_membership_proof().unwrap(),
+            tx_witness.tx_index,
+            &tx_witness.tx,
+            &tx_witness.tx_merkle_proof,
+            &sender_leaf,
+            &sender_merkle_proof,
+        )
+        .unwrap();
+        let tx_inclusion_circuit =
+            TxInclusionCircuit::<F, C, D>::new(&validity_processor.get_verifier_data());
+        let tx_inclusion_proof = tx_inclusion_circuit.prove(&tx_inclusion_value).unwrap();
+        tx_inclusion_circuit
+            .data
+            .verify(tx_inclusion_proof)
+            .unwrap();
+    }
+}

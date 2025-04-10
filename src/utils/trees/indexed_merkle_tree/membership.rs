@@ -1,4 +1,4 @@
-use anyhow::{ensure, Result};
+use crate::utils::trees::error::IndexedMerkleTreeError;
 use plonky2::{
     field::{extension::Extendable, types::Field},
     hash::hash_types::RichField,
@@ -75,15 +75,25 @@ impl IndexedMerkleTree {
 
 impl MembershipProof {
     /// Verify the membership/non-membership proof
-    pub fn verify(&self, key: U256, root: PoseidonHashOut) -> Result<()> {
-        self.leaf_proof.verify(&self.leaf, self.leaf_index, root)?;
+    pub fn verify(&self, key: U256, root: PoseidonHashOut) -> Result<(), IndexedMerkleTreeError> {
+        self.leaf_proof
+            .verify(&self.leaf, self.leaf_index, root)
+            .map_err(IndexedMerkleTreeError::MerkleProofError)?;
+
         if self.is_included {
-            ensure!(self.leaf.key == key);
-        } else {
-            ensure!(
-                self.leaf.key < key
-                    && (key < self.leaf.next_key || self.leaf.next_key == U256::default())
-            );
+            if self.leaf.key != key {
+                return Err(IndexedMerkleTreeError::KeyMismatch {
+                    expected: key.to_string(),
+                    actual: self.leaf.key.to_string(),
+                });
+            }
+        } else if !(self.leaf.key < key
+            && (key < self.leaf.next_key || self.leaf.next_key == U256::default()))
+        {
+            return Err(IndexedMerkleTreeError::KeyNotUpperBounded(format!(
+                "key: {}, leaf.key: {}, leaf.next_key: {}",
+                key, self.leaf.key, self.leaf.next_key
+            )));
         }
         Ok(())
     }

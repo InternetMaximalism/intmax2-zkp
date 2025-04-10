@@ -1,10 +1,4 @@
-use std::collections::HashMap;
-
 use anyhow::ensure;
-use plonky2::{
-    field::goldilocks_field::GoldilocksField,
-    plonk::{config::PoseidonGoldilocksConfig, proof::ProofWithPublicInputs},
-};
 
 use crate::{
     circuits::validity::validity_pis::ValidityPublicInputs,
@@ -13,7 +7,7 @@ use crate::{
         block_builder::{construct_signature, SenderWithSignature},
         private_state::FullPrivateState,
         salt::Salt,
-        signature::{
+        signature_content::{
             block_sign_payload::BlockSignPayload, key_set::KeySet, utils::get_pubkey_hash,
         },
         transfer::Transfer,
@@ -24,8 +18,7 @@ use crate::{
         tx::Tx,
         witness::{
             full_block::FullBlock, spent_witness::SpentWitness, transfer_witness::TransferWitness,
-            tx_witness::TxWitness, update_witness::UpdateWitness,
-            validity_witness::ValidityWitness,
+            tx_witness::TxWitness, validity_witness::ValidityWitness,
         },
     },
     constants::{NUM_SENDERS_IN_BLOCK, NUM_TRANSFERS_IN_TX, TRANSFER_TREE_HEIGHT, TX_TREE_HEIGHT},
@@ -33,13 +26,8 @@ use crate::{
         account_id::{AccountId, AccountIdPacked},
         address::Address,
         bytes32::Bytes32,
-        u256::U256,
     },
 };
-
-type F = GoldilocksField;
-type C = PoseidonGoldilocksConfig;
-const D: usize = 2;
 
 #[derive(Debug, Clone)]
 pub struct MockTxRequest {
@@ -50,6 +38,7 @@ pub struct MockTxRequest {
 
 // Receives an array of tuples consisting of tx and its sender's address, generates a block,
 // and constructs the validity witness of that block.
+#[allow(clippy::too_many_arguments)]
 pub fn construct_validity_and_tx_witness(
     prev_validity_pis: ValidityPublicInputs,
     account_tree: &mut AccountTree,
@@ -229,48 +218,12 @@ pub fn construct_spent_and_transfer_witness(
     Ok((spent_witness, transfer_witnesses))
 }
 
-pub fn construct_update_witness(
-    historical_account_trees: &HashMap<u32, AccountTree>,
-    historical_block_trees: &HashMap<u32, BlockHashTree>,
-    historical_validity_proofs: &HashMap<u32, ProofWithPublicInputs<F, C, D>>,
-    pubkey: U256,
-    root_block_number: u32,
-    leaf_block_number: u32,
-    is_prev_account_tree: bool,
-) -> anyhow::Result<UpdateWitness<F, C, D>> {
-    let block_merkle_proof = historical_block_trees
-        .get(&root_block_number)
-        .ok_or(anyhow::anyhow!("block tree not found"))?
-        .prove(leaf_block_number as u64);
-    let validity_proof = historical_validity_proofs
-        .get(&root_block_number)
-        .ok_or(anyhow::anyhow!("validity proof not found"))?;
-    let account_tree_block_number = if is_prev_account_tree {
-        root_block_number - 1
-    } else {
-        root_block_number
-    };
-    let account_tree = historical_account_trees
-        .get(&account_tree_block_number)
-        .ok_or(anyhow::anyhow!("account tree not found"))?;
-    let account_membership_proof = account_tree.prove_membership(pubkey);
-
-    let update_witness = UpdateWitness {
-        is_prev_account_tree,
-        validity_proof: validity_proof.clone(),
-        block_merkle_proof,
-        account_membership_proof,
-    };
-
-    Ok(update_witness)
-}
-
 #[cfg(test)]
 mod tests {
     use crate::{
         circuits::validity::validity_pis::ValidityPublicInputs,
         common::{
-            signature::key_set::KeySet,
+            signature_content::key_set::KeySet,
             trees::{
                 account_tree::AccountTree, block_hash_tree::BlockHashTree,
                 deposit_tree::DepositTree,

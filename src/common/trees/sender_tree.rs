@@ -43,17 +43,19 @@ pub type SenderMerkleProofTarget = IncrementalMerkleProofTarget<SenderLeafTarget
 
 pub const SENDER_LEAF_LEN: usize = U256_LEN + 1;
 
+/// A struct that contains the sender and a flag indicating whether the sender's signature is
+/// included.
 #[derive(Default, Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SenderLeaf {
     pub sender: U256,
-    pub did_return_sig: bool,
+    pub signature_included: bool,
 }
 
 #[derive(Debug, Clone)]
 pub struct SenderLeafTarget {
     pub sender: U256Target,
-    pub did_return_sig: BoolTarget,
+    pub signature_included: BoolTarget,
 }
 
 impl SenderLeaf {
@@ -62,7 +64,7 @@ impl SenderLeaf {
             .sender
             .to_u32_vec()
             .into_iter()
-            .chain([self.did_return_sig as u32].iter().cloned())
+            .chain([self.signature_included as u32].iter().cloned())
             .collect::<Vec<_>>();
         assert_eq!(vec.len(), SENDER_LEAF_LEN);
         vec
@@ -92,7 +94,7 @@ impl SenderLeafTarget {
         }
         Self {
             sender: U256Target::new(builder, is_checked),
-            did_return_sig,
+            signature_included: did_return_sig,
         }
     }
 
@@ -101,7 +103,7 @@ impl SenderLeafTarget {
             .sender
             .to_vec()
             .into_iter()
-            .chain([self.did_return_sig.target])
+            .chain([self.signature_included.target])
             .collect::<Vec<_>>();
         assert_eq!(vec.len(), SENDER_LEAF_LEN);
         vec
@@ -113,7 +115,7 @@ impl SenderLeafTarget {
     ) -> Self {
         Self {
             sender: U256Target::constant(builder, value.sender),
-            did_return_sig: builder.constant_bool(value.did_return_sig),
+            signature_included: builder.constant_bool(value.signature_included),
         }
     }
 
@@ -123,7 +125,7 @@ impl SenderLeafTarget {
         value: &SenderLeaf,
     ) {
         self.sender.set_witness(witness, value.sender);
-        witness.set_bool_target(self.did_return_sig, value.did_return_sig);
+        witness.set_bool_target(self.signature_included, value.signature_included);
     }
 }
 
@@ -156,7 +158,7 @@ pub fn get_sender_leaves(pubkeys: &[U256], sender_flag: Bytes16) -> Vec<SenderLe
         .zip(sender_bits.iter())
         .map(|(&sender, &did_return_sig)| SenderLeaf {
             sender,
-            did_return_sig,
+            signature_included: did_return_sig,
         })
         .collect::<Vec<_>>();
     leaves
@@ -173,7 +175,7 @@ pub fn get_sender_leaves_circuit<F: RichField + Extendable<D>, const D: usize>(
         .zip(sender_bits.iter())
         .map(|(&sender, &did_return_sig)| SenderLeafTarget {
             sender,
-            did_return_sig,
+            signature_included: did_return_sig,
         })
         .collect::<Vec<_>>();
     leaves
@@ -181,6 +183,7 @@ pub fn get_sender_leaves_circuit<F: RichField + Extendable<D>, const D: usize>(
 
 pub fn get_sender_tree_root(pubkeys: &[U256], sender_flag: Bytes16) -> PoseidonHashOut {
     get_merkle_root_from_leaves(SENDER_TREE_HEIGHT, &get_sender_leaves(pubkeys, sender_flag))
+        .unwrap()
 }
 
 pub fn get_sender_tree_root_circuit<

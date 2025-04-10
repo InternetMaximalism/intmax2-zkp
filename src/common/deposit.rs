@@ -75,6 +75,10 @@ impl Deposit {
     pub fn poseidon_hash(&self) -> PoseidonHashOut {
         PoseidonHashOut::hash_inputs_u32(&self.to_u32_vec())
     }
+
+    pub fn nullifier(&self) -> Bytes32 {
+        self.poseidon_hash().into()
+    }
 }
 
 impl DepositTarget {
@@ -132,6 +136,14 @@ impl DepositTarget {
         builder: &mut CircuitBuilder<F, D>,
     ) -> PoseidonHashOutTarget {
         PoseidonHashOutTarget::hash_inputs(builder, &self.to_vec())
+    }
+
+    pub fn nullifier<F: RichField + Extendable<D>, const D: usize>(
+        &self,
+        builder: &mut CircuitBuilder<F, D>,
+    ) -> Bytes32Target {
+        let poseidon_hash = self.poseidon_hash(builder);
+        Bytes32Target::from_hash_out(builder, poseidon_hash)
     }
 
     pub fn set_witness<F: Field, W: WitnessWrite<F>>(&self, witness: &mut W, value: &Deposit) {

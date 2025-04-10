@@ -13,7 +13,10 @@ use plonky2_u32::gadgets::{
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 
-use super::u32limb_trait::{U32LimbError, U32LimbTargetTrait, U32LimbTrait};
+use super::{
+    error::EthereumTypeError,
+    u32limb_trait::{U32LimbTargetTrait, U32LimbTrait},
+};
 
 pub const U64_LEN: usize = 2;
 
@@ -113,9 +116,9 @@ impl U32LimbTrait<U64_LEN> for U64 {
         self.limbs.to_vec()
     }
 
-    fn from_u32_slice(limbs: &[u32]) -> Result<Self, U32LimbError> {
+    fn from_u32_slice(limbs: &[u32]) -> super::u32limb_trait::Result<Self> {
         if limbs.len() != U64_LEN {
-            return Err(U32LimbError::InvalidLength(limbs.len()));
+            return Err(EthereumTypeError::InvalidLengthSimple(limbs.len()));
         }
         Ok(Self {
             limbs: limbs.try_into().unwrap(),

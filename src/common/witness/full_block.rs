@@ -1,10 +1,10 @@
-use anyhow::ensure;
+use crate::common::error::CommonError;
 use serde::{Deserialize, Serialize};
 
 use crate::{
     common::{
         block::Block,
-        signature::SignatureContent,
+        signature_content::SignatureContent,
         trees::{account_tree::AccountTree, block_hash_tree::BlockHashTree},
         witness::block_witness::BlockWitness,
     },
@@ -38,34 +38,38 @@ impl FullBlock {
         &self,
         account_tree: &AccountTree,
         block_tree: &BlockHashTree,
-    ) -> anyhow::Result<BlockWitness> {
-        ensure!(self.block.block_number != 0, "genesis block is not allowed");
+    ) -> Result<BlockWitness, CommonError> {
+        if self.block.block_number == 0 {
+            return Err(CommonError::GenesisBlockNotAllowed);
+        }
         let is_registration_block = self.signature.block_sign_payload.is_registration_block;
         let (pubkeys, account_id_packed, account_merkle_proofs, account_membership_proofs) =
             if is_registration_block {
-                let mut pubkeys = self.pubkeys.clone().ok_or(anyhow::anyhow!(
-                    "pubkeys is not given while it is registration block"
+                let mut pubkeys = self.pubkeys.clone().ok_or(CommonError::MissingData(
+                    "pubkeys is not given while it is registration block".to_string(),
                 ))?;
                 pubkeys.resize(NUM_SENDERS_IN_BLOCK, U256::dummy_pubkey());
                 let mut account_membership_proofs = Vec::new();
                 for pubkey in pubkeys.iter() {
                     let is_dummy = pubkey.is_dummy_pubkey();
-                    ensure!(
-                        account_tree.index(*pubkey).is_none() || is_dummy,
-                        "account already exists"
-                    );
+                    if !(account_tree.index(*pubkey).is_none() || is_dummy) {
+                        return Err(CommonError::InvalidAccount(
+                            "account already exists".to_string(),
+                        ));
+                    }
                     let proof = account_tree.prove_membership(*pubkey);
                     account_membership_proofs.push(proof);
                 }
                 (pubkeys, None, None, Some(account_membership_proofs))
             } else {
-                let account_id_trimmed_bytes = self.account_ids.clone().ok_or(anyhow::anyhow!(
-                    "account_ids is not given while it is non-registration block"
-                ))?;
+                let account_id_trimmed_bytes =
+                    self.account_ids.clone().ok_or(CommonError::MissingData(
+                        "account_ids is not given while it is non-registration block".to_string(),
+                    ))?;
                 let account_id_packed = AccountIdPacked::from_trimmed_bytes(
                     &account_id_trimmed_bytes,
                 )
-                .map_err(|e| anyhow::anyhow!("error while recovering packed account ids {}", e))?;
+                .map_err(|e| CommonError::PackedAccountIdsRecoveryFailed(format!("{}", e)))?;
                 let account_ids = account_id_packed.unpack();
                 let mut account_merkle_proofs = Vec::new();
                 let mut pubkeys = Vec::new();

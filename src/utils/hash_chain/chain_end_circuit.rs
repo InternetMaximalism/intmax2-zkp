@@ -133,10 +133,12 @@ where
         &self,
         proof: &ProofWithPublicInputs<F, C, D>,
         aggregator: Address,
-    ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
+    ) -> super::error::Result<ProofWithPublicInputs<F, C, D>> {
         let mut pw = PartialWitness::<F>::new();
         pw.set_proof_with_pis_target(&self.proof, proof);
         self.aggregator.set_witness(&mut pw, aggregator);
-        self.data.prove(pw)
+        self.data
+            .prove(pw)
+            .map_err(|e| super::error::HashChainError::ChainEndProofError(e.to_string()))
     }
 }

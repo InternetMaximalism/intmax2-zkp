@@ -1,5 +1,4 @@
-use anyhow::Result;
-use hashbrown::HashMap;
+use super::error::Result;
 use plonky2::{
     field::extension::Extendable,
     gates::noop::NoopGate,
@@ -95,15 +94,20 @@ where
         pw.set_verifier_data_target(&self.verifier_data_target, &self.data.verifier_only);
         pw.set_proof_with_pis_target(&self.inner_proof, inner_proof);
         if prev_proof.is_none() {
-            let dummy_proof =
-                cyclic_base_proof(&self.data.common, &self.data.verifier_only, HashMap::new());
+            let dummy_proof = cyclic_base_proof(
+                &self.data.common,
+                &self.data.verifier_only,
+                [].into_iter().collect(),
+            );
             pw.set_bool_target(self.is_first_step, true);
             pw.set_proof_with_pis_target(&self.prev_proof, &dummy_proof);
         } else {
             pw.set_bool_target(self.is_first_step, false);
             pw.set_proof_with_pis_target(&self.prev_proof, prev_proof.as_ref().unwrap());
         }
-        self.data.prove(pw)
+        self.data
+            .prove(pw)
+            .map_err(|e| super::error::HashChainError::CyclicProofError(e.to_string()))
     }
 }
 

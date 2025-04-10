@@ -2,7 +2,10 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     circuits::claim::{deposit_time::DepositTimeValue, determine_lock_time::LockTimeConfig},
-    common::{block::Block, deposit::Deposit, salt::Salt, trees::deposit_tree::DepositMerkleProof},
+    common::{
+        block::Block, deposit::Deposit, error::CommonError, salt::Salt,
+        trees::deposit_tree::DepositMerkleProof,
+    },
     ethereum_types::u256::U256,
 };
 
@@ -26,7 +29,7 @@ pub struct DepositTimeWitness {
 }
 
 impl DepositTimeWitness {
-    pub fn to_value(&self, config: &LockTimeConfig) -> anyhow::Result<DepositTimeValue> {
+    pub fn to_value(&self, config: &LockTimeConfig) -> Result<DepositTimeValue, CommonError> {
         DepositTimeValue::new(
             config,
             &self.public_witness.prev_block,

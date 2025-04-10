@@ -1,8 +1,10 @@
-use crate::ethereum_types::{
-    bytes32::Bytes32Target,
-    u32limb_trait::{U32LimbTargetTrait as _, U32LimbTrait as _},
+use crate::{
+    ethereum_types::{
+        bytes32::Bytes32Target,
+        u32limb_trait::{U32LimbTargetTrait as _, U32LimbTrait as _},
+    },
+    utils::error::PoseidonHashOutError,
 };
-use anyhow::ensure;
 use core::fmt::Display;
 use plonky2::{
     field::{
@@ -248,13 +250,15 @@ impl Bytes32 {
 }
 
 impl TryFrom<Bytes32> for PoseidonHashOut {
-    type Error = anyhow::Error;
+    type Error = PoseidonHashOutError;
     // Convert Bytes32 to HashOut.
     /// Bytes32 has a larger representation space than HashOut, so this might fail.
     fn try_from(value: Bytes32) -> Result<Self, Self::Error> {
         let hash_out = value.reduce_to_hash_out();
         let recovered: Bytes32 = hash_out.into();
-        ensure!(value == recovered, "Failed to recover HashOut from Bytes32");
+        if value != recovered {
+            return Err(PoseidonHashOutError::RecoveryFailed);
+        }
         Ok(hash_out)
     }
 }
@@ -348,6 +352,7 @@ mod tests {
         iop::witness::PartialWitness,
         plonk::{circuit_data::CircuitConfig, config::PoseidonGoldilocksConfig},
     };
+    use rand::thread_rng;
 
     use super::*;
 
@@ -356,7 +361,7 @@ mod tests {
     type C = PoseidonGoldilocksConfig;
 
     #[test]
-    fn test_safe_split_lo_and_hi() {
+    fn test_poseidon_hash_out_safe_split_lo_and_hi() {
         let x = F::NEG_ONE;
 
         let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::default());
@@ -366,5 +371,192 @@ mod tests {
 
         let circuit = builder.build::<C>();
         let _proof = circuit.prove(PartialWitness::new()).unwrap();
+    }
+
+    #[test]
+    fn test_poseidon_hash_out_hash_inputs_u64() {
+        let inputs = vec![1u64, 2u64, 3u64];
+        let hash = PoseidonHashOut::hash_inputs_u64(&inputs);
+
+        // Verify that hashing the same inputs produces the same output
+        let hash2 = PoseidonHashOut::hash_inputs_u64(&inputs);
+        assert_eq!(hash, hash2);
+
+        // Verify that different inputs produce different outputs
+        let different_inputs = vec![1u64, 2u64, 4u64];
+        let different_hash = PoseidonHashOut::hash_inputs_u64(&different_inputs);
+        assert_ne!(hash, different_hash);
+    }
+
+    #[test]
+    fn test_poseidon_hash_out_hash_inputs_u32() {
+        let inputs = vec![1u32, 2u32, 3u32];
+        let hash = PoseidonHashOut::hash_inputs_u32(&inputs);
+
+        // Verify that hashing the same inputs produces the same output
+        let hash2 = PoseidonHashOut::hash_inputs_u32(&inputs);
+        assert_eq!(hash, hash2);
+
+        // Verify that different inputs produce different outputs
+        let different_inputs = vec![1u32, 2u32, 4u32];
+        let different_hash = PoseidonHashOut::hash_inputs_u32(&different_inputs);
+        assert_ne!(hash, different_hash);
+    }
+
+    #[test]
+    fn test_poseidon_hash_out_rand() {
+        let mut rng = thread_rng();
+        let hash1 = PoseidonHashOut::rand(&mut rng);
+        let hash2 = PoseidonHashOut::rand(&mut rng);
+
+        // Two random hashes should be different
+        assert_ne!(hash1, hash2);
+
+        // Elements should be within the valid range for GoldilocksField
+        for element in hash1.elements.iter() {
+            assert!(*element < GoldilocksField::NEG_ONE.0);
+        }
+    }
+
+    #[test]
+    fn test_poseidon_hash_out_to_u64_vec() {
+        let elements = [1u64, 2u64, 3u64, 4u64];
+        let hash = PoseidonHashOut { elements };
+        let vec = hash.to_u64_vec();
+
+        assert_eq!(vec, elements.to_vec());
+    }
+
+    #[test]
+    fn test_poseidon_hash_out_from_u64_slice() {
+        let elements = [1u64, 2u64, 3u64, 4u64];
+        let hash = PoseidonHashOut::from_u64_slice(&elements);
+
+        assert_eq!(hash.elements, elements);
+    }
+
+    #[test]
+    fn test_poseidon_hash_out_bytes32_conversion() {
+        let mut rng = thread_rng();
+        let original = PoseidonHashOut::rand(&mut rng);
+
+        // Convert to Bytes32 and back
+        let bytes32: Bytes32 = original.into();
+        let recovered: PoseidonHashOut = bytes32.try_into().unwrap();
+
+        // Should get the original value back
+        assert_eq!(original, recovered);
+    }
+
+    #[test]
+    fn test_poseidon_hash_out_bytes32_reduce() {
+        let mut rng = thread_rng();
+        let original = PoseidonHashOut::rand(&mut rng);
+
+        // Convert to Bytes32
+        let bytes32: Bytes32 = original.into();
+
+        // Use reduce_to_hash_out
+        let reduced = bytes32.reduce_to_hash_out();
+
+        // Should get the original value back
+        assert_eq!(original, reduced);
+    }
+
+    #[test]
+    fn test_poseidon_hash_out_serialization() {
+        let mut rng = thread_rng();
+        let original = PoseidonHashOut::rand(&mut rng);
+
+        // Serialize to string
+        let serialized = serde_json::to_string(&original).unwrap();
+
+        // Deserialize back
+        let deserialized: PoseidonHashOut = serde_json::from_str(&serialized).unwrap();
+
+        // Should get the original value back
+        assert_eq!(original, deserialized);
+    }
+
+    #[test]
+    fn test_poseidon_hash_out_target_circuit_operations() {
+        let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::default());
+
+        // Create two hash targets
+        let hash_target1 = PoseidonHashOutTarget::new(&mut builder);
+        let hash_target2 = PoseidonHashOutTarget::new(&mut builder);
+
+        // Test two_to_one
+        let combined = PoseidonHashOutTarget::two_to_one(&mut builder, hash_target1, hash_target2);
+
+        // Test conditional_assert_eq
+        let condition = builder.add_virtual_bool_target_safe();
+        combined.conditional_assert_eq(&mut builder, hash_target1, condition);
+
+        // Test select
+        let _selected =
+            PoseidonHashOutTarget::select(&mut builder, condition, hash_target1, hash_target2);
+
+        // Create witness values
+        let mut pw = PartialWitness::new();
+        let hash_value1 = PoseidonHashOut::rand(&mut thread_rng());
+        let hash_value2 = PoseidonHashOut::rand(&mut thread_rng());
+
+        // Set witness values
+        hash_target1.set_witness(&mut pw, hash_value1);
+        hash_target2.set_witness(&mut pw, hash_value2);
+        pw.set_bool_target(condition, false);
+
+        // Build and prove the circuit
+        let circuit = builder.build::<C>();
+        let _proof = circuit.prove(pw).unwrap();
+    }
+
+    #[test]
+    fn test_poseidon_hash_out_target_hash_inputs() {
+        let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::default());
+
+        // Create input targets
+        let input1 = builder.add_virtual_target();
+        let input2 = builder.add_virtual_target();
+        let inputs = vec![input1, input2];
+
+        // Hash the inputs
+        let _hash_target = PoseidonHashOutTarget::hash_inputs(&mut builder, &inputs);
+
+        // Create witness values
+        let mut pw = PartialWitness::new();
+        pw.set_target(input1, F::from_canonical_u64(1));
+        pw.set_target(input2, F::from_canonical_u64(2));
+
+        // Build and prove the circuit
+        let circuit = builder.build::<C>();
+        let _proof = circuit.prove(pw).unwrap();
+    }
+
+    #[test]
+    fn test_poseidon_hash_out_target_bytes32_conversion() {
+        let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::default());
+
+        // Create a hash target
+        let hash_target = PoseidonHashOutTarget::new(&mut builder);
+
+        // Convert to Bytes32Target and back
+        let bytes32_target = Bytes32Target::from_hash_out(&mut builder, hash_target);
+        let recovered_hash_target = bytes32_target.to_hash_out(&mut builder);
+
+        // Connect the original and recovered hash targets
+        hash_target.connect(&mut builder, recovered_hash_target);
+
+        // Create witness values
+        let mut pw = PartialWitness::new();
+        let hash_value = PoseidonHashOut::rand(&mut thread_rng());
+
+        // Set witness values
+        hash_target.set_witness(&mut pw, hash_value);
+
+        // Build and prove the circuit
+        let circuit = builder.build::<C>();
+        let _proof = circuit.prove(pw).unwrap();
     }
 }

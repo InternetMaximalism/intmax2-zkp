@@ -25,7 +25,7 @@ pub struct Tx {
     /// The root of the transfer tree
     pub transfer_tree_root: PoseidonHashOut,
 
-    /// The nonce of the sernder's accounts
+    /// The nonce of the sender's accounts
     pub nonce: u32,
 }
 

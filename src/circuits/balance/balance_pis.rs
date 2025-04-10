@@ -28,6 +28,8 @@ use crate::{
     },
 };
 
+use super::error::BalanceError;
+
 pub const BALANCE_PUBLIC_INPUTS_LEN: usize =
     U256_LEN + POSEIDON_HASH_OUT_LEN * 2 + INSUFFICIENT_FLAGS_LEN + PUBLIC_STATE_LEN;
 
@@ -57,18 +59,27 @@ impl BalancePublicInputs {
     }
 
     pub fn to_u64_vec(&self) -> Vec<u64> {
-        let vec = [self.pubkey.to_u64_vec(),
+        let vec = [
+            self.pubkey.to_u64_vec(),
             self.private_commitment.to_u64_vec(),
             self.last_tx_hash.to_u64_vec(),
             self.last_tx_insufficient_flags.to_u64_vec(),
-            self.public_state.to_u64_vec()]
+            self.public_state.to_u64_vec(),
+        ]
         .concat();
+        // this never fails
         assert_eq!(vec.len(), BALANCE_PUBLIC_INPUTS_LEN);
         vec
     }
 
-    pub fn from_u64_slice(input: &[u64]) -> Self {
-        assert_eq!(input.len(), BALANCE_PUBLIC_INPUTS_LEN);
+    pub fn from_u64_slice(input: &[u64]) -> Result<Self, BalanceError> {
+        if input.len() != BALANCE_PUBLIC_INPUTS_LEN {
+            return Err(BalanceError::InvalidInput(format!(
+                "Balance public inputs length mismatch: expected {}, got {}",
+                BALANCE_PUBLIC_INPUTS_LEN,
+                input.len()
+            )));
+        }
         let pubkey = U256::from_u64_slice(&input[0..U256_LEN]).unwrap();
         let private_commitment =
             PoseidonHashOut::from_u64_slice(&input[U256_LEN..U256_LEN + POSEIDON_HASH_OUT_LEN]);
@@ -78,20 +89,28 @@ impl BalancePublicInputs {
         let last_tx_insufficient_flags = InsufficientFlags::from_u64_slice(
             &input[U256_LEN + 2 * POSEIDON_HASH_OUT_LEN
                 ..U256_LEN + 2 * POSEIDON_HASH_OUT_LEN + INSUFFICIENT_FLAGS_LEN],
-        ).unwrap();
+        )
+        .unwrap();
         let public_state = PublicState::from_u64_slice(
             &input[U256_LEN + 2 * POSEIDON_HASH_OUT_LEN + INSUFFICIENT_FLAGS_LEN..],
         );
-        Self {
+        Ok(Self {
             pubkey,
             private_commitment,
             last_tx_hash,
             last_tx_insufficient_flags,
             public_state,
-        }
+        })
     }
 
-    pub fn from_pis<F: PrimeField64>(pis: &[F]) -> Self {
+    pub fn from_pis<F: PrimeField64>(pis: &[F]) -> Result<Self, BalanceError> {
+        if pis.len() < BALANCE_PUBLIC_INPUTS_LEN {
+            return Err(BalanceError::InvalidInput(format!(
+                "Public inputs length too short: expected at least {}, got {}",
+                BALANCE_PUBLIC_INPUTS_LEN,
+                pis.len()
+            )));
+        }
         Self::from_u64_slice(&pis[0..BALANCE_PUBLIC_INPUTS_LEN].to_u64_vec())
     }
 
@@ -173,18 +192,32 @@ impl BalancePublicInputsTarget {
     }
 
     pub fn to_vec(&self) -> Vec<Target> {
-        let vec = [self.pubkey.to_vec(),
+        let vec = [
+            self.pubkey.to_vec(),
             self.private_commitment.to_vec(),
             self.last_tx_hash.to_vec(),
             self.last_tx_insufficient_flags.to_vec(),
-            self.public_state.to_vec()]
+            self.public_state.to_vec(),
+        ]
         .concat();
-        assert_eq!(vec.len(), BALANCE_PUBLIC_INPUTS_LEN);
+        assert_eq!(
+            vec.len(),
+            BALANCE_PUBLIC_INPUTS_LEN,
+            "Balance public inputs target length mismatch: expected {}, got {}",
+            BALANCE_PUBLIC_INPUTS_LEN,
+            vec.len()
+        );
         vec
     }
 
     pub fn from_slice(input: &[Target]) -> Self {
-        assert_eq!(input.len(), BALANCE_PUBLIC_INPUTS_LEN);
+        assert_eq!(
+            input.len(),
+            BALANCE_PUBLIC_INPUTS_LEN,
+            "Balance public inputs target length mismatch: expected {}, got {}",
+            BALANCE_PUBLIC_INPUTS_LEN,
+            input.len()
+        );
         let pubkey = U256Target::from_slice(&input[0..U256_LEN]);
         let private_commitment =
             PoseidonHashOutTarget::from_slice(&input[U256_LEN..U256_LEN + POSEIDON_HASH_OUT_LEN]);

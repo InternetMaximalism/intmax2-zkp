@@ -1,3 +1,15 @@
+//! Deposit time verification circuit for claim process.
+//!
+//! This circuit proves that a deposit was included in a specific block for the first time:
+//! 1. Verifies the deposit was not in the previous block (non-inclusion proof)
+//! 2. Verifies the deposit is in the current block (inclusion proof)
+//! 3. Verifies the deposit is bound to the provided public key
+//! 4. Calculates a nullifier for the deposit to prevent double-claiming
+//! 5. Determines a lock time for the deposit based on the block hash and deposit salt
+//!
+//! The deposit time circuit is a critical component of the claim process, establishing
+//! when a deposit became available and calculating its lock time before it can be claimed.
+
 use plonky2::{
     field::{extension::Extendable, types::Field},
     hash::hash_types::RichField,
@@ -16,11 +28,13 @@ use plonky2::{
 use crate::{
     circuits::claim::{
         determine_lock_time::DetermineLockTimeValue,
+        error::ClaimError,
         utils::{get_mining_deposit_nullifier, get_mining_deposit_nullifier_circuit},
     },
     common::{
         block::{Block, BlockTarget},
         deposit::{get_pubkey_salt_hash, get_pubkey_salt_hash_circuit, Deposit, DepositTarget},
+        error::CommonError,
         salt::{Salt, SaltTarget},
         trees::deposit_tree::{DepositMerkleProof, DepositMerkleProofTarget},
     },
@@ -36,18 +50,23 @@ use crate::{
 
 use super::determine_lock_time::{DetermineLockTimeTarget, LockTimeConfig};
 
+/// Length of public inputs for the deposit time circuit
 const DEPOSIT_TIME_PUBLIC_INPUTS_LEN: usize =
     U256_LEN + BYTES32_LEN + U256_LEN + 1 + U64_LEN + BYTES32_LEN + 1;
 
+/// Public inputs for the deposit time circuit
+///
+/// These values are made public in the ZKP and are used to verify the deposit's
+/// eligibility for claiming and to calculate the lock time before it can be claimed.
 #[derive(Debug, Clone)]
 pub struct DepositTimePublicInputs {
-    pub pubkey: U256,
-    pub nullifier: Bytes32,
-    pub deposit_amount: U256,
-    pub lock_time: u32,
-    pub block_timestamp: u64,
-    pub block_hash: Bytes32,
-    pub block_number: u32,
+    pub pubkey: U256,         // Public key of the claimer
+    pub nullifier: Bytes32,   // Nullifier to prevent double-claiming
+    pub deposit_amount: U256, // Amount of the deposit
+    pub lock_time: u32,       // Time period the deposit must be locked before claiming
+    pub block_timestamp: u64, // Timestamp of the block containing the deposit
+    pub block_hash: Bytes32,  // Hash of the block containing the deposit
+    pub block_number: u32,    // Number of the block containing the deposit
 }
 
 impl DepositTimePublicInputs {
@@ -106,15 +125,19 @@ impl DepositTimePublicInputs {
     }
 }
 
+/// Target version of DepositTimePublicInputs for use in ZKP circuits
+///
+/// Contains circuit targets for all public inputs that will be exposed
+/// in the proof for verification.
 #[derive(Debug, Clone)]
 pub struct DepositTimePublicInputsTarget {
-    pub pubkey: U256Target,
-    pub nullifier: Bytes32Target,
-    pub deposit_amount: U256Target,
-    pub lock_time: Target,
-    pub block_timestamp: U64Target,
-    pub block_hash: Bytes32Target,
-    pub block_number: Target,
+    pub pubkey: U256Target,         // Target for claimer's public key
+    pub nullifier: Bytes32Target,   // Target for deposit nullifier
+    pub deposit_amount: U256Target, // Target for deposit amount
+    pub lock_time: Target,          // Target for lock time duration
+    pub block_timestamp: U64Target, // Target for block timestamp
+    pub block_hash: Bytes32Target,  // Target for block hash
+    pub block_number: Target,       // Target for block number
 }
 
 impl DepositTimePublicInputsTarget {
@@ -159,21 +182,49 @@ impl DepositTimePublicInputsTarget {
     }
 }
 
+/// Values needed to prove deposit time verification
+///
+/// Contains all the data required to prove that a deposit was included in a specific block
+/// for the first time and to calculate its lock time and nullifier.
 pub struct DepositTimeValue {
-    pub prev_block: Block,
-    pub block: Block,
-    pub prev_deposit_merkle_proof: DepositMerkleProof,
-    pub deposit_merkle_proof: DepositMerkleProof,
-    pub deposit: Deposit,
-    pub deposit_index: u32,
-    pub deposit_salt: Salt,
-    pub block_hash: Bytes32,
-    pub pubkey: U256,
-    pub nullifier: Bytes32,
-    pub determine_lock_time_value: DetermineLockTimeValue,
+    pub prev_block: Block, // Previous block (to prove deposit wasn't included yet)
+    pub block: Block,      // Block containing the deposit
+    pub prev_deposit_merkle_proof: DepositMerkleProof, // Proof of non-inclusion in previous block
+    pub deposit_merkle_proof: DepositMerkleProof, // Proof of inclusion in current block
+    pub deposit: Deposit,  // The deposit being verified
+    pub deposit_index: u32, // Index of the deposit in the deposit tree
+    pub deposit_salt: Salt, // Salt used to hide the public key in the deposit
+    pub block_hash: Bytes32, // Hash of the block containing the deposit
+    pub pubkey: U256,      // Public key of the claimer
+    pub nullifier: Bytes32, // Calculated nullifier for the deposit
+    pub determine_lock_time_value: DetermineLockTimeValue, // Lock time calculation data
 }
 
 impl DepositTimeValue {
+    /// Creates a new DepositTimeValue by validating the deposit's inclusion in the block
+    /// and calculating its nullifier and lock time.
+    ///
+    /// This function:
+    /// 1. Verifies the deposit is eligible for mining
+    /// 2. Verifies the deposit was not in the previous block (non-inclusion proof)
+    /// 3. Verifies the deposit is in the current block (inclusion proof)
+    /// 4. Verifies the blocks are sequential (prev_block is parent of block)
+    /// 5. Verifies the deposit is bound to the provided public key
+    /// 6. Calculates the deposit's nullifier and lock time
+    ///
+    /// # Arguments
+    /// * `config` - Configuration for lock time calculation
+    /// * `prev_block` - Previous block (to prove deposit wasn't included yet)
+    /// * `block` - Block containing the deposit
+    /// * `prev_deposit_merkle_proof` - Proof of non-inclusion in previous block
+    /// * `deposit_merkle_proof` - Proof of inclusion in current block
+    /// * `deposit` - The deposit being verified
+    /// * `deposit_index` - Index of the deposit in the deposit tree
+    /// * `deposit_salt` - Salt used to hide the public key in the deposit
+    /// * `pubkey` - Public key of the claimer
+    ///
+    /// # Returns
+    /// A Result containing either the new DepositTimeValue or an error
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         config: &LockTimeConfig,
@@ -185,11 +236,12 @@ impl DepositTimeValue {
         deposit_index: u32,
         deposit_salt: Salt,
         pubkey: U256,
-    ) -> anyhow::Result<Self> {
+    ) -> Result<Self, CommonError> {
         if !deposit.is_eligible {
-            return Err(anyhow::anyhow!("deposit is not eligible for mining"));
+            return Err(CommonError::InvalidData(
+                "deposit is not eligible for mining".to_string(),
+            ));
         }
-
         // deposit non-inclusion proof of prev_deposit_merkle_proof
         prev_deposit_merkle_proof
             .verify(
@@ -197,22 +249,29 @@ impl DepositTimeValue {
                 deposit_index as u64,
                 prev_block.deposit_tree_root,
             )
-            .map_err(|e| anyhow::anyhow!("prev_deposit_merkle_proof.verify failed: {:?}", e))?;
+            .map_err(|e| {
+                CommonError::InvalidProof(format!(
+                    "prev_deposit_merkle_proof.verify failed: {:?}",
+                    e
+                ))
+            })?;
         // deposit inclusion proof of deposit_merkle_proof
         deposit_merkle_proof
             .verify(deposit, deposit_index as u64, block.deposit_tree_root)
-            .map_err(|e| anyhow::anyhow!("deposit_merkle_proof.verify failed: {:?}", e))?;
+            .map_err(|e| {
+                CommonError::InvalidProof(format!("deposit_merkle_proof.verify failed: {:?}", e))
+            })?;
         // ensure that prev_block is the parent of block
         if prev_block.hash() != block.prev_block_hash {
-            return Err(anyhow::anyhow!(
-                "prev_block.hash() != block.prev_block_hash"
+            return Err(CommonError::InvalidBlock(
+                "prev_block.hash() != block.prev_block_hash".to_string(),
             ));
         }
         // proving that the deposit is bound to the pubkey
         let pubkey_salt_hash = get_pubkey_salt_hash(pubkey, deposit_salt);
         if pubkey_salt_hash != deposit.pubkey_salt_hash {
-            return Err(anyhow::anyhow!(
-                "pubkey_salt_hash != deposit.pubkey_salt_hash"
+            return Err(CommonError::InvalidData(
+                "pubkey_salt_hash != deposit.pubkey_salt_hash".to_string(),
             ));
         }
 
@@ -237,22 +296,44 @@ impl DepositTimeValue {
     }
 }
 
+/// Target version of DepositTimeValue for use in ZKP circuits
+///
+/// Contains circuit targets for all components needed to verify a deposit's
+/// inclusion in a block and calculate its lock time and nullifier.
 #[derive(Debug, Clone)]
 pub struct DepositTimeTarget {
-    pub prev_block: BlockTarget,
-    pub block: BlockTarget,
-    pub prev_deposit_merkle_proof: DepositMerkleProofTarget,
-    pub deposit_merkle_proof: DepositMerkleProofTarget,
-    pub deposit: DepositTarget,
-    pub deposit_index: Target,
-    pub deposit_salt: SaltTarget,
-    pub block_hash: Bytes32Target,
-    pub pubkey: U256Target,
-    pub nullifier: Bytes32Target,
-    pub determine_lock_time_target: DetermineLockTimeTarget,
+    pub prev_block: BlockTarget, // Target for previous block
+    pub block: BlockTarget,      // Target for block containing the deposit
+    pub prev_deposit_merkle_proof: DepositMerkleProofTarget, // Target for non-inclusion proof
+    pub deposit_merkle_proof: DepositMerkleProofTarget, // Target for inclusion proof
+    pub deposit: DepositTarget,  // Target for the deposit
+    pub deposit_index: Target,   // Target for deposit index
+    pub deposit_salt: SaltTarget, // Target for deposit salt
+    pub block_hash: Bytes32Target, // Target for block hash
+    pub pubkey: U256Target,      // Target for claimer's public key
+    pub nullifier: Bytes32Target, // Target for deposit nullifier
+    pub determine_lock_time_target: DetermineLockTimeTarget, // Target for lock time calculation
 }
 
 impl DepositTimeTarget {
+    /// Creates a new DepositTimeTarget with circuit constraints that enforce
+    /// the deposit time verification rules.
+    ///
+    /// The circuit enforces:
+    /// 1. Deposit is eligible for mining
+    /// 2. Deposit was not in the previous block (non-inclusion proof)
+    /// 3. Deposit is in the current block (inclusion proof)
+    /// 4. Blocks are sequential (prev_block is parent of block)
+    /// 5. Deposit is bound to the provided public key
+    /// 6. Correct calculation of the deposit's nullifier and lock time
+    ///
+    /// # Arguments
+    /// * `builder` - Circuit builder
+    /// * `is_checked` - Whether to add constraints for checking the values
+    /// * `config` - Configuration for lock time calculation
+    ///
+    /// # Returns
+    /// A new DepositTimeTarget with all necessary targets and constraints
     pub fn new<F: RichField + Extendable<D>, C: GenericConfig<D, F = F> + 'static, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
         is_checked: bool,
@@ -343,6 +424,16 @@ impl DepositTimeTarget {
     }
 }
 
+/// Circuit for verifying deposit time and calculating lock time and nullifier
+///
+/// This circuit proves:
+/// 1. A deposit was included in a specific block for the first time
+/// 2. The deposit is bound to the provided public key
+/// 3. The deposit is eligible for mining
+///
+/// And calculates:
+/// 1. A nullifier for the deposit to prevent double-claiming
+/// 2. A lock time for the deposit based on the block hash and deposit salt
 #[derive(Debug)]
 pub struct DepositTimeCircuit<F, C, const D: usize>
 where
@@ -359,6 +450,13 @@ where
     C: GenericConfig<D, F = F> + 'static,
     C::Hasher: AlgebraicHasher<F>,
 {
+    /// Creates a new DepositTimeCircuit with the specified lock time configuration
+    ///
+    /// # Arguments
+    /// * `lock_config` - Configuration for lock time calculation
+    ///
+    /// # Returns
+    /// A new DepositTimeCircuit ready to generate proofs
     pub fn new(lock_config: &LockTimeConfig) -> Self {
         let config = CircuitConfig::default();
         let mut builder = CircuitBuilder::<F, D>::new(config.clone());
@@ -377,13 +475,22 @@ where
         Self { data, target }
     }
 
+    /// Generates a proof for the deposit time verification
+    ///
+    /// # Arguments
+    /// * `value` - DepositTimeValue containing all the data needed for the proof
+    ///
+    /// # Returns
+    /// A Result containing either the proof or an error
     pub fn prove(
         &self,
         value: &DepositTimeValue,
-    ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
+    ) -> Result<ProofWithPublicInputs<F, C, D>, ClaimError> {
         let mut pw = PartialWitness::<F>::new();
         self.target.set_witness(&mut pw, value);
-        self.data.prove(pw)
+        self.data
+            .prove(pw)
+            .map_err(|e| ClaimError::ProofGenerationError(format!("{:?}", e)))
     }
 }
 
@@ -411,6 +518,19 @@ mod tests {
     type C = PoseidonGoldilocksConfig;
     const D: usize = 2;
 
+    /// Tests the deposit time circuit by creating a scenario where a deposit is included
+    /// in a block for the first time and verifying that the circuit correctly proves this.
+    ///
+    /// The test:
+    /// 1. Creates a random public key and deposit salt
+    /// 2. Creates a deposit with the pubkey_salt_hash and marks it as eligible
+    /// 3. Creates a previous block without the deposit
+    /// 4. Creates a current block with the deposit
+    /// 5. Generates proofs of non-inclusion in the previous block and inclusion in the current
+    ///    block
+    /// 6. Creates a DepositTimeValue with all the necessary data
+    /// 7. Creates a DepositTimeCircuit and generates a proof
+    /// 8. Verifies the proof is valid
     #[test]
     fn test_deposit_time_circuit() {
         let lock_config = super::LockTimeConfig::normal();
@@ -469,6 +589,7 @@ mod tests {
         .unwrap();
 
         let circuit = super::DepositTimeCircuit::<F, C, D>::new(&lock_config);
-        let _proof = circuit.prove(&value).unwrap();
+        let proof = circuit.prove(&value).unwrap();
+        circuit.data.verify(proof).unwrap();
     }
 }

@@ -1,4 +1,3 @@
-use anyhow::ensure;
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -12,7 +11,8 @@ use crate::{
     },
     common::{
         block::Block,
-        signature::{utils::get_pubkey_hash, SignatureContent},
+        error::CommonError,
+        signature_content::{utils::get_pubkey_hash, SignatureContent},
         trees::{
             account_tree::{
                 AccountMembershipProof, AccountMerkleProof, AccountRegistrationProof, AccountTree,
@@ -62,7 +62,7 @@ impl BlockWitness {
         }
     }
 
-    pub fn to_main_validation_pis(&self) -> anyhow::Result<MainValidationPublicInputs> {
+    pub fn to_main_validation_pis(&self) -> Result<MainValidationPublicInputs, CommonError> {
         if self.block == Block::genesis() {
             let validity_pis = ValidityPublicInputs::genesis();
             return Ok(MainValidationPublicInputs {
@@ -90,7 +90,9 @@ impl BlockWitness {
         let is_registration_block = signature.block_sign_payload.is_registration_block;
         let is_pubkey_eq = signature.pubkey_hash == pubkey_hash;
         if is_registration_block {
-            ensure!(is_pubkey_eq, "pubkey hash mismatch");
+            if !is_pubkey_eq {
+                return Err(CommonError::InvalidData("pubkey hash mismatch".to_string()));
+            }
         } else {
             result = result && is_pubkey_eq;
         }
@@ -100,30 +102,32 @@ impl BlockWitness {
                 account_tree_root,
                 self.account_membership_proofs
                     .clone()
-                    .ok_or(anyhow::anyhow!(
-                        "account_membership_proofs is None in registration block"
+                    .ok_or(CommonError::MissingData(
+                        "account_membership_proofs is None in registration block".to_string(),
                     ))?,
                 sender_leaves,
-            );
+            )?;
             result = result && account_exclusion_value.is_valid;
         } else {
             // Account inclusion verification
             let account_inclusion_value = AccountInclusionValue::new(
                 account_tree_root,
-                self.account_id_packed.ok_or(anyhow::anyhow!(
-                    "account_id_packed is None in non-registration block"
+                self.account_id_packed.ok_or(CommonError::MissingData(
+                    "account_id_packed is None in non-registration block".to_string(),
                 ))?,
-                self.account_merkle_proofs.clone().ok_or(anyhow::anyhow!(
-                    "account_merkle_proofs is None in non-registration block"
-                ))?,
+                self.account_merkle_proofs
+                    .clone()
+                    .ok_or(CommonError::MissingData(
+                        "account_merkle_proofs is None in non-registration block".to_string(),
+                    ))?,
                 pubkeys.clone(),
-            );
+            )?;
             result = result && account_inclusion_value.is_valid;
         }
 
         // Format validation
         let format_validation_value =
-            FormatValidationValue::new(pubkeys.clone(), signature.clone());
+            FormatValidationValue::new(pubkeys.clone(), signature.clone())?;
         result = result && format_validation_value.is_valid;
 
         if result {
@@ -154,7 +158,7 @@ impl BlockWitness {
         &self,
         account_tree: &AccountTree,
         block_tree: &BlockHashTree,
-    ) -> anyhow::Result<ValidityWitness> {
+    ) -> Result<ValidityWitness, CommonError> {
         let mut account_tree = account_tree.clone();
         let mut block_tree = block_tree.clone();
         self.update_trees(&mut account_tree, &mut block_tree)
@@ -164,14 +168,15 @@ impl BlockWitness {
         &self,
         account_tree: &mut AccountTree,
         block_tree: &mut BlockHashTree,
-    ) -> anyhow::Result<ValidityWitness> {
-        let block_pis = self.to_main_validation_pis().map_err(|e| {
-            anyhow::anyhow!("failed to convert to main validation public inputs: {}", e)
-        })?;
-        ensure!(
-            block_pis.block_number == block_tree.len() as u32,
-            "block number mismatch"
-        );
+    ) -> Result<ValidityWitness, CommonError> {
+        let main_validation_pis = self
+            .to_main_validation_pis()
+            .map_err(|e| CommonError::BlockWitnessConversionFailed(e.to_string()))?;
+        if main_validation_pis.block_number != block_tree.len() as u32 {
+            return Err(CommonError::InvalidBlock(
+                "block number mismatch".to_string(),
+            ));
+        }
 
         // Update block tree
         let block_merkle_proof = block_tree.prove(self.block.block_number as u64);
@@ -180,16 +185,19 @@ impl BlockWitness {
         // Update account tree
         let sender_leaves = get_sender_leaves(&self.pubkeys, self.signature.sender_flag);
         let account_registration_proofs = {
-            if block_pis.is_valid && block_pis.is_registration_block {
+            if main_validation_pis.is_valid && main_validation_pis.is_registration_block {
                 let mut account_registration_proofs = Vec::new();
                 for sender_leaf in &sender_leaves {
                     let is_dummy_pubkey = sender_leaf.sender.is_dummy_pubkey();
-                    let will_update = sender_leaf.did_return_sig && !is_dummy_pubkey;
+                    let will_update = sender_leaf.signature_included && !is_dummy_pubkey;
                     let proof = if will_update {
                         account_tree
-                            .prove_and_insert(sender_leaf.sender, block_pis.block_number as u64)
+                            .prove_and_insert(
+                                sender_leaf.sender,
+                                main_validation_pis.block_number as u64,
+                            )
                             .map_err(|e| {
-                                anyhow::anyhow!("failed to prove and insert account_tree: {}", e)
+                                CommonError::AccountTreeProveAndInsertFailed(e.to_string())
                             })?
                     } else {
                         AccountRegistrationProof::dummy(ACCOUNT_TREE_HEIGHT)
@@ -203,20 +211,21 @@ impl BlockWitness {
         };
 
         let account_update_proofs = {
-            if block_pis.is_valid && (!block_pis.is_registration_block) {
+            if main_validation_pis.is_valid && (!main_validation_pis.is_registration_block) {
                 let mut account_update_proofs = Vec::new();
-                let block_number = block_pis.block_number;
+                let block_number = main_validation_pis.block_number;
                 for sender_leaf in sender_leaves.iter() {
                     let account_id = account_tree.index(sender_leaf.sender).unwrap();
                     let prev_leaf = account_tree.get_leaf(account_id);
                     let prev_last_block_number = prev_leaf.value as u32;
-                    let last_block_number = if sender_leaf.did_return_sig {
+                    let last_block_number = if sender_leaf.signature_included {
                         block_number
                     } else {
                         prev_last_block_number
                     };
-                    let proof =
-                        account_tree.prove_and_update(sender_leaf.sender, last_block_number as u64);
+                    let proof = account_tree
+                        .prove_and_update(sender_leaf.sender, last_block_number as u64)
+                        .map_err(|e| CommonError::AccountTreeProveAndUpdateFailed(e.to_string()))?;
                     account_update_proofs.push(proof);
                 }
                 Some(account_update_proofs)

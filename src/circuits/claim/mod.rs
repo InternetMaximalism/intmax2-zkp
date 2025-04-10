@@ -1,7 +1,8 @@
 pub mod deposit_time;
 pub mod determine_lock_time;
+pub mod error;
 pub mod single_claim_processor;
-pub mod single_claim_proof;
+pub mod single_claim_circuit;
 pub mod utils;
 
 #[cfg(test)]
@@ -17,7 +18,7 @@ mod tests {
         common::{
             deposit::{get_pubkey_salt_hash, Deposit},
             salt::Salt,
-            signature::key_set::KeySet,
+            signature_content::key_set::KeySet,
             witness::{claim_witness::ClaimWitness, deposit_time_witness::DepositTimeWitness},
         },
         ethereum_types::{
@@ -48,7 +49,7 @@ mod tests {
 
     #[test]
     fn test_claim() {
-        // 
+        //
         let lock_config = LockTimeConfig::normal();
 
         let mut rng = rand::thread_rng();

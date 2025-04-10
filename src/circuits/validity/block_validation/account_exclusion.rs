@@ -1,3 +1,12 @@
+//! Account exclusion circuit for registration block validation.
+//!
+//! This circuit ensures that for a given sender tree root, all senders are either:
+//! 1. Not included in the account tree (if signatures are included), or
+//! 2. Do not have signatures included
+//!
+//! This constraint is used during registration block validation when a sender
+//! makes a transaction for the first time.
+
 use plonky2::{
     field::extension::Extendable,
     hash::hash_types::RichField,
@@ -14,6 +23,7 @@ use plonky2::{
 };
 
 use crate::{
+    circuits::validity::block_validation::error::BlockValidationError,
     common::trees::{
         account_tree::{AccountMembershipProof, AccountMembershipProofTarget},
         sender_tree::{SenderLeaf, SenderLeafTarget},
@@ -21,12 +31,12 @@ use crate::{
     constants::{ACCOUNT_TREE_HEIGHT, NUM_SENDERS_IN_BLOCK, SENDER_TREE_HEIGHT},
     utils::{
         dummy::DummyProof,
-        poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget},
+        poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget, POSEIDON_HASH_OUT_LEN},
         trees::get_root::{get_merkle_root_from_leaves, get_merkle_root_from_leaves_circuit},
     },
 };
 
-const ACCOUNT_EXCLUSION_PUBLIC_INPUTS_LEN: usize = 4 + 4 + 1;
+const ACCOUNT_EXCLUSION_PUBLIC_INPUTS_LEN: usize = 2 * POSEIDON_HASH_OUT_LEN + 1;
 
 #[derive(Clone, Debug)]
 pub struct AccountExclusionPublicInputs {
@@ -92,28 +102,71 @@ pub struct AccountExclusionValue {
 }
 
 impl AccountExclusionValue {
+    /// Creates a new AccountExclusionValue by validating that all senders in the sender tree
+    /// satisfy the account exclusion constraint.
+    ///
+    /// The account exclusion constraint requires that for each sender:
+    /// - If the sender has a signature included, it must NOT be present in the account tree
+    /// - If the sender is already in the account tree, it must NOT have a signature included
+    ///
+    /// This constraint is used for registration block validation when a sender makes a transaction
+    /// for the first time.
     pub fn new(
         account_tree_root: PoseidonHashOut,
         account_membership_proofs: Vec<AccountMembershipProof>,
         sender_leaves: Vec<SenderLeaf>,
-    ) -> Self {
+    ) -> Result<Self, BlockValidationError> {
+        if account_membership_proofs.len() != sender_leaves.len() {
+            return Err(BlockValidationError::AccountExclusionValue(format!(
+                "Mismatched lengths: {} account membership proofs, {} sender leaves",
+                account_membership_proofs.len(),
+                sender_leaves.len()
+            )));
+        }
+
+        if sender_leaves.len() != NUM_SENDERS_IN_BLOCK {
+            return Err(BlockValidationError::AccountExclusionValue(format!(
+                "Expected {} sender leaves, got {}",
+                NUM_SENDERS_IN_BLOCK,
+                sender_leaves.len()
+            )));
+        }
+
         let mut result = true;
         for (sender_leaf, proof) in sender_leaves.iter().zip(account_membership_proofs.iter()) {
-            proof.verify(sender_leaf.sender, account_tree_root).unwrap();
-            // Only valid if the signature is returned and not included in the tree, or if the
-            // signature is not returned.
-            let is_valid =
-                !proof.is_included || !sender_leaf.did_return_sig;
+            proof
+                .verify(sender_leaf.sender, account_tree_root)
+                .map_err(|e| {
+                    BlockValidationError::AccountExclusionValue(format!(
+                        "Failed to verify account membership proof: {}",
+                        e
+                    ))
+                })?;
+
+            // For each sender, the constraint is satisfied if either:
+            // 1. The sender is not in the account tree (proof.is_included == false) and has a
+            //    signature, or
+            // 2. The sender does not have a signature included (regardless of account tree
+            //    inclusion)
+            let is_valid = !proof.is_included || !sender_leaf.signature_included;
             result = result && is_valid;
         }
-        let sender_tree_root = get_merkle_root_from_leaves(SENDER_TREE_HEIGHT, &sender_leaves);
-        Self {
+
+        let sender_tree_root = get_merkle_root_from_leaves(SENDER_TREE_HEIGHT, &sender_leaves)
+            .map_err(|e| {
+                BlockValidationError::AccountExclusionValue(format!(
+                    "Failed to get merkle root from leaves: {}",
+                    e
+                ))
+            })?;
+
+        Ok(Self {
             account_tree_root,
             account_membership_proofs,
             sender_leaves,
             sender_tree_root,
             is_valid: result,
-        }
+        })
     }
 }
 
@@ -127,6 +180,15 @@ pub struct AccountExclusionTarget {
 }
 
 impl AccountExclusionTarget {
+    /// Creates a new AccountExclusionTarget with circuit constraints that enforce the account
+    /// exclusion rule.
+    ///
+    /// The account exclusion rule requires that for each sender in the sender tree:
+    /// - If the sender has a signature included, it must NOT be present in the account tree
+    /// - If the sender is already in the account tree, it must NOT have a signature included
+    ///
+    /// This is used for registration block validation when a sender makes a transaction for the
+    /// first time.
     pub fn new<F: RichField + Extendable<D>, C: GenericConfig<D, F = F> + 'static, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
     ) -> Self
@@ -145,18 +207,32 @@ impl AccountExclusionTarget {
 
         for (sender_leaf, proof) in sender_leaves.iter().zip(account_membership_proofs.iter()) {
             proof.verify::<F, C, D>(builder, sender_leaf.sender, account_tree_root);
-            let is_not_included = builder.not(proof.is_included);
-            let is_not_included_and_did_return_sig =
-                builder.and(is_not_included, sender_leaf.did_return_sig);
-            let did_not_return_sig = builder.not(sender_leaf.did_return_sig);
-            let is_valid = builder.or(is_not_included_and_did_return_sig, did_not_return_sig);
+
+            // Constraint logic:
+            // 1. sender_not_in_account_tree = !proof.is_included
+            let sender_not_in_account_tree = builder.not(proof.is_included);
+
+            // 2. sender_not_in_tree_with_signature = sender_not_in_account_tree &&
+            //    sender_leaf.signature_included
+            let sender_not_in_tree_with_signature =
+                builder.and(sender_not_in_account_tree, sender_leaf.signature_included);
+
+            // 3. sender_has_no_signature = !sender_leaf.signature_included
+            let sender_has_no_signature = builder.not(sender_leaf.signature_included);
+
+            // 4. Valid if: (sender not in tree AND has signature) OR (sender has no signature)
+            let is_valid = builder.or(sender_not_in_tree_with_signature, sender_has_no_signature);
+
+            // Accumulate the result for all senders
             result = builder.and(result, is_valid);
         }
+
         let sender_tree_root = get_merkle_root_from_leaves_circuit::<F, C, D, _>(
             builder,
             SENDER_TREE_HEIGHT,
             &sender_leaves,
         );
+
         Self {
             account_tree_root,
             account_membership_proofs,
@@ -207,7 +283,7 @@ where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F> + 'static,
     C::Hasher: AlgebraicHasher<F>,
- {
+{
     fn default() -> Self {
         Self::new()
     }
@@ -241,10 +317,12 @@ where
     pub fn prove(
         &self,
         value: &AccountExclusionValue,
-    ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
+    ) -> Result<ProofWithPublicInputs<F, C, D>, BlockValidationError> {
         let mut pw = PartialWitness::<F>::new();
         self.target.set_witness(&mut pw, value);
-        self.data.prove(pw)
+        self.data
+            .prove(pw)
+            .map_err(|e| BlockValidationError::Plonky2Error(e.to_string()))
     }
 }
 
@@ -255,7 +333,7 @@ mod tests {
     };
 
     use crate::{
-        common::{signature::key_set::KeySet, trees::account_tree::AccountTree},
+        common::{signature_content::key_set::KeySet, trees::account_tree::AccountTree},
         constants::NUM_SENDERS_IN_BLOCK,
         ethereum_types::u256::U256,
     };
@@ -268,9 +346,11 @@ mod tests {
     type C = PoseidonGoldilocksConfig;
 
     #[test]
-    fn account_exclusion() {
+    fn test_account_exclusion_valid_cases() {
         let mut rng = rand::thread_rng();
         let mut tree = AccountTree::initialize();
+
+        // Insert some accounts into the account tree
         for _ in 0..100 {
             let keyset = KeySet::rand(&mut rng);
             let last_block_number = rng.gen();
@@ -278,24 +358,99 @@ mod tests {
         }
         let account_tree_root = tree.get_root();
 
+        // Create random pubkeys for senders
         let mut pubkeys = (0..10).map(|_| U256::rand(&mut rng)).collect::<Vec<_>>();
         pubkeys.resize(NUM_SENDERS_IN_BLOCK, U256::dummy_pubkey());
+
+        // Create valid sender leaves and proofs that satisfy the account exclusion constraint
         let mut account_membership_proofs = Vec::new();
         let mut sender_leaves = Vec::new();
         for pubkey in pubkeys.iter() {
             let proof = tree.prove_membership(*pubkey);
+
+            // Ensure we satisfy the constraint:
+            // - If in account tree (proof.is_included == true), don't include signature
+            // - If not in account tree, can include signature or not
+            let signature_included = if proof.is_included {
+                false // No signature if already in account tree
+            } else {
+                rng.gen() && !pubkey.is_dummy_pubkey() // Random for new accounts
+            };
+
             account_membership_proofs.push(proof);
             let sender_leaf = SenderLeaf {
                 sender: *pubkey,
-                did_return_sig: rng.gen() && !pubkey.is_dummy_pubkey(),
+                signature_included,
             };
             sender_leaves.push(sender_leaf);
         }
 
         let value =
-            AccountExclusionValue::new(account_tree_root, account_membership_proofs, sender_leaves);
+            AccountExclusionValue::new(account_tree_root, account_membership_proofs, sender_leaves)
+                .unwrap();
+
+        // The value should be valid since we constructed it to satisfy the constraint
         assert!(value.is_valid);
+
+        // Verify we can generate a valid proof
         let circuit = AccountExclusionCircuit::<F, C, D>::new();
         let _proof = circuit.prove(&value).unwrap();
+    }
+
+    #[test]
+    fn test_account_exclusion_invalid_case() {
+        let mut rng = rand::thread_rng();
+        let mut tree = AccountTree::initialize();
+
+        // Insert some accounts into the account tree
+        for _ in 0..100 {
+            let keyset = KeySet::rand(&mut rng);
+            let last_block_number = rng.gen();
+            tree.insert(keyset.pubkey, last_block_number).unwrap();
+        }
+
+        // Insert one more account that we'll use to create an invalid case
+        let special_keyset = KeySet::rand(&mut rng);
+        let special_pubkey = special_keyset.pubkey;
+        let last_block_number = rng.gen();
+        tree.insert(special_pubkey, last_block_number).unwrap();
+
+        let account_tree_root = tree.get_root();
+
+        // Create random pubkeys for senders
+        let mut pubkeys = (0..NUM_SENDERS_IN_BLOCK - 1)
+            .map(|_| U256::rand(&mut rng))
+            .collect::<Vec<_>>();
+        // Add our special pubkey that's already in the account tree
+        pubkeys.push(special_pubkey);
+
+        let mut account_membership_proofs = Vec::new();
+        let mut sender_leaves = Vec::new();
+
+        for (i, pubkey) in pubkeys.iter().enumerate() {
+            let proof = tree.prove_membership(*pubkey);
+
+            // For the special pubkey (last one), we'll violate the constraint by including a
+            // signature even though it's already in the account tree
+            let signature_included = if i == pubkeys.len() - 1 {
+                true // This violates the constraint!
+            } else {
+                !proof.is_included || rng.gen::<bool>() // Valid for other pubkeys
+            };
+
+            account_membership_proofs.push(proof);
+            let sender_leaf = SenderLeaf {
+                sender: *pubkey,
+                signature_included,
+            };
+            sender_leaves.push(sender_leaf);
+        }
+
+        let value =
+            AccountExclusionValue::new(account_tree_root, account_membership_proofs, sender_leaves)
+                .unwrap();
+
+        // The value should be invalid since we constructed it to violate the constraint
+        assert!(!value.is_valid);
     }
 }

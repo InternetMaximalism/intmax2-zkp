@@ -1,11 +1,13 @@
 use std::str::FromStr;
 
-use anyhow::ensure;
 use num::{BigUint, Zero as _};
 use plonky2::iop::target::Target;
 use serde::{Deserialize, Serialize};
 
-use super::u32limb_trait::{self, U32LimbTargetTrait, U32LimbTrait};
+use super::{
+    error::EthereumTypeError,
+    u32limb_trait::{self, U32LimbTargetTrait, U32LimbTrait},
+};
 
 pub const BYTES16_LEN: usize = 4;
 
@@ -34,10 +36,12 @@ impl core::fmt::Display for Bytes16 {
 }
 
 impl FromStr for Bytes16 {
-    type Err = anyhow::Error;
+    type Err = EthereumTypeError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Self::from_hex(s).map_err(|e| anyhow::anyhow!("Failed to parse Bytes16: {}", e))
+        Self::from_hex(s).map_err(|e| {
+            EthereumTypeError::HexParseError(format!("Failed to parse Bytes16: {}", e))
+        })
     }
 }
 
@@ -56,11 +60,17 @@ impl<'de> Deserialize<'de> for Bytes16 {
 }
 
 impl TryFrom<BigUint> for Bytes16 {
-    type Error = anyhow::Error;
+    type Error = EthereumTypeError;
 
-    fn try_from(value: BigUint) -> anyhow::Result<Self> {
+    fn try_from(value: BigUint) -> Result<Self, Self::Error> {
         let mut digits = value.to_u32_digits();
-        ensure!(digits.len() <= BYTES16_LEN, "value is too large");
+        if digits.len() > BYTES16_LEN {
+            return Err(EthereumTypeError::ValueTooLarge(format!(
+                "Value has {} digits, but Bytes16 can only hold {}",
+                digits.len(),
+                BYTES16_LEN
+            )));
+        }
         digits.resize(BYTES16_LEN, 0);
         digits.reverse(); // little endian to big endian
         Ok(Self {
@@ -86,12 +96,12 @@ impl U32LimbTrait<BYTES16_LEN> for Bytes16 {
 
     fn from_u32_slice(limbs: &[u32]) -> u32limb_trait::Result<Self> {
         if limbs.len() != BYTES16_LEN {
-            return Err(u32limb_trait::U32LimbError::InvalidLength(limbs.len()));
+            return Err(EthereumTypeError::InvalidLengthSimple(limbs.len()));
         }
         Ok(Self {
             limbs: limbs
                 .try_into()
-                .map_err(|_| u32limb_trait::U32LimbError::InvalidLength(limbs.len()))?,
+                .map_err(|_| EthereumTypeError::InvalidLengthSimple(limbs.len()))?,
         })
     }
 }

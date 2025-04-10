@@ -1,4 +1,3 @@
-use anyhow::ensure;
 use plonky2::{
     field::extension::Extendable,
     hash::hash_types::RichField,
@@ -10,7 +9,10 @@ use plonky2::{
 };
 
 use crate::{
-    circuits::balance::{balance_pis::BalancePublicInputs, send::spent_circuit::SpentPublicInputs},
+    circuits::balance::{
+        balance_pis::BalancePublicInputs,
+        send::{error::SendError, spent_circuit::SpentPublicInputs},
+    },
     common::witness::{
         spent_witness::SpentWitness, tx_witness::TxWitness, update_witness::UpdateWitness,
     },
@@ -55,51 +57,13 @@ where
     pub fn prove_spent(
         &self,
         spent_witness: &SpentWitness,
-    ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
+    ) -> Result<ProofWithPublicInputs<F, C, D>, SendError> {
         let spent_value = spent_witness
             .to_value()
-            .map_err(|e| anyhow::anyhow!("failed to create spent value: {}", e))?;
+            .map_err(|e| SendError::InvalidInput(format!("Failed to create spent value: {}", e)))?;
         self.spent_circuit
             .prove(&spent_value)
-            .map_err(|e| anyhow::anyhow!("failed to prove spent: {}", e))
-    }
-
-    fn prove_tx_inclusion(
-        &self,
-        validity_vd: &VerifierCircuitData<F, C, D>,
-        prev_balance_pis: &BalancePublicInputs,
-        tx_witness: &TxWitness,
-        update_witness: &UpdateWitness<F, C, D>,
-    ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
-        let update_validity_pis = update_witness.validity_pis();
-        ensure!(
-            update_validity_pis == tx_witness.validity_pis,
-            "validity proof pis mismatch"
-        );
-        let sender_tree = tx_witness.get_sender_tree();
-        let sender_leaf = sender_tree.get_leaf(tx_witness.tx_index as u64);
-        ensure!(
-            sender_leaf.sender == prev_balance_pis.pubkey,
-            "sender pubkey mismatch"
-        );
-        let sender_merkle_proof = sender_tree.prove(tx_witness.tx_index as u64);
-        let tx_inclusion_value = TxInclusionValue::new(
-            validity_vd,
-            prev_balance_pis.pubkey,
-            &prev_balance_pis.public_state,
-            &update_witness.validity_proof,
-            &update_witness.block_merkle_proof,
-            &update_witness.prev_account_membership_proof()?,
-            tx_witness.tx_index,
-            &tx_witness.tx,
-            &tx_witness.tx_merkle_proof,
-            &sender_leaf,
-            &sender_merkle_proof,
-        )
-        .map_err(|e| anyhow::anyhow!("failed to create tx inclusion value: {}", e))?;
-        self.tx_inclusion_circuit
-            .prove(&tx_inclusion_value)
-            .map_err(|e| anyhow::anyhow!("failed to prove tx inclusion: {}", e))
+            .map_err(|e| SendError::ProofGenerationError(format!("Failed to prove spent: {}", e)))
     }
 
     pub fn prove_send(
@@ -109,15 +73,26 @@ where
         tx_witness: &TxWitness,
         update_witness: &UpdateWitness<F, C, D>,
         spent_proof: &ProofWithPublicInputs<F, C, D>,
-    ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
+    ) -> Result<ProofWithPublicInputs<F, C, D>, SendError> {
         let spent_pis = SpentPublicInputs::from_pis(&spent_proof.public_inputs);
-        ensure!(
-            spent_pis.prev_private_commitment == prev_balance_pis.private_commitment,
-            "prev private commitment mismatch"
-        );
-        ensure!(spent_pis.tx == tx_witness.tx, "tx mismatch");
+
+        if spent_pis.prev_private_commitment != prev_balance_pis.private_commitment {
+            return Err(SendError::InvalidInput(format!(
+                "Prev private commitment mismatch: expected {:?}, got {:?}",
+                prev_balance_pis.private_commitment, spent_pis.prev_private_commitment
+            )));
+        }
+
+        if spent_pis.tx != tx_witness.tx {
+            return Err(SendError::InvalidInput(format!(
+                "TX mismatch: expected {:?}, got {:?}",
+                tx_witness.tx, spent_pis.tx
+            )));
+        }
+
         let tx_inclusion_proof =
             self.prove_tx_inclusion(validity_vd, prev_balance_pis, tx_witness, update_witness)?;
+
         let sender_value = SenderValue::new(
             &self.spent_circuit,
             &self.tx_inclusion_circuit,
@@ -125,70 +100,152 @@ where
             &tx_inclusion_proof,
             prev_balance_pis,
         )
-        .map_err(|e| anyhow::anyhow!("failed to create sender value: {}", e))?;
+        .map_err(|e| SendError::InvalidInput(format!("Failed to create sender value: {}", e)))?;
+
         self.sender_circuit
             .prove(&sender_value)
-            .map_err(|e| anyhow::anyhow!("failed to prove sender: {}", e))
+            .map_err(|e| SendError::ProofGenerationError(format!("Failed to prove sender: {}", e)))
+    }
+
+    fn prove_tx_inclusion(
+        &self,
+        validity_vd: &VerifierCircuitData<F, C, D>,
+        prev_balance_pis: &BalancePublicInputs,
+        tx_witness: &TxWitness,
+        update_witness: &UpdateWitness<F, C, D>,
+    ) -> Result<ProofWithPublicInputs<F, C, D>, SendError> {
+        let update_validity_pis = update_witness.validity_pis();
+        if update_validity_pis != tx_witness.validity_pis {
+            return Err(SendError::InvalidInput(format!(
+                "Validity proof pis mismatch: expected {:?}, got {:?}",
+                tx_witness.validity_pis, update_validity_pis
+            )));
+        }
+
+        let sender_tree = tx_witness.get_sender_tree();
+        let sender_leaf = sender_tree.get_leaf(tx_witness.tx_index as u64);
+
+        if sender_leaf.sender != prev_balance_pis.pubkey {
+            return Err(SendError::InvalidInput(format!(
+                "Sender pubkey mismatch: expected {}, got {}",
+                prev_balance_pis.pubkey, sender_leaf.sender
+            )));
+        }
+
+        let sender_merkle_proof = sender_tree.prove(tx_witness.tx_index as u64);
+        let tx_inclusion_value = TxInclusionValue::new(
+            validity_vd,
+            prev_balance_pis.pubkey,
+            &prev_balance_pis.public_state,
+            &update_witness.validity_proof,
+            &update_witness.block_merkle_proof,
+            &update_witness
+                .prev_account_membership_proof()
+                .map_err(|e| {
+                    SendError::InvalidInput(format!(
+                        "Failed to get prev account membership proof: {}",
+                        e
+                    ))
+                })?,
+            tx_witness.tx_index,
+            &tx_witness.tx,
+            &tx_witness.tx_merkle_proof,
+            &sender_leaf,
+            &sender_merkle_proof,
+        )
+        .map_err(|e| {
+            SendError::InvalidInput(format!("Failed to create tx inclusion value: {}", e))
+        })?;
+
+        self.tx_inclusion_circuit
+            .prove(&tx_inclusion_value)
+            .map_err(|e| {
+                SendError::ProofGenerationError(format!("Failed to prove tx inclusion: {}", e))
+            })
     }
 }
 
-// #[cfg(test)]
-// mod tests {
-//     use plonky2::{
-//         field::goldilocks_field::GoldilocksField, plonk::config::PoseidonGoldilocksConfig,
-//     };
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
 
-//     use crate::{
-//         common::{generic_address::GenericAddress, salt::Salt, transfer::Transfer},
-//         ethereum_types::u256::U256,
-//     };
+    use plonky2::{
+        field::goldilocks_field::GoldilocksField, plonk::config::PoseidonGoldilocksConfig,
+    };
 
-//     use super::SenderProcessor;
+    use crate::{
+        circuits::{
+            balance::balance_pis::BalancePublicInputs,
+            test_utils::{
+                state_manager::ValidityStateManager,
+                witness_generator::{construct_spent_and_transfer_witness, MockTxRequest},
+            },
+            validity::validity_processor::ValidityProcessor,
+        },
+        common::{
+            private_state::FullPrivateState, signature_content::key_set::KeySet, transfer::Transfer,
+        },
+        ethereum_types::address::Address,
+    };
 
-//     type F = GoldilocksField;
-//     type C = PoseidonGoldilocksConfig;
-//     const D: usize = 2;
+    use super::SenderProcessor;
 
-//     #[test]
-//     fn sender_processor() {
-//         let mut rng = rand::thread_rng();
-//         let mut block_builder = MockBlockBuilder::new();
-//         let mut wallet = MockWallet::new_rand(&mut rng);
-//         let mut sync_prover = SyncValidityProver::<F, C, D>::new();
-//         let sender_processor =
-//             SenderProcessor::new(&sync_prover.validity_processor.validity_circuit);
+    type F = GoldilocksField;
+    type C = PoseidonGoldilocksConfig;
+    const D: usize = 2;
 
-//         let transfer = Transfer {
-//             recipient: GenericAddress::rand_pubkey(&mut rng),
-//             token_index: 0,
-//             amount: U256::rand_small(&mut rng),
-//             salt: Salt::rand(&mut rng),
-//         };
+    #[test]
+    fn test_sender_processor() {
+        let mut rng = rand::thread_rng();
 
-//         // send tx
-//         let send_witness = wallet.send_tx_and_update(&mut rng, &mut block_builder, &[transfer]);
-//         sync_prover.sync(&block_builder);
+        let key = KeySet::rand(&mut rng);
+        let mut full_private_state = FullPrivateState::new();
 
-//         let block_number = send_witness.get_included_block_number();
-//         let prev_block_number = send_witness.get_prev_block_number();
-//         println!(
-//             "block_number: {}, prev_block_number: {}",
-//             block_number, prev_block_number
-//         );
-//         let update_witness = sync_prover.get_update_witness(
-//             &block_builder,
-//             wallet.get_pubkey(),
-//             block_builder.last_block_number(),
-//             prev_block_number,
-//             true,
-//         );
+        let validity_processor = Arc::new(ValidityProcessor::<F, C, D>::new());
+        let validity_vd = validity_processor.get_verifier_data();
+        let mut validity_state_manager =
+            ValidityStateManager::new(validity_processor.clone(), Address::default());
 
-//         sender_processor
-//             .prove(
-//                 &sync_prover.validity_processor.validity_circuit,
-//                 &send_witness,
-//                 &update_witness,
-//             )
-//             .unwrap();
-//     }
-// }
+        let transfer = Transfer::rand(&mut rng);
+        let (spent_witness, _) =
+            construct_spent_and_transfer_witness(&mut full_private_state, &[transfer]).unwrap();
+
+        let tx_request = MockTxRequest {
+            tx: spent_witness.tx,
+            sender_key: key,
+            will_return_sig: true,
+        };
+        let tx_witnesses = validity_state_manager
+            .tick(true, &[tx_request], 0, 0)
+            .unwrap();
+        let block_number = validity_state_manager.get_block_number();
+
+        let tx_witness = tx_witnesses[0].clone();
+        let update_witness = validity_state_manager
+            .get_update_witness(key.pubkey, block_number, 0, true)
+            .unwrap();
+
+        let prev_balance_pis = &BalancePublicInputs::new(key.pubkey);
+        let sender_processor = SenderProcessor::new(&validity_vd);
+
+        let spent_proof = sender_processor
+            .spent_circuit
+            .prove(&spent_witness.to_value().unwrap())
+            .unwrap();
+        let sender_proof = sender_processor
+            .prove_send(
+                &validity_vd,
+                prev_balance_pis,
+                &tx_witness,
+                &update_witness,
+                &spent_proof,
+            )
+            .unwrap();
+
+        sender_processor
+            .sender_circuit
+            .data
+            .verify(sender_proof)
+            .unwrap();
+    }
+}

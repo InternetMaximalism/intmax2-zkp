@@ -9,13 +9,13 @@ use plonky2::{
 };
 
 use crate::{
-    circuits::claim::single_claim_proof::SingleClaimValue,
+    circuits::claim::single_claim_circuit::SingleClaimValue,
     common::witness::claim_witness::ClaimWitness,
 };
 
 use super::{
-    deposit_time::DepositTimeCircuit, determine_lock_time::LockTimeConfig,
-    single_claim_proof::SingleClaimCircuit,
+    deposit_time::DepositTimeCircuit, determine_lock_time::LockTimeConfig, error::ClaimError,
+    single_claim_circuit::SingleClaimCircuit,
 };
 
 #[derive(Debug)]
@@ -55,12 +55,25 @@ where
     pub fn prove(
         &self,
         claim_witness: &ClaimWitness<F, C, D>,
-    ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
+    ) -> Result<ProofWithPublicInputs<F, C, D>, ClaimError> {
         let deposit_time_value = claim_witness
             .deposit_time_witness
             .to_value(&self.config)
-            .map_err(|e| anyhow::anyhow!("failed to create deposit_time_value: {}", e))?;
-        let deposit_time_proof = self.deposit_time_circuit.prove(&deposit_time_value)?;
+            .map_err(|e| {
+                ClaimError::ProofGenerationError(format!(
+                    "Failed to create deposit_time_value: {}",
+                    e
+                ))
+            })?;
+        let deposit_time_proof = self
+            .deposit_time_circuit
+            .prove(&deposit_time_value)
+            .map_err(|e| {
+                ClaimError::ProofGenerationError(format!(
+                    "Failed to generate deposit_time_proof: {}",
+                    e
+                ))
+            })?;
 
         let single_claim_value = SingleClaimValue::new(
             &self.validity_vd,
@@ -71,8 +84,20 @@ where
             &claim_witness.update_witness.validity_proof,
             &deposit_time_proof,
         )
-        .map_err(|e| anyhow::anyhow!("failed to create single_claim_value: {}", e))?;
-        let single_claim_proof = self.single_claim_circuit.prove(&single_claim_value)?;
+        .map_err(|e| {
+            ClaimError::ProofGenerationError(format!("Failed to create single_claim_value: {}", e))
+        })?;
+
+        let single_claim_proof = self
+            .single_claim_circuit
+            .prove(&single_claim_value)
+            .map_err(|e| {
+                ClaimError::ProofGenerationError(format!(
+                    "Failed to generate single_claim_proof: {}",
+                    e
+                ))
+            })?;
+
         Ok(single_claim_proof)
     }
 }

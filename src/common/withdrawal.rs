@@ -67,14 +67,17 @@ impl Withdrawal {
         assert_eq!(slice.len(), WITHDRAWAL_LEN);
         let recipient = Address::from_u32_slice(&slice[0..ADDRESS_LEN]).unwrap();
         let token_index = slice[ADDRESS_LEN];
-        let amount = U256::from_u32_slice(&slice[ADDRESS_LEN + 1..ADDRESS_LEN + 1 + U256_LEN]).unwrap();
+        let amount =
+            U256::from_u32_slice(&slice[ADDRESS_LEN + 1..ADDRESS_LEN + 1 + U256_LEN]).unwrap();
         let nullifier = Bytes32::from_u32_slice(
             &slice[ADDRESS_LEN + 1 + U256_LEN..ADDRESS_LEN + 1 + U256_LEN + BYTES32_LEN],
-        ).unwrap();
+        )
+        .unwrap();
         let block_hash = Bytes32::from_u32_slice(
             &slice[ADDRESS_LEN + 1 + U256_LEN + BYTES32_LEN
                 ..ADDRESS_LEN + 1 + U256_LEN + BYTES32_LEN + BYTES32_LEN],
-        ).unwrap();
+        )
+        .unwrap();
         let block_number = slice[ADDRESS_LEN + 1 + U256_LEN + BYTES32_LEN + BYTES32_LEN];
         Self {
             recipient,
@@ -181,7 +184,7 @@ impl WithdrawalTarget {
 }
 
 pub fn get_withdrawal_nullifier(transfer: &Transfer) -> Bytes32 {
-    let transfer_commitment = transfer.commitment();
+    let transfer_commitment = transfer.poseidon_hash();
     let input = [transfer_commitment.to_u64_vec(), transfer.salt.to_u64_vec()].concat();
     let input_hash = PoseidonHashOut::hash_inputs_u64(&input);
     let nullifier: Bytes32 = input_hash.into();
@@ -192,7 +195,7 @@ pub fn get_withdrawal_nullifier_circuit<F: RichField + Extendable<D>, const D: u
     builder: &mut CircuitBuilder<F, D>,
     transfer: &TransferTarget,
 ) -> Bytes32Target {
-    let transfer_commitment = transfer.commitment(builder);
+    let transfer_commitment = transfer.poseidon_hash(builder);
     let input = [transfer_commitment.to_vec(), transfer.salt.to_vec()].concat();
     let input_hash = PoseidonHashOutTarget::hash_inputs(builder, &input);
 

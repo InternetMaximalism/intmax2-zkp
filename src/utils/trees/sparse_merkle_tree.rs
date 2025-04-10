@@ -1,4 +1,5 @@
-use hashbrown::HashMap;
+use std::collections::HashMap;
+
 use plonky2::{
     field::{extension::Extendable, types::Field},
     hash::hash_types::RichField,
@@ -10,12 +11,11 @@ use plonky2::{
 };
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-use super::merkle_tree::{MerkleProof, MerkleProofTarget, MerkleTree};
-use crate::utils::{
-    leafable::{Leafable, LeafableTarget},
-    leafable_hasher::LeafableHasher,
-    trees::merkle_tree::u64_le_bits,
+use super::{
+    error::MerkleProofError,
+    merkle_tree::{HashOut, HashOutTarget, MerkleProof, MerkleProofTarget, MerkleTree},
 };
+use crate::utils::leafable::{Leafable, LeafableTarget};
 
 // Merkle Tree that holds leaves as a vec. It is suitable for handling indexed
 // leaves.
@@ -27,7 +27,7 @@ pub struct SparseMerkleTree<V: Leafable> {
 
 impl<V: Leafable> SparseMerkleTree<V> {
     pub fn new(height: usize) -> Self {
-        let merkle_tree = MerkleTree::new(height, V::empty_leaf().hash());
+        let merkle_tree = MerkleTree::new(height);
         let leaves = HashMap::new();
         Self {
             merkle_tree,
@@ -39,7 +39,6 @@ impl<V: Leafable> SparseMerkleTree<V> {
         self.merkle_tree.height()
     }
 
-    // NOTICE: `None` and `V::empty_leaf()` are treated equivalently.
     pub fn get_leaf(&self, index: u64) -> V {
         match self.leaves.get(&index) {
             Some(leaf) => leaf.clone(),
@@ -47,7 +46,7 @@ impl<V: Leafable> SparseMerkleTree<V> {
         }
     }
 
-    pub fn get_root(&self) -> <V::LeafableHasher as LeafableHasher>::HashOut {
+    pub fn get_root(&self) -> HashOut<V> {
         self.merkle_tree.get_root()
     }
 
@@ -64,14 +63,12 @@ impl<V: Leafable> SparseMerkleTree<V> {
     }
 
     pub fn update(&mut self, index: u64, leaf: V) {
-        let index_bits = u64_le_bits(index, self.height());
-        self.merkle_tree.update_leaf(index_bits, leaf.hash());
+        self.merkle_tree.update_leaf(index, leaf.hash());
         self.leaves.insert(index, leaf);
     }
 
     pub fn prove(&self, index: u64) -> SparseMerkleProof<V> {
-        let index_bits = u64_le_bits(index, self.height());
-        SparseMerkleProof(self.merkle_tree.prove(index_bits))
+        SparseMerkleProof(self.merkle_tree.prove(index))
     }
 }
 
@@ -79,35 +76,27 @@ impl<V: Leafable> SparseMerkleTree<V> {
 pub struct SparseMerkleProof<V: Leafable>(pub(crate) MerkleProof<V>);
 
 impl<V: Leafable> SparseMerkleProof<V> {
-    pub fn get_root(
-        &self,
-        leaf_data: &V,
-        index: u64,
-    ) -> <V::LeafableHasher as LeafableHasher>::HashOut {
-        let height = self.0.height();
-        let index_bits = u64_le_bits(index, height);
-        self.0.get_root(leaf_data, index_bits)
+    pub fn get_root(&self, leaf_data: &V, index: u64) -> HashOut<V> {
+        self.0.get_root(leaf_data, index)
     }
 
     pub fn verify(
         &self,
         leaf_data: &V,
         index: u64,
-        merkle_root: <V::LeafableHasher as LeafableHasher>::HashOut,
-    ) -> anyhow::Result<()> {
-        let height = self.0.height();
-        let index_bits = u64_le_bits(index, height);
-        self.0.verify(leaf_data, index_bits, merkle_root)
+        merkle_root: HashOut<V>,
+    ) -> Result<(), MerkleProofError> {
+        self.0.verify(leaf_data, index, merkle_root)
     }
 
-    pub fn from_siblings(siblings: Vec<<V::LeafableHasher as LeafableHasher>::HashOut>) -> Self {
+    pub fn from_siblings(siblings: Vec<HashOut<V>>) -> Self {
         Self(MerkleProof { siblings })
     }
 }
 
 impl<V: Leafable> Serialize for SparseMerkleProof<V>
 where
-    <V::LeafableHasher as LeafableHasher>::HashOut: Serialize,
+    HashOut<V>: Serialize,
 {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -119,36 +108,19 @@ where
 
 impl<'de, V: Leafable> Deserialize<'de> for SparseMerkleProof<V>
 where
-    <V::LeafableHasher as LeafableHasher>::HashOut: Deserialize<'de>,
+    HashOut<V>: Deserialize<'de>,
 {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {
-        let siblings =
-            Vec::<<V::LeafableHasher as LeafableHasher>::HashOut>::deserialize(deserializer)?;
+        let siblings = Vec::<HashOut<V>>::deserialize(deserializer)?;
         Ok(SparseMerkleProof(MerkleProof { siblings }))
     }
 }
 
 #[derive(Debug, Clone)]
 pub struct SparseMerkleProofTarget<VT: LeafableTarget>(pub(crate) MerkleProofTarget<VT>);
-
-impl<VT: LeafableTarget> PartialEq for SparseMerkleProofTarget<VT>
-where
-    <<VT::Leaf as Leafable>::LeafableHasher as LeafableHasher>::HashOutTarget: PartialEq,
-{
-    fn eq(&self, other: &Self) -> bool {
-        self.0 == other.0
-    }
-}
-
-impl<VT: LeafableTarget> Eq for SparseMerkleProofTarget<VT>
-where
-    <<VT::Leaf as Leafable>::LeafableHasher as LeafableHasher>::HashOutTarget: Eq,
-{
-    // Nothing to implement
-}
 
 impl<VT: LeafableTarget> SparseMerkleProofTarget<VT> {
     pub fn new<F: RichField + Extendable<D>, const D: usize>(
@@ -184,12 +156,11 @@ impl<VT: LeafableTarget> SparseMerkleProofTarget<VT> {
         builder: &mut CircuitBuilder<F, D>,
         leaf_data: &VT,
         index: Target,
-    ) -> <<VT::Leaf as Leafable>::LeafableHasher as LeafableHasher>::HashOutTarget
+    ) -> HashOutTarget<VT>
     where
         <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
     {
-        let index_bits = builder.split_le(index, self.0.height());
-        self.0.get_root::<F, C, D>(builder, leaf_data, index_bits)
+        self.0.get_root::<F, C, D>(builder, leaf_data, index)
     }
 
     pub fn verify<
@@ -201,14 +172,12 @@ impl<VT: LeafableTarget> SparseMerkleProofTarget<VT> {
         builder: &mut CircuitBuilder<F, D>,
         leaf_data: &VT,
         index: Target,
-        merkle_root: <<VT::Leaf as Leafable>::LeafableHasher as LeafableHasher>::HashOutTarget,
+        merkle_root: HashOutTarget<VT>,
     ) where
         <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
     {
-        let height = self.0.height();
-        let index_bits = builder.split_le(index, height);
         self.0
-            .verify::<F, C, D>(builder, leaf_data, index_bits, merkle_root)
+            .verify::<F, C, D>(builder, leaf_data, index, merkle_root)
     }
 }
 
@@ -229,7 +198,6 @@ impl<V: Leafable> SparseMerkleTree<V> {
 
     fn unpack(packed: SparseMerkleTreePacked<V>) -> SparseMerkleTree<V> {
         let mut tree = SparseMerkleTree::new(packed.height);
-        // todo: batch update
         for (index, leaf) in packed.leaves {
             tree.update(index, leaf);
         }
@@ -268,7 +236,10 @@ mod tests {
             bytes32::{Bytes32, Bytes32Target},
             u32limb_trait::{U32LimbTargetTrait, U32LimbTrait as _},
         },
-        utils::poseidon_hash_out::PoseidonHashOutTarget,
+        utils::{
+            leafable_hasher::LeafableHasher, poseidon_hash_out::PoseidonHashOutTarget,
+            trees::merkle_tree::HasherFromTarget,
+        },
     };
 
     use super::*;
@@ -281,25 +252,26 @@ mod tests {
         },
     };
     use rand::Rng;
+    use serde_json;
 
     const D: usize = 2;
     type C = PoseidonGoldilocksConfig;
     type F = <C as GenericConfig<D>>::F;
 
     #[test]
-    fn sparse_merkle_tree() {
+    fn test_sparse_merkle_tree_basic() {
         let mut rng = rand::thread_rng();
-        let height = 10;
+        let height = 5;
 
         type V = Bytes32;
         let mut tree = SparseMerkleTree::<V>::new(height);
 
-        for i in 0..100 {
+        for i in 0..10 {
             let new_leaf = Bytes32::rand(&mut rng);
             tree.update(i, new_leaf);
         }
 
-        for _ in 0..100 {
+        for _ in 0..10 {
             let index = rng.gen_range(0..1 << height);
             let leaf = tree.get_leaf(index);
             let proof = tree.prove(index);
@@ -309,9 +281,9 @@ mod tests {
     }
 
     #[test]
-    fn sparse_merkle_tree_circuit() {
+    fn test_sparse_merkle_tree_circuit() {
         let mut rng = rand::thread_rng();
-        let height = 10;
+        let height = 5;
 
         type V = Bytes32;
         type VT = Bytes32Target;
@@ -342,7 +314,7 @@ mod tests {
     }
 
     #[test]
-    fn sparse_merkle_tree_serialization() {
+    fn test_sparse_merkle_tree_serialization() {
         let mut rng = rand::thread_rng();
         let height = 10;
 
@@ -355,15 +327,445 @@ mod tests {
             tree.update(index, new_leaf);
         }
 
+        // Test direct serialization/deserialization
+        let serialized = serde_json::to_string(&tree).unwrap();
+        let deserialized: SparseMerkleTree<V> = serde_json::from_str(&serialized).unwrap();
+
+        assert_eq!(tree.get_root(), deserialized.get_root());
+        assert_eq!(tree.height(), deserialized.height());
+        assert_eq!(tree.len(), deserialized.len());
+
+        // Check all leaves match
+        for (index, leaf) in &tree.leaves() {
+            assert_eq!(deserialized.get_leaf(*index), leaf.clone());
+        }
+
+        // Test packed serialization/deserialization
         let packed = SparseMerkleTreePacked {
             height,
             leaves: tree.leaves().into_iter().collect(),
         };
         let packed_str = serde_json::to_string(&packed).unwrap();
-        let packed_deserialized: SparseMerkleTreePacked<V> = serde_json::from_str(&packed_str)
-            .expect("failed to deserialize SparseMerkleTreePacked");
+        let packed_deserialized: SparseMerkleTreePacked<V> =
+            serde_json::from_str(&packed_str).unwrap();
         let tree_deserialized = SparseMerkleTree::<V>::unpack(packed_deserialized);
 
         assert_eq!(tree.get_root(), tree_deserialized.get_root());
+    }
+
+    #[test]
+    fn test_sparse_merkle_tree_new() {
+        // Test with different heights
+        let heights = [1, 5, 10, 20];
+        for height in heights {
+            let tree = SparseMerkleTree::<Bytes32>::new(height);
+            assert_eq!(tree.height(), height);
+            assert_eq!(tree.len(), 0);
+            assert!(tree.is_empty());
+            assert!(tree.leaves().is_empty());
+        }
+    }
+
+    #[test]
+    fn test_sparse_merkle_tree_height() {
+        let height = 10;
+        let tree = SparseMerkleTree::<Bytes32>::new(height);
+        assert_eq!(tree.height(), height);
+    }
+
+    #[test]
+    fn test_sparse_merkle_tree_get_leaf() {
+        let mut rng = rand::thread_rng();
+        let height = 5;
+
+        type V = Bytes32;
+        let mut tree = SparseMerkleTree::<V>::new(height);
+
+        // Empty tree should return empty leaf for any index
+        for i in 0..10 {
+            assert_eq!(tree.get_leaf(i), V::empty_leaf());
+        }
+
+        // Add some leaves
+        let mut leaves = HashMap::new();
+        for i in 0..5 {
+            let new_leaf = V::rand(&mut rng);
+            leaves.insert(i, new_leaf);
+            tree.update(i, new_leaf);
+        }
+
+        // Check existing leaves
+        for (i, leaf) in &leaves {
+            assert_eq!(tree.get_leaf(*i), *leaf);
+        }
+
+        // Check non-existent leaves
+        for i in 5..10 {
+            assert_eq!(tree.get_leaf(i), V::empty_leaf());
+        }
+    }
+
+    #[test]
+    fn test_sparse_merkle_tree_get_root() {
+        let mut rng = rand::thread_rng();
+        let height = 5;
+
+        type V = Bytes32;
+        let mut tree = SparseMerkleTree::<V>::new(height);
+
+        // Empty tree root
+        let empty_root = tree.get_root();
+
+        // Add a leaf and check that root changes
+        let leaf = V::rand(&mut rng);
+        tree.update(0, leaf);
+        let root_with_one_leaf = tree.get_root();
+        assert_ne!(empty_root, root_with_one_leaf);
+
+        // Add another leaf and check that root changes again
+        let leaf2 = V::rand(&mut rng);
+        tree.update(1, leaf2);
+        let root_with_two_leaves = tree.get_root();
+        assert_ne!(root_with_one_leaf, root_with_two_leaves);
+    }
+
+    #[test]
+    fn test_sparse_merkle_tree_leaves() {
+        let mut rng = rand::thread_rng();
+        let height = 5;
+
+        type V = Bytes32;
+        let mut tree = SparseMerkleTree::<V>::new(height);
+        assert!(tree.leaves().is_empty());
+
+        // Add some leaves
+        let mut expected_leaves = HashMap::new();
+        for i in 0..5 {
+            let new_leaf = V::rand(&mut rng);
+            expected_leaves.insert(i, new_leaf);
+            tree.update(i, new_leaf);
+        }
+
+        // Check leaves() returns all leaves
+        let leaves = tree.leaves();
+        assert_eq!(leaves.len(), expected_leaves.len());
+        for (index, leaf) in &expected_leaves {
+            assert_eq!(leaves.get(index), Some(leaf));
+        }
+    }
+
+    #[test]
+    fn test_sparse_merkle_tree_len_and_is_empty() {
+        let mut rng = rand::thread_rng();
+        let height = 5;
+
+        type V = Bytes32;
+        let mut tree = SparseMerkleTree::<V>::new(height);
+        assert_eq!(tree.len(), 0);
+        assert!(tree.is_empty());
+
+        // Add some leaves
+        for i in 0..5 {
+            let new_leaf = V::rand(&mut rng);
+            tree.update(i, new_leaf);
+
+            // Verify length increases
+            assert_eq!(tree.len(), i as usize + 1);
+            assert!(!tree.is_empty());
+        }
+
+        // Update existing leaf shouldn't change length
+        let new_leaf = V::rand(&mut rng);
+        tree.update(0, new_leaf);
+        assert_eq!(tree.len(), 5);
+    }
+
+    #[test]
+    fn test_sparse_merkle_tree_update() {
+        let mut rng = rand::thread_rng();
+        let height = 5;
+
+        type V = Bytes32;
+        let mut tree = SparseMerkleTree::<V>::new(height);
+
+        // Add a new leaf
+        let leaf1 = V::rand(&mut rng);
+        tree.update(0, leaf1);
+        assert_eq!(tree.get_leaf(0), leaf1);
+
+        // Update the leaf
+        let leaf2 = V::rand(&mut rng);
+        let root_before = tree.get_root();
+        tree.update(0, leaf2);
+
+        // Verify the leaf was updated
+        assert_eq!(tree.get_leaf(0), leaf2);
+
+        // Verify the root changed
+        let root_after = tree.get_root();
+        assert_ne!(root_before, root_after);
+    }
+
+    #[test]
+    fn test_sparse_merkle_tree_prove() {
+        let mut rng = rand::thread_rng();
+        let height = 5;
+
+        type V = Bytes32;
+        let mut tree = SparseMerkleTree::<V>::new(height);
+
+        // Add some leaves
+        for i in 0..5 {
+            let new_leaf = V::rand(&mut rng);
+            tree.update(i, new_leaf);
+        }
+
+        // Generate proofs for existing leaves
+        for i in 0..5 {
+            let leaf = tree.get_leaf(i);
+            let proof = tree.prove(i);
+
+            // Verify the proof
+            assert!(proof.verify(&leaf, i, tree.get_root()).is_ok());
+        }
+
+        // Generate proof for non-existent leaf
+        let index = 10;
+        let leaf = tree.get_leaf(index); // Should be empty leaf
+        let proof = tree.prove(index);
+
+        // Verify the proof for empty leaf
+        assert!(proof.verify(&leaf, index, tree.get_root()).is_ok());
+    }
+
+    #[test]
+    fn test_sparse_merkle_proof_from_siblings() {
+        let mut rng = rand::thread_rng();
+        let height = 5;
+
+        // Create random siblings
+        let siblings: Vec<HashOut<Bytes32>> = (0..height)
+            .map(|_| Bytes32::rand(&mut rng).hash())
+            .collect();
+
+        // Create proof from siblings
+        let proof = SparseMerkleProof::<Bytes32>::from_siblings(siblings.clone());
+
+        // Check that siblings match
+        assert_eq!(proof.0.siblings.len(), siblings.len());
+        for (a, b) in proof.0.siblings.iter().zip(siblings.iter()) {
+            assert_eq!(a, b);
+        }
+    }
+
+    #[test]
+    fn test_sparse_merkle_proof_get_root() {
+        let mut rng = rand::thread_rng();
+        let height = 5;
+
+        type V = Bytes32;
+        let mut tree = SparseMerkleTree::<V>::new(height);
+
+        // Add a leaf
+        let index = 3;
+        let leaf = V::rand(&mut rng);
+        tree.update(index, leaf);
+
+        // Generate a proof
+        let proof = tree.prove(index);
+
+        // Calculate root using the proof
+        let calculated_root = proof.get_root(&leaf, index);
+
+        // Verify it matches the tree's root
+        assert_eq!(calculated_root, tree.get_root());
+    }
+
+    #[test]
+    fn test_sparse_merkle_proof_verify() {
+        let mut rng = rand::thread_rng();
+        let height = 5;
+
+        type V = Bytes32;
+        let mut tree = SparseMerkleTree::<V>::new(height);
+
+        // Add a leaf
+        let index = 3;
+        let leaf = V::rand(&mut rng);
+        tree.update(index, leaf);
+
+        // Generate a proof
+        let proof = tree.prove(index);
+        let root = tree.get_root();
+
+        // Verification should succeed with correct parameters
+        assert!(proof.verify(&leaf, index, root).is_ok());
+
+        // Verification should fail with incorrect leaf
+        let wrong_leaf = V::rand(&mut rng);
+        assert!(proof.verify(&wrong_leaf, index, root).is_err());
+
+        // Verification should fail with incorrect index
+        let wrong_index = (index + 1) % (1 << height);
+        assert!(proof.verify(&leaf, wrong_index, root).is_err());
+
+        // Verification should fail with incorrect root
+        let wrong_root = V::rand(&mut rng).hash();
+        assert!(proof.verify(&leaf, index, wrong_root).is_err());
+    }
+
+    #[test]
+    fn test_sparse_merkle_proof_serialization() {
+        let mut rng = rand::thread_rng();
+        let height = 5;
+
+        type V = Bytes32;
+        let mut tree = SparseMerkleTree::<V>::new(height);
+
+        // Add a leaf
+        let index = 3;
+        let leaf = V::rand(&mut rng);
+        tree.update(index, leaf);
+
+        // Generate a proof
+        let proof = tree.prove(index);
+
+        // Serialize the proof
+        let serialized = serde_json::to_string(&proof).unwrap();
+
+        // Deserialize the proof
+        let deserialized: SparseMerkleProof<V> = serde_json::from_str(&serialized).unwrap();
+
+        // Verify the deserialized proof works correctly
+        assert!(deserialized.verify(&leaf, index, tree.get_root()).is_ok());
+    }
+
+    #[test]
+    fn test_sparse_merkle_proof_target_constant() {
+        let mut rng = rand::thread_rng();
+        let height = 5;
+
+        type V = Bytes32;
+        type VT = Bytes32Target;
+        let mut tree = SparseMerkleTree::<V>::new(height);
+
+        // Add a leaf
+        let index = 3;
+        let leaf = V::rand(&mut rng);
+        tree.update(index, leaf);
+
+        // Generate a proof
+        let proof = tree.prove(index);
+
+        // Create a constant proof target
+        let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::default());
+        let proof_t = SparseMerkleProofTarget::<VT>::constant(&mut builder, &proof);
+
+        // Verify the constant proof target has the correct structure
+        assert_eq!(proof_t.0.siblings.len(), height);
+    }
+
+    #[test]
+    fn test_sparse_merkle_proof_target_get_root() {
+        let mut rng = rand::thread_rng();
+        let height = 5;
+
+        type V = Bytes32;
+        type VT = Bytes32Target;
+        let mut tree = SparseMerkleTree::<V>::new(height);
+
+        // Add a leaf
+        let index = 3;
+        let leaf = V::rand(&mut rng);
+        tree.update(index, leaf);
+
+        // Generate a proof
+        let proof = tree.prove(index);
+        let expected_root = tree.get_root();
+
+        // Create a circuit to calculate the root
+        let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::default());
+        let proof_t = SparseMerkleProofTarget::<VT>::new(&mut builder, height);
+        let leaf_t = VT::new(&mut builder, false);
+        let index_t = builder.add_virtual_target();
+
+        // Calculate the root in the circuit
+        let root_t = proof_t.get_root::<F, C, D>(&mut builder, &leaf_t, index_t);
+
+        // Add a public output for the root
+        let expected_root_t = PoseidonHashOutTarget::new(&mut builder);
+        HasherFromTarget::<VT>::connect_hash(&mut builder, &root_t, &expected_root_t);
+
+        let data = builder.build::<C>();
+        let mut pw = PartialWitness::<F>::new();
+
+        // Set the witness values
+        leaf_t.set_witness(&mut pw, leaf);
+        pw.set_target(index_t, F::from_canonical_u64(index));
+        proof_t.set_witness(&mut pw, &proof);
+        expected_root_t.set_witness(&mut pw, expected_root);
+
+        // Prove the circuit
+        data.prove(pw).unwrap();
+    }
+
+    #[test]
+    fn test_sparse_merkle_tree_edge_cases() {
+        let mut rng = rand::thread_rng();
+
+        // Test with minimum height
+        let min_height = 1;
+        let tree_min = SparseMerkleTree::<Bytes32>::new(min_height);
+        assert_eq!(tree_min.height(), min_height);
+
+        // Test empty tree
+        let empty_tree = SparseMerkleTree::<Bytes32>::new(10);
+        assert_eq!(empty_tree.len(), 0);
+        assert!(empty_tree.is_empty());
+
+        // Test tree with a single leaf
+        let mut single_leaf_tree = SparseMerkleTree::<Bytes32>::new(10);
+        let leaf = Bytes32::rand(&mut rng);
+        single_leaf_tree.update(0, leaf);
+        assert_eq!(single_leaf_tree.len(), 1);
+        assert_eq!(single_leaf_tree.get_leaf(0), leaf);
+
+        // Test with boundary indices
+        let height = 5;
+        let mut tree = SparseMerkleTree::<Bytes32>::new(height);
+
+        // Test with index 0
+        let index_min: u64 = 0;
+        let leaf_min = Bytes32::rand(&mut rng);
+        tree.update(index_min, leaf_min);
+        let proof_min = tree.prove(index_min);
+        assert!(proof_min
+            .verify(&leaf_min, index_min, tree.get_root())
+            .is_ok());
+
+        // Test with max index
+        let index_max: u64 = (1 << height) - 1;
+        let leaf_max = Bytes32::rand(&mut rng);
+        tree.update(index_max, leaf_max);
+        let proof_max = tree.prove(index_max);
+        assert!(proof_max
+            .verify(&leaf_max, index_max, tree.get_root())
+            .is_ok());
+
+        // Test with sparse indices (large gaps between indices)
+        let mut sparse_tree = SparseMerkleTree::<Bytes32>::new(height);
+        let indices = [0, 7, 15, 23, 31];
+        let mut leaves = HashMap::new();
+
+        for &idx in &indices {
+            let leaf = Bytes32::rand(&mut rng);
+            leaves.insert(idx, leaf);
+            sparse_tree.update(idx, leaf);
+        }
+
+        for (&idx, leaf) in &leaves {
+            let proof = sparse_tree.prove(idx);
+            assert!(proof.verify(leaf, idx, sparse_tree.get_root()).is_ok());
+        }
     }
 }

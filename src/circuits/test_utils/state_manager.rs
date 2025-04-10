@@ -27,7 +27,7 @@ use crate::{
     ethereum_types::{address::Address, u256::U256},
 };
 
-use super::witness_generator::{construct_update_witness, MockTxRequest};
+use super::witness_generator::MockTxRequest;
 
 type F = GoldilocksField;
 type C = PoseidonGoldilocksConfig;
@@ -142,15 +142,34 @@ impl ValidityStateManager {
         leaf_block_number: u32,
         is_prev_account_tree: bool,
     ) -> Result<UpdateWitness<F, C, D>> {
-        construct_update_witness(
-            &self.historical_account_trees,
-            &self.historical_block_trees,
-            &self.historical_validity_proofs,
-            pubkey,
-            root_block_number,
-            leaf_block_number,
+        let block_merkle_proof = self
+            .historical_block_trees
+            .get(&root_block_number)
+            .ok_or(anyhow::anyhow!("block tree not found"))?
+            .prove(leaf_block_number as u64);
+        let validity_proof = self
+            .historical_validity_proofs
+            .get(&root_block_number)
+            .ok_or(anyhow::anyhow!("validity proof not found"))?;
+        let account_tree_block_number = if is_prev_account_tree {
+            root_block_number - 1
+        } else {
+            root_block_number
+        };
+        let account_tree = self
+            .historical_account_trees
+            .get(&account_tree_block_number)
+            .ok_or(anyhow::anyhow!("account tree not found"))?;
+        let account_membership_proof = account_tree.prove_membership(pubkey);
+
+        let update_witness = UpdateWitness {
             is_prev_account_tree,
-        )
+            validity_proof: validity_proof.clone(),
+            block_merkle_proof,
+            account_membership_proof,
+        };
+
+        Ok(update_witness)
     }
 
     pub fn get_block_merkle_proof(

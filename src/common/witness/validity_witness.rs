@@ -1,7 +1,8 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    circuits::validity::validity_pis::ValidityPublicInputs, common::public_state::PublicState,
+    circuits::validity::validity_pis::ValidityPublicInputs,
+    common::{error::CommonError, public_state::PublicState},
     ethereum_types::bytes32::Bytes32,
 };
 
@@ -22,7 +23,7 @@ impl ValidityWitness {
         }
     }
 
-    pub fn to_validity_pis(&self) -> anyhow::Result<ValidityPublicInputs> {
+    pub fn to_validity_pis(&self) -> Result<ValidityPublicInputs, CommonError> {
         // calculate new roots
         let prev_block_tree_root = self.block_witness.prev_block_tree_root;
 
@@ -35,17 +36,19 @@ impl ValidityWitness {
                 block.block_number as u64,
                 prev_block_tree_root,
             )
-            .expect("Block merkle proof is invalid");
+            .map_err(|e| {
+                CommonError::InvalidProof(format!("Block merkle proof is invalid: {}", e))
+            })?;
         let block_tree_root = self
             .validity_transition_witness
             .block_merkle_proof
             .get_root(&block.hash(), block.block_number as u64);
 
         let main_validation_pis = self.block_witness.to_main_validation_pis().map_err(|e| {
-            anyhow::anyhow!(
+            CommonError::BlockWitnessConversionFailed(format!(
                 "Failed to convert block witness to main validation pis: {}",
                 e
-            )
+            ))
         })?;
 
         // transition account tree root
@@ -57,8 +60,8 @@ impl ValidityWitness {
                 .validity_transition_witness
                 .account_registration_proofs
                 .as_ref()
-                .ok_or(anyhow::anyhow!(
-                    "account_registration_proofs should be given"
+                .ok_or(CommonError::MissingData(
+                    "account_registration_proofs should be given".to_string(),
                 ))?;
             for (sender_leaf, account_registration_proof) in self
                 .validity_transition_witness
@@ -67,7 +70,7 @@ impl ValidityWitness {
                 .zip(account_registration_proofs)
             {
                 let is_not_dummy = !sender_leaf.sender.is_dummy_pubkey();
-                let will_update = sender_leaf.did_return_sig && is_not_dummy;
+                let will_update = sender_leaf.signature_included && is_not_dummy;
                 account_tree_root = account_registration_proof
                     .conditional_get_new_root(
                         will_update,
@@ -75,7 +78,12 @@ impl ValidityWitness {
                         block.block_number as u64,
                         account_tree_root,
                     )
-                    .expect("Invalid account registration proof");
+                    .map_err(|e| {
+                        CommonError::InvalidProof(format!(
+                            "Invalid account registration proof: {}",
+                            e
+                        ))
+                    })?;
                 if will_update {
                     next_account_id += 1;
                 }
@@ -86,7 +94,9 @@ impl ValidityWitness {
                 .validity_transition_witness
                 .account_update_proofs
                 .as_ref()
-                .expect("account_update_proofs should be given");
+                .ok_or(CommonError::MissingData(
+                    "account_update_proofs should be given".to_string(),
+                ))?;
             for (sender_leaf, account_update_proof) in self
                 .validity_transition_witness
                 .sender_leaves
@@ -94,7 +104,7 @@ impl ValidityWitness {
                 .zip(account_update_proofs)
             {
                 let prev_last_block_number = account_update_proof.prev_leaf.value as u32;
-                let last_block_number = if sender_leaf.did_return_sig {
+                let last_block_number = if sender_leaf.signature_included {
                     block.block_number
                 } else {
                     prev_last_block_number
@@ -106,7 +116,9 @@ impl ValidityWitness {
                         last_block_number as u64,
                         account_tree_root,
                     )
-                    .expect("Invalid account update proof");
+                    .map_err(|e| {
+                        CommonError::InvalidProof(format!("Invalid account update proof: {}", e))
+                    })?;
             }
         }
 

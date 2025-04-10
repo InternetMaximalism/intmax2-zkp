@@ -1,6 +1,9 @@
 use crate::{
     constants::NUM_TRANSFERS_IN_TX,
-    ethereum_types::u32limb_trait::{U32LimbTargetTrait, U32LimbTrait},
+    ethereum_types::{
+        error::EthereumTypeError,
+        u32limb_trait::{U32LimbTargetTrait, U32LimbTrait},
+    },
 };
 use plonky2::{
     field::extension::Extendable,
@@ -64,10 +67,12 @@ impl U32LimbTrait<INSUFFICIENT_FLAGS_LEN> for InsufficientFlags {
 
     fn from_u32_slice(limbs: &[u32]) -> crate::ethereum_types::u32limb_trait::Result<Self> {
         if limbs.len() != INSUFFICIENT_FLAGS_LEN {
-            return Err(crate::ethereum_types::u32limb_trait::U32LimbError::InvalidLength(limbs.len()));
+            return Err(EthereumTypeError::InvalidLengthSimple(limbs.len()));
         }
         Ok(Self {
-            limbs: limbs.try_into().map_err(|_| crate::ethereum_types::u32limb_trait::U32LimbError::InvalidLength(limbs.len()))?,
+            limbs: limbs
+                .try_into()
+                .map_err(|_| EthereumTypeError::InvalidLengthSimple(limbs.len()))?,
         })
     }
 }
@@ -78,7 +83,11 @@ impl U32LimbTargetTrait<INSUFFICIENT_FLAGS_LEN> for InsufficientFlagsTarget {
     }
 
     fn from_slice(limbs: &[Target]) -> Self {
-        assert_eq!(limbs.len(), INSUFFICIENT_FLAGS_LEN, "Invalid length for InsufficientFlagsTarget");
+        assert_eq!(
+            limbs.len(),
+            INSUFFICIENT_FLAGS_LEN,
+            "Invalid length for InsufficientFlagsTarget"
+        );
         Self {
             limbs: limbs.try_into().unwrap(),
         }
@@ -115,7 +124,8 @@ mod tests {
         let mut flag_bits = vec![false; NUM_TRANSFERS_IN_TX];
         flag_bits[index] = true;
 
-        let flag = InsufficientFlags::from_bits_be(&flag_bits).expect("Creating from bits should never fail");
+        let flag = InsufficientFlags::from_bits_be(&flag_bits)
+            .expect("Creating from bits should never fail");
 
         let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::default());
         let flags_t = InsufficientFlagsTarget::new(&mut builder, true);
