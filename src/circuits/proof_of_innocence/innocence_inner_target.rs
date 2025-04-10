@@ -1,3 +1,13 @@
+//! Innocence Inner Circuit for deposit validation against allow/deny lists.
+//!
+//! This circuit proves that a deposit's depositor address is not in a deny list
+//! and (optionally) is in an allow list. It also proves the transition of the
+//! nullifier tree root after inserting the deposit's nullifier.
+//!
+//! The circuit performs the following validations:
+//! 1. If use_allow_list is true, verifies the depositor is in the allow list
+//! 2. Verifies the depositor is not in the deny list
+//! 3. Verifies the nullifier tree transition by inserting the deposit's nullifier
 use plonky2::{
     field::{extension::Extendable, types::Field},
     hash::hash_types::RichField,
@@ -21,20 +31,46 @@ use crate::{
 
 use super::address_list_tree::AddressMembershipProof;
 
+/// Values needed for the innocence inner circuit
+///
+/// Contains all the data required to prove that a deposit's depositor is not in a deny list,
+/// optionally is in an allow list, and to track the nullifier tree transition.
 #[derive(Debug, Clone)]
 pub struct InnocenceInnerValue {
-    pub use_allow_list: bool,
-    pub allow_list_tree_root: PoseidonHashOut,
-    pub deny_list_tree_root: PoseidonHashOut,
-    pub prev_nullifier_tree_root: PoseidonHashOut,
-    pub new_nullifier_tree_root: PoseidonHashOut,
-    pub deposit: Deposit,
-    pub nullifier_proof: NullifierInsertionProof,
-    pub allow_list_membership_proof: AddressMembershipProof,
-    pub deny_list_membership_proof: AddressMembershipProof,
+    pub use_allow_list: bool, // Flag to enable allow list checking
+    pub allow_list_tree_root: PoseidonHashOut, // Root of the allow list Merkle tree
+    pub deny_list_tree_root: PoseidonHashOut, // Root of the deny list Merkle tree
+    pub prev_nullifier_tree_root: PoseidonHashOut, // Root of the nullifier tree before insertion
+    pub new_nullifier_tree_root: PoseidonHashOut, // Root of the nullifier tree after insertion
+    pub deposit: Deposit,     // The deposit being validated
+    pub nullifier_proof: NullifierInsertionProof, // Proof for nullifier insertion
+    pub allow_list_membership_proof: AddressMembershipProof, // Proof of depositor in allow list
+    pub deny_list_membership_proof: AddressMembershipProof, // Proof of depositor in deny list
 }
 
 impl InnocenceInnerValue {
+    /// Creates a new InnocenceInnerValue by validating the deposit against allow/deny lists
+    /// and calculating the new nullifier tree root.
+    ///
+    /// This function:
+    /// 1. Verifies the allow list membership proof for the depositor
+    /// 2. If use_allow_list is true, ensures the depositor is in the allow list
+    /// 3. Verifies the deny list membership proof for the depositor
+    /// 4. Ensures the depositor is not in the deny list
+    /// 5. Calculates the new nullifier tree root after inserting the deposit's nullifier
+    ///
+    /// # Arguments
+    /// * `use_allow_list` - Flag to enable allow list checking
+    /// * `allow_list_tree_root` - Root of the allow list Merkle tree
+    /// * `deny_list_tree_root` - Root of the deny list Merkle tree
+    /// * `prev_nullifier_tree_root` - Root of the nullifier tree before insertion
+    /// * `deposit` - The deposit being validated
+    /// * `nullifier_proof` - Proof for nullifier insertion
+    /// * `allow_list_membership_proof` - Proof of depositor in allow list
+    /// * `deny_list_membership_proof` - Proof of depositor in deny list
+    ///
+    /// # Returns
+    /// A Result containing either the new InnocenceInnerValue or an error
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         use_allow_list: bool,
@@ -46,28 +82,36 @@ impl InnocenceInnerValue {
         allow_list_membership_proof: AddressMembershipProof,
         deny_list_membership_proof: AddressMembershipProof,
     ) -> Result<Self, InnocenceError> {
-        // prove allow/deny list inclusion/exclusion
+        // Verify allow list membership proof
         allow_list_membership_proof
             .verify(deposit.depositor, allow_list_tree_root)
             .map_err(|e| {
                 InnocenceError::AllowListMembershipProofVerificationFailed(e.to_string())
             })?;
+
+        // If allow list is enabled, ensure depositor is in the allow list
         if use_allow_list && !allow_list_membership_proof.is_included() {
             return Err(InnocenceError::DepositorNotInAllowList(deposit.depositor));
         }
+
+        // Verify deny list membership proof
         deny_list_membership_proof
             .verify(deposit.depositor, deny_list_tree_root)
             .map_err(|e| {
                 InnocenceError::DenyListMembershipProofVerificationFailed(e.to_string())
             })?;
+
+        // Ensure depositor is not in the deny list
         if deny_list_membership_proof.is_included() {
             return Err(InnocenceError::DepositorInDenyList(deposit.depositor));
         }
-        // prove transition of nullifier root
+
+        // Calculate the new nullifier tree root after inserting the deposit's nullifier
         let nullifier = deposit.nullifier();
         let new_nullifier_tree_root = nullifier_proof
             .get_new_root(prev_nullifier_tree_root, nullifier)
             .map_err(|e| InnocenceError::InvalidNullifierMerkleProof(e.to_string()))?;
+
         Ok(Self {
             use_allow_list,
             allow_list_tree_root,
@@ -82,20 +126,38 @@ impl InnocenceInnerValue {
     }
 }
 
+/// Target version of InnocenceInnerValue for use in ZKP circuits
+///
+/// Contains circuit targets for all components needed to verify a deposit's
+/// compliance with allow/deny lists and track nullifier tree transitions.
 #[derive(Debug, Clone)]
 pub struct InnocenceInnerTarget {
-    pub use_allow_list: BoolTarget,
-    pub allow_list_tree_root: PoseidonHashOutTarget,
-    pub deny_list_tree_root: PoseidonHashOutTarget,
-    pub prev_nullifier_tree_root: PoseidonHashOutTarget,
-    pub new_nullifier_tree_root: PoseidonHashOutTarget,
-    pub deposit: DepositTarget,
-    pub nullifier_proof: NullifierInsertionProofTarget,
-    pub allow_list_membership_proof: AddressMembershipProofTarget,
-    pub deny_list_membership_proof: AddressMembershipProofTarget,
+    pub use_allow_list: BoolTarget, // Target for allow list flag
+    pub allow_list_tree_root: PoseidonHashOutTarget, // Target for allow list root
+    pub deny_list_tree_root: PoseidonHashOutTarget, // Target for deny list root
+    pub prev_nullifier_tree_root: PoseidonHashOutTarget, // Target for previous nullifier root
+    pub new_nullifier_tree_root: PoseidonHashOutTarget, // Target for new nullifier root
+    pub deposit: DepositTarget,     // Target for deposit
+    pub nullifier_proof: NullifierInsertionProofTarget, // Target for nullifier insertion proof
+    pub allow_list_membership_proof: AddressMembershipProofTarget, // Target for allow list proof
+    pub deny_list_membership_proof: AddressMembershipProofTarget, // Target for deny list proof
 }
 
 impl InnocenceInnerTarget {
+    /// Creates a new InnocenceInnerTarget with circuit constraints that enforce
+    /// the deposit validation rules against allow/deny lists.
+    ///
+    /// The circuit enforces:
+    /// 1. If use_allow_list is true, the depositor must be in the allow list
+    /// 2. The depositor must not be in the deny list
+    /// 3. The nullifier tree transition must be valid after inserting the deposit's nullifier
+    ///
+    /// # Arguments
+    /// * `builder` - Circuit builder
+    /// * `is_checked` - Whether to add constraints for checking the values
+    ///
+    /// # Returns
+    /// A new InnocenceInnerTarget with all necessary targets and constraints
     pub fn new<F: RichField + Extendable<D>, C: GenericConfig<D, F = F> + 'static, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
         is_checked: bool,
@@ -103,6 +165,7 @@ impl InnocenceInnerTarget {
     where
         <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
     {
+        // Create virtual targets for all inputs
         let use_allow_list = builder.add_virtual_bool_target_safe();
         let allow_list_tree_root = PoseidonHashOutTarget::new(builder);
         let deny_list_tree_root = PoseidonHashOutTarget::new(builder);
@@ -112,25 +175,32 @@ impl InnocenceInnerTarget {
         let allow_list_membership_proof = AddressMembershipProofTarget::new(builder, is_checked);
         let deny_list_membership_proof = AddressMembershipProofTarget::new(builder, is_checked);
 
-        // prove allow/deny list inclusion/exclusion
+        // Verify allow list membership proof
         allow_list_membership_proof.verify::<F, C, D>(
             builder,
             deposit.depositor,
             allow_list_tree_root,
         );
+
+        // If use_allow_list is true, ensure depositor is in the allow list
+        // This is done by asserting that it's not the case that (use_allow_list is true AND
+        // depositor is not in allow list)
         let not_included_allow_list = builder.not(allow_list_membership_proof.is_included());
         let use_allow_list_and_not_included_allow_list =
             builder.and(use_allow_list, not_included_allow_list);
         builder.assert_zero(use_allow_list_and_not_included_allow_list.target);
 
+        // Verify deny list membership proof
         deny_list_membership_proof.verify::<F, C, D>(
             builder,
             deposit.depositor,
             deny_list_tree_root,
         );
+
+        // Ensure depositor is not in the deny list
         builder.assert_zero(deny_list_membership_proof.is_included().target);
 
-        // prove transition of nullifier root
+        // Calculate the new nullifier tree root after inserting the deposit's nullifier
         let nullifier = deposit.nullifier(builder);
         let new_nullifier_tree_root =
             nullifier_proof.get_new_root::<F, C, D>(builder, prev_nullifier_tree_root, nullifier);
@@ -195,16 +265,33 @@ mod tests {
     type C = PoseidonGoldilocksConfig;
     const D: usize = 2;
 
+    /// Tests the innocence inner circuit by creating a scenario where a deposit's depositor
+    /// is in the allow list and not in the deny list, and verifying that the circuit correctly
+    /// proves this along with the nullifier tree transition.
+    ///
+    /// The test:
+    /// 1. Creates a random depositor address
+    /// 2. Creates an allow list containing the depositor
+    /// 3. Creates an empty deny list
+    /// 4. Creates a deposit with the depositor address
+    /// 5. Generates proofs of membership in the allow list and non-membership in the deny list
+    /// 6. Creates an InnocenceInnerValue with all the necessary data
+    /// 7. Creates an InnocenceInnerTarget and generates a proof
+    /// 8. Verifies the proof is valid
     #[test]
     fn test_innocence_inner_target() {
         let mut rng = rand::thread_rng();
         let depositor = Address::rand(&mut rng);
 
+        // Create allow list with the depositor and an empty deny list
         let allow_list_tree = AddressListTree::new(&[depositor]).unwrap();
         let deny_list_tree = AddressListTree::new(&[]).unwrap();
+
+        // Initialize nullifier tree
         let mut nullifier_tree = NullifierTree::new();
         let prev_nullifier_tree_root = nullifier_tree.get_root();
 
+        // Create a deposit with the depositor address
         let deposit = Deposit {
             depositor,
             pubkey_salt_hash: Bytes32::rand(&mut rng),
@@ -212,12 +299,15 @@ mod tests {
             token_index: 0,
             is_eligible: true,
         };
+
+        // Generate nullifier proof and membership proofs
         let nullifier_proof = nullifier_tree
             .prove_and_insert(deposit.poseidon_hash().into())
             .unwrap();
         let allow_list_membership_proof = allow_list_tree.prove_membership(depositor);
         let deny_list_membership_proof = deny_list_tree.prove_membership(depositor);
 
+        // Create InnocenceInnerValue
         let value = InnocenceInnerValue::new(
             true,
             allow_list_tree.get_root(),
@@ -230,6 +320,7 @@ mod tests {
         )
         .unwrap();
 
+        // Build circuit and generate proof
         let mut builder = CircuitBuilder::new(CircuitConfig::default());
         let target = InnocenceInnerTarget::new::<F, C, D>(&mut builder, true);
         let data = builder.build::<C>();
