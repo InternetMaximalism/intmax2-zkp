@@ -1,3 +1,18 @@
+//! Validity circuit for proving the correctness of block validation and state transitions.
+//!
+//! This circuit implements an Incremental Verifiable Computation ZKP that:
+//! 1. Verifies the previous validity proof (or initializes with genesis state if first step)
+//! 2. Verifies a transition proof that validates block correctness and updates account/block trees
+//! 3. Produces a new validity proof that can be used in subsequent block validations
+//!
+//! The validity circuit advances one step each time a new block is processed, ensuring:
+//! - Blocks submitted to the contract are correctly formatted and signed
+//! - Account registrations in registration blocks are valid
+//! - Account updates in non-registration blocks are valid
+//! - Account tree and block hash tree transitions are correctly performed
+//!
+//! This forms a chain of proofs that maintains the integrity of the rollup state.
+
 use crate::{
     circuits::validity::{
         error::ValidityProverError,
@@ -33,17 +48,27 @@ use plonky2::{
     },
 };
 
+/// Validity circuit for proving the correctness of block validation and state transitions.
+///
+/// This circuit implements an IVC (Incremental Verifiable Computation) pattern where:
+/// - Each proof represents a valid state of the L2 system after processing a block
+/// - The circuit recursively verifies the previous proof in the chain
+/// - A transition proof is verified to ensure block validity and correct state transitions
+/// - A new proof is generated that can be used for the next block validation
+///
+/// The circuit handles both the first step (genesis state) and subsequent steps
+/// by conditionally verifying either a dummy proof or the actual previous proof.
 #[derive(Debug)]
 pub struct ValidityCircuit<F, C, const D: usize>
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
 {
-    pub data: CircuitData<F, C, D>,
-    is_first_step: BoolTarget,
-    transition_proof: ProofWithPublicInputsTarget<D>,
-    prev_proof: ProofWithPublicInputsTarget<D>,
-    verifier_data_target: VerifierCircuitTarget,
+    pub data: CircuitData<F, C, D>,                      // Circuit data containing the compiled circuit
+    is_first_step: BoolTarget,                           // Flag indicating if this is the first proof in the chain
+    transition_proof: ProofWithPublicInputsTarget<D>,    // Proof of the block validation and state transition
+    prev_proof: ProofWithPublicInputsTarget<D>,          // Previous validity proof in the chain
+    verifier_data_target: VerifierCircuitTarget,         // Verifier data for the circuit
 }
 
 impl<F, C, const D: usize> ValidityCircuit<F, C, D>
@@ -52,6 +77,17 @@ where
     C: GenericConfig<D, F = F> + 'static,
     C::Hasher: AlgebraicHasher<F>,
 {
+    /// Creates a new ValidityCircuit with the necessary components for verifying block validity.
+    ///
+    /// This method builds a circuit that:
+    /// 1. Takes a transition proof that validates a block and updates account/block trees
+    /// 2. Verifies the previous validity proof (or uses genesis state for the first step)
+    /// 3. Connects the previous state from the transition proof to the previous proof's state
+    /// 4. Registers the new state as public inputs for the next proof in the chain
+    ///
+    /// # Arguments
+    /// * `transition_wrap_vd` - Verifier data for the transition wrapper circuit
+    ///   (or dummy transition wrapper circuit if using the dummy_validity_proof feature)
     pub fn new(
         #[cfg(not(feature = "dummy_validity_proof"))] transition_wrap_vd: &VerifierCircuitData<
             F,
@@ -112,6 +148,20 @@ where
         }
     }
 
+    /// Generates a ZK proof for the validity circuit.
+    ///
+    /// This method:
+    /// 1. Creates a partial witness with all necessary values
+    /// 2. Sets the appropriate flags based on whether this is the first step
+    /// 3. Verifies the transition proof and connects it to the previous proof
+    /// 4. Generates a proof that can be verified by others
+    ///
+    /// # Arguments
+    /// * `transition_proof` - Proof of the block validation and state transition
+    /// * `prev_proof` - Optional previous validity proof (None if this is the first step)
+    ///
+    /// # Returns
+    /// A Result containing either the proof or an error if validation or proof generation fails
     pub fn prove(
         &self,
         transition_proof: &ProofWithPublicInputs<F, C, D>,
@@ -142,6 +192,16 @@ where
             .map_err(|e| ValidityProverError::ValidityCircuitProofError(e.to_string()))
     }
 
+    /// Verifies a validity circuit proof.
+    ///
+    /// This method checks that the proof is valid according to the circuit's constraints,
+    /// ensuring that the block validation and state transitions were performed correctly.
+    ///
+    /// # Arguments
+    /// * `proof` - The proof to verify
+    ///
+    /// # Returns
+    /// A Result indicating success or containing an error if verification fails
     pub fn verify(
         &self,
         proof: &ProofWithPublicInputs<F, C, D>,
@@ -154,7 +214,21 @@ where
     }
 }
 
-// Generates `CommonCircuitData` for the cyclic circuit
+/// Generates `CommonCircuitData` for the cyclic validity circuit.
+///
+/// This function creates the common circuit data needed for the validity circuit's
+/// cyclic recursion. It builds a circuit with the appropriate padding and configuration
+/// to support cyclic proofs.
+///
+/// The function:
+/// 1. Builds a simple circuit
+/// 2. Creates a circuit that can verify proofs of the simple circuit
+/// 3. Creates a circuit that can verify proofs of the verification circuit
+/// 4. Adds padding to ensure the circuit has the required size
+/// 5. Sets the number of public inputs to match the validity circuit's requirements
+///
+/// # Returns
+/// CommonCircuitData configured for the validity circuit
 fn common_data_for_validity_circuit<
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
