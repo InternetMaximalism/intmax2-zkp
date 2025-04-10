@@ -240,7 +240,7 @@ mod tests {
         let mut nullifier_tree = NullifierTree::new();
         for deposit in &deposits {
             nullifier_tree
-                .prove_and_insert(deposit.poseidon_hash().into())
+                .prove_and_insert(deposit.nullifier())
                 .unwrap();
         }
         let full_private_state = FullPrivateState {
@@ -280,7 +280,7 @@ mod tests {
         let mut nullifier_tree = NullifierTree::new();
         for deposit in &deposits {
             nullifier_tree
-                .prove_and_insert(deposit.poseidon_hash().into())
+                .prove_and_insert(deposit.nullifier())
                 .unwrap();
         }
         let full_private_state = FullPrivateState {
