@@ -1,3 +1,18 @@
+//! Balance circuit for proving the correctness of user balance state.
+//!
+//! This circuit implements an Incremental Verifiable Computation ZKP that:
+//! 1. Verifies the previous balance proof (or initializes with genesis state if first step)
+//! 2. Verifies a transition proof that updates the user's balance state
+//! 3. Produces a new balance proof that can be used in subsequent balance updates
+//!
+//! The balance circuit advances one step each time a user's balance is updated through:
+//! - Receiving transfers from other users
+//! - Receiving deposits from L1
+//! - Sending transfers to other users
+//! - Updating public state without changing private state
+//!
+//! This forms a chain of proofs that maintains the integrity of a user's balance history.
+
 use crate::circuits::balance::error::BalanceError;
 use plonky2::{
     field::extension::Extendable,
@@ -11,7 +26,7 @@ use plonky2::{
         circuit_builder::CircuitBuilder,
         circuit_data::{
             CircuitConfig, CircuitData, CommonCircuitData, VerifierCircuitData,
-            VerifierCircuitTarget, VerifierOnlyCircuitData,
+            VerifierCircuitTarget,
         },
         config::{AlgebraicHasher, GenericConfig},
         proof::{ProofWithPublicInputs, ProofWithPublicInputsTarget},
@@ -45,18 +60,28 @@ use super::balance_pis::{BalancePublicInputs, BALANCE_PUBLIC_INPUTS_LEN};
 
 use crate::utils::cyclic::vd_from_pis_slice_target;
 
+/// Balance circuit for proving the correctness of user balance state.
+///
+/// This circuit implements an IVC (Incremental Verifiable Computation) pattern where:
+/// - Each proof represents a valid state of the user's balance
+/// - The circuit recursively verifies the previous proof in the chain
+/// - A transition proof is verified to ensure the state transition is valid
+/// - A new proof is generated that can be used in the next balance update
+///
+/// The circuit handles both the first step (genesis state) and subsequent steps
+/// by conditionally verifying either a dummy proof or the actual previous proof.
 #[derive(Debug)]
 pub struct BalanceCircuit<F, C, const D: usize>
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
 {
-    pub data: CircuitData<F, C, D>,
-    pub is_first_step: BoolTarget,
-    pub pubkey: U256Target,
-    pub transition_proof: ProofWithPublicInputsTarget<D>,
-    pub prev_proof: ProofWithPublicInputsTarget<D>,
-    pub verifier_data_target: VerifierCircuitTarget,
+    pub data: CircuitData<F, C, D>, // Circuit data containing the compiled circuit
+    pub is_first_step: BoolTarget,  // Flag indicating if this is the first proof in the chain
+    pub pubkey: U256Target,         // User's public key
+    pub transition_proof: ProofWithPublicInputsTarget<D>, // Proof of the balance state transition
+    pub prev_proof: ProofWithPublicInputsTarget<D>, // Previous balance proof in the chain
+    pub verifier_data_target: VerifierCircuitTarget, // Verifier data for the circuit
 }
 
 impl<F, C, const D: usize> BalanceCircuit<F, C, D>
@@ -139,6 +164,22 @@ where
         }
     }
 
+    /// Generates a ZK proof for the balance circuit.
+    ///
+    /// This method:
+    /// 1. Validates that the transition proof's previous balance public inputs match either the
+    ///    previous proof's public inputs or the initial state
+    /// 2. Creates a partial witness with all necessary values
+    /// 3. Sets the appropriate flags based on whether this is the first step
+    /// 4. Generates a proof that can be verified by others
+    ///
+    /// # Arguments
+    /// * `pubkey` - User's public key
+    /// * `transition_proof` - Proof of the balance state transition
+    /// * `prev_proof` - Optional previous balance proof (None if this is the first step)
+    ///
+    /// # Returns
+    /// A Result containing either the proof or an error if validation or proof generation fails
     pub fn prove(
         &self,
         pubkey: U256,
@@ -193,10 +234,6 @@ where
         })
     }
 
-    pub fn get_verifier_only_data(&self) -> VerifierOnlyCircuitData<C, D> {
-        self.data.verifier_only.clone()
-    }
-
     pub fn get_verifier_data(&self) -> VerifierCircuitData<F, C, D> {
         self.data.verifier_data()
     }
@@ -215,7 +252,21 @@ where
     }
 }
 
-// Generates `CommonCircuitData` for the cyclic circuit
+/// Generates `CommonCircuitData` for the cyclic balance circuit.
+///
+/// This function creates the common circuit data needed for the balance circuit's
+/// cyclic recursion. It builds a circuit with the appropriate padding and configuration
+/// to support cyclic proofs.
+///
+/// The function:
+/// 1. Builds a simple circuit
+/// 2. Creates a circuit that can verify proofs of the simple circuit
+/// 3. Creates a circuit that can verify proofs of the verification circuit
+/// 4. Adds padding to ensure the circuit has the required size
+/// 5. Sets the number of public inputs to match the balance circuit's requirements
+///
+/// # Returns
+/// CommonCircuitData configured for the balance circuit
 pub(crate) fn common_data_for_balance_circuit<
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
