@@ -104,6 +104,7 @@ impl PrivateState {
     }
 
     pub fn to_u64_vec(&self) -> Vec<u64> {
+        
         [
             self.asset_tree_root.to_u64_vec(),
             self.nullifier_tree_root.to_u64_vec(),
@@ -121,6 +122,7 @@ impl PrivateState {
 
 impl PrivateStateTarget {
     pub fn to_vec(&self) -> Vec<Target> {
+        
         [
             self.asset_tree_root.to_vec(),
             self.nullifier_tree_root.to_vec(),

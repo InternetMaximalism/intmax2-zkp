@@ -17,6 +17,7 @@ use crate::{
         u32limb_trait::{U32LimbTargetTrait as _, U32LimbTrait},
         u64::{U64Target, U64},
     },
+    utils::poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget},
 };
 
 use super::trees::deposit_tree::DepositTree;
@@ -64,6 +65,11 @@ impl Block {
         .concat()
     }
 
+    /// poseidon hash of the block
+    pub fn commitment(&self) -> PoseidonHashOut {
+        PoseidonHashOut::hash_inputs_u32(&self.to_u32_vec())
+    }
+
     pub fn hash(&self) -> Bytes32 {
         Bytes32::from_u32_slice(&solidity_keccak256(&self.to_u32_vec())).unwrap()
     }
@@ -96,6 +102,13 @@ impl BlockTarget {
             .chain(self.timestamp.to_vec())
             .chain([self.block_number])
             .collect::<Vec<_>>()
+    }
+
+    pub fn commitment<F: RichField + Extendable<D>, const D: usize>(
+        &self,
+        builder: &mut CircuitBuilder<F, D>,
+    ) -> PoseidonHashOutTarget {
+        PoseidonHashOutTarget::hash_inputs(builder, &self.to_vec())
     }
 
     pub fn hash<

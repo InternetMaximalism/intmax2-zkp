@@ -1,6 +1,5 @@
 use std::marker::PhantomData;
 
-use crate::utils::error::WrapperError;
 use plonky2::{
     field::extension::Extendable,
     hash::hash_types::RichField,
@@ -48,11 +47,9 @@ where
     pub fn prove(
         &self,
         inner_proof: &ProofWithPublicInputs<F, InnerC, D>,
-    ) -> Result<ProofWithPublicInputs<F, OuterC, D>, WrapperError> {
+    ) -> anyhow::Result<ProofWithPublicInputs<F, OuterC, D>> {
         let mut pw = PartialWitness::new();
         pw.set_proof_with_pis_target(&self.wrap_proof, inner_proof);
-        self.data
-            .prove(pw)
-            .map_err(|e| WrapperError::ProofGenerationFailed(format!("{}", e)))
+        self.data.prove(pw)
     }
 }

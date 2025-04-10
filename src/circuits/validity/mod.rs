@@ -1,5 +1,4 @@
 pub mod block_validation;
-pub mod error;
 pub mod transition;
 pub mod validity_circuit;
 pub mod validity_pis;

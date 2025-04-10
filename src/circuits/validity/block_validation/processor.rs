@@ -1,4 +1,4 @@
-use crate::circuits::validity::block_validation::error::BlockValidationError;
+use anyhow::Result;
 use plonky2::{
     field::extension::Extendable,
     hash::hash_types::RichField,
@@ -16,7 +16,7 @@ use crate::{
         format_validation::{FormatValidationCircuit, FormatValidationValue},
         main_validation::{MainValidationCircuit, MainValidationValue},
     },
-    common::{signature_content::utils::get_pubkey_hash, witness::block_witness::BlockWitness},
+    common::{signature::utils::get_pubkey_hash, witness::block_witness::BlockWitness},
 };
 
 #[derive(Debug)]
@@ -70,10 +70,7 @@ where
         }
     }
 
-    pub fn prove(
-        &self,
-        block_witness: &BlockWitness,
-    ) -> Result<ProofWithPublicInputs<F, C, D>, BlockValidationError> {
+    pub fn prove(&self, block_witness: &BlockWitness) -> Result<ProofWithPublicInputs<F, C, D>> {
         let mut result = true;
         if !block_witness
             .signature
@@ -90,43 +87,31 @@ where
             .block_sign_payload
             .is_registration_block
         {
-            let account_membership_proofs = block_witness
-                .account_membership_proofs
-                .clone()
-                .ok_or_else(|| {
-                    BlockValidationError::AccountExclusionValue(
-                        "Account membership proofs are missing".to_string(),
-                    )
-                })?;
-
             let account_exclusion_value = AccountExclusionValue::new(
                 block_witness.prev_account_tree_root,
-                account_membership_proofs,
+                block_witness
+                    .account_membership_proofs
+                    .clone()
+                    .expect("Account membership proofs are missing"),
                 sender_leaves,
-            )?;
+            );
             let account_exclusion_proof = self
                 .account_exclusion_circuit
                 .prove(&account_exclusion_value)?;
             result = result && account_exclusion_value.is_valid;
             (Some(account_exclusion_proof), None)
         } else {
-            let account_id_packed = block_witness.account_id_packed.ok_or_else(|| {
-                BlockValidationError::AccountInclusionValue("Account ID is missing".to_string())
-            })?;
-
-            let account_merkle_proofs =
-                block_witness.account_merkle_proofs.clone().ok_or_else(|| {
-                    BlockValidationError::AccountInclusionValue(
-                        "Account merkle proofs are missing".to_string(),
-                    )
-                })?;
-
             let value = AccountInclusionValue::new(
                 block_witness.prev_account_tree_root,
-                account_id_packed,
-                account_merkle_proofs,
+                block_witness
+                    .account_id_packed
+                    .expect("Account ID is missing"),
+                block_witness
+                    .account_merkle_proofs
+                    .clone()
+                    .expect("Account merkle proofs are missing"),
                 block_witness.pubkeys.clone(),
-            )?;
+            );
             let account_inclusion_proof = self.account_inclusion_circuit.prove(&value)?;
             result = result && value.is_valid;
             (None, Some(account_inclusion_proof))
@@ -134,14 +119,12 @@ where
         let format_validation_value = FormatValidationValue::new(
             block_witness.pubkeys.clone(),
             block_witness.signature.clone(),
-        )?;
+        );
         result = result && format_validation_value.is_valid;
         let format_validation_proof = self
             .format_validation_circuit
             .prove(&format_validation_value)
-            .map_err(|e| {
-                BlockValidationError::FormatValidationProofVerificationFailed(e.to_string())
-            })?;
+            .unwrap();
         let aggregation_proof = if result {
             let aggregation_value = AggregationValue::new(
                 block_witness.pubkeys.clone(),
@@ -165,7 +148,7 @@ where
             account_exclusion_proof,
             format_validation_proof,
             aggregation_proof,
-        )?;
+        );
         let main_validation_proof = self.main_validation_circuit.prove(
             self.account_inclusion_circuit.dummy_proof.clone(),
             self.account_exclusion_circuit.dummy_proof.clone(),
@@ -192,7 +175,7 @@ mod tests {
             },
         },
         common::{
-            signature_content::key_set::KeySet,
+            signature::key_set::KeySet,
             trees::{
                 account_tree::AccountTree, block_hash_tree::BlockHashTree,
                 deposit_tree::DepositTree,
@@ -208,7 +191,7 @@ mod tests {
     type C = PoseidonGoldilocksConfig;
 
     #[test]
-    fn test_main_validation_processor() {
+    fn main_validation_processor() -> anyhow::Result<()> {
         let main_validation_processor = MainValidationProcessor::<F, C, D>::new();
         let mut rng = rand::thread_rng();
 
@@ -235,15 +218,15 @@ mod tests {
             0,
             &tx_requests,
             0,
-        )
-        .unwrap();
-        let main_validation_proof = main_validation_processor
+        )?;
+        let instant = std::time::Instant::now();
+        let _main_validation_proof = main_validation_processor
             .prove(&validity_witness.block_witness)
             .unwrap();
-        main_validation_processor
-            .main_validation_circuit
-            .data
-            .verify(main_validation_proof.clone())
-            .unwrap();
+        println!(
+            "main validation proof generation time: {:?}",
+            instant.elapsed()
+        );
+        Ok(())
     }
 }

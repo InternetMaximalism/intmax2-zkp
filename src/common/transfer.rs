@@ -16,8 +16,6 @@ use super::{
 };
 use crate::{
     ethereum_types::{
-        address::Address,
-        bytes32::{Bytes32, Bytes32Target},
         u256::{U256Target, U256, U256_LEN},
         u32limb_trait::{U32LimbTargetTrait as _, U32LimbTrait as _},
     },
@@ -64,7 +62,7 @@ impl Transfer {
 
     pub fn rand<R: Rng>(rng: &mut R) -> Self {
         Self {
-            recipient: U256::rand(rng).into(),
+            recipient: GenericAddress::rand_pubkey(rng),
             token_index: rng.gen(),
             amount: U256::rand_small(rng),
             salt: Salt::rand(rng),
@@ -73,7 +71,7 @@ impl Transfer {
 
     pub fn rand_to<R: Rng>(rng: &mut R, to: U256) -> Self {
         Self {
-            recipient: to.into(),
+            recipient: GenericAddress::from_pubkey(to),
             token_index: rng.gen(),
             amount: U256::rand_small(rng),
             salt: Salt::rand(rng),
@@ -82,19 +80,15 @@ impl Transfer {
 
     pub fn rand_withdrawal<R: Rng>(rng: &mut R) -> Self {
         Self {
-            recipient: Address::rand(rng).into(),
+            recipient: GenericAddress::rand_address(rng),
             token_index: rng.gen(),
             amount: U256::rand_small(rng),
             salt: Salt::rand(rng),
         }
     }
 
-    pub fn poseidon_hash(&self) -> PoseidonHashOut {
+    pub fn commitment(&self) -> PoseidonHashOut {
         PoseidonHashOut::hash_inputs_u64(&self.to_u64_vec())
-    }
-
-    pub fn nullifier(&self) -> Bytes32 {
-        self.poseidon_hash().into()
     }
 }
 
@@ -154,19 +148,11 @@ impl TransferTarget {
         self.salt.set_witness(witness, value.salt);
     }
 
-    pub fn poseidon_hash<F: RichField + Extendable<D>, const D: usize>(
+    pub fn commitment<F: RichField + Extendable<D>, const D: usize>(
         &self,
         builder: &mut CircuitBuilder<F, D>,
     ) -> PoseidonHashOutTarget {
         PoseidonHashOutTarget::hash_inputs(builder, &self.to_vec())
-    }
-
-    pub fn nullifier<F: RichField + Extendable<D>, const D: usize>(
-        &self,
-        builder: &mut CircuitBuilder<F, D>,
-    ) -> Bytes32Target {
-        let poseidon_hash = self.poseidon_hash(builder);
-        Bytes32Target::from_hash_out(builder, poseidon_hash)
     }
 }
 

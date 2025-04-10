@@ -1,4 +1,4 @@
-use crate::utils::trees::error::IndexedMerkleTreeError;
+use anyhow::{ensure, Result};
 use plonky2::{
     field::extension::Extendable,
     hash::hash_types::RichField,
@@ -42,25 +42,19 @@ pub struct UpdateProofTarget {
 
 impl IndexedMerkleTree {
     /// Prove update of a key
-    pub fn prove_and_update(
-        &mut self,
-        key: U256,
-        new_value: u64,
-    ) -> Result<UpdateProof, IndexedMerkleTreeError> {
-        let index = self
-            .index(key)
-            .ok_or_else(|| IndexedMerkleTreeError::KeyDoesNotExist(key.to_string()))?;
+    pub fn prove_and_update(&mut self, key: U256, new_value: u64) -> UpdateProof {
+        let index = self.index(key).expect("key does not exist");
         let prev_leaf = self.0.get_leaf(index);
         let new_leaf = IndexedMerkleLeaf {
             value: new_value,
             ..prev_leaf
         };
         self.0.update(index, new_leaf);
-        Ok(UpdateProof {
+        UpdateProof {
             leaf_proof: self.0.prove(index),
             leaf_index: index,
             prev_leaf,
-        })
+        }
     }
 }
 
@@ -71,24 +65,11 @@ impl UpdateProof {
         prev_value: u64,
         new_value: u64,
         prev_root: PoseidonHashOut,
-    ) -> Result<PoseidonHashOut, IndexedMerkleTreeError> {
-        if self.prev_leaf.value != prev_value {
-            return Err(IndexedMerkleTreeError::ValueMismatch {
-                expected: prev_value,
-                actual: self.prev_leaf.value,
-            });
-        }
-        if self.prev_leaf.key != key {
-            return Err(IndexedMerkleTreeError::KeyMismatch {
-                expected: key.to_string(),
-                actual: self.prev_leaf.key.to_string(),
-            });
-        }
-
+    ) -> Result<PoseidonHashOut> {
+        ensure!(self.prev_leaf.value == prev_value, "value mismatch");
+        ensure!(self.prev_leaf.key == key, "key mismatch");
         self.leaf_proof
-            .verify(&self.prev_leaf, self.leaf_index, prev_root)
-            .map_err(IndexedMerkleTreeError::MerkleProofError)?;
-
+            .verify(&self.prev_leaf, self.leaf_index, prev_root)?;
         let new_leaf = IndexedMerkleLeaf {
             value: new_value,
             ..self.prev_leaf
@@ -104,14 +85,9 @@ impl UpdateProof {
         new_value: u64,
         prev_root: PoseidonHashOut,
         new_root: PoseidonHashOut,
-    ) -> Result<(), IndexedMerkleTreeError> {
+    ) -> Result<()> {
         let expected_new_root = self.get_new_root(key, prev_value, new_value, prev_root)?;
-        if new_root != expected_new_root {
-            return Err(IndexedMerkleTreeError::NewRootMismatch {
-                expected: expected_new_root.to_string(),
-                actual: new_root.to_string(),
-            });
-        }
+        ensure!(new_root == expected_new_root, "new_root mismatch");
         Ok(())
     }
 }
@@ -242,7 +218,7 @@ mod tests {
             let prev_value = prev_leaf.value;
             let new_value = rng.gen();
             let prev_root = tree.0.get_root();
-            let proof = tree.prove_and_update(key, new_value).unwrap();
+            let proof = tree.prove_and_update(key, new_value);
             let new_root = tree.0.get_root();
             proof
                 .verify(key, prev_value, new_value, prev_root, new_root)

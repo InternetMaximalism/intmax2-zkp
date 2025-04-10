@@ -1,4 +1,3 @@
-pub mod error;
 pub mod sender_circuit;
 pub mod sender_processor;
 pub mod spent_circuit;

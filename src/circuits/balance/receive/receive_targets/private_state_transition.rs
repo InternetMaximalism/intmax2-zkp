@@ -1,12 +1,3 @@
-//! Private state transition circuit for token balance updates.
-//!
-//! This circuit proves the transition of a private state by:
-//! 1. Increasing the balance of a specific token (identified by token_index) by a given amount
-//! 2. Adding a nullifier to the nullifier tree to prevent double-spending
-//!
-//! The private state transition is used during token transfers and deposit receipts,
-//! updating the recipient's balance while maintaining the integrity of the state.
-
 use plonky2::{
     field::{extension::Extendable, types::Field},
     hash::hash_types::RichField,
@@ -16,8 +7,6 @@ use plonky2::{
         config::{AlgebraicHasher, GenericConfig},
     },
 };
-
-use super::error::ReceiveTargetsError;
 
 use crate::{
     common::{
@@ -36,9 +25,7 @@ use crate::{
     },
 };
 
-// PrivateStateTransitionValue represents a private state transition where a token balance
-// is increased and a nullifier is added to the nullifier tree. This is used when receiving
-// tokens from transfers or deposits.
+// update private state assuming that the transfer is valid
 #[derive(Debug, Clone)]
 pub struct PrivateStateTransitionValue {
     pub token_index: u32,                 // token index of incoming transfer/deposit
@@ -55,26 +42,6 @@ pub struct PrivateStateTransitionValue {
 
 impl PrivateStateTransitionValue {
     #[allow(clippy::too_many_arguments)]
-    /// Creates a new PrivateStateTransitionValue by validating and computing the state transition.
-    ///
-    /// This function:
-    /// 1. Verifies the nullifier can be inserted into the nullifier tree
-    /// 2. Verifies the asset merkle proof for the token being updated
-    /// 3. Computes the new asset leaf by adding the amount to the previous balance
-    /// 4. Constructs the new private state with updated roots and salt
-    ///
-    /// # Arguments
-    /// * `token_index` - Index of the token being updated
-    /// * `amount` - Amount to add to the token balance
-    /// * `nullifier` - Nullifier to add to the nullifier tree (prevents double-spending)
-    /// * `new_salt` - New salt for the private state
-    /// * `prev_private_state` - Previous private state
-    /// * `nullifier_proof` - Proof for nullifier insertion
-    /// * `prev_asset_leaf` - Previous asset leaf (balance) for the token
-    /// * `asset_merkle_proof` - Merkle proof for the asset tree
-    ///
-    /// # Returns
-    /// A Result containing either the new PrivateStateTransitionValue or an error
     pub fn new(
         token_index: u32,
         amount: U256,
@@ -84,30 +51,18 @@ impl PrivateStateTransitionValue {
         nullifier_proof: &NullifierInsertionProof,
         prev_asset_leaf: &AssetLeaf,
         asset_merkle_proof: &AssetMerkleProof,
-    ) -> Result<Self, ReceiveTargetsError> {
+    ) -> anyhow::Result<Self> {
         let prev_private_commitment = prev_private_state.commitment();
         let new_nullifier_tree_root = nullifier_proof
             .get_new_root(prev_private_state.nullifier_tree_root, nullifier)
-            .map_err(|e| {
-                ReceiveTargetsError::VerificationFailed(format!(
-                    "Invalid nullifier merkle proof: {}",
-                    e
-                ))
-            })?;
-
+            .map_err(|e| anyhow::anyhow!("Invalid nullifier merkle proof: {}", e))?;
         asset_merkle_proof
             .verify(
                 prev_asset_leaf,
                 token_index as u64,
                 prev_private_state.asset_tree_root,
             )
-            .map_err(|e| {
-                ReceiveTargetsError::VerificationFailed(format!(
-                    "Invalid asset merkle proof: {}",
-                    e
-                ))
-            })?;
-
+            .map_err(|e| anyhow::anyhow!("Invalid asset merkle proof: {}", e))?;
         let new_asset_leaf = prev_asset_leaf.add(amount);
         let new_asset_tree_root = asset_merkle_proof.get_root(&new_asset_leaf, token_index as u64);
         let new_private_state = PrivateState {
@@ -117,7 +72,6 @@ impl PrivateStateTransitionValue {
             salt: new_salt,
             ..prev_private_state.clone()
         };
-
         Ok(Self {
             token_index,
             amount,
@@ -132,11 +86,7 @@ impl PrivateStateTransitionValue {
     }
 }
 
-/// Target version of PrivateStateTransitionValue for use in ZKP circuits.
-///
-/// This struct contains circuit targets for all components needed to verify a private state
-/// transition, including token updates and nullifier insertions.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PrivateStateTransitionTarget {
     pub token_index: Target,
     pub amount: U256Target,
@@ -150,21 +100,6 @@ pub struct PrivateStateTransitionTarget {
 }
 
 impl PrivateStateTransitionTarget {
-    /// Creates a new PrivateStateTransitionTarget with circuit constraints that enforce
-    /// the private state transition rules.
-    ///
-    /// The circuit enforces:
-    /// 1. Valid nullifier insertion into the nullifier tree
-    /// 2. Valid asset merkle proof for the token being updated
-    /// 3. Correct computation of the new asset leaf by adding the amount
-    /// 4. Proper construction of the new private state with updated roots
-    ///
-    /// # Arguments
-    /// * `builder` - Circuit builder
-    /// * `is_checked` - Whether to add constraints for checking the values
-    ///
-    /// # Returns
-    /// A new PrivateStateTransitionTarget with all necessary targets and constraints
     pub fn new<F: RichField + Extendable<D>, C: GenericConfig<D, F = F> + 'static, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
         is_checked: bool,
@@ -216,11 +151,6 @@ impl PrivateStateTransitionTarget {
         }
     }
 
-    /// Sets the witness values for all targets in this PrivateStateTransitionTarget.
-    ///
-    /// # Arguments
-    /// * `witness` - Witness to set values in
-    /// * `value` - PrivateStateTransitionValue containing the values to set
     pub fn set_witness<W: WitnessWrite<F>, F: Field>(
         &self,
         witness: &mut W,
@@ -276,7 +206,7 @@ mod tests {
     const D: usize = 2;
 
     #[test]
-    fn test_private_state_transition() {
+    fn private_state_transition() {
         let mut rng = rand::thread_rng();
         let transfer = Transfer::rand(&mut rng);
         let _pubkey = transfer.recipient.to_pubkey().unwrap();
@@ -297,7 +227,7 @@ mod tests {
         let new_asset_leaf = prev_asset_leaf.add(transfer.amount);
         asset_tree.update(transfer.token_index as u64, new_asset_leaf);
 
-        let nullifier: Bytes32 = transfer.poseidon_hash().into();
+        let nullifier: Bytes32 = transfer.commitment().into();
         let nullifier_proof = nullifier_tree.prove_and_insert(nullifier).unwrap();
 
         let new_salt = Salt::rand(&mut rng);

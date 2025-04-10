@@ -1,3 +1,4 @@
+use anyhow::ensure;
 use ark_bn254::{Bn254, Fr, G1Affine, G2Affine};
 use ark_ec::{pairing::Pairing as _, AffineRepr as _};
 use num::BigUint;
@@ -5,13 +6,10 @@ use plonky2_bn254::fields::recover::RecoverFromX;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    common::{
-        error::CommonError,
-        signature_content::{
-            block_sign_payload::{hash_to_weight, BlockSignPayload},
-            flatten::FlatG1,
-            utils::get_pubkey_hash,
-        },
+    common::signature::{
+        block_sign_payload::{hash_to_weight, BlockSignPayload},
+        flatten::FlatG1,
+        utils::get_pubkey_hash,
     },
     constants::NUM_SENDERS_IN_BLOCK,
     ethereum_types::{
@@ -20,7 +18,7 @@ use crate::{
 };
 
 use super::{
-    signature_content::{flatten::FlatG2, key_set::KeySet, SignatureContent},
+    signature::{flatten::FlatG2, key_set::KeySet, SignatureContent},
     trees::tx_tree::TxMerkleProof,
     tx::Tx,
 };
@@ -37,24 +35,26 @@ pub struct BlockProposal {
 }
 
 impl BlockProposal {
-    pub fn verify(&self, tx: Tx) -> Result<(), CommonError> {
+    pub fn verify(&self, tx: Tx) -> anyhow::Result<()> {
         self.tx_merkle_proof
             .verify(
                 &tx,
                 self.tx_index as u64,
                 self.block_sign_payload.tx_tree_root.reduce_to_hash_out(),
             )
-            .map_err(|e| CommonError::TxMerkleProofVerificationFailed(e.to_string()))?;
-
-        if get_pubkey_hash(&self.pubkeys) != self.pubkeys_hash {
-            return Err(CommonError::InvalidData("Invalid pubkeys hash".to_string()));
-        }
-
+            .map_err(|e| anyhow::anyhow!("Failed to verify tx merkle proof: {}", e))?;
+        ensure!(
+            get_pubkey_hash(&self.pubkeys) == self.pubkeys_hash,
+            "Invalid pubkeys hash"
+        );
         Ok(())
     }
 
     pub fn sign(&self, key: KeySet) -> UserSignature {
-        let signature: FlatG2 = self.block_sign_payload.sign(key.privkey, self.pubkeys_hash);
+        let signature: FlatG2 = self
+            .block_sign_payload
+            .sign(key.privkey, self.pubkeys_hash)
+            .into();
         UserSignature {
             pubkey: key.pubkey,
             signature,
@@ -142,21 +142,19 @@ impl UserSignature {
         &self,
         block_sign_payload: &BlockSignPayload,
         pubkey_hash: Bytes32,
-    ) -> Result<(), CommonError> {
+    ) -> anyhow::Result<()> {
         let weight = hash_to_weight(self.pubkey, pubkey_hash);
         let pubkey_g1: G1Affine = G1Affine::recover_from_x(self.pubkey.into());
         let weighted_pubkey_g1: G1Affine = (pubkey_g1 * Fr::from(BigUint::from(weight))).into();
         let message_point = block_sign_payload.message_point();
-
-        if Bn254::pairing(weighted_pubkey_g1, G2Affine::from(message_point))
-            != Bn254::pairing(
-                G1Affine::generator(),
-                G2Affine::from(self.signature.clone()),
-            )
-        {
-            return Err(CommonError::InvalidSignature);
-        }
-
+        ensure!(
+            Bn254::pairing(weighted_pubkey_g1, G2Affine::from(message_point))
+                == Bn254::pairing(
+                    G1Affine::generator(),
+                    G2Affine::from(self.signature.clone())
+                ),
+            "Invalid signature"
+        );
         Ok(())
     }
 }

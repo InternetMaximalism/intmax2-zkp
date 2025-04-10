@@ -1,4 +1,4 @@
-use crate::utils::trees::error::IndexedMerkleTreeError;
+use anyhow::{ensure, Result};
 use plonky2::{
     field::{extension::Extendable, types::Field},
     hash::hash_types::RichField,
@@ -39,7 +39,7 @@ pub struct IndexedInsertionProof {
     pub prev_low_leaf: IndexedMerkleLeaf,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct IndexedInsertionProofTarget {
     pub index: Target,
     pub low_leaf_proof: IndexedMerkleProofTarget,
@@ -49,7 +49,7 @@ pub struct IndexedInsertionProofTarget {
 }
 
 impl IndexedMerkleTree {
-    pub fn insert(&mut self, key: U256, value: u64) -> Result<(), IndexedMerkleTreeError> {
+    pub fn insert(&mut self, key: U256, value: u64) -> Result<()> {
         let index = self.0.leaves().len() as u64;
         let low_index = self.low_index(key)?;
         let prev_low_leaf = self.0.get_leaf(low_index);
@@ -69,11 +69,7 @@ impl IndexedMerkleTree {
         Ok(())
     }
 
-    pub fn prove_and_insert(
-        &mut self,
-        key: U256,
-        value: u64,
-    ) -> Result<IndexedInsertionProof, IndexedMerkleTreeError> {
+    pub fn prove_and_insert(&mut self, key: U256, value: u64) -> Result<IndexedInsertionProof> {
         let index = self.0.leaves().len() as u64;
         let low_index = self.low_index(key)?;
         let prev_low_leaf = self.0.get_leaf(low_index);
@@ -131,25 +127,14 @@ impl IndexedInsertionProof {
         key: U256,
         value: u64,
         prev_root: PoseidonHashOut,
-    ) -> Result<PoseidonHashOut, IndexedMerkleTreeError> {
-        if self.prev_low_leaf.key >= key {
-            return Err(IndexedMerkleTreeError::KeyNotLowerBounded(format!(
-                "key: {}, prev_low_leaf.key: {}",
-                key, self.prev_low_leaf.key
-            )));
-        }
-
-        if !(key < self.prev_low_leaf.next_key || self.prev_low_leaf.next_key == U256::default()) {
-            return Err(IndexedMerkleTreeError::KeyNotUpperBounded(format!(
-                "key: {}, prev_low_leaf.next_key: {}",
-                key, self.prev_low_leaf.next_key
-            )));
-        }
-
+    ) -> Result<PoseidonHashOut> {
+        ensure!(self.prev_low_leaf.key < key, "key is not lower-bounded");
+        ensure!(
+            key < self.prev_low_leaf.next_key || self.prev_low_leaf.next_key == U256::default(),
+            "key is not upper-bounded"
+        );
         self.low_leaf_proof
-            .verify(&self.prev_low_leaf, self.low_leaf_index, prev_root)
-            .map_err(IndexedMerkleTreeError::MerkleProofError)?;
-
+            .verify(&self.prev_low_leaf, self.low_leaf_index, prev_root)?;
         let new_low_leaf = IndexedMerkleLeaf {
             next_index: self.index,
             next_key: key,
@@ -158,15 +143,11 @@ impl IndexedInsertionProof {
         let temp_root = self
             .low_leaf_proof
             .get_root(&new_low_leaf, self.low_leaf_index);
-
-        self.leaf_proof
-            .verify(
-                &<IndexedMerkleLeaf as Leafable>::empty_leaf(),
-                self.index,
-                temp_root,
-            )
-            .map_err(IndexedMerkleTreeError::MerkleProofError)?;
-
+        self.leaf_proof.verify(
+            &<IndexedMerkleLeaf as Leafable>::empty_leaf(),
+            self.index,
+            temp_root,
+        )?;
         let leaf = IndexedMerkleLeaf {
             next_index: self.prev_low_leaf.next_index,
             key,
@@ -182,7 +163,7 @@ impl IndexedInsertionProof {
         key: U256,
         value: u64,
         prev_root: PoseidonHashOut,
-    ) -> Result<PoseidonHashOut, IndexedMerkleTreeError> {
+    ) -> Result<PoseidonHashOut> {
         if condition {
             self.get_new_root(key, value, prev_root)
         } else {
@@ -196,14 +177,12 @@ impl IndexedInsertionProof {
         value: u64,
         prev_root: PoseidonHashOut, // merkle root before insertion
         new_root: PoseidonHashOut,  // merkle root after insertion
-    ) -> Result<(), IndexedMerkleTreeError> {
+    ) -> Result<()> {
         let expected_new_root = self.get_new_root(key, value, prev_root)?;
-        if new_root != expected_new_root {
-            return Err(IndexedMerkleTreeError::NewRootMismatch {
-                expected: expected_new_root.to_string(),
-                actual: new_root.to_string(),
-            });
-        }
+        ensure!(
+            new_root == expected_new_root,
+            "new root is not equal to the expected new root"
+        );
         Ok(())
     }
 }
@@ -342,8 +321,8 @@ impl IndexedInsertionProofTarget {
         // assert self.prev_low_leaf.key < key
         let is_key_lower_bounded = self.prev_low_leaf.key.is_lt(builder, &key);
         builder.conditional_assert_eq(condition.target, is_key_lower_bounded.target, one);
-        // assert key < self.prev_low_leaf.next_key || self.prev_low_leaf.next_key ==
-        // U256::default()
+        // assert key < self.prev_low_leaf.next_key
+        // || self.prev_low_leaf.next_key == U256::default()
         let is_key_upper_bounded = key.is_lt(builder, &self.prev_low_leaf.next_key);
         let is_next_key_zero = self.prev_low_leaf.next_key.is_zero::<F, D, U256>(builder);
         let is_key_upper_bounded_or_next_key_zero =

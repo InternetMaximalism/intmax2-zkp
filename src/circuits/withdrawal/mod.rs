@@ -1,4 +1,3 @@
-pub mod error;
 pub mod single_withdrawal_circuit;
 
 #[cfg(test)]
@@ -21,8 +20,9 @@ mod tests {
             withdrawal::single_withdrawal_circuit::SingleWithdrawalCircuit,
         },
         common::{
-            private_state::FullPrivateState, salt::Salt, signature_content::key_set::KeySet,
-            transfer::Transfer, witness::withdrawal_witness::WithdrawalWitness,
+            generic_address::GenericAddress, private_state::FullPrivateState, salt::Salt,
+            signature::key_set::KeySet, transfer::Transfer,
+            witness::withdrawal_witness::WithdrawalWitness,
         },
         ethereum_types::{address::Address, bytes32::Bytes32, u32limb_trait::U32LimbTrait},
         utils::{
@@ -62,7 +62,7 @@ mod tests {
         let mut private_state = FullPrivateState::new();
         let key = KeySet::rand(&mut rng);
         let transfer = Transfer {
-            recipient: Address::default().into(),
+            recipient: GenericAddress::from_address(Address::default()),
             token_index: 0,
             amount: 0.into(),
             salt: Salt::default(),
@@ -103,7 +103,7 @@ mod tests {
             withdrawal_processor.prove_end(&chained_withdrawal_proof, aggregator)?;
 
         // public inputs check
-        let withdrawal = withdrawal_witness.to_withdrawal()?;
+        let withdrawal = withdrawal_witness.to_withdrawal();
         let mut hash = Bytes32::default();
         hash = hash_with_prev_hash(&withdrawal.to_u32_vec(), hash);
         let expected_end_withdrawal_pis = ChainEndProofPublicInputs {
@@ -129,8 +129,7 @@ mod tests {
             .data
             .compress(single_withdrawal_proof.clone())
             .unwrap();
-        let single_withdrawal_proof_bytes =
-            bincode::serialize(&compressed_single_withdrawal_proof).unwrap();
+        let single_withdrawal_proof_bytes = bincode::serialize(&compressed_single_withdrawal_proof).unwrap();
         let single_withdrawal_proof_str = BASE64_STANDARD.encode(single_withdrawal_proof_bytes);
         std::fs::write(
             "circuit_data/withdrawal/single_withdrawal_proof.txt",

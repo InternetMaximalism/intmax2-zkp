@@ -3,10 +3,7 @@ use std::str::FromStr;
 use plonky2::iop::target::Target;
 use serde::{Deserialize, Serialize};
 
-use super::{
-    error::EthereumTypeError,
-    u32limb_trait::{self, U32LimbTargetTrait, U32LimbTrait},
-};
+use super::u32limb_trait::{self, U32LimbTargetTrait, U32LimbTrait};
 
 pub const ADDRESS_LEN: usize = 5;
 
@@ -34,12 +31,10 @@ impl core::fmt::Display for Address {
 }
 
 impl FromStr for Address {
-    type Err = EthereumTypeError;
+    type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Self::from_hex(s).map_err(|e| {
-            EthereumTypeError::HexParseError(format!("Failed to parse Address: {}", e))
-        })
+        Self::from_hex(s).map_err(|e| anyhow::anyhow!("Failed to parse Address: {}", e))
     }
 }
 
@@ -64,7 +59,7 @@ impl U32LimbTrait<ADDRESS_LEN> for Address {
 
     fn from_u32_slice(limbs: &[u32]) -> u32limb_trait::Result<Self> {
         if limbs.len() != ADDRESS_LEN {
-            return Err(EthereumTypeError::InvalidLengthSimple(limbs.len()));
+            return Err(u32limb_trait::U32LimbError::InvalidLength(limbs.len()));
         }
         Ok(Self {
             limbs: limbs.try_into().unwrap(),

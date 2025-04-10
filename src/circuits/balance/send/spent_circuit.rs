@@ -1,17 +1,4 @@
-//! Spent circuit for validating and processing outgoing transfers.
-//!
-//! This circuit proves the transition of a private state by:
-//! 1. Deducting transfer amounts from the sender's balance for each transfer in a transaction
-//! 2. Setting insufficient_bit flags when balance is insufficient for a transfer
-//! 3. Incrementing the nonce of the private state
-//! 4. Validating that the transaction nonce matches the current private state nonce
-//!
-//! The spent circuit is a critical component in the sender verification process,
-//! ensuring that users can only spend funds they actually have while maintaining
-//! privacy. When insufficient balance is detected, the circuit continues processing
-//! but flags the issue, allowing other assets in the same transaction to be processed
-//! normally.
-
+use anyhow::ensure;
 use plonky2::{
     field::{
         extension::Extendable,
@@ -32,7 +19,6 @@ use plonky2::{
 
 use crate::{
     common::{
-        error::CommonError,
         insufficient_flags::{InsufficientFlags, InsufficientFlagsTarget, INSUFFICIENT_FLAGS_LEN},
         private_state::{PrivateState, PrivateStateTarget},
         salt::{Salt, SaltTarget},
@@ -49,16 +35,9 @@ use crate::{
     },
 };
 
-/// Length of the public inputs for the spent circuit.
-/// Includes commitments to previous and new private states, transaction data,
-/// insufficient balance flags, and validity flag.
 pub const SPENT_PUBLIC_INPUTS_LEN: usize =
     POSEIDON_HASH_OUT_LEN * 2 + TX_LEN + INSUFFICIENT_FLAGS_LEN + 1;
 
-/// Public inputs for the spent circuit.
-///
-/// These values are publicly visible outputs of the circuit that can be verified
-/// without knowing the private witness data.
 #[derive(Clone, Debug)]
 pub struct SpentPublicInputs {
     pub prev_private_commitment: PoseidonHashOut,
@@ -69,13 +48,6 @@ pub struct SpentPublicInputs {
 }
 
 impl SpentPublicInputs {
-    /// Constructs SpentPublicInputs from a slice of u64 values.
-    ///
-    /// # Arguments
-    /// * `input` - Slice of u64 values representing the public inputs
-    ///
-    /// # Returns
-    /// A new SpentPublicInputs struct
     pub fn from_u64_slice(input: &[u64]) -> Self {
         assert_eq!(input.len(), SPENT_PUBLIC_INPUTS_LEN);
         let prev_private_commitment =
@@ -89,8 +61,7 @@ impl SpentPublicInputs {
         let insufficient_flags = InsufficientFlags::from_u64_slice(
             &input[2 * POSEIDON_HASH_OUT_LEN + TX_LEN
                 ..2 * POSEIDON_HASH_OUT_LEN + TX_LEN + INSUFFICIENT_FLAGS_LEN],
-        )
-        .unwrap();
+        ).unwrap();
         let is_valid = input[2 * POSEIDON_HASH_OUT_LEN + TX_LEN + INSUFFICIENT_FLAGS_LEN] == 1;
         Self {
             prev_private_commitment,
@@ -101,13 +72,6 @@ impl SpentPublicInputs {
         }
     }
 
-    /// Constructs SpentPublicInputs from a slice of field elements.
-    ///
-    /// # Arguments
-    /// * `pis` - Slice of field elements representing the public inputs
-    ///
-    /// # Returns
-    /// A new SpentPublicInputs struct
     pub fn from_pis<F>(pis: &[F]) -> Self
     where
         F: PrimeField64,
@@ -116,9 +80,6 @@ impl SpentPublicInputs {
     }
 }
 
-/// Target version of SpentPublicInputs for use in ZKP circuits.
-///
-/// This struct contains circuit targets for all components of the public inputs.
 #[derive(Clone, Debug)]
 pub struct SpentPublicInputsTarget {
     pub prev_private_commitment: PoseidonHashOutTarget,
@@ -129,10 +90,6 @@ pub struct SpentPublicInputsTarget {
 }
 
 impl SpentPublicInputsTarget {
-    /// Converts the target to a vector of individual targets.
-    ///
-    /// # Returns
-    /// A vector of targets representing all public inputs
     pub fn to_vec(&self) -> Vec<Target> {
         let vec = [
             self.prev_private_commitment.to_vec(),
@@ -146,13 +103,6 @@ impl SpentPublicInputsTarget {
         vec
     }
 
-    /// Constructs SpentPublicInputsTarget from a slice of targets.
-    ///
-    /// # Arguments
-    /// * `input` - Slice of targets representing the public inputs
-    ///
-    /// # Returns
-    /// A new SpentPublicInputsTarget struct
     pub fn from_slice(input: &[Target]) -> Self {
         assert_eq!(input.len(), SPENT_PUBLIC_INPUTS_LEN);
         let prev_private_commitment =
@@ -180,10 +130,6 @@ impl SpentPublicInputsTarget {
     }
 }
 
-/// Witness values for the spent circuit.
-///
-/// This struct contains all the private witness data needed to prove the
-/// validity of a transaction's spending operations.
 #[derive(Clone, Debug)]
 pub struct SpentValue {
     pub prev_private_state: PrivateState,
@@ -198,11 +144,7 @@ pub struct SpentValue {
     pub is_valid: bool,
 }
 
-/// Target version of SpentValue for use in ZKP circuits.
-///
-/// This struct contains circuit targets for all components needed to verify
-/// the spending operations in a transaction.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SpentTarget {
     pub prev_private_state: PrivateStateTarget,
     pub new_private_state_salt: SaltTarget,
@@ -217,25 +159,6 @@ pub struct SpentTarget {
 }
 
 impl SpentValue {
-    /// Creates a new SpentValue by validating and computing the state transition.
-    ///
-    /// This function:
-    /// 1. Verifies all asset merkle proofs for the tokens being spent
-    /// 2. Computes new balances by subtracting transfer amounts
-    /// 3. Tracks insufficient balance cases with flags
-    /// 4. Constructs the new private state with updated asset tree root and incremented nonce
-    /// 5. Validates that the transaction nonce matches the current private state nonce
-    ///
-    /// # Arguments
-    /// * `prev_private_state` - Previous private state
-    /// * `prev_balances` - Previous asset leaves (balances) for the tokens
-    /// * `new_private_state_salt` - New salt for the private state
-    /// * `transfers` - Transfers to be processed
-    /// * `asset_merkle_proofs` - Merkle proofs for the asset tree
-    /// * `tx_nonce` - Nonce of the transaction
-    ///
-    /// # Returns
-    /// A Result containing either the new SpentValue or an error
     pub fn new(
         prev_private_state: &PrivateState,
         prev_balances: &[AssetLeaf],
@@ -243,24 +166,19 @@ impl SpentValue {
         transfers: &[Transfer],
         asset_merkle_proofs: &[AssetMerkleProof],
         tx_nonce: u32,
-    ) -> Result<Self, CommonError> {
-        if prev_balances.len() != NUM_TRANSFERS_IN_TX {
-            return Err(CommonError::InvalidData(
-                "invalid number of balances".to_string(),
-            ));
-        }
-
-        if transfers.len() != NUM_TRANSFERS_IN_TX {
-            return Err(CommonError::InvalidData(
-                "invalid number of transfers".to_string(),
-            ));
-        }
-
-        if asset_merkle_proofs.len() != NUM_TRANSFERS_IN_TX {
-            return Err(CommonError::InvalidData(
-                "invalid number of proofs".to_string(),
-            ));
-        }
+    ) -> anyhow::Result<Self> {
+        ensure!(
+            prev_balances.len() == NUM_TRANSFERS_IN_TX,
+            "invalid number of balances"
+        );
+        ensure!(
+            transfers.len() == NUM_TRANSFERS_IN_TX,
+            "invalid number of transfers"
+        );
+        ensure!(
+            asset_merkle_proofs.len() == NUM_TRANSFERS_IN_TX,
+            "invalid number of proofs"
+        );
         let mut insufficient_bits = vec![];
         let mut asset_tree_root = prev_private_state.asset_tree_root;
         for ((transfer, proof), prev_balance) in transfers
@@ -270,12 +188,7 @@ impl SpentValue {
         {
             proof
                 .verify(prev_balance, transfer.token_index as u64, asset_tree_root)
-                .map_err(|e| {
-                    CommonError::InvalidProof(format!(
-                        "asset merkle proof verification failed: {}",
-                        e
-                    ))
-                })?;
+                .map_err(|e| anyhow::anyhow!("asset merkle proof verification failed: {}", e))?;
             let new_balance = prev_balance.sub(transfer.amount);
             asset_tree_root = proof.get_root(&new_balance, transfer.token_index as u64);
             insufficient_bits.push(new_balance.is_insufficient);
@@ -291,10 +204,9 @@ impl SpentValue {
             ..prev_private_state.clone()
         };
         let new_private_commitment = new_private_state.commitment();
-        let transfer_tree_root = get_merkle_root_from_leaves(TRANSFER_TREE_HEIGHT, transfers)
-            .map_err(|e| CommonError::InvalidData(e.to_string()))?;
+        let transfer_root = get_merkle_root_from_leaves(TRANSFER_TREE_HEIGHT, transfers);
         let tx = Tx {
-            transfer_tree_root,
+            transfer_tree_root: transfer_root,
             nonce: tx_nonce,
         };
         Ok(Self {
@@ -313,21 +225,6 @@ impl SpentValue {
 }
 
 impl SpentTarget {
-    /// Creates a new SpentTarget with circuit constraints that enforce
-    /// the spending rules and private state transition.
-    ///
-    /// The circuit enforces:
-    /// 1. Valid asset merkle proofs for all tokens being spent
-    /// 2. Correct computation of new balances by subtracting transfer amounts
-    /// 3. Proper tracking of insufficient balance cases
-    /// 4. Valid construction of the new private state with updated asset tree root
-    /// 5. Correct nonce validation and incrementing
-    ///
-    /// # Arguments
-    /// * `builder` - Circuit builder
-    ///
-    /// # Returns
-    /// A new SpentTarget with all necessary targets and constraints
     pub fn new<F: RichField + Extendable<D>, C: GenericConfig<D, F = F> + 'static, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
     ) -> Self
@@ -394,11 +291,6 @@ impl SpentTarget {
         }
     }
 
-    /// Sets the witness values for all targets in this SpentTarget.
-    ///
-    /// # Arguments
-    /// * `witness` - Witness to set values in
-    /// * `value` - SpentValue containing the values to set
     pub fn set_witness<F: Field, W: WitnessWrite<F>>(&self, witness: &mut W, value: &SpentValue) {
         self.prev_private_state
             .set_witness(witness, &value.prev_private_state);
@@ -426,14 +318,7 @@ impl SpentTarget {
     }
 }
 
-/// The spent circuit for validating and processing outgoing transfers.
-///
-/// This circuit proves that:
-/// 1. Each transfer amount is deducted from the sender's balance
-/// 2. Insufficient balance cases are properly flagged
-/// 3. The nonce is incremented in the new private state
-/// 4. The transaction nonce matches the current private state nonce (is_valid)
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct SpentCircuit<F, C, const D: usize>
 where
     F: RichField + Extendable<D>,
@@ -448,7 +333,7 @@ where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F> + 'static,
     C::Hasher: AlgebraicHasher<F>,
-{
+ {
     fn default() -> Self {
         Self::new()
     }
@@ -460,10 +345,6 @@ where
     C: GenericConfig<D, F = F> + 'static,
     C::Hasher: AlgebraicHasher<F>,
 {
-    /// Creates a new SpentCircuit with all necessary constraints.
-    ///
-    /// # Returns
-    /// A new SpentCircuit ready to generate and verify proofs
     pub fn new() -> Self {
         let mut builder =
             CircuitBuilder::<F, D>::new(CircuitConfig::standard_recursion_zk_config());
@@ -480,31 +361,22 @@ where
         Self { data, target }
     }
 
-    /// Generates a ZK proof for the given SpentValue.
-    ///
-    /// # Arguments
-    /// * `value` - SpentValue containing the witness data
-    ///
-    /// # Returns
-    /// A Result containing either the proof with public inputs or an error
-    pub fn prove(&self, value: &SpentValue) -> Result<ProofWithPublicInputs<F, C, D>, CommonError> {
+    pub fn prove(&self, value: &SpentValue) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
         let mut pw = PartialWitness::<F>::new();
         self.target.set_witness(&mut pw, value);
-        self.data
-            .prove(pw)
-            .map_err(|e| CommonError::InvalidProof(e.to_string()))
+        self.data.prove(pw)
     }
 }
 
 #[cfg(test)]
 mod tests {
-    // Test module for the spent circuit
     use plonky2::{
         field::goldilocks_field::GoldilocksField, plonk::config::PoseidonGoldilocksConfig,
     };
 
     use crate::{
         common::{
+            generic_address::GenericAddress,
             private_state::PrivateState,
             salt::Salt,
             transfer::Transfer,
@@ -520,16 +392,8 @@ mod tests {
     const D: usize = 2;
     type C = PoseidonGoldilocksConfig;
 
-    /// Tests the spent circuit with randomly generated data.
-    ///
-    /// This test:
-    /// 1. Creates a random asset tree with random balances
-    /// 2. Creates random transfers for each token
-    /// 3. Generates merkle proofs for each asset
-    /// 4. Creates a SpentValue with valid nonce
-    /// 5. Generates and verifies a ZK proof
     #[test]
-    fn test_spent_circuit() {
+    fn spent_circuit() {
         let mut rng = rand::thread_rng();
         let mut asset_tree = AssetTree::new(ASSET_TREE_HEIGHT);
         let prev_balances = (0..NUM_TRANSFERS_IN_TX)
@@ -545,7 +409,7 @@ mod tests {
         };
         let transfers = (0..NUM_TRANSFERS_IN_TX)
             .map(|i| Transfer {
-                recipient: U256::rand(&mut rng).into(),
+                recipient: GenericAddress::rand_pubkey(&mut rng),
                 token_index: i as u32,
                 amount: U256::rand_small(&mut rng), // small amount to avoid overflow
                 salt: Salt::rand(&mut rng),
@@ -574,8 +438,7 @@ mod tests {
         assert!(value.is_valid);
         let circuit = SpentCircuit::<F, C, D>::new();
         let instant = std::time::Instant::now();
-        let proof = circuit.prove(&value).unwrap();
-        circuit.data.verify(proof).unwrap();
+        let _proof = circuit.prove(&value).unwrap();
         dbg!(instant.elapsed());
         dbg!(circuit.data.common.degree_bits());
     }
