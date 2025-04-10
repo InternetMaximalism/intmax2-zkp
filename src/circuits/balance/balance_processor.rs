@@ -12,8 +12,8 @@ use crate::{
     circuits::balance::{balance_pis::BalancePublicInputs, error::BalanceError},
     common::witness::{
         receive_deposit_witness::ReceiveDepositWitness,
-        receive_transfer_witness::ReceiveTransferWitness, tx_witness::TxWitness,
-        update_witness::UpdateWitness,
+        receive_transfer_witness::ReceiveTransferWitness, spent_witness::SpentWitness,
+        tx_witness::TxWitness, update_witness::UpdateWitness,
     },
     ethereum_types::u256::U256,
 };
@@ -194,6 +194,17 @@ where
                     e
                 ))
             })?;
+        Ok(proof)
+    }
+
+    pub fn prove_spent(
+        &self,
+        spent_witness: &SpentWitness,
+    ) -> Result<ProofWithPublicInputs<F, C, D>, BalanceError> {
+        let proof = self
+            .balance_transition_processor
+            .sender_processor
+            .prove_spent(spent_witness)?;
         Ok(proof)
     }
 }

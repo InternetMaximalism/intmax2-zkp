@@ -74,7 +74,7 @@ where
     /// 4. Validates the transfer's inclusion in the transfer merkle tree
     ///
     /// # Arguments
-    /// * `balance_verifier_data` - Verifier data for the balance circuit
+    /// * `balance_vd` - Verifier data for the balance circuit
     /// * `transfer` - Transfer to be verified
     /// * `transfer_index` - Index of the transfer in the transfer merkle tree
     /// * `transfer_merkle_proof` - Merkle proof for the transfer
@@ -84,7 +84,7 @@ where
     /// # Returns
     /// A Result containing either the new TransferInclusionValue or an error
     pub fn new(
-        balance_verifier_data: &VerifierCircuitData<F, C, D>,
+        balance_vd: &VerifierCircuitData<F, C, D>,
         transfer: &Transfer,
         transfer_index: u32,
         transfer_merkle_proof: &TransferMerkleProof,
@@ -100,19 +100,19 @@ where
             })?;
         let balance_circuit_vd = vd_from_pis_slice::<F, C, D>(
             &balance_proof.public_inputs,
-            &balance_verifier_data.common.config,
+            &balance_vd.common.config,
         )
         .map_err(|e| {
             ReceiveTargetsError::VerificationFailed(format!("Failed to parse balance vd: {}", e))
         })?;
 
-        if balance_circuit_vd != balance_verifier_data.verifier_only {
+        if balance_circuit_vd != balance_vd.verifier_only {
             return Err(ReceiveTargetsError::VerificationFailed(
                 "Balance vd mismatch".to_string(),
             ));
         }
 
-        balance_verifier_data
+        balance_vd
             .verify(balance_proof.clone())
             .map_err(|e| {
                 ReceiveTargetsError::VerificationFailed(format!(
