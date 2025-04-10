@@ -253,20 +253,6 @@ where
 }
 
 /// Generates `CommonCircuitData` for the cyclic balance circuit.
-///
-/// This function creates the common circuit data needed for the balance circuit's
-/// cyclic recursion. It builds a circuit with the appropriate padding and configuration
-/// to support cyclic proofs.
-///
-/// The function:
-/// 1. Builds a simple circuit
-/// 2. Creates a circuit that can verify proofs of the simple circuit
-/// 3. Creates a circuit that can verify proofs of the verification circuit
-/// 4. Adds padding to ensure the circuit has the required size
-/// 5. Sets the number of public inputs to match the balance circuit's requirements
-///
-/// # Returns
-/// CommonCircuitData configured for the balance circuit
 pub(crate) fn common_data_for_balance_circuit<
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,

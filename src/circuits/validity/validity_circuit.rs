@@ -77,17 +77,6 @@ where
     C: GenericConfig<D, F = F> + 'static,
     C::Hasher: AlgebraicHasher<F>,
 {
-    /// Creates a new ValidityCircuit with the necessary components for verifying block validity.
-    ///
-    /// This method builds a circuit that:
-    /// 1. Takes a transition proof that validates a block and updates account/block trees
-    /// 2. Verifies the previous validity proof (or uses genesis state for the first step)
-    /// 3. Connects the previous state from the transition proof to the previous proof's state
-    /// 4. Registers the new state as public inputs for the next proof in the chain
-    ///
-    /// # Arguments
-    /// * `transition_wrap_vd` - Verifier data for the transition wrapper circuit
-    ///   (or dummy transition wrapper circuit if using the dummy_validity_proof feature)
     pub fn new(
         #[cfg(not(feature = "dummy_validity_proof"))] transition_wrap_vd: &VerifierCircuitData<
             F,
@@ -192,16 +181,6 @@ where
             .map_err(|e| ValidityProverError::ValidityCircuitProofError(e.to_string()))
     }
 
-    /// Verifies a validity circuit proof.
-    ///
-    /// This method checks that the proof is valid according to the circuit's constraints,
-    /// ensuring that the block validation and state transitions were performed correctly.
-    ///
-    /// # Arguments
-    /// * `proof` - The proof to verify
-    ///
-    /// # Returns
-    /// A Result indicating success or containing an error if verification fails
     pub fn verify(
         &self,
         proof: &ProofWithPublicInputs<F, C, D>,
@@ -215,20 +194,6 @@ where
 }
 
 /// Generates `CommonCircuitData` for the cyclic validity circuit.
-///
-/// This function creates the common circuit data needed for the validity circuit's
-/// cyclic recursion. It builds a circuit with the appropriate padding and configuration
-/// to support cyclic proofs.
-///
-/// The function:
-/// 1. Builds a simple circuit
-/// 2. Creates a circuit that can verify proofs of the simple circuit
-/// 3. Creates a circuit that can verify proofs of the verification circuit
-/// 4. Adds padding to ensure the circuit has the required size
-/// 5. Sets the number of public inputs to match the validity circuit's requirements
-///
-/// # Returns
-/// CommonCircuitData configured for the validity circuit
 fn common_data_for_validity_circuit<
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
