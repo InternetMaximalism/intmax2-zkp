@@ -297,7 +297,7 @@ mod tests {
     };
 
     use crate::{
-        circuits::proof_of_innocence::address_list::AddressListTree,
+        circuits::proof_of_innocence::address_list_tree::AddressListTree,
         common::{deposit::Deposit, trees::nullifier_tree::NullifierTree},
         ethereum_types::{address::Address, bytes32::Bytes32, u32limb_trait::U32LimbTrait},
     };

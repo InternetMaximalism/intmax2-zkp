@@ -1,4 +1,4 @@
-pub mod address_list;
+pub mod address_list_tree;
 pub mod error;
 pub mod innocence_circuit;
 pub mod innocence_inner_target;

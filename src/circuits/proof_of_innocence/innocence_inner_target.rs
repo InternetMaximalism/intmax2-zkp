@@ -11,16 +11,15 @@ use plonky2::{
 use super::error::InnocenceError;
 
 use crate::{
-    circuits::proof_of_innocence::address_list::AddressMembershipProofTarget,
+    circuits::proof_of_innocence::address_list_tree::AddressMembershipProofTarget,
     common::{
         deposit::{Deposit, DepositTarget},
         trees::nullifier_tree::{NullifierInsertionProof, NullifierInsertionProofTarget},
     },
-    ethereum_types::bytes32::{Bytes32, Bytes32Target},
     utils::poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget},
 };
 
-use super::address_list::AddressMembershipProof;
+use super::address_list_tree::AddressMembershipProof;
 
 #[derive(Debug, Clone)]
 pub struct InnocenceInnerValue {
@@ -65,7 +64,7 @@ impl InnocenceInnerValue {
             return Err(InnocenceError::DepositorInDenyList(deposit.depositor));
         }
         // prove transition of nullifier root
-        let nullifier: Bytes32 = deposit.poseidon_hash().into();
+        let nullifier = deposit.nullifier();
         let new_nullifier_tree_root = nullifier_proof
             .get_new_root(prev_nullifier_tree_root, nullifier)
             .map_err(|e| InnocenceError::InvalidNullifierMerkleProof(e.to_string()))?;
@@ -132,8 +131,7 @@ impl InnocenceInnerTarget {
         builder.assert_zero(deny_list_membership_proof.is_included().target);
 
         // prove transition of nullifier root
-        let nullifier_poseidon = deposit.poseidon_hash(builder);
-        let nullifier = Bytes32Target::from_hash_out(builder, nullifier_poseidon);
+        let nullifier = deposit.nullifier(builder);
         let new_nullifier_tree_root =
             nullifier_proof.get_new_root::<F, C, D>(builder, prev_nullifier_tree_root, nullifier);
 
@@ -186,7 +184,7 @@ mod tests {
     };
 
     use crate::{
-        circuits::proof_of_innocence::address_list::AddressListTree,
+        circuits::proof_of_innocence::address_list_tree::AddressListTree,
         common::{deposit::Deposit, trees::nullifier_tree::NullifierTree},
         ethereum_types::{address::Address, bytes32::Bytes32, u32limb_trait::U32LimbTrait},
     };

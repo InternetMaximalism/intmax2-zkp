@@ -13,7 +13,7 @@ use super::error::InnocenceError;
 
 use crate::{
     circuits::proof_of_innocence::{
-        address_list::AddressListTree, innocence_inner_target::InnocenceInnerValue,
+        address_list_tree::AddressListTree, innocence_inner_target::InnocenceInnerValue,
     },
     common::{
         deposit::Deposit, private_state::FullPrivateState, trees::nullifier_tree::NullifierTree,
