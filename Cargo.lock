@@ -804,7 +804,7 @@ dependencies = [
 [[package]]
 name = "plonky2_bn254"
 version = "0.1.0"
-source = "git+https://github.com/InternetMaximalism/plonky2_bn254?branch=audit#bf875be8b5a0806d7bb2a2d46fabc17d7f0f934e"
+source = "git+https://github.com/InternetMaximalism/plonky2_bn254#806b9e402ce1d3865d11fa85ddbd780996618ba2"
 dependencies = [
  "anyhow",
  "ark-bn254",
