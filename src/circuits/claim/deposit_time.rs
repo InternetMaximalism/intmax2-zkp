@@ -430,6 +430,7 @@ impl DepositTimeTarget {
 /// 1. A deposit was included in a specific block for the first time
 /// 2. The deposit is bound to the provided public key
 /// 3. The deposit is eligible for mining
+///
 /// And calculates:
 /// 1. A nullifier for the deposit to prevent double-claiming
 /// 2. A lock time for the deposit based on the block hash and deposit salt

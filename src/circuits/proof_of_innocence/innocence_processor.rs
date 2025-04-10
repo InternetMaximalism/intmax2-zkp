@@ -291,12 +291,12 @@ mod tests {
             salt: Salt::rand(&mut rng),
         };
 
-        let mut suffled_deposits = deposits.to_vec();
-        suffled_deposits.shuffle(&mut rng);
+        let mut shuffled_deposits = deposits.to_vec();
+        shuffled_deposits.shuffle(&mut rng);
 
         let processor = InnocenceProcessor::<F, C, D>::new();
         let proof = processor
-            .prove(None, &deny_list, &full_private_state, &suffled_deposits)
+            .prove(None, &deny_list, &full_private_state, &shuffled_deposits)
             .unwrap();
 
         let private_commitment = full_private_state.to_private_state().commitment();
