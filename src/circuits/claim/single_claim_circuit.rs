@@ -1,3 +1,18 @@
+//! Single claim verification circuit for the claim process.
+//!
+//! This circuit proves that a deposit is eligible for claiming by:
+//! 1. Verifying the deposit was included in a block (via deposit_time_proof)
+//! 2. Verifying the required lock time has passed since the deposit
+//! 3. Verifying no transfers occurred during the lock period (using account tree's last block
+//!    number)
+//! 4. Generating a claim target that can be used to claim the deposit
+//!
+//! The single claim circuit combines multiple proofs and verifications:
+//! - Deposit time proof: Verifies when the deposit was included and calculates its lock time
+//! - Validity proof: Verifies the current state of the system
+//! - Block merkle proof: Verifies the deposit block is part of the block history
+//! - Account membership proof: Verifies the account's last activity to ensure no transfers during
+//!   lock period
 use super::error::ClaimError;
 use plonky2::{
     field::extension::Extendable,
@@ -36,24 +51,53 @@ use crate::{
     utils::{conversion::ToU64, recursively_verifiable::add_proof_target_and_verify},
 };
 
+/// Values needed for the single claim verification
+///
+/// Contains all the data required to prove that a deposit is eligible for claiming,
+/// including proofs of deposit inclusion, lock time verification, and account activity.
 #[derive(Debug, Clone)]
 pub struct SingleClaimValue<
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
     const D: usize,
 > {
-    pub recipient: Address,
-    pub block_hash: Bytes32,
-    pub block_number: u32,
-    pub block_merkle_proof: BlockHashMerkleProof,
-    pub account_membership_proof: AccountMembershipProof,
-    pub validity_proof: ProofWithPublicInputs<F, C, D>,
-    pub deposit_time_proof: ProofWithPublicInputs<F, C, D>,
+    pub recipient: Address,  // Address that will receive the claimed funds
+    pub block_hash: Bytes32, // Hash of the current block
+    pub block_number: u32,   // Number of the current block
+    pub block_merkle_proof: BlockHashMerkleProof, /* Proof that the deposit block is part of the
+                              * block history */
+    pub account_membership_proof: AccountMembershipProof, // Proof of the account's last activity
+    pub validity_proof: ProofWithPublicInputs<F, C, D>,   // Proof of the current system state
+    pub deposit_time_proof: ProofWithPublicInputs<F, C, D>, /* Proof of when the deposit was
+                                                           * included */
 }
 
 impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     SingleClaimValue<F, C, D>
 {
+    /// Creates a new SingleClaimValue by verifying all the proofs and conditions
+    /// required for a valid claim.
+    ///
+    /// This function:
+    /// 1. Verifies the validity proof (current system state)
+    /// 2. Verifies the deposit time proof (when deposit was included)
+    /// 3. Verifies the block merkle proof (deposit block is part of history)
+    /// 4. Verifies the account membership proof (account's last activity)
+    /// 5. Checks that the deposit block number is greater than the account's last block number
+    ///    (ensuring no transfers occurred during the lock period)
+    /// 6. Checks that the required lock time has passed since the deposit
+    ///
+    /// # Arguments
+    /// * `validity_vd` - Verifier data for the validity proof
+    /// * `deposit_time_vd` - Verifier data for the deposit time proof
+    /// * `recipient` - Address that will receive the claimed funds
+    /// * `block_merkle_proof` - Proof that the deposit block is part of the block history
+    /// * `account_membership_proof` - Proof of the account's last activity
+    /// * `validity_proof` - Proof of the current system state
+    /// * `deposit_time_proof` - Proof of when the deposit was included
+    ///
+    /// # Returns
+    /// A Result containing either the new SingleClaimValue or an error
     pub fn new(
         validity_vd: &VerifierCircuitData<F, C, D>,
         deposit_time_vd: &VerifierCircuitData<F, C, D>,
@@ -135,18 +179,43 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     }
 }
 
+/// Target version of SingleClaimValue for use in ZKP circuits
+///
+/// Contains circuit targets for all components needed to verify a claim's
+/// eligibility and generate a claim target for the deposit.
 #[derive(Debug, Clone)]
 pub struct SingleClaimTarget<const D: usize> {
-    pub recipient: AddressTarget,
-    pub block_hash: Bytes32Target,
-    pub block_number: Target,
-    pub block_merkle_proof: BlockHashMerkleProofTarget,
-    pub account_membership_proof: AccountMembershipProofTarget,
-    pub validity_proof: ProofWithPublicInputsTarget<D>,
-    pub deposit_time_proof: ProofWithPublicInputsTarget<D>,
+    pub recipient: AddressTarget,  // Target for recipient address
+    pub block_hash: Bytes32Target, // Target for current block hash
+    pub block_number: Target,      // Target for current block number
+    pub block_merkle_proof: BlockHashMerkleProofTarget, // Target for block merkle proof
+    pub account_membership_proof: AccountMembershipProofTarget, /* Target for account membership
+                                    * proof */
+    pub validity_proof: ProofWithPublicInputsTarget<D>, // Target for validity proof
+    pub deposit_time_proof: ProofWithPublicInputsTarget<D>, // Target for deposit time proof
 }
 
 impl<const D: usize> SingleClaimTarget<D> {
+    /// Creates a new SingleClaimTarget with circuit constraints that enforce
+    /// the claim verification rules.
+    ///
+    /// The circuit enforces:
+    /// 1. Validity of the validity proof (current system state)
+    /// 2. Validity of the deposit time proof (when deposit was included)
+    /// 3. Validity of the block merkle proof (deposit block is part of history)
+    /// 4. Validity of the account membership proof (account's last activity)
+    /// 5. That the deposit block number is greater than the account's last block number (ensuring
+    ///    no transfers occurred during the lock period)
+    /// 6. That the required lock time has passed since the deposit
+    ///
+    /// # Arguments
+    /// * `validity_vd` - Verifier data for the validity proof
+    /// * `deposit_time_vd` - Verifier data for the deposit time proof
+    /// * `builder` - Circuit builder
+    /// * `is_checked` - Whether to add constraints for checking the values
+    ///
+    /// # Returns
+    /// A new SingleClaimTarget with all necessary targets and constraints
     pub fn new<F: RichField + Extendable<D>, C: GenericConfig<D, F = F> + 'static>(
         validity_vd: &VerifierCircuitData<F, C, D>,
         deposit_time_vd: &VerifierCircuitData<F, C, D>,
@@ -228,6 +297,14 @@ impl<const D: usize> SingleClaimTarget<D> {
     }
 }
 
+/// Circuit for verifying claim eligibility and generating claim targets
+///
+/// This circuit combines the deposit time proof and validity proof to verify that:
+/// 1. A deposit was included in a block
+/// 2. The required lock time has passed since the deposit
+/// 3. No transfers occurred during the lock period (using account tree's last block number)
+///
+/// It then generates a claim target that can be used to claim the deposit.
 #[derive(Debug)]
 pub struct SingleClaimCircuit<F, C, const D: usize>
 where
@@ -274,5 +351,11 @@ where
         self.data
             .prove(pw)
             .map_err(|e| ClaimError::ProofGenerationError(format!("{:?}", e)))
+    }
+
+    pub fn verify(&self, proof: &ProofWithPublicInputs<F, C, D>) -> Result<(), ClaimError> {
+        self.data.verify(proof.clone()).map_err(|e| {
+            ClaimError::VerificationFailed(format!("Proof verification failed: {:?}", e))
+        })
     }
 }
