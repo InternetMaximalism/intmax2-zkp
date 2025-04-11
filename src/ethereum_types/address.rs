@@ -84,3 +84,92 @@ impl U32LimbTargetTrait<ADDRESS_LEN> for AddressTarget {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_address_from_str() {
+        // Test empty address
+        let address = Address::from_hex("0x").unwrap();
+        assert_eq!(address, Address::default());
+
+        // Test valid address
+        let address = Address::from_hex("0x1234567890abcdef1234567890abcdef12345678").unwrap();
+        assert_eq!(
+            address.to_u32_vec(),
+            vec![0x12345678, 0x90abcdef, 0x12345678, 0x90abcdef, 0x12345678]
+        );
+
+        // Test address without 0x prefix
+        let address = Address::from_hex("1234567890abcdef1234567890abcdef12345678").unwrap();
+        assert_eq!(
+            address.to_u32_vec(),
+            vec![0x12345678, 0x90abcdef, 0x12345678, 0x90abcdef, 0x12345678]
+        );
+    }
+
+    #[test]
+    fn test_address_display() {
+        let address = Address::from_u32_slice(&[0x12345678, 0x90abcdef, 0x12345678, 0x90abcdef, 0x12345678]).unwrap();
+        assert_eq!(
+            format!("{}", address),
+            "0x1234567890abcdef1234567890abcdef12345678"
+        );
+    }
+
+    #[test]
+    fn test_address_serialize_deserialize() {
+        let address = Address::from_u32_slice(&[0x12345678, 0x90abcdef, 0x12345678, 0x90abcdef, 0x12345678]).unwrap();
+        let serialized = serde_json::to_string(&address).unwrap();
+        let deserialized: Address = serde_json::from_str(&serialized).unwrap();
+        assert_eq!(address, deserialized);
+    }
+
+    #[test]
+    fn test_address_from_u32_slice() {
+        // Test valid slice
+        let address = Address::from_u32_slice(&[0x12345678, 0x90abcdef, 0x12345678, 0x90abcdef, 0x12345678]).unwrap();
+        assert_eq!(
+            address.to_u32_vec(),
+            vec![0x12345678, 0x90abcdef, 0x12345678, 0x90abcdef, 0x12345678]
+        );
+
+        // Test invalid slice length
+        let result = Address::from_u32_slice(&[0x12345678, 0x90abcdef, 0x12345678, 0x90abcdef]);
+        assert!(result.is_err());
+        if let Err(EthereumTypeError::InvalidLengthSimple(len)) = result {
+            assert_eq!(len, 4);
+        } else {
+            panic!("Expected InvalidLengthSimple error");
+        }
+    }
+
+    #[test]
+    fn test_address_to_from_bytes() {
+        let original = Address::from_u32_slice(&[0x12345678, 0x90abcdef, 0x12345678, 0x90abcdef, 0x12345678]).unwrap();
+        let bytes = original.to_bytes_be();
+        let recovered = Address::from_bytes_be(&bytes).unwrap();
+        assert_eq!(original, recovered);
+    }
+
+    #[test]
+    fn test_address_to_from_bits() {
+        let original = Address::from_u32_slice(&[0x12345678, 0x90abcdef, 0x12345678, 0x90abcdef, 0x12345678]).unwrap();
+        let bits = original.to_bits_be();
+        let recovered = Address::from_bits_be(&bits).unwrap();
+        assert_eq!(original, recovered);
+    }
+
+    #[test]
+    fn test_address_random() {
+        let mut rng = rand::thread_rng();
+        let address = Address::rand(&mut rng);
+        
+        // Verify that the random address can be converted to and from bytes
+        let bytes = address.to_bytes_be();
+        let recovered = Address::from_bytes_be(&bytes).unwrap();
+        assert_eq!(address, recovered);
+    }
+}
