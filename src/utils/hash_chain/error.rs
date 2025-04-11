@@ -16,4 +16,6 @@ pub enum HashChainError {
     Plonky2Error(String),
 }
 
-pub type Result<T> = std::result::Result<T, HashChainError>;
+use crate::utils::error::Result as UtilsResult;
+
+pub type Result<T> = UtilsResult<T>;

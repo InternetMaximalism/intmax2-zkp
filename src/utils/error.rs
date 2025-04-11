@@ -1,5 +1,32 @@
 use thiserror::Error;
 
+use crate::utils::{hash_chain::error::HashChainError, trees::error::TreesError};
+
+/// Top-level error type for the utils module
+#[derive(Debug, Error)]
+pub enum UtilsError {
+    #[error(transparent)]
+    HashChain(#[from] HashChainError),
+    
+    #[error(transparent)]
+    Serialize(#[from] SerializeError),
+    
+    #[error(transparent)]
+    Cyclic(#[from] CyclicError),
+    
+    #[error(transparent)]
+    PoseidonHashOut(#[from] PoseidonHashOutError),
+    
+    #[error(transparent)]
+    Wrapper(#[from] WrapperError),
+    
+    #[error(transparent)]
+    Trees(#[from] TreesError),
+}
+
+/// Result type alias for utils module
+pub type Result<T> = std::result::Result<T, UtilsError>;
+
 #[derive(Debug, Error)]
 pub enum SerializeError {
     #[error("Failed to serialize circuit: {0}")]

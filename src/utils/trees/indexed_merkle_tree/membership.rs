@@ -1,4 +1,4 @@
-use crate::utils::trees::error::IndexedMerkleTreeError;
+use crate::utils::trees::error::{IndexedMerkleTreeError, TreesError};
 use plonky2::{
     field::{extension::Extendable, types::Field},
     hash::hash_types::RichField,
@@ -78,7 +78,10 @@ impl MembershipProof {
     pub fn verify(&self, key: U256, root: PoseidonHashOut) -> Result<(), IndexedMerkleTreeError> {
         self.leaf_proof
             .verify(&self.leaf, self.leaf_index, root)
-            .map_err(IndexedMerkleTreeError::MerkleProofError)?;
+            .map_err(|e| match e {
+                TreesError::MerkleProof(err) => IndexedMerkleTreeError::MerkleProofError(err),
+                _ => panic!("Unexpected error type"),
+            })?;
 
         if self.is_included {
             if self.leaf.key != key {

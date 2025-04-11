@@ -12,7 +12,7 @@ use plonky2::{
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use super::{
-    error::MerkleProofError,
+    error::Result,
     merkle_tree::{HashOut, HashOutTarget, MerkleProof, MerkleProofTarget, MerkleTree},
 };
 use crate::utils::leafable::{Leafable, LeafableTarget};
@@ -85,7 +85,7 @@ impl<V: Leafable> SparseMerkleProof<V> {
         leaf_data: &V,
         index: u64,
         merkle_root: HashOut<V>,
-    ) -> Result<(), MerkleProofError> {
+    ) -> Result<()> {
         self.0.verify(leaf_data, index, merkle_root)
     }
 
@@ -98,7 +98,7 @@ impl<V: Leafable> Serialize for SparseMerkleProof<V>
 where
     HashOut<V>: Serialize,
 {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
@@ -110,7 +110,7 @@ impl<'de, V: Leafable> Deserialize<'de> for SparseMerkleProof<V>
 where
     HashOut<V>: Deserialize<'de>,
 {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {
@@ -209,7 +209,7 @@ impl<V: Leafable> Serialize for SparseMerkleTree<V>
 where
     V: Serialize,
 {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
@@ -221,7 +221,7 @@ impl<'de, V: Leafable> Deserialize<'de> for SparseMerkleTree<V>
 where
     V: Deserialize<'de>,
 {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {

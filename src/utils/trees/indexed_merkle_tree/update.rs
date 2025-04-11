@@ -1,4 +1,4 @@
-use crate::utils::trees::error::IndexedMerkleTreeError;
+use crate::utils::trees::error::{IndexedMerkleTreeError, TreesError};
 use plonky2::{
     field::extension::Extendable,
     hash::hash_types::RichField,
@@ -87,7 +87,10 @@ impl UpdateProof {
 
         self.leaf_proof
             .verify(&self.prev_leaf, self.leaf_index, prev_root)
-            .map_err(IndexedMerkleTreeError::MerkleProofError)?;
+            .map_err(|e| match e {
+                TreesError::MerkleProof(err) => IndexedMerkleTreeError::MerkleProofError(err),
+                _ => panic!("Unexpected error type"),
+            })?;
 
         let new_leaf = IndexedMerkleLeaf {
             value: new_value,

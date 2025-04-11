@@ -108,7 +108,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_from_str_bytes32() {
+    fn test_bytes32_from_str() {
         let bytes32 = Bytes32::from_hex("0x").unwrap();
         assert_eq!(bytes32, Bytes32::default());
     }

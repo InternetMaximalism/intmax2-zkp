@@ -1,4 +1,4 @@
-use crate::utils::trees::error::IndexedMerkleTreeError;
+use crate::utils::trees::error::{IndexedMerkleTreeError, TreesError};
 use plonky2::{
     field::{extension::Extendable, types::Field},
     hash::hash_types::RichField,
@@ -148,7 +148,10 @@ impl IndexedInsertionProof {
 
         self.low_leaf_proof
             .verify(&self.prev_low_leaf, self.low_leaf_index, prev_root)
-            .map_err(IndexedMerkleTreeError::MerkleProofError)?;
+            .map_err(|e| match e {
+                TreesError::MerkleProof(err) => IndexedMerkleTreeError::MerkleProofError(err),
+                _ => panic!("Unexpected error type"),
+            })?;
 
         let new_low_leaf = IndexedMerkleLeaf {
             next_index: self.index,
@@ -165,7 +168,10 @@ impl IndexedInsertionProof {
                 self.index,
                 temp_root,
             )
-            .map_err(IndexedMerkleTreeError::MerkleProofError)?;
+            .map_err(|e| match e {
+                TreesError::MerkleProof(err) => IndexedMerkleTreeError::MerkleProofError(err),
+                _ => panic!("Unexpected error type"),
+            })?;
 
         let leaf = IndexedMerkleLeaf {
             next_index: self.prev_low_leaf.next_index,
@@ -445,7 +451,7 @@ mod tests {
     }
 
     #[test]
-    fn test_dummy_insertion() {
+    fn test_indexed_merkle_tree_insertion_dummy() {
         let height = 40;
         let mut tree = IndexedMerkleTree::new(height);
         tree.prove_and_insert(U256::dummy_pubkey(), 0).unwrap();

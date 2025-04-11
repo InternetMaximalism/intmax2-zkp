@@ -107,7 +107,7 @@ where
         }
         self.data
             .prove(pw)
-            .map_err(|e| super::error::HashChainError::CyclicProofError(e.to_string()))
+            .map_err(|e| crate::utils::error::UtilsError::from(super::error::HashChainError::CyclicProofError(e.to_string())))
     }
 }
 

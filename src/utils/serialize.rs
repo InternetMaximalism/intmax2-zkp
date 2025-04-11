@@ -8,11 +8,11 @@ use plonky2::{
     util::serialization::{DefaultGateSerializer, DefaultGeneratorSerializer},
 };
 
-use crate::utils::error::SerializeError;
+use crate::utils::error::{Result, SerializeError};
 
 pub fn serialize_circuit<F, C, const D: usize>(
     circuit_data: &CircuitData<F, C, D>,
-) -> Result<Vec<u8>, SerializeError>
+) -> Result<Vec<u8>>
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F> + Default + 'static,
@@ -30,7 +30,7 @@ where
 
 pub fn deserialize_circuit<F, C, const D: usize>(
     bytes: &[u8],
-) -> Result<CircuitData<F, C, D>, SerializeError>
+) -> Result<CircuitData<F, C, D>>
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F> + Default + 'static,

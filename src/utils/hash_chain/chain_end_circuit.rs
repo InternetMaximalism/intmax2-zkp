@@ -139,6 +139,6 @@ where
         self.aggregator.set_witness(&mut pw, aggregator);
         self.data
             .prove(pw)
-            .map_err(|e| super::error::HashChainError::ChainEndProofError(e.to_string()))
+            .map_err(|e| crate::utils::error::UtilsError::from(super::error::HashChainError::ChainEndProofError(e.to_string())))
     }
 }
