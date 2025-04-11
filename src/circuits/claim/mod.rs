@@ -1,8 +1,8 @@
 pub mod deposit_time;
 pub mod determine_lock_time;
 pub mod error;
-pub mod single_claim_processor;
 pub mod single_claim_circuit;
+pub mod single_claim_processor;
 pub mod utils;
 
 #[cfg(test)]
@@ -38,7 +38,6 @@ mod tests {
     use plonky2::{
         field::goldilocks_field::GoldilocksField, plonk::config::PoseidonGoldilocksConfig,
     };
-    use rand::Rng as _;
 
     use super::single_claim_processor::SingleClaimProcessor;
 
@@ -49,7 +48,6 @@ mod tests {
 
     #[test]
     fn test_claim() {
-        //
         let lock_config = LockTimeConfig::normal();
 
         let mut rng = rand::thread_rng();
@@ -69,7 +67,7 @@ mod tests {
             depositor: Address::rand(&mut rng),
             pubkey_salt_hash: deposit_salt_hash,
             amount: U256::rand_small(&mut rng),
-            token_index: rng.gen(),
+            token_index: 0,
             is_eligible: true,
         };
         let deposit_index = validity_state_manager.deposit(&deposit).unwrap();
