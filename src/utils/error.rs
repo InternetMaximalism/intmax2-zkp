@@ -7,19 +7,19 @@ use crate::utils::{hash_chain::error::HashChainError, trees::error::TreesError};
 pub enum UtilsError {
     #[error(transparent)]
     HashChain(#[from] HashChainError),
-    
+
     #[error(transparent)]
     Serialize(#[from] SerializeError),
-    
+
     #[error(transparent)]
     Cyclic(#[from] CyclicError),
-    
+
     #[error(transparent)]
     PoseidonHashOut(#[from] PoseidonHashOutError),
-    
+
     #[error(transparent)]
     Wrapper(#[from] WrapperError),
-    
+
     #[error(transparent)]
     Trees(#[from] TreesError),
 }
@@ -29,14 +29,11 @@ pub type Result<T> = std::result::Result<T, UtilsError>;
 
 #[derive(Debug, Error)]
 pub enum SerializeError {
-    #[error("Failed to serialize circuit: {0}")]
+    #[error("Failed to serialize verifier data: {0}")]
     SerializationFailed(String),
 
-    #[error("Failed to deserialize circuit: {0}")]
+    #[error("Failed to deserialize verifier data: {0}")]
     DeserializationFailed(String),
-
-    #[error("Plonky2 serialization error: {0}")]
-    PlonkyError(String),
 }
 
 #[derive(Debug, Error)]

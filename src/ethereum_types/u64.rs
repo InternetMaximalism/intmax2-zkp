@@ -133,7 +133,7 @@ impl std::ops::Add for U64 {
         let a: u64 = self.into();
         let b: u64 = rhs.into();
         a.checked_add(b)
-            .expect(&format!("Addition overflow: {} + {}", a, b))
+            .unwrap_or_else(|| panic!("Addition overflow: {} + {}", a, b))
             .into()
     }
 }
@@ -151,7 +151,7 @@ impl std::ops::Sub for U64 {
         let a: u64 = self.into();
         let b: u64 = rhs.into();
         a.checked_sub(b)
-            .expect(&format!("Subtraction underflow: {} - {}", a, b))
+            .unwrap_or_else(|| panic!("Subtraction underflow: {} - {}", a, b))
             .into()
     }
 }
