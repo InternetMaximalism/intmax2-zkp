@@ -26,9 +26,6 @@ pub enum EthereumTypeError {
     #[error("Conversion error: {0}")]
     ConversionError(String),
 
-    #[error("Serialization error: {0}")]
-    SerializationError(String),
-
     #[error("Deserialization error: {0}")]
     DeserializationError(#[from] bincode::Error),
 }
@@ -111,15 +108,6 @@ mod tests {
         assert_eq!(
             error.to_string(),
             "Conversion error: Failed to convert"
-        );
-    }
-
-    #[test]
-    fn test_ethereum_type_error_serialization() {
-        let error = EthereumTypeError::SerializationError("Failed to serialize".to_string());
-        assert_eq!(
-            error.to_string(),
-            "Serialization error: Failed to serialize"
         );
     }
 
