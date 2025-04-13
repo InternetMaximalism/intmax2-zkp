@@ -13,7 +13,7 @@ use plonky2::{
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use super::{
-    error::Result,
+    error::MerkleProofError,
     merkle_tree::{HashOut, HashOutTarget, MerkleProof, MerkleProofTarget, MerkleTree},
 };
 use crate::utils::leafable::{Leafable, LeafableTarget};
@@ -98,7 +98,7 @@ impl<V: Leafable> IncrementalMerkleProof<V> {
         leaf_data: &V,
         index: u64,
         merkle_root: HashOut<V>,
-    ) -> Result<()> {
+    ) -> Result<(), MerkleProofError> {
         self.0.verify(leaf_data, index, merkle_root)
     }
 

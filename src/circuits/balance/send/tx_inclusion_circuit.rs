@@ -140,13 +140,6 @@ impl TxInclusionPublicInputsTarget {
         vec
     }
 
-    /// Constructs TxInclusionPublicInputsTarget from a slice of targets.
-    ///
-    /// # Arguments
-    /// * `input` - Slice of targets representing the public inputs
-    ///
-    /// # Returns
-    /// A new TxInclusionPublicInputsTarget struct
     pub fn from_slice(input: &[Target]) -> Self {
         assert_eq!(input.len(), TX_INCLUSION_PUBLIC_INPUTS_LEN);
         let prev_public_state = PublicStateTarget::from_slice(&input[0..PUBLIC_STATE_LEN]);

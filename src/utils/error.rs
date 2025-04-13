@@ -1,6 +1,8 @@
 use thiserror::Error;
 
-use crate::utils::{hash_chain::error::HashChainError, trees::error::TreesError};
+use crate::utils::hash_chain::error::HashChainError;
+
+use super::trees::error::{IndexedMerkleTreeError, MerkleProofError};
 
 /// Top-level error type for the utils module
 #[derive(Debug, Error)]
@@ -21,7 +23,10 @@ pub enum UtilsError {
     Wrapper(#[from] WrapperError),
 
     #[error(transparent)]
-    Trees(#[from] TreesError),
+    MerkleProofError(#[from] MerkleProofError),
+
+    #[error(transparent)]
+    IndexedMerkleTreeError(#[from] IndexedMerkleTreeError),
 }
 
 /// Result type alias for utils module

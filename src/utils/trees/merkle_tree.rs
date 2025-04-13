@@ -19,7 +19,7 @@ use crate::utils::{
     leafable_hasher::LeafableHasher,
 };
 
-use super::{bit_path::BitPath, error::{MerkleProofError, Result, TreesError}};
+use super::{bit_path::BitPath, error::MerkleProofError};
 
 pub type Hasher<V> = <V as Leafable>::LeafableHasher;
 pub type HashOut<V> = <Hasher<V> as LeafableHasher>::HashOut;
@@ -155,13 +155,13 @@ impl<V: Leafable> MerkleProof<V> {
         leaf_data: &V,
         index: u64,
         merkle_root: HashOut<V>,
-    ) -> Result<()> {
+    ) -> Result<(), MerkleProofError> {
         let proof_root = self.get_root(leaf_data, index);
         if proof_root != merkle_root {
-            return Err(TreesError::MerkleProof(MerkleProofError::VerificationFailed(format!(
+            return Err(MerkleProofError::VerificationFailed(format!(
                 "Merkle proof verification failed: root from proof: {:?}, expected root: {:?}",
                 proof_root, merkle_root
-            ))));
+            )));
         }
         Ok(())
     }

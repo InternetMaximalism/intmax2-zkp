@@ -1,18 +1,4 @@
 #[derive(Debug, thiserror::Error)]
-pub enum TreesError {
-    #[error("Merkle proof error: {0}")]
-    MerkleProof(#[from] MerkleProofError),
-
-    #[error("Get root from leaves error: {0}")]
-    GetRootFromLeaves(#[from] GetRootFromLeavesError),
-
-    #[error("Indexed Merkle tree error: {0}")]
-    IndexedMerkleTree(#[from] IndexedMerkleTreeError),
-}
-
-pub type Result<T> = std::result::Result<T, TreesError>;
-
-#[derive(Debug, thiserror::Error)]
 pub enum MerkleProofError {
     #[error("Merkle proof verification failed: {0}")]
     VerificationFailed(String),

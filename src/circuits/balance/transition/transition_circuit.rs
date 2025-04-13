@@ -228,8 +228,14 @@ where
                         ))
                     })?;
 
-                let pis = UpdatePublicInputs::from_u64_slice(&update_proof.public_inputs.to_u64_vec())
-                    .map_err(|e| TransitionError::VerificationFailed(format!("Failed to parse update_proof public inputs: {}", e)))?;
+                let pis =
+                    UpdatePublicInputs::from_u64_slice(&update_proof.public_inputs.to_u64_vec())
+                        .map_err(|e| {
+                            TransitionError::VerificationFailed(format!(
+                                "Failed to parse update_proof public inputs: {}",
+                                e
+                            ))
+                        })?;
 
                 if pis.prev_public_state != prev_balance_pis.public_state {
                     return Err(TransitionError::VerificationFailed(
@@ -408,8 +414,7 @@ impl<const D: usize> BalanceTransitionTarget<D> {
         let new_balance_pis1 = {
             let condition = circuit_flags[1];
             let pis =
-                ReceiveDepositPublicInputsTarget::from_slice(&receive_deposit_proof.public_inputs)
-                    .expect("Failed to parse receive_deposit_proof public inputs");
+                ReceiveDepositPublicInputsTarget::from_slice(&receive_deposit_proof.public_inputs);
             pis.prev_private_commitment.conditional_assert_eq(
                 builder,
                 prev_balance_pis.private_commitment,

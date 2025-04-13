@@ -140,13 +140,6 @@ impl SpentPublicInputsTarget {
         vec
     }
 
-    /// Constructs SpentPublicInputsTarget from a slice of targets.
-    ///
-    /// # Arguments
-    /// * `input` - Slice of targets representing the public inputs
-    ///
-    /// # Returns
-    /// A new SpentPublicInputsTarget struct
     pub fn from_slice(input: &[Target]) -> Self {
         assert_eq!(input.len(), SPENT_PUBLIC_INPUTS_LEN);
         let prev_private_commitment =

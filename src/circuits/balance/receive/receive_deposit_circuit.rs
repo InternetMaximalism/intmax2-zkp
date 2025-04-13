@@ -136,24 +136,21 @@ impl ReceiveDepositPublicInputsTarget {
         Ok(vec)
     }
 
-    pub fn from_slice(input: &[Target]) -> Result<Self, ReceiveError> {
-        if input.len() < RECEIVE_DEPOSIT_PUBLIC_INPUTS_LEN {
-            return Err(ReceiveError::InvalidInput(
-                format!("ReceiveDepositPublicInputsTarget input slice too short: expected at least {}, got {}", 
-                    RECEIVE_DEPOSIT_PUBLIC_INPUTS_LEN, input.len())
-            ));
-        }
-
+    pub fn from_slice(input: &[Target]) -> Self {
+        assert!(
+            input.len() >= RECEIVE_DEPOSIT_PUBLIC_INPUTS_LEN,
+            "Input slice too short"
+        );
         let prev_private_commitment = PoseidonHashOutTarget::from_slice(&input[0..4]);
         let new_private_commitment = PoseidonHashOutTarget::from_slice(&input[4..8]);
         let pubkey = U256Target::from_slice(&input[8..16]);
         let public_state = PublicStateTarget::from_slice(&input[16..16 + PUBLIC_STATE_LEN]);
-        Ok(ReceiveDepositPublicInputsTarget {
+        ReceiveDepositPublicInputsTarget {
             prev_private_commitment,
             new_private_commitment,
             pubkey,
             public_state,
-        })
+        }
     }
 }
 
