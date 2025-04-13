@@ -61,14 +61,7 @@ where
     }
 
     pub fn validity_pis(&self) -> ValidityPublicInputs {
-        ValidityPublicInputs::try_from_pis(&self.validity_proof.public_inputs)
-            .unwrap_or_else(|e| {
-                panic!("Failed to create ValidityPublicInputs from proof public inputs: {}", e);
-            })
-    }
-
-    pub fn try_validity_pis(&self) -> Result<ValidityPublicInputs, crate::circuits::validity::error::ValidityProverError> {
-        ValidityPublicInputs::try_from_pis(&self.validity_proof.public_inputs)
+        ValidityPublicInputs::from_pis(&self.validity_proof.public_inputs).unwrap()
     }
 
     pub fn public_state(&self) -> PublicState {

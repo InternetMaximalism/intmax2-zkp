@@ -228,7 +228,7 @@ where
                         ))
                     })?;
 
-                let pis = UpdatePublicInputs::try_from_u64_slice(&update_proof.public_inputs.to_u64_vec())
+                let pis = UpdatePublicInputs::from_u64_slice(&update_proof.public_inputs.to_u64_vec())
                     .map_err(|e| TransitionError::VerificationFailed(format!("Failed to parse update_proof public inputs: {}", e)))?;
 
                 if pis.prev_public_state != prev_balance_pis.public_state {

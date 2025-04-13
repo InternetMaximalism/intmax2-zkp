@@ -2,13 +2,15 @@
 //!
 //! This circuit proves the transition of a public state by:
 //! 1. Verifying that the validity proof for the new public state is correct
-//! 2. Confirming that the block hash of the old public state is included in the block tree of the new public state
-//! 3. Checking that the sender's last transaction block number is the same as or older than the old public state's block number
+//! 2. Confirming that the block hash of the old public state is included in the block tree of the
+//!    new public state
+//! 3. Checking that the sender's last transaction block number is the same as or older than the old
+//!    public state's block number
 //! 4. Validating that the transaction is included in the block
 //!
-//! The tx inclusion circuit sets is_valid=true only when the block is valid and the user's signature
-//! is included in the block. This is_valid flag is used by the sender circuit to determine
-//! whether to transition the private state.
+//! The tx inclusion circuit sets is_valid=true only when the block is valid and the user's
+//! signature is included in the block. This is_valid flag is used by the sender circuit to
+//! determine whether to transition the private state.
 
 use super::error::SendError;
 use plonky2::{
@@ -72,27 +74,7 @@ pub struct TxInclusionPublicInputs {
 }
 
 impl TxInclusionPublicInputs {
-    /// Constructs TxInclusionPublicInputs from a slice of u64 values.
-    ///
-    /// # Arguments
-    /// * `input` - Slice of u64 values representing the public inputs
-    ///
-    /// # Returns
-    /// A new TxInclusionPublicInputs struct
-    pub fn from_u64_slice(input: &[u64]) -> Self {
-        Self::try_from_u64_slice(input).unwrap_or_else(|e| {
-            panic!("Failed to create TxInclusionPublicInputs from u64 slice: {}", e)
-        })
-    }
-
-    /// Attempts to construct TxInclusionPublicInputs from a slice of u64 values.
-    ///
-    /// # Arguments
-    /// * `input` - Slice of u64 values representing the public inputs
-    ///
-    /// # Returns
-    /// A Result containing either the new TxInclusionPublicInputs or an error
-    pub fn try_from_u64_slice(input: &[u64]) -> Result<Self, super::error::SendError> {
+    pub fn from_u64_slice(input: &[u64]) -> Result<Self, super::error::SendError> {
         if input.len() != TX_INCLUSION_PUBLIC_INPUTS_LEN {
             return Err(super::error::SendError::InvalidInput(format!(
                 "Invalid input length for TxInclusionPublicInputs: expected {}, got {}",
@@ -100,13 +82,22 @@ impl TxInclusionPublicInputs {
                 input.len()
             )));
         }
-        let prev_public_state = PublicState::try_from_u64_slice(&input[0..PUBLIC_STATE_LEN])
-            .map_err(|e| super::error::SendError::InvalidInput(format!("Invalid prev_public_state: {}", e)))?;
-        let new_public_state = PublicState::try_from_u64_slice(&input[PUBLIC_STATE_LEN..PUBLIC_STATE_LEN * 2])
-            .map_err(|e| super::error::SendError::InvalidInput(format!("Invalid new_public_state: {}", e)))?;
-        let pubkey = U256::from_u64_slice(&input[PUBLIC_STATE_LEN * 2..PUBLIC_STATE_LEN * 2 + U256_LEN])
-            .map_err(|e| super::error::SendError::InvalidInput(format!("Invalid pubkey: {}", e)))?;
-        let tx = Tx::try_from_u64_slice(
+        let prev_public_state =
+            PublicState::from_u64_slice(&input[0..PUBLIC_STATE_LEN]).map_err(|e| {
+                super::error::SendError::InvalidInput(format!("Invalid prev_public_state: {}", e))
+            })?;
+        let new_public_state: PublicState = PublicState::from_u64_slice(
+            &input[PUBLIC_STATE_LEN..PUBLIC_STATE_LEN * 2],
+        )
+        .map_err(|e| {
+            super::error::SendError::InvalidInput(format!("Invalid new_public_state: {}", e))
+        })?;
+        let pubkey =
+            U256::from_u64_slice(&input[PUBLIC_STATE_LEN * 2..PUBLIC_STATE_LEN * 2 + U256_LEN])
+                .map_err(|e| {
+                    super::error::SendError::InvalidInput(format!("Invalid pubkey: {}", e))
+                })?;
+        let tx = Tx::from_u64_slice(
             &input[PUBLIC_STATE_LEN * 2 + U256_LEN..PUBLIC_STATE_LEN * 2 + U256_LEN + TX_LEN],
         )
         .map_err(|e| super::error::SendError::InvalidInput(format!("Invalid tx: {}", e)))?;
@@ -251,7 +242,8 @@ where
 
         let validity_pis = ValidityPublicInputs::from_u64_slice(
             &validity_proof.public_inputs[0..VALIDITY_PUBLIC_INPUTS_LEN].to_u64_vec(),
-        );
+        )
+        .unwrap();
 
         block_merkle_proof
             .verify(
@@ -473,7 +465,8 @@ impl<const D: usize> TxInclusionTarget<D> {
 /// This circuit proves that:
 /// 1. The validity proof for the new public state is correct
 /// 2. The block hash of the old public state is included in the block tree of the new public state
-/// 3. The sender's last transaction block number is the same as or older than the old public state's block number
+/// 3. The sender's last transaction block number is the same as or older than the old public
+///    state's block number
 /// 4. The transaction is included in the block
 /// 5. The sender's signature is included in the block (if the block is valid)
 pub struct TxInclusionCircuit<F, C, const D: usize>

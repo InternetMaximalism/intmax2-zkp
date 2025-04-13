@@ -226,7 +226,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
                 .collect::<Vec<_>>());
 
         let tx_inclusion_pis = TxInclusionPublicInputs::from_u64_slice(
-            &tx_inclusion_proof.public_inputs.to_u64_vec());
+            &tx_inclusion_proof.public_inputs.to_u64_vec())?;
 
         // check tx equivalence
         if spent_pis.tx != tx_inclusion_pis.tx {

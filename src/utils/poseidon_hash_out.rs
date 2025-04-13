@@ -65,7 +65,6 @@ impl PoseidonHashOut {
         })
     }
 
-
     pub fn hash_inputs_u64(inputs: &[u64]) -> Self {
         PoseidonHash::hash_no_pad(&inputs.to_field_vec::<GoldilocksField>()).into()
     }
@@ -85,20 +84,6 @@ impl PoseidonHashOut {
         Self {
             elements: elements.try_into().unwrap(),
         }
-    }
-
-    pub fn unwrap_or_else<F>(self, f: F) -> Self
-    where
-        F: FnOnce(PoseidonHashOutError) -> Self,
-    {
-        self
-    }
-
-    pub fn map_err<E, F>(self, f: F) -> Result<Self, E>
-    where
-        F: FnOnce(PoseidonHashOutError) -> E,
-    {
-        Ok(self)
     }
 }
 

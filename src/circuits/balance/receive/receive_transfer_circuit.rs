@@ -97,7 +97,8 @@ where
         let new_private_commitment = PoseidonHashOut::from_u64_slice(&non_vd[4..8])
             .unwrap_or_else(|e| panic!("Failed to create PoseidonHashOut from u64 slice: {}", e));
         let pubkey = U256::from_u64_slice(&non_vd[8..16]).unwrap();
-        let public_state = PublicState::from_u64_slice(&non_vd[16..16 + PUBLIC_STATE_LEN]);
+        let public_state = PublicState::from_u64_slice(&non_vd[16..16 + PUBLIC_STATE_LEN])
+            .unwrap_or_else(|e| panic!("Failed to create PublicState from u64 slice: {}", e));
         let balance_circuit_vd = vd_from_pis_slice(input, config).unwrap();
         ReceiveTransferPublicInputs {
             prev_private_commitment,
@@ -187,7 +188,8 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     /// 1. Verifies the sender's block hash is included in the recipient's block tree
     /// 2. Extracts the transfer and computes its nullifier
     /// 3. Verifies the recipient's public key matches the transfer recipient
-    /// 4. Validates that the private state transition matches the transfer (token index, amount, nullifier)
+    /// 4. Validates that the private state transition matches the transfer (token index, amount,
+    ///    nullifier)
     /// 5. Computes the private state commitments
     ///
     /// # Arguments

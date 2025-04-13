@@ -82,13 +82,7 @@ impl DepositTimePublicInputs {
         result
     }
 
-    pub fn from_u32_slice(inputs: &[u32]) -> Self {
-        Self::try_from_u32_slice(inputs).unwrap_or_else(|e| {
-            panic!("Failed to create DepositTimePublicInputs from u32 slice: {}", e);
-        })
-    }
-
-    pub fn try_from_u32_slice(inputs: &[u32]) -> Result<Self, super::error::ClaimError> {
+    pub fn from_u32_slice(inputs: &[u32]) -> Result<Self, super::error::ClaimError> {
         if inputs.len() != DEPOSIT_TIME_PUBLIC_INPUTS_LEN {
             return Err(super::error::ClaimError::InvalidInput(format!(
                 "Invalid input length for DepositTimePublicInputs: expected {}, got {}",
@@ -96,25 +90,34 @@ impl DepositTimePublicInputs {
                 inputs.len()
             )));
         }
-        let pubkey = U256::from_u32_slice(&inputs[0..U256_LEN])
-            .map_err(|e| super::error::ClaimError::InvalidInput(format!("Invalid pubkey: {}", e)))?;
+        let pubkey = U256::from_u32_slice(&inputs[0..U256_LEN]).map_err(|e| {
+            super::error::ClaimError::InvalidInput(format!("Invalid pubkey: {}", e))
+        })?;
         let nullifier = Bytes32::from_u32_slice(&inputs[U256_LEN..U256_LEN + BYTES32_LEN])
-            .map_err(|e| super::error::ClaimError::InvalidInput(format!("Invalid nullifier: {}", e)))?;
+            .map_err(|e| {
+                super::error::ClaimError::InvalidInput(format!("Invalid nullifier: {}", e))
+            })?;
         let deposit_amount = U256::from_u32_slice(
             &inputs[U256_LEN + BYTES32_LEN..U256_LEN + BYTES32_LEN + U256_LEN],
         )
-        .map_err(|e| super::error::ClaimError::InvalidInput(format!("Invalid deposit_amount: {}", e)))?;
+        .map_err(|e| {
+            super::error::ClaimError::InvalidInput(format!("Invalid deposit_amount: {}", e))
+        })?;
         let lock_time = inputs[U256_LEN + BYTES32_LEN + U256_LEN];
         let block_timestamp = U64::from_u32_slice(
             &inputs[U256_LEN + BYTES32_LEN + U256_LEN + 1
                 ..U256_LEN + BYTES32_LEN + U256_LEN + 1 + U64_LEN],
         )
-        .map_err(|e| super::error::ClaimError::InvalidInput(format!("Invalid block_timestamp: {}", e)))?;
+        .map_err(|e| {
+            super::error::ClaimError::InvalidInput(format!("Invalid block_timestamp: {}", e))
+        })?;
         let block_hash = Bytes32::from_u32_slice(
             &inputs[U256_LEN + BYTES32_LEN + U256_LEN + 1 + U64_LEN
                 ..U256_LEN + BYTES32_LEN + U256_LEN + 1 + U64_LEN + BYTES32_LEN],
         )
-        .map_err(|e| super::error::ClaimError::InvalidInput(format!("Invalid block_hash: {}", e)))?;
+        .map_err(|e| {
+            super::error::ClaimError::InvalidInput(format!("Invalid block_hash: {}", e))
+        })?;
         let block_number = inputs[U256_LEN + BYTES32_LEN + U256_LEN + 1 + U64_LEN + BYTES32_LEN];
         Ok(Self {
             pubkey,
@@ -127,13 +130,7 @@ impl DepositTimePublicInputs {
         })
     }
 
-    pub fn from_u64_slice(inputs: &[u64]) -> Self {
-        Self::try_from_u64_slice(inputs).unwrap_or_else(|e| {
-            panic!("Failed to create DepositTimePublicInputs from u64 slice: {}", e);
-        })
-    }
-
-    pub fn try_from_u64_slice(inputs: &[u64]) -> Result<Self, super::error::ClaimError> {
+    pub fn from_u64_slice(inputs: &[u64]) -> Result<Self, super::error::ClaimError> {
         let input_u32: Result<Vec<u32>, super::error::ClaimError> = inputs
             .iter()
             .map(|&x| {
@@ -147,7 +144,7 @@ impl DepositTimePublicInputs {
                 }
             })
             .collect();
-        Self::try_from_u32_slice(&input_u32?)
+        Self::from_u32_slice(&input_u32?)
     }
 }
 

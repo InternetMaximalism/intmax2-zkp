@@ -1,6 +1,6 @@
 //! Receive Deposit Circuit for processing deposits into the private state.
 //!
-//! This circuit proves the correctness of adding a deposit to the asset tree and 
+//! This circuit proves the correctness of adding a deposit to the asset tree and
 //! inserting the corresponding nullifier into the nullifier tree. The circuit ensures:
 //! 1. Valid deposit merkle proof against the public state's deposit tree root
 //! 2. Correct derivation of pubkey_salt_hash from the user's public key and salt
@@ -92,15 +92,10 @@ impl ReceiveDepositPublicInputs {
                 input.len()
             )));
         }
-
-        let prev_private_commitment = PoseidonHashOut::from_u64_slice(&input[0..4])
-            .unwrap_or_else(|e| panic!("Failed to create PoseidonHashOut from u64 slice: {}", e));
-        let new_private_commitment = PoseidonHashOut::from_u64_slice(&input[4..8])
-            .unwrap_or_else(|e| panic!("Failed to create PoseidonHashOut from u64 slice: {}", e));
-        let pubkey = U256::from_u64_slice(&input[8..16])
-            .map_err(|e| ReceiveError::InvalidInput(format!("Failed to parse pubkey: {:?}", e)))?;
-        let public_state = PublicState::from_u64_slice(&input[16..16 + PUBLIC_STATE_LEN]);
-
+        let prev_private_commitment = PoseidonHashOut::from_u64_slice(&input[0..4]).unwrap();
+        let new_private_commitment = PoseidonHashOut::from_u64_slice(&input[4..8]).unwrap();
+        let pubkey = U256::from_u64_slice(&input[8..16]).unwrap();
+        let public_state = PublicState::from_u64_slice(&input[16..16 + PUBLIC_STATE_LEN]).unwrap();
         Ok(ReceiveDepositPublicInputs {
             prev_private_commitment,
             new_private_commitment,
@@ -170,15 +165,16 @@ impl ReceiveDepositPublicInputsTarget {
 /// - Process the private state transition (adding to asset tree and inserting nullifier)
 #[derive(Debug, Clone)]
 pub struct ReceiveDepositValue {
-    pub pubkey: U256,                                   // User's public key
-    pub deposit_salt: Salt,                             // Salt used to claim the deposit
-    pub deposit_index: u32,                             // Index of the deposit in the deposit tree
-    pub deposit: Deposit,                               // The deposit being claimed
-    pub deposit_merkle_proof: DepositMerkleProof,       // Proof of deposit inclusion
-    pub public_state: PublicState,                      // Current public state
+    pub pubkey: U256,       // User's public key
+    pub deposit_salt: Salt, // Salt used to claim the deposit
+    pub deposit_index: u32, /* Index of the deposit in the
+                             * deposit tree */
+    pub deposit: Deposit,                         // The deposit being claimed
+    pub deposit_merkle_proof: DepositMerkleProof, // Proof of deposit inclusion
+    pub public_state: PublicState,                // Current public state
     pub private_state_transition: PrivateStateTransitionValue, // Private state transition details
-    pub prev_private_commitment: PoseidonHashOut,       // Previous private state commitment
-    pub new_private_commitment: PoseidonHashOut,        // New private state commitment
+    pub prev_private_commitment: PoseidonHashOut, // Previous private state commitment
+    pub new_private_commitment: PoseidonHashOut,  // New private state commitment
 }
 
 impl ReceiveDepositValue {
@@ -394,9 +390,9 @@ where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
 {
-    pub data: CircuitData<F, C, D>,           // Circuit data containing the compiled circuit
-    pub target: ReceiveDepositTarget,          // Target containing all circuit constraints
-    pub dummy_proof: DummyProof<F, C, D>,      // Dummy proof for testing
+    pub data: CircuitData<F, C, D>, // Circuit data containing the compiled circuit
+    pub target: ReceiveDepositTarget, // Target containing all circuit constraints
+    pub dummy_proof: DummyProof<F, C, D>, // Dummy proof for testing
 }
 
 impl<F, C, const D: usize> Default for ReceiveDepositCircuit<F, C, D>

@@ -8,8 +8,8 @@
 //! The update circuit enforces the following constraints:
 //! 1. The validity proof for the new public state is correct
 //! 2. The block hash of the old public state is included in the new public state's block tree
-//! 3. The user's last block number (when they last sent a transaction) is the same or older
-//!    than the old public state's block number
+//! 3. The user's last block number (when they last sent a transaction) is the same or older than
+//!    the old public state's block number
 
 use super::error::UpdateError;
 use plonky2::{
@@ -79,13 +79,7 @@ impl UpdatePublicInputs {
         vec
     }
 
-    pub fn from_u64_slice(input: &[u64]) -> Self {
-        Self::try_from_u64_slice(input).unwrap_or_else(|e| {
-            panic!("Failed to create UpdatePublicInputs from u64 slice: {}", e);
-        })
-    }
-
-    pub fn try_from_u64_slice(input: &[u64]) -> Result<Self, super::error::UpdateError> {
+    pub fn from_u64_slice(input: &[u64]) -> Result<Self, super::error::UpdateError> {
         if input.len() != UPDATE_PUBLIC_INPUTS_LEN {
             return Err(super::error::UpdateError::InvalidInput(format!(
                 "Invalid input length for UpdatePublicInputs: expected {}, got {}",
@@ -93,12 +87,19 @@ impl UpdatePublicInputs {
                 input.len()
             )));
         }
-        let pubkey = U256::from_u64_slice(&input[0..U256_LEN])
-            .map_err(|e| super::error::UpdateError::InvalidInput(format!("Invalid pubkey: {}", e)))?;
-        let prev_public_state = PublicState::try_from_u64_slice(&input[U256_LEN..U256_LEN + PUBLIC_STATE_LEN])
-            .map_err(|e| super::error::UpdateError::InvalidInput(format!("Invalid prev_public_state: {}", e)))?;
-        let new_public_state = PublicState::try_from_u64_slice(&input[U256_LEN + PUBLIC_STATE_LEN..])
-            .map_err(|e| super::error::UpdateError::InvalidInput(format!("Invalid new_public_state: {}", e)))?;
+        let pubkey = U256::from_u64_slice(&input[0..U256_LEN]).map_err(|e| {
+            super::error::UpdateError::InvalidInput(format!("Invalid pubkey: {}", e))
+        })?;
+        let prev_public_state = PublicState::from_u64_slice(
+            &input[U256_LEN..U256_LEN + PUBLIC_STATE_LEN],
+        )
+        .map_err(|e| {
+            super::error::UpdateError::InvalidInput(format!("Invalid prev_public_state: {}", e))
+        })?;
+        let new_public_state = PublicState::from_u64_slice(&input[U256_LEN + PUBLIC_STATE_LEN..])
+            .map_err(|e| {
+            super::error::UpdateError::InvalidInput(format!("Invalid new_public_state: {}", e))
+        })?;
         Ok(UpdatePublicInputs {
             pubkey,
             prev_public_state,
@@ -166,9 +167,11 @@ where
     ///
     /// This function performs the following validations:
     /// 1. Verifies the validity proof for the new public state
-    /// 2. Verifies the block merkle proof showing the old block hash is included in the new block tree
+    /// 2. Verifies the block merkle proof showing the old block hash is included in the new block
+    ///    tree
     /// 3. Verifies the account membership proof to get the user's last transaction block number
-    /// 4. Checks that the user's last transaction block number is not newer than the previous public state
+    /// 4. Checks that the user's last transaction block number is not newer than the previous
+    ///    public state
     ///
     /// # Arguments
     /// * `validity_vd` - Verifier data for the validity circuit
@@ -192,8 +195,13 @@ where
             UpdateError::VerificationFailed(format!("Validity proof is invalid: {:?}", e))
         })?;
 
-        let validity_pis = ValidityPublicInputs::try_from_pis(&validity_proof.public_inputs)
-            .map_err(|e| UpdateError::VerificationFailed(format!("Failed to parse validity public inputs: {}", e)))?;
+        let validity_pis =
+            ValidityPublicInputs::from_pis(&validity_proof.public_inputs).map_err(|e| {
+                UpdateError::VerificationFailed(format!(
+                    "Failed to parse validity public inputs: {}",
+                    e
+                ))
+            })?;
 
         block_merkle_proof
             .verify(
@@ -253,7 +261,8 @@ impl<const D: usize> UpdateTarget<D> {
     /// Creates a new UpdateTarget with circuit constraints that enforce the update circuit rules.
     ///
     /// This method builds the circuit constraints that verify:
-    /// 1. The validity proof for the new public state is correct (via add_proof_target_and_verify_cyclic)
+    /// 1. The validity proof for the new public state is correct (via
+    ///    add_proof_target_and_verify_cyclic)
     /// 2. The block hash of the old public state is included in the new public state's block tree
     /// 3. The user's last transaction block number is not newer than the previous public state
     ///

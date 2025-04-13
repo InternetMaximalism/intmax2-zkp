@@ -105,7 +105,7 @@ impl SpentPublicInputs {
             &input[POSEIDON_HASH_OUT_LEN..2 * POSEIDON_HASH_OUT_LEN],
         )
         .unwrap_or_else(|e| panic!("Failed to create PoseidonHashOut from u64 slice: {}", e));
-        let tx = Tx::try_from_u64_slice(
+        let tx = Tx::from_u64_slice(
             &input[2 * POSEIDON_HASH_OUT_LEN..2 * POSEIDON_HASH_OUT_LEN + TX_LEN],
         )
         .map_err(|e| super::error::SendError::InvalidInput(format!("Invalid tx: {}", e)))?;

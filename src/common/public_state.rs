@@ -79,13 +79,7 @@ impl PublicState {
         vec
     }
 
-    pub fn from_u64_slice(input: &[u64]) -> Self {
-        Self::try_from_u64_slice(input).unwrap_or_else(|e| {
-            panic!("Failed to create PublicState from u64 slice: {}", e);
-        })
-    }
-
-    pub fn try_from_u64_slice(input: &[u64]) -> Result<Self, crate::common::error::CommonError> {
+    pub fn from_u64_slice(input: &[u64]) -> Result<Self, crate::common::error::CommonError> {
         if input.len() != PUBLIC_STATE_LEN {
             return Err(crate::common::error::CommonError::InvalidData(format!(
                 "Invalid input length for PublicState: expected {}, got {}",
@@ -93,20 +87,13 @@ impl PublicState {
                 input.len()
             )));
         }
-        let block_tree_root = PoseidonHashOut::from_u64_slice(&input[0..4])
-            .map_err(|e| crate::common::error::CommonError::InvalidData(format!("Invalid block_tree_root: {}", e)))?;
-        let prev_account_tree_root = PoseidonHashOut::from_u64_slice(&input[4..8])
-            .map_err(|e| crate::common::error::CommonError::InvalidData(format!("Invalid prev_account_tree_root: {}", e)))?;
-        let account_tree_root = PoseidonHashOut::from_u64_slice(&input[8..12])
-            .map_err(|e| crate::common::error::CommonError::InvalidData(format!("Invalid account_tree_root: {}", e)))?;
+        let block_tree_root = PoseidonHashOut::from_u64_slice(&input[0..4]).unwrap();
+        let prev_account_tree_root = PoseidonHashOut::from_u64_slice(&input[4..8]).unwrap();
+        let account_tree_root = PoseidonHashOut::from_u64_slice(&input[8..12]).unwrap();
         let next_account_id = input[12];
-        let deposit_tree_root = Bytes32::from_u64_slice(&input[13..21])
-            .map_err(|e| crate::common::error::CommonError::InvalidData(format!("Invalid deposit_tree_root: {}", e)))?;
-        let block_hash = Bytes32::from_u64_slice(&input[21..29])
-            .map_err(|e| crate::common::error::CommonError::InvalidData(format!("Invalid block_hash: {}", e)))?;
-        let timestamp = U64::from_u64_slice(&input[29..31])
-            .map_err(|e| crate::common::error::CommonError::InvalidData(format!("Invalid timestamp: {}", e)))?
-            .into();
+        let deposit_tree_root = Bytes32::from_u64_slice(&input[13..21]).unwrap();
+        let block_hash = Bytes32::from_u64_slice(&input[21..29]).unwrap();
+        let timestamp = U64::from_u64_slice(&input[29..31]).unwrap().into();
         let block_number = input[31] as u32;
         Ok(Self {
             block_tree_root,

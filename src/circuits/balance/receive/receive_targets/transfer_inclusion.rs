@@ -98,13 +98,14 @@ where
                     e
                 ))
             })?;
-        let balance_circuit_vd = vd_from_pis_slice::<F, C, D>(
-            &balance_proof.public_inputs,
-            &balance_vd.common.config,
-        )
-        .map_err(|e| {
-            ReceiveTargetsError::VerificationFailed(format!("Failed to parse balance vd: {}", e))
-        })?;
+        let balance_circuit_vd =
+            vd_from_pis_slice::<F, C, D>(&balance_proof.public_inputs, &balance_vd.common.config)
+                .map_err(|e| {
+                ReceiveTargetsError::VerificationFailed(format!(
+                    "Failed to parse balance vd: {}",
+                    e
+                ))
+            })?;
 
         if balance_circuit_vd != balance_vd.verifier_only {
             return Err(ReceiveTargetsError::VerificationFailed(
@@ -112,14 +113,12 @@ where
             ));
         }
 
-        balance_vd
-            .verify(balance_proof.clone())
-            .map_err(|e| {
-                ReceiveTargetsError::VerificationFailed(format!(
-                    "Failed to verify balance proof: {}",
-                    e
-                ))
-            })?;
+        balance_vd.verify(balance_proof.clone()).map_err(|e| {
+            ReceiveTargetsError::VerificationFailed(format!(
+                "Failed to verify balance proof: {}",
+                e
+            ))
+        })?;
 
         if balance_pis.last_tx_hash != tx.hash() {
             return Err(ReceiveTargetsError::VerificationFailed(format!(
@@ -240,11 +239,6 @@ impl<const D: usize> TransferInclusionTarget<D> {
         }
     }
 
-    /// Sets the witness values for all targets in this TransferInclusionTarget.
-    ///
-    /// # Arguments
-    /// * `witness` - Witness to set values in
-    /// * `value` - TransferInclusionValue containing the values to set
     pub fn set_witness<
         F: RichField + Extendable<D>,
         C: GenericConfig<D, F = F>,
@@ -380,6 +374,6 @@ mod tests {
 
         let data = builder.build::<C>();
         let proof = data.prove(pw).unwrap();
-        data.verify(proof.clone()).unwrap();
+        data.verify(proof).unwrap();
     }
 }
