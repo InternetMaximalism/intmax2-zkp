@@ -52,12 +52,19 @@ impl PoseidonHashOut {
         self.elements.to_vec()
     }
 
-    pub fn from_u64_slice(input: &[u64]) -> Self {
-        assert_eq!(input.len(), POSEIDON_HASH_OUT_LEN);
-        Self {
-            elements: input.try_into().unwrap(),
+    pub fn from_u64_slice(input: &[u64]) -> Result<Self, PoseidonHashOutError> {
+        if input.len() != POSEIDON_HASH_OUT_LEN {
+            return Err(PoseidonHashOutError::InvalidHashValue(format!(
+                "Invalid input length: expected {}, got {}",
+                POSEIDON_HASH_OUT_LEN,
+                input.len()
+            )));
         }
+        Ok(Self {
+            elements: input.try_into().unwrap(),
+        })
     }
+
 
     pub fn hash_inputs_u64(inputs: &[u64]) -> Self {
         PoseidonHash::hash_no_pad(&inputs.to_field_vec::<GoldilocksField>()).into()
@@ -78,6 +85,20 @@ impl PoseidonHashOut {
         Self {
             elements: elements.try_into().unwrap(),
         }
+    }
+
+    pub fn unwrap_or_else<F>(self, f: F) -> Self
+    where
+        F: FnOnce(PoseidonHashOutError) -> Self,
+    {
+        self
+    }
+
+    pub fn map_err<E, F>(self, f: F) -> Result<Self, E>
+    where
+        F: FnOnce(PoseidonHashOutError) -> E,
+    {
+        Ok(self)
     }
 }
 
@@ -430,9 +451,16 @@ mod tests {
     #[test]
     fn test_poseidon_hash_out_from_u64_slice() {
         let elements = [1u64, 2u64, 3u64, 4u64];
-        let hash = PoseidonHashOut::from_u64_slice(&elements);
+        let hash = PoseidonHashOut::from_u64_slice(&elements).unwrap();
 
         assert_eq!(hash.elements, elements);
+    }
+
+    #[test]
+    fn test_poseidon_hash_out_from_u64_slice_invalid_length() {
+        let elements = [1u64, 2u64, 3u64];
+        let result = PoseidonHashOut::from_u64_slice(&elements);
+        assert!(result.is_err());
     }
 
     #[test]

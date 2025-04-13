@@ -70,26 +70,54 @@ impl ValidityPublicInputs {
     }
 
     pub fn from_u64_slice(input: &[u64]) -> Self {
-        assert_eq!(input.len(), VALIDITY_PUBLIC_INPUTS_LEN);
-        let public_state = PublicState::from_u64_slice(&input[0..PUBLIC_STATE_LEN]);
-        let tx_tree_root =
-            Bytes32::from_u64_slice(&input[PUBLIC_STATE_LEN..PUBLIC_STATE_LEN + BYTES32_LEN])
-                .unwrap();
+        Self::try_from_u64_slice(input).unwrap_or_else(|e| {
+            panic!("Failed to create ValidityPublicInputs from u64 slice: {}", e);
+        })
+    }
+
+    pub fn try_from_u64_slice(input: &[u64]) -> Result<Self, super::error::ValidityProverError> {
+        if input.len() != VALIDITY_PUBLIC_INPUTS_LEN {
+            return Err(super::error::ValidityProverError::Plonky2Error(format!(
+                "Invalid input length for ValidityPublicInputs: expected {}, got {}",
+                VALIDITY_PUBLIC_INPUTS_LEN,
+                input.len()
+            )));
+        }
+        let public_state = PublicState::try_from_u64_slice(&input[0..PUBLIC_STATE_LEN])
+            .map_err(|e| super::error::ValidityProverError::Plonky2Error(format!("Invalid public_state: {}", e)))?;
+        let tx_tree_root = Bytes32::from_u64_slice(&input[PUBLIC_STATE_LEN..PUBLIC_STATE_LEN + BYTES32_LEN])
+            .map_err(|e| super::error::ValidityProverError::Plonky2Error(format!("Invalid tx_tree_root: {}", e)))?;
         let sender_tree_root = PoseidonHashOut::from_u64_slice(
             &input[PUBLIC_STATE_LEN + BYTES32_LEN
                 ..PUBLIC_STATE_LEN + BYTES32_LEN + POSEIDON_HASH_OUT_LEN],
-        );
+        )
+        .unwrap_or_else(|e| {
+            panic!("Failed to create PoseidonHashOut from u64 slice: {}", e)
+        });
         let is_valid_block = input[PUBLIC_STATE_LEN + BYTES32_LEN + POSEIDON_HASH_OUT_LEN] == 1;
-        Self {
+        Ok(Self {
             public_state,
             tx_tree_root,
             sender_tree_root,
             is_valid_block,
-        }
+        })
     }
 
     pub fn from_pis<F: PrimeField64>(pis: &[F]) -> Self {
-        Self::from_u64_slice(&pis[0..VALIDITY_PUBLIC_INPUTS_LEN].to_u64_vec())
+        Self::try_from_pis(pis).unwrap_or_else(|e| {
+            panic!("Failed to create ValidityPublicInputs from pis: {}", e);
+        })
+    }
+
+    pub fn try_from_pis<F: PrimeField64>(pis: &[F]) -> Result<Self, super::error::ValidityProverError> {
+        if pis.len() < VALIDITY_PUBLIC_INPUTS_LEN {
+            return Err(super::error::ValidityProverError::Plonky2Error(format!(
+                "Public inputs length too short: expected at least {}, got {}",
+                VALIDITY_PUBLIC_INPUTS_LEN,
+                pis.len()
+            )));
+        }
+        Self::try_from_u64_slice(&pis[0..VALIDITY_PUBLIC_INPUTS_LEN].to_u64_vec())
     }
 }
 

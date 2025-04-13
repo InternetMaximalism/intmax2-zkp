@@ -80,24 +80,44 @@ impl TxInclusionPublicInputs {
     /// # Returns
     /// A new TxInclusionPublicInputs struct
     pub fn from_u64_slice(input: &[u64]) -> Self {
-        assert_eq!(input.len(), TX_INCLUSION_PUBLIC_INPUTS_LEN);
-        let prev_public_state = PublicState::from_u64_slice(&input[0..PUBLIC_STATE_LEN]);
-        let new_public_state =
-            PublicState::from_u64_slice(&input[PUBLIC_STATE_LEN..PUBLIC_STATE_LEN * 2]);
-        let pubkey =
-            U256::from_u64_slice(&input[PUBLIC_STATE_LEN * 2..PUBLIC_STATE_LEN * 2 + U256_LEN])
-                .unwrap();
-        let tx = Tx::from_u64_slice(
+        Self::try_from_u64_slice(input).unwrap_or_else(|e| {
+            panic!("Failed to create TxInclusionPublicInputs from u64 slice: {}", e)
+        })
+    }
+
+    /// Attempts to construct TxInclusionPublicInputs from a slice of u64 values.
+    ///
+    /// # Arguments
+    /// * `input` - Slice of u64 values representing the public inputs
+    ///
+    /// # Returns
+    /// A Result containing either the new TxInclusionPublicInputs or an error
+    pub fn try_from_u64_slice(input: &[u64]) -> Result<Self, super::error::SendError> {
+        if input.len() != TX_INCLUSION_PUBLIC_INPUTS_LEN {
+            return Err(super::error::SendError::InvalidInput(format!(
+                "Invalid input length for TxInclusionPublicInputs: expected {}, got {}",
+                TX_INCLUSION_PUBLIC_INPUTS_LEN,
+                input.len()
+            )));
+        }
+        let prev_public_state = PublicState::try_from_u64_slice(&input[0..PUBLIC_STATE_LEN])
+            .map_err(|e| super::error::SendError::InvalidInput(format!("Invalid prev_public_state: {}", e)))?;
+        let new_public_state = PublicState::try_from_u64_slice(&input[PUBLIC_STATE_LEN..PUBLIC_STATE_LEN * 2])
+            .map_err(|e| super::error::SendError::InvalidInput(format!("Invalid new_public_state: {}", e)))?;
+        let pubkey = U256::from_u64_slice(&input[PUBLIC_STATE_LEN * 2..PUBLIC_STATE_LEN * 2 + U256_LEN])
+            .map_err(|e| super::error::SendError::InvalidInput(format!("Invalid pubkey: {}", e)))?;
+        let tx = Tx::try_from_u64_slice(
             &input[PUBLIC_STATE_LEN * 2 + U256_LEN..PUBLIC_STATE_LEN * 2 + U256_LEN + TX_LEN],
-        );
+        )
+        .map_err(|e| super::error::SendError::InvalidInput(format!("Invalid tx: {}", e)))?;
         let is_valid = input[PUBLIC_STATE_LEN * 2 + U256_LEN + TX_LEN] == 1;
-        Self {
+        Ok(Self {
             prev_public_state,
             new_public_state,
             pubkey,
             tx,
             is_valid,
-        }
+        })
     }
 }
 

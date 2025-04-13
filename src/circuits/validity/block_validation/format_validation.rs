@@ -77,8 +77,10 @@ impl FormatValidationPublicInputs {
                 actual: input.len(),
             });
         }
-        let pubkey_commitment = PoseidonHashOut::from_u64_slice(&input[0..4]);
-        let signature_commitment = PoseidonHashOut::from_u64_slice(&input[4..8]);
+        let pubkey_commitment = PoseidonHashOut::from_u64_slice(&input[0..4])
+            .unwrap_or_else(|e| panic!("Failed to create PoseidonHashOut from u64 slice: {}", e));
+        let signature_commitment = PoseidonHashOut::from_u64_slice(&input[4..8])
+            .unwrap_or_else(|e| panic!("Failed to create PoseidonHashOut from u64 slice: {}", e));
         let is_valid = input[8] == 1;
         Ok(Self {
             pubkey_commitment,

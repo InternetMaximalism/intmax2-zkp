@@ -80,16 +80,30 @@ impl UpdatePublicInputs {
     }
 
     pub fn from_u64_slice(input: &[u64]) -> Self {
-        assert_eq!(input.len(), UPDATE_PUBLIC_INPUTS_LEN);
-        let pubkey = U256::from_u64_slice(&input[0..U256_LEN]).unwrap();
-        let prev_public_state =
-            PublicState::from_u64_slice(&input[U256_LEN..U256_LEN + PUBLIC_STATE_LEN]);
-        let new_public_state = PublicState::from_u64_slice(&input[U256_LEN + PUBLIC_STATE_LEN..]);
-        UpdatePublicInputs {
+        Self::try_from_u64_slice(input).unwrap_or_else(|e| {
+            panic!("Failed to create UpdatePublicInputs from u64 slice: {}", e);
+        })
+    }
+
+    pub fn try_from_u64_slice(input: &[u64]) -> Result<Self, super::error::UpdateError> {
+        if input.len() != UPDATE_PUBLIC_INPUTS_LEN {
+            return Err(super::error::UpdateError::InvalidInput(format!(
+                "Invalid input length for UpdatePublicInputs: expected {}, got {}",
+                UPDATE_PUBLIC_INPUTS_LEN,
+                input.len()
+            )));
+        }
+        let pubkey = U256::from_u64_slice(&input[0..U256_LEN])
+            .map_err(|e| super::error::UpdateError::InvalidInput(format!("Invalid pubkey: {}", e)))?;
+        let prev_public_state = PublicState::try_from_u64_slice(&input[U256_LEN..U256_LEN + PUBLIC_STATE_LEN])
+            .map_err(|e| super::error::UpdateError::InvalidInput(format!("Invalid prev_public_state: {}", e)))?;
+        let new_public_state = PublicState::try_from_u64_slice(&input[U256_LEN + PUBLIC_STATE_LEN..])
+            .map_err(|e| super::error::UpdateError::InvalidInput(format!("Invalid new_public_state: {}", e)))?;
+        Ok(UpdatePublicInputs {
             pubkey,
             prev_public_state,
             new_public_state,
-        }
+        })
     }
 }
 
@@ -178,7 +192,8 @@ where
             UpdateError::VerificationFailed(format!("Validity proof is invalid: {:?}", e))
         })?;
 
-        let validity_pis = ValidityPublicInputs::from_pis(&validity_proof.public_inputs);
+        let validity_pis = ValidityPublicInputs::try_from_pis(&validity_proof.public_inputs)
+            .map_err(|e| UpdateError::VerificationFailed(format!("Failed to parse validity public inputs: {}", e)))?;
 
         block_merkle_proof
             .verify(

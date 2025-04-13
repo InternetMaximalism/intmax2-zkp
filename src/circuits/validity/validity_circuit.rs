@@ -348,7 +348,8 @@ mod tests {
             .unwrap();
 
         // update the previous validity pis
-        prev_validity_pis = ValidityPublicInputs::from_pis(&validity_proof1.public_inputs);
+        prev_validity_pis = ValidityPublicInputs::try_from_pis(&validity_proof1.public_inputs)
+            .expect("Failed to parse validity public inputs");
 
         let transition_proof2 = validity_transition_processor
             .prove(&prev_validity_pis, &validity_witnesses[1])
@@ -386,7 +387,8 @@ mod tests {
             .unwrap();
 
         // update the previous validity pis
-        prev_validity_pis = ValidityPublicInputs::from_pis(&validity_proof1.public_inputs);
+        prev_validity_pis = ValidityPublicInputs::try_from_pis(&validity_proof1.public_inputs)
+            .expect("Failed to parse validity public inputs");
 
         let transition_proof2 = dummy_transition_wrapper_circuit
             .prove(&prev_validity_pis, &validity_witnesses[1])

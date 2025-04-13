@@ -11,6 +11,9 @@ pub enum ClaimError {
     #[error("Invalid block number: {0}")]
     InvalidBlockNumber(String),
 
+    #[error("Invalid input: {0}")]
+    InvalidInput(String),
+
     #[error("Proof generation error: {0}")]
     ProofGenerationError(String),
 }

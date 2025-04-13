@@ -111,7 +111,8 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
             ClaimError::VerificationFailed(format!("Validity proof is invalid: {:?}", e))
         })?;
 
-        let validity_pis = ValidityPublicInputs::from_pis(&validity_proof.public_inputs);
+        let validity_pis = ValidityPublicInputs::try_from_pis(&validity_proof.public_inputs)
+            .map_err(|e| ClaimError::InvalidInput(format!("Failed to parse validity public inputs: {}", e)))?;
 
         deposit_time_vd
             .verify(deposit_time_proof.clone())
@@ -119,8 +120,10 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
                 ClaimError::VerificationFailed(format!("Deposit time proof is invalid: {:?}", e))
             })?;
 
-        let deposit_time_pis =
-            DepositTimePublicInputs::from_u64_slice(&deposit_time_proof.public_inputs.to_u64_vec());
+        let deposit_time_pis = DepositTimePublicInputs::try_from_u64_slice(
+            &deposit_time_proof.public_inputs.to_u64_vec(),
+        )
+        .map_err(|e| ClaimError::InvalidInput(format!("Failed to parse deposit time public inputs: {}", e)))?;
 
         block_merkle_proof
             .verify(

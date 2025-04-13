@@ -17,6 +17,9 @@ pub enum UpdateError {
     #[error("Verification failed: {0}")]
     VerificationFailed(String),
 
+    #[error("Invalid input: {0}")]
+    InvalidInput(String),
+
     #[error("Proof generation error: {0}")]
     ProofGenerationError(String),
 }

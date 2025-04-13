@@ -93,8 +93,10 @@ impl ReceiveDepositPublicInputs {
             )));
         }
 
-        let prev_private_commitment = PoseidonHashOut::from_u64_slice(&input[0..4]);
-        let new_private_commitment = PoseidonHashOut::from_u64_slice(&input[4..8]);
+        let prev_private_commitment = PoseidonHashOut::from_u64_slice(&input[0..4])
+            .unwrap_or_else(|e| panic!("Failed to create PoseidonHashOut from u64 slice: {}", e));
+        let new_private_commitment = PoseidonHashOut::from_u64_slice(&input[4..8])
+            .unwrap_or_else(|e| panic!("Failed to create PoseidonHashOut from u64 slice: {}", e));
         let pubkey = U256::from_u64_slice(&input[8..16])
             .map_err(|e| ReceiveError::InvalidInput(format!("Failed to parse pubkey: {:?}", e)))?;
         let public_state = PublicState::from_u64_slice(&input[16..16 + PUBLIC_STATE_LEN]);

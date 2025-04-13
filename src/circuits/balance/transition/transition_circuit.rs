@@ -228,8 +228,8 @@ where
                         ))
                     })?;
 
-                let pis =
-                    UpdatePublicInputs::from_u64_slice(&update_proof.public_inputs.to_u64_vec());
+                let pis = UpdatePublicInputs::try_from_u64_slice(&update_proof.public_inputs.to_u64_vec())
+                    .map_err(|e| TransitionError::VerificationFailed(format!("Failed to parse update_proof public inputs: {}", e)))?;
 
                 if pis.prev_public_state != prev_balance_pis.public_state {
                     return Err(TransitionError::VerificationFailed(
@@ -1113,7 +1113,8 @@ mod tests {
             .prove(&receive_deposit_value)
             .unwrap();
 
-        let balance_pis = BalancePublicInputs::from_pis(&balance_proof.public_inputs).unwrap();
+        let balance_pis = BalancePublicInputs::from_pis(&balance_proof.public_inputs)
+            .expect("Failed to parse balance public inputs");
         let transition_value = BalanceTransitionValue::new(
             &CircuitConfig::default(),
             BalanceTransitionType::ReceiveDeposit,

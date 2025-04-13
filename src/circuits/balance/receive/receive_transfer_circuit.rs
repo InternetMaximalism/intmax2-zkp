@@ -92,8 +92,10 @@ where
 
     pub fn from_slice(config: &CircuitConfig, input: &[F]) -> Self {
         let non_vd = input[0..16 + PUBLIC_STATE_LEN].to_u64_vec();
-        let prev_private_commitment = PoseidonHashOut::from_u64_slice(&non_vd[0..4]);
-        let new_private_commitment = PoseidonHashOut::from_u64_slice(&non_vd[4..8]);
+        let prev_private_commitment = PoseidonHashOut::from_u64_slice(&non_vd[0..4])
+            .unwrap_or_else(|e| panic!("Failed to create PoseidonHashOut from u64 slice: {}", e));
+        let new_private_commitment = PoseidonHashOut::from_u64_slice(&non_vd[4..8])
+            .unwrap_or_else(|e| panic!("Failed to create PoseidonHashOut from u64 slice: {}", e));
         let pubkey = U256::from_u64_slice(&non_vd[8..16]).unwrap();
         let public_state = PublicState::from_u64_slice(&non_vd[16..16 + PUBLIC_STATE_LEN]);
         let balance_circuit_vd = vd_from_pis_slice(input, config).unwrap();
