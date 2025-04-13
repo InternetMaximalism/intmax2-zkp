@@ -5,6 +5,9 @@ use crate::{
 
 #[derive(Debug, thiserror::Error)]
 pub enum BlockValidationError {
+    #[error("Invalid data: {0}")]
+    InvalidData(String),
+
     #[error("Plonky2 error: {0}")]
     Plonky2Error(String),
 

@@ -69,29 +69,7 @@ pub struct SpentPublicInputs {
 }
 
 impl SpentPublicInputs {
-    /// Constructs SpentPublicInputs from a slice of u64 values.
-    ///
-    /// # Arguments
-    /// * `input` - Slice of u64 values representing the public inputs
-    ///
-    /// # Returns
-    /// A new SpentPublicInputs struct
-    pub fn from_u64_slice(input: &[u64]) -> Self {
-        let result = Self::parse_u64_slice(input);
-        match result {
-            Ok(value) => value,
-            Err(e) => panic!("Failed to create SpentPublicInputs from u64 slice: {}", e),
-        }
-    }
-
-    /// Attempts to construct SpentPublicInputs from a slice of u64 values.
-    ///
-    /// # Arguments
-    /// * `input` - Slice of u64 values representing the public inputs
-    ///
-    /// # Returns
-    /// A Result containing either the new SpentPublicInputs or an error
-    fn parse_u64_slice(input: &[u64]) -> Result<Self, super::error::SendError> {
+    pub fn from_u64_slice(input: &[u64]) -> Result<Self, super::error::SendError> {
         if input.len() != SPENT_PUBLIC_INPUTS_LEN {
             return Err(super::error::SendError::InvalidInput(format!(
                 "Invalid input length for SpentPublicInputs: expected {}, got {}",
@@ -99,21 +77,21 @@ impl SpentPublicInputs {
                 input.len()
             )));
         }
-        let prev_private_commitment = PoseidonHashOut::from_u64_slice(&input[0..POSEIDON_HASH_OUT_LEN])
-            .unwrap_or_else(|e| panic!("Failed to create PoseidonHashOut from u64 slice: {}", e));
+        let prev_private_commitment =
+            PoseidonHashOut::from_u64_slice(&input[0..POSEIDON_HASH_OUT_LEN]).unwrap();
         let new_private_commitment = PoseidonHashOut::from_u64_slice(
             &input[POSEIDON_HASH_OUT_LEN..2 * POSEIDON_HASH_OUT_LEN],
         )
-        .unwrap_or_else(|e| panic!("Failed to create PoseidonHashOut from u64 slice: {}", e));
+        .unwrap();
         let tx = Tx::from_u64_slice(
             &input[2 * POSEIDON_HASH_OUT_LEN..2 * POSEIDON_HASH_OUT_LEN + TX_LEN],
         )
-        .map_err(|e| super::error::SendError::InvalidInput(format!("Invalid tx: {}", e)))?;
+        .unwrap();
         let insufficient_flags = InsufficientFlags::from_u64_slice(
             &input[2 * POSEIDON_HASH_OUT_LEN + TX_LEN
                 ..2 * POSEIDON_HASH_OUT_LEN + TX_LEN + INSUFFICIENT_FLAGS_LEN],
         )
-        .map_err(|e| super::error::SendError::InvalidInput(format!("Invalid insufficient_flags: {}", e)))?;
+        .unwrap();
         let is_valid = input[2 * POSEIDON_HASH_OUT_LEN + TX_LEN + INSUFFICIENT_FLAGS_LEN] == 1;
         Ok(Self {
             prev_private_commitment,
@@ -124,18 +102,11 @@ impl SpentPublicInputs {
         })
     }
 
-    /// Constructs SpentPublicInputs from a slice of field elements.
-    ///
-    /// # Arguments
-    /// * `pis` - Slice of field elements representing the public inputs
-    ///
-    /// # Returns
-    /// A new SpentPublicInputs struct
     pub fn from_pis<F>(pis: &[F]) -> Result<Self, super::error::SendError>
     where
         F: PrimeField64,
     {
-        Self::parse_u64_slice(&pis.to_u64_vec())
+        Self::from_u64_slice(&pis.to_u64_vec())
     }
 }
 

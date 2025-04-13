@@ -90,34 +90,23 @@ impl DepositTimePublicInputs {
                 inputs.len()
             )));
         }
-        let pubkey = U256::from_u32_slice(&inputs[0..U256_LEN]).map_err(|e| {
-            super::error::ClaimError::InvalidInput(format!("Invalid pubkey: {}", e))
-        })?;
-        let nullifier = Bytes32::from_u32_slice(&inputs[U256_LEN..U256_LEN + BYTES32_LEN])
-            .map_err(|e| {
-                super::error::ClaimError::InvalidInput(format!("Invalid nullifier: {}", e))
-            })?;
+        let pubkey = U256::from_u32_slice(&inputs[0..U256_LEN]).unwrap();
+        let nullifier = Bytes32::from_u32_slice(&inputs[U256_LEN..U256_LEN + BYTES32_LEN]).unwrap();
         let deposit_amount = U256::from_u32_slice(
             &inputs[U256_LEN + BYTES32_LEN..U256_LEN + BYTES32_LEN + U256_LEN],
         )
-        .map_err(|e| {
-            super::error::ClaimError::InvalidInput(format!("Invalid deposit_amount: {}", e))
-        })?;
+        .unwrap();
         let lock_time = inputs[U256_LEN + BYTES32_LEN + U256_LEN];
         let block_timestamp = U64::from_u32_slice(
             &inputs[U256_LEN + BYTES32_LEN + U256_LEN + 1
                 ..U256_LEN + BYTES32_LEN + U256_LEN + 1 + U64_LEN],
         )
-        .map_err(|e| {
-            super::error::ClaimError::InvalidInput(format!("Invalid block_timestamp: {}", e))
-        })?;
+        .unwrap();
         let block_hash = Bytes32::from_u32_slice(
             &inputs[U256_LEN + BYTES32_LEN + U256_LEN + 1 + U64_LEN
                 ..U256_LEN + BYTES32_LEN + U256_LEN + 1 + U64_LEN + BYTES32_LEN],
         )
-        .map_err(|e| {
-            super::error::ClaimError::InvalidInput(format!("Invalid block_hash: {}", e))
-        })?;
+        .unwrap();
         let block_number = inputs[U256_LEN + BYTES32_LEN + U256_LEN + 1 + U64_LEN + BYTES32_LEN];
         Ok(Self {
             pubkey,

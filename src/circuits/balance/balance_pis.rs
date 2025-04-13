@@ -80,17 +80,14 @@ impl BalancePublicInputs {
                 input.len()
             )));
         }
-        let pubkey = U256::from_u64_slice(&input[0..U256_LEN])
-            .map_err(|e| BalanceError::InvalidInput(format!("Invalid pubkey: {}", e)))?;
+        let pubkey = U256::from_u64_slice(&input[0..U256_LEN]).unwrap();
         let private_commitment =
             PoseidonHashOut::from_u64_slice(&input[U256_LEN..U256_LEN + POSEIDON_HASH_OUT_LEN])
-                .unwrap_or_else(|e| {
-                    panic!("Failed to create PoseidonHashOut from u64 slice: {}", e)
-                });
+                .unwrap();
         let last_tx_hash = PoseidonHashOut::from_u64_slice(
             &input[U256_LEN + POSEIDON_HASH_OUT_LEN..U256_LEN + 2 * POSEIDON_HASH_OUT_LEN],
         )
-        .unwrap_or_else(|e| panic!("Failed to create PoseidonHashOut from u64 slice: {}", e));
+        .unwrap();
         let last_tx_insufficient_flags = InsufficientFlags::from_u64_slice(
             &input[U256_LEN + 2 * POSEIDON_HASH_OUT_LEN
                 ..U256_LEN + 2 * POSEIDON_HASH_OUT_LEN + INSUFFICIENT_FLAGS_LEN],

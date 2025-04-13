@@ -351,7 +351,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
 
             let pis = AccountExclusionPublicInputs::from_u64_slice(
                 &account_exclusion_proof.public_inputs.to_u64_vec(),
-            );
+            )?;
 
             if pis.sender_tree_root != sender_tree_root {
                 return Err(BlockValidationError::SenderTreeRootMismatch {
@@ -389,7 +389,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
                     .into_iter()
                     .map(|x| x.to_canonical_u64())
                     .collect::<Vec<_>>(),
-            );
+            )?;
 
             if pis.pubkey_commitment != pubkey_commitment {
                 return Err(BlockValidationError::PubkeyCommitmentMismatch {

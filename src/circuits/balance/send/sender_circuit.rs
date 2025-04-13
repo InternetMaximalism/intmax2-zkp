@@ -1,7 +1,8 @@
 //! Sender circuit for updating sender's public and private states.
 //!
 //! This circuit proves the transition of a sender's state by:
-//! 1. Updating the public state from an old state to the state of the closest block where the user sent a transaction
+//! 1. Updating the public state from an old state to the state of the closest block where the user
+//!    sent a transaction
 //! 2. Updating the private state only when both spent proof and tx inclusion proof are valid
 //!
 //! The private state update only occurs when the transaction nonce matches the account nonce
@@ -223,10 +224,12 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
                 .public_inputs
                 .iter()
                 .map(|x| x.to_canonical_u64())
-                .collect::<Vec<_>>());
+                .collect::<Vec<_>>(),
+        )?;
 
         let tx_inclusion_pis = TxInclusionPublicInputs::from_u64_slice(
-            &tx_inclusion_proof.public_inputs.to_u64_vec())?;
+            &tx_inclusion_proof.public_inputs.to_u64_vec(),
+        )?;
 
         // check tx equivalence
         if spent_pis.tx != tx_inclusion_pis.tx {

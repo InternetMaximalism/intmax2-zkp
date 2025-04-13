@@ -63,16 +63,15 @@ impl InnocenceWrapPublicInputs {
         assert_eq!(slice.len(), INNOCENCE_WRAP_PUBLIC_INPUTS_LEN);
         let use_allow_list = slice[0] != 0;
         let allow_list_tree_root =
-            PoseidonHashOut::from_u64_slice(&slice[1..1 + POSEIDON_HASH_OUT_LEN])
-                .unwrap_or_else(|e| panic!("Failed to create PoseidonHashOut from u64 slice: {}", e));
+            PoseidonHashOut::from_u64_slice(&slice[1..1 + POSEIDON_HASH_OUT_LEN]).unwrap();
         let deny_list_tree_root = PoseidonHashOut::from_u64_slice(
             &slice[1 + POSEIDON_HASH_OUT_LEN..1 + 2 * POSEIDON_HASH_OUT_LEN],
         )
-        .unwrap_or_else(|e| panic!("Failed to create PoseidonHashOut from u64 slice: {}", e));
+        .unwrap();
         let private_commitment = PoseidonHashOut::from_u64_slice(
             &slice[1 + 2 * POSEIDON_HASH_OUT_LEN..1 + 3 * POSEIDON_HASH_OUT_LEN],
         )
-        .unwrap_or_else(|e| panic!("Failed to create PoseidonHashOut from u64 slice: {}", e));
+        .unwrap();
         Self {
             use_allow_list,
             allow_list_tree_root,

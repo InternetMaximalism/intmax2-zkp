@@ -81,16 +81,15 @@ impl InnocencePublicInputs {
         assert_eq!(slice.len(), INNOCENCE_PUBLIC_INPUTS_LEN);
         let use_allow_list = slice[0] != 0;
         let allow_list_tree_root =
-            PoseidonHashOut::from_u64_slice(&slice[1..1 + POSEIDON_HASH_OUT_LEN])
-                .unwrap_or_else(|e| panic!("Failed to create PoseidonHashOut from u64 slice: {}", e));
+            PoseidonHashOut::from_u64_slice(&slice[1..1 + POSEIDON_HASH_OUT_LEN]).unwrap();
         let deny_list_tree_root = PoseidonHashOut::from_u64_slice(
             &slice[1 + POSEIDON_HASH_OUT_LEN..1 + 2 * POSEIDON_HASH_OUT_LEN],
         )
-        .unwrap_or_else(|e| panic!("Failed to create PoseidonHashOut from u64 slice: {}", e));
+        .unwrap();
         let nullifier_tree_root = PoseidonHashOut::from_u64_slice(
             &slice[1 + 2 * POSEIDON_HASH_OUT_LEN..1 + 3 * POSEIDON_HASH_OUT_LEN],
         )
-        .unwrap_or_else(|e| panic!("Failed to create PoseidonHashOut from u64 slice: {}", e));
+        .unwrap();
         Self {
             use_allow_list,
             allow_list_tree_root,
@@ -169,7 +168,7 @@ where
 {
     is_first_step: BoolTarget, // Flag indicating if this is the first step in the IVC
     inner_target: InnocenceInnerTarget, /* Target for the inner circuit that validates a single
-                                         * deposit */
+                                * deposit */
     prev_proof: ProofWithPublicInputsTarget<D>, // Target for the proof of the previous step
     verifier_data_target: VerifierCircuitTarget, // Target for verifier data
     pub data: CircuitData<F, C, D>,             // Circuit data

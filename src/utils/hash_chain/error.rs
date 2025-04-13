@@ -1,5 +1,8 @@
 #[derive(Debug, thiserror::Error)]
 pub enum HashChainError {
+    #[error("Invalid data: {0}")]
+    InvalidData(String),
+
     #[error("Failed to prove inner: {0}")]
     InnerProofError(String),
 

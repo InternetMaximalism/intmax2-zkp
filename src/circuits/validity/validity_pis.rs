@@ -77,26 +77,15 @@ impl ValidityPublicInputs {
                 input.len()
             )));
         }
-        let public_state =
-            PublicState::from_u64_slice(&input[0..PUBLIC_STATE_LEN]).map_err(|e| {
-                super::error::ValidityProverError::Plonky2Error(format!(
-                    "Invalid public_state: {}",
-                    e
-                ))
-            })?;
+        let public_state = PublicState::from_u64_slice(&input[0..PUBLIC_STATE_LEN]).unwrap();
         let tx_tree_root =
             Bytes32::from_u64_slice(&input[PUBLIC_STATE_LEN..PUBLIC_STATE_LEN + BYTES32_LEN])
-                .map_err(|e| {
-                    super::error::ValidityProverError::Plonky2Error(format!(
-                        "Invalid tx_tree_root: {}",
-                        e
-                    ))
-                })?;
+                .unwrap();
         let sender_tree_root = PoseidonHashOut::from_u64_slice(
             &input[PUBLIC_STATE_LEN + BYTES32_LEN
                 ..PUBLIC_STATE_LEN + BYTES32_LEN + POSEIDON_HASH_OUT_LEN],
         )
-        .unwrap_or_else(|e| panic!("Failed to create PoseidonHashOut from u64 slice: {}", e));
+        .unwrap();
         let is_valid_block = input[PUBLIC_STATE_LEN + BYTES32_LEN + POSEIDON_HASH_OUT_LEN] == 1;
         Ok(Self {
             public_state,
