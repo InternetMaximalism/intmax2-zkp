@@ -352,11 +352,6 @@ impl<const D: usize> ReceiveTransferTarget<D> {
         }
     }
 
-    /// Sets the witness values for all targets in this ReceiveTransferTarget.
-    ///
-    /// # Arguments
-    /// * `witness` - Witness to set values in
-    /// * `value` - ReceiveTransferValue containing the values to set
     pub fn set_witness<
         F: RichField + Extendable<D>,
         C: GenericConfig<D, F = F>,
@@ -409,19 +404,6 @@ where
     C: GenericConfig<D, F = F> + 'static,
     C::Hasher: AlgebraicHasher<F>,
 {
-    /// Creates a new ReceiveTransferCircuit with all necessary constraints.
-    ///
-    /// This function:
-    /// 1. Creates a new circuit builder
-    /// 2. Adds all targets and constraints for receive transfer verification
-    /// 3. Registers the public inputs
-    /// 4. Builds the circuit
-    ///
-    /// # Arguments
-    /// * `balance_common_data` - Common circuit data for the balance circuit
-    ///
-    /// # Returns
-    /// A new ReceiveTransferCircuit ready to generate proofs
     pub fn new(balance_common_data: &CommonCircuitData<F, D>) -> Self {
         let config = CircuitConfig::default();
         let mut builder = CircuitBuilder::<F, D>::new(config.clone());
@@ -444,18 +426,6 @@ where
         }
     }
 
-    /// Generates a proof for the given receive transfer value.
-    ///
-    /// This function:
-    /// 1. Creates a partial witness
-    /// 2. Sets all witness values from the provided ReceiveTransferValue
-    /// 3. Generates a proof that can be verified by others
-    ///
-    /// # Arguments
-    /// * `value` - ReceiveTransferValue containing all the data needed for the proof
-    ///
-    /// # Returns
-    /// A Result containing either the proof or an error if proof generation fails
     pub fn prove(
         &self,
         value: &ReceiveTransferValue<F, C, D>,

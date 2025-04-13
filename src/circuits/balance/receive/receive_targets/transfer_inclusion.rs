@@ -72,17 +72,6 @@ where
     /// 2. Checks that the last_tx_hash in the balance PIs matches the tx hash
     /// 3. Verifies that the corresponding insufficient flag is false
     /// 4. Validates the transfer's inclusion in the transfer merkle tree
-    ///
-    /// # Arguments
-    /// * `balance_vd` - Verifier data for the balance circuit
-    /// * `transfer` - Transfer to be verified
-    /// * `transfer_index` - Index of the transfer in the transfer merkle tree
-    /// * `transfer_merkle_proof` - Merkle proof for the transfer
-    /// * `tx` - Transaction that includes the transfer
-    /// * `balance_proof` - Balance proof that includes the transaction
-    ///
-    /// # Returns
-    /// A Result containing either the new TransferInclusionValue or an error
     pub fn new(
         balance_vd: &VerifierCircuitData<F, C, D>,
         transfer: &Transfer,
@@ -186,14 +175,6 @@ impl<const D: usize> TransferInclusionTarget<D> {
     /// 2. Matching last_tx_hash with the tx hash
     /// 3. False insufficient flag for the transfer
     /// 4. Valid transfer merkle proof
-    ///
-    /// # Arguments
-    /// * `balance_common_data` - Common circuit data for the balance circuit
-    /// * `builder` - Circuit builder
-    /// * `is_checked` - Whether to add constraints for checking the values
-    ///
-    /// # Returns
-    /// A new TransferInclusionTarget with all necessary targets and constraints
     pub fn new<F: RichField + Extendable<D>, C: GenericConfig<D, F = F> + 'static>(
         balance_common_data: &CommonCircuitData<F, D>,
         builder: &mut CircuitBuilder<F, D>,

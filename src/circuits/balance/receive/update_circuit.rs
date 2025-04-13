@@ -265,14 +265,6 @@ impl<const D: usize> UpdateTarget<D> {
     ///    add_proof_target_and_verify_cyclic)
     /// 2. The block hash of the old public state is included in the new public state's block tree
     /// 3. The user's last transaction block number is not newer than the previous public state
-    ///
-    /// # Arguments
-    /// * `validity_vd` - Verifier data for the validity circuit
-    /// * `builder` - Circuit builder to add constraints to
-    /// * `is_checked` - Whether to add range check constraints for the targets
-    ///
-    /// # Returns
-    /// A new UpdateTarget with all necessary targets and constraints
     pub fn new<F: RichField + Extendable<D>, C: GenericConfig<D, F = F> + 'static>(
         validity_vd: &VerifierCircuitData<F, C, D>,
         builder: &mut CircuitBuilder<F, D>,
@@ -315,11 +307,6 @@ impl<const D: usize> UpdateTarget<D> {
         }
     }
 
-    /// Sets the witness values for all targets in this UpdateTarget.
-    ///
-    /// # Arguments
-    /// * `witness` - Witness to set values in
-    /// * `value` - UpdateValue containing the values to set
     pub fn set_witness<
         F: RichField + Extendable<D>,
         C: GenericConfig<D, F = F> + 'static,
@@ -365,18 +352,6 @@ where
     C: GenericConfig<D, F = F> + 'static,
     C::Hasher: AlgebraicHasher<F>,
 {
-    /// Creates a new UpdateCircuit with the necessary circuit data and targets.
-    ///
-    /// This method builds the circuit that enforces the update constraints by:
-    /// 1. Creating an UpdateTarget with the validity verifier data
-    /// 2. Registering the public inputs (pubkey, prev_public_state, new_public_state)
-    /// 3. Building the circuit data
-    ///
-    /// # Arguments
-    /// * `validity_vd` - Verifier data for the validity circuit
-    ///
-    /// # Returns
-    /// A new UpdateCircuit ready to generate proofs
     pub fn new(validity_vd: &VerifierCircuitData<F, C, D>) -> Self {
         let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::default());
         let target = UpdateTarget::new::<F, C>(validity_vd, &mut builder, true);
@@ -395,17 +370,6 @@ where
         }
     }
 
-    /// Generates a proof for the update circuit using the provided UpdateValue.
-    ///
-    /// This method:
-    /// 1. Creates a partial witness from the UpdateValue
-    /// 2. Generates a proof using the circuit data
-    ///
-    /// # Arguments
-    /// * `value` - The UpdateValue containing all the values needed for the proof
-    ///
-    /// # Returns
-    /// A Result containing either the generated proof or an error if proof generation fails
     pub fn prove(
         &self,
         value: &UpdateValue<F, C, D>,

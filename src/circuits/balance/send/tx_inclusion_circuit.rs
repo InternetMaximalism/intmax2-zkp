@@ -125,10 +125,6 @@ pub struct TxInclusionPublicInputsTarget {
 }
 
 impl TxInclusionPublicInputsTarget {
-    /// Converts the target to a vector of individual targets.
-    ///
-    /// # Returns
-    /// A vector of targets representing all public inputs
     pub fn to_vec(&self) -> Vec<Target> {
         let mut vec = Vec::new();
         vec.extend_from_slice(&self.prev_public_state.to_vec());
@@ -162,9 +158,6 @@ impl TxInclusionPublicInputsTarget {
 }
 
 /// Witness values for the transaction inclusion circuit.
-///
-/// This struct contains all the private witness data needed to prove the
-/// validity of a transaction's inclusion in a block.
 pub struct TxInclusionValue<
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F> + 'static,
@@ -344,14 +337,6 @@ impl<const D: usize> TxInclusionTarget<D> {
     /// 3. Valid account membership proof showing the sender's last transaction block number
     /// 4. Valid transaction merkle proof showing the transaction is included in the block
     /// 5. Valid sender merkle proof and signature inclusion check
-    ///
-    /// # Arguments
-    /// * `validity_vd` - Verifier data for the validity circuit
-    /// * `builder` - Circuit builder
-    /// * `is_checked` - Whether to add constraints for checking the values
-    ///
-    /// # Returns
-    /// A new TxInclusionTarget with all necessary targets and constraints
     pub fn new<F: RichField + Extendable<D>, C: GenericConfig<D, F = F> + 'static>(
         validity_vd: &VerifierCircuitData<F, C, D>,
         builder: &mut CircuitBuilder<F, D>,
@@ -417,11 +402,6 @@ impl<const D: usize> TxInclusionTarget<D> {
         }
     }
 
-    /// Sets the witness values for all targets in this TxInclusionTarget.
-    ///
-    /// # Arguments
-    /// * `witness` - Witness to set values in
-    /// * `value` - TxInclusionValue containing the values to set
     pub fn set_witness<
         F: RichField + Extendable<D>,
         C: GenericConfig<D, F = F> + 'static,
@@ -477,13 +457,6 @@ where
     C: GenericConfig<D, F = F> + 'static,
     C::Hasher: AlgebraicHasher<F>,
 {
-    /// Creates a new TxInclusionCircuit with all necessary constraints.
-    ///
-    /// # Arguments
-    /// * `validity_vd` - Verifier data for the validity circuit
-    ///
-    /// # Returns
-    /// A new TxInclusionCircuit ready to generate and verify proofs
     pub fn new(validity_vd: &VerifierCircuitData<F, C, D>) -> Self {
         let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::default());
         let target = TxInclusionTarget::new::<F, C>(validity_vd, &mut builder, true);
@@ -499,13 +472,6 @@ where
         Self { data, target }
     }
 
-    /// Generates a ZK proof for the given TxInclusionValue.
-    ///
-    /// # Arguments
-    /// * `value` - TxInclusionValue containing the witness data
-    ///
-    /// # Returns
-    /// A Result containing either the proof with public inputs or an error
     pub fn prove(
         &self,
         value: &TxInclusionValue<F, C, D>,

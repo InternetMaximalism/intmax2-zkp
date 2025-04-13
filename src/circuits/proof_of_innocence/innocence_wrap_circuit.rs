@@ -206,19 +206,6 @@ where
         }
     }
 
-    /// Generates a proof for the innocence wrap circuit
-    ///
-    /// This function:
-    /// 1. Sets the witness values for the innocence proof and private state
-    /// 2. Generates a proof that verifies the innocence proof and computes the private state
-    ///    commitment
-    ///
-    /// # Arguments
-    /// * `innocence_proof` - Proof from the innocence circuit
-    /// * `private_state` - Private state to commit to
-    ///
-    /// # Returns
-    /// A Result containing either the proof or an error
     pub fn prove(
         &self,
         innocence_proof: &ProofWithPublicInputs<F, C, D>,

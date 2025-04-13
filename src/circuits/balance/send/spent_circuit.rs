@@ -447,10 +447,6 @@ where
     C: GenericConfig<D, F = F> + 'static,
     C::Hasher: AlgebraicHasher<F>,
 {
-    /// Creates a new SpentCircuit with all necessary constraints.
-    ///
-    /// # Returns
-    /// A new SpentCircuit ready to generate and verify proofs
     pub fn new() -> Self {
         let mut builder =
             CircuitBuilder::<F, D>::new(CircuitConfig::standard_recursion_zk_config());
@@ -467,13 +463,6 @@ where
         Self { data, target }
     }
 
-    /// Generates a ZK proof for the given SpentValue.
-    ///
-    /// # Arguments
-    /// * `value` - SpentValue containing the witness data
-    ///
-    /// # Returns
-    /// A Result containing either the proof with public inputs or an error
     pub fn prove(&self, value: &SpentValue) -> Result<ProofWithPublicInputs<F, C, D>, CommonError> {
         let mut pw = PartialWitness::<F>::new();
         self.target.set_witness(&mut pw, value);

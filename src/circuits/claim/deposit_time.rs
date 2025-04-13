@@ -338,14 +338,6 @@ impl DepositTimeTarget {
     /// 4. Blocks are sequential (prev_block is parent of block)
     /// 5. Deposit is bound to the provided public key
     /// 6. Correct calculation of the deposit's nullifier and lock time
-    ///
-    /// # Arguments
-    /// * `builder` - Circuit builder
-    /// * `is_checked` - Whether to add constraints for checking the values
-    /// * `config` - Configuration for lock time calculation
-    ///
-    /// # Returns
-    /// A new DepositTimeTarget with all necessary targets and constraints
     pub fn new<F: RichField + Extendable<D>, C: GenericConfig<D, F = F> + 'static, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
         is_checked: bool,
@@ -462,13 +454,6 @@ where
     C: GenericConfig<D, F = F> + 'static,
     C::Hasher: AlgebraicHasher<F>,
 {
-    /// Creates a new DepositTimeCircuit with the specified lock time configuration
-    ///
-    /// # Arguments
-    /// * `lock_config` - Configuration for lock time calculation
-    ///
-    /// # Returns
-    /// A new DepositTimeCircuit ready to generate proofs
     pub fn new(lock_config: &LockTimeConfig) -> Self {
         let config = CircuitConfig::default();
         let mut builder = CircuitBuilder::<F, D>::new(config.clone());
@@ -487,13 +472,6 @@ where
         Self { data, target }
     }
 
-    /// Generates a proof for the deposit time verification
-    ///
-    /// # Arguments
-    /// * `value` - DepositTimeValue containing all the data needed for the proof
-    ///
-    /// # Returns
-    /// A Result containing either the proof or an error
     pub fn prove(
         &self,
         value: &DepositTimeValue,

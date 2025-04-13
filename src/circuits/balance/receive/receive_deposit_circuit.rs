@@ -287,13 +287,6 @@ impl ReceiveDepositTarget {
     /// 2. Valid deposit merkle proof against the public state's deposit tree root
     /// 3. Correct token index, amount, and nullifier in the private state transition
     /// 4. Proper computation of private state commitments
-    ///
-    /// # Arguments
-    /// * `builder` - Circuit builder
-    /// * `is_checked` - Whether to add constraints for checking the values
-    ///
-    /// # Returns
-    /// A new ReceiveDepositTarget with all necessary targets and constraints
     pub fn new<F: RichField + Extendable<D>, C: GenericConfig<D, F = F> + 'static, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
         is_checked: bool,
@@ -346,11 +339,6 @@ impl ReceiveDepositTarget {
         }
     }
 
-    /// Sets the witness values for all targets in this ReceiveDepositTarget.
-    ///
-    /// # Arguments
-    /// * `witness` - Witness to set values in
-    /// * `value` - ReceiveDepositValue containing the values to set
     pub fn set_witness<W: WitnessWrite<F>, F: Field>(
         &self,
         witness: &mut W,
@@ -409,16 +397,6 @@ where
     C: GenericConfig<D, F = F> + 'static,
     C::Hasher: AlgebraicHasher<F>,
 {
-    /// Creates a new ReceiveDepositCircuit with all necessary constraints.
-    ///
-    /// This function:
-    /// 1. Creates a new circuit builder with default configuration
-    /// 2. Adds all targets and constraints via ReceiveDepositTarget
-    /// 3. Registers the public inputs (prev/new commitments, pubkey, public state)
-    /// 4. Builds the circuit and creates a dummy proof for testing
-    ///
-    /// # Returns
-    /// A new ReceiveDepositCircuit ready for proving
     pub fn new() -> Self {
         let config = CircuitConfig::default();
         let mut builder = CircuitBuilder::<F, D>::new(config.clone());
@@ -445,18 +423,6 @@ where
         }
     }
 
-    /// Generates a ZK proof for the given ReceiveDepositValue.
-    ///
-    /// This function:
-    /// 1. Creates a partial witness from the provided value
-    /// 2. Sets all witness values in the circuit
-    /// 3. Generates a proof that can be verified by anyone
-    ///
-    /// # Arguments
-    /// * `value` - The ReceiveDepositValue containing all data needed for the proof
-    ///
-    /// # Returns
-    /// A Result containing either the proof or an error if proof generation fails
     pub fn prove(
         &self,
         value: &ReceiveDepositValue,

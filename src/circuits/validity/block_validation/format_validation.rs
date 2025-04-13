@@ -266,10 +266,6 @@ where
     C: GenericConfig<D, F = F> + 'static,
     <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
 {
-    /// Creates a new FormatValidationCircuit with the necessary constraints.
-    ///
-    /// This method initializes a circuit that verifies the format of public keys and
-    /// signature content according to the required constraints.
     pub fn new() -> Self {
         let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::default());
         let target = FormatValidationTarget::new::<F, C, D>(&mut builder);
@@ -283,13 +279,6 @@ where
         Self { data, target }
     }
 
-    /// Generates a proof for the format validation circuit.
-    ///
-    /// # Arguments
-    /// * `value` - The FormatValidationValue containing all inputs and expected outputs
-    ///
-    /// # Returns
-    /// A proof that the public keys and signature content are properly formatted
     pub fn prove(
         &self,
         value: &FormatValidationValue,
@@ -312,6 +301,7 @@ where
         Self::new()
     }
 }
+
 #[cfg(test)]
 mod tests {
     use super::*;

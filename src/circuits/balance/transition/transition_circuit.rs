@@ -497,22 +497,6 @@ impl<const D: usize> BalanceTransitionTarget<D> {
         }
     }
 
-    /// Sets the witness values for all targets in this BalanceTransitionTarget.
-    ///
-    /// This method:
-    /// 1. Sets the circuit type and flags based on the selected transition type
-    /// 2. Sets the proof for the selected transition type (or a dummy proof for unused types)
-    /// 3. Sets the previous and new balance public inputs
-    /// 4. Sets the commitment to the new balance public inputs
-    /// 5. Sets the balance circuit verifier data
-    ///
-    /// # Arguments
-    /// * `receive_transfer_circuit` - ReceiveTransfer circuit for dummy proofs
-    /// * `receive_deposit_circuit` - ReceiveDeposit circuit for dummy proofs
-    /// * `update_circuit` - Update circuit for dummy proofs
-    /// * `sender_circuit` - Sender circuit for dummy proofs
-    /// * `witness` - Witness to set values in
-    /// * `value` - BalanceTransitionValue containing the values to set
     pub fn set_witness<
         F: RichField + Extendable<D>,
         C: GenericConfig<D, F = F> + 'static,
@@ -609,23 +593,6 @@ where
     C: GenericConfig<D, F = F> + 'static,
     C::Hasher: AlgebraicHasher<F>,
 {
-    /// Creates a new BalanceTransitionCircuit with all necessary constraints.
-    ///
-    /// This method:
-    /// 1. Creates a new circuit builder with standard recursion ZK configuration
-    /// 2. Adds all targets and constraints via BalanceTransitionTarget
-    /// 3. Registers the public inputs (previous and new balance public inputs)
-    /// 4. Adds and connects the balance circuit verifier data
-    /// 5. Builds the circuit
-    ///
-    /// # Arguments
-    /// * `receive_transfer_vd` - Verifier data for the ReceiveTransfer circuit
-    /// * `receive_deposit_vd` - Verifier data for the ReceiveDeposit circuit
-    /// * `update_vd` - Verifier data for the Update circuit
-    /// * `sender_vd` - Verifier data for the Sender circuit
-    ///
-    /// # Returns
-    /// A new BalanceTransitionCircuit ready to generate proofs
     pub fn new(
         receive_transfer_vd: &VerifierCircuitData<F, C, D>,
         receive_deposit_vd: &VerifierCircuitData<F, C, D>,
@@ -659,23 +626,6 @@ where
         }
     }
 
-    /// Generates a ZK proof for the given balance transition value.
-    ///
-    /// This method:
-    /// 1. Creates a partial witness
-    /// 2. Sets all witness values from the provided BalanceTransitionValue
-    /// 3. Sets the balance circuit verifier data
-    /// 4. Generates a proof that can be verified by others
-    ///
-    /// # Arguments
-    /// * `receive_transfer_circuit` - ReceiveTransfer circuit for dummy proofs
-    /// * `receive_deposit_circuit` - ReceiveDeposit circuit for dummy proofs
-    /// * `update_circuit` - Update circuit for dummy proofs
-    /// * `sender_circuit` - Sender circuit for dummy proofs
-    /// * `value` - BalanceTransitionValue containing all the data needed for the proof
-    ///
-    /// # Returns
-    /// A Result containing either the proof or an error if proof generation fails
     pub fn prove(
         &self,
         receive_transfer_circuit: &ReceiveTransferCircuit<F, C, D>,

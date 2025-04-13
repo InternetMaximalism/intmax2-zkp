@@ -287,10 +287,6 @@ where
     C: GenericConfig<D, F = F> + 'static,
     C::Hasher: AlgebraicHasher<F>,
 {
-    /// Creates a new AggregationCircuit with the necessary constraints.
-    ///
-    /// This method initializes a circuit that verifies the weighted aggregation of
-    /// public keys matches the aggregate public key in the signature.
     pub fn new() -> Self {
         let config = CircuitConfig::default();
         let mut builder = CircuitBuilder::<F, D>::new(config.clone());
@@ -320,13 +316,6 @@ where
         }
     }
 
-    /// Generates a proof for the aggregation circuit.
-    ///
-    /// # Arguments
-    /// * `value` - The AggregationValue containing all inputs and expected outputs
-    ///
-    /// # Returns
-    /// A proof that the weighted aggregation of public keys matches the aggregate public key
     pub fn prove(
         &self,
         value: &AggregationValue,

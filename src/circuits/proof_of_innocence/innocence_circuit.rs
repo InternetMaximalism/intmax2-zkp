@@ -14,7 +14,7 @@
 //! This ensures that all assets in the system came from approved sources.
 
 use plonky2::{
-    field::{extension::Extendable, types::PrimeField64},
+    field::extension::Extendable,
     gates::noop::NoopGate,
     hash::hash_types::RichField,
     iop::{
@@ -40,7 +40,7 @@ use crate::{
         u32limb_trait::U32LimbTargetTrait,
     },
     utils::{
-        conversion::{ToField as _, ToU64},
+        conversion::ToField as _,
         cyclic::vd_vec_len,
         poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget, POSEIDON_HASH_OUT_LEN},
     },
@@ -64,7 +64,6 @@ pub struct InnocencePublicInputs {
 }
 
 impl InnocencePublicInputs {
-    /// Converts the public inputs to a vector of u64 values for serialization
     pub fn to_u64_vec(&self) -> Vec<u64> {
         let vec = vec![self.use_allow_list as u64]
             .into_iter()
@@ -76,9 +75,14 @@ impl InnocencePublicInputs {
         vec
     }
 
-    /// Creates public inputs from a slice of u64 values
-    pub fn from_u64_slice(slice: &[u64]) -> Self {
-        assert_eq!(slice.len(), INNOCENCE_PUBLIC_INPUTS_LEN);
+    pub fn from_u64_slice(slice: &[u64]) -> Result<Self, InnocenceError> {
+        if slice.len() != INNOCENCE_PUBLIC_INPUTS_LEN {
+            return Err(InnocenceError::InvalidInput(format!(
+                "Invalid length for InnocencePublicInputs: expected {}, got {}",
+                INNOCENCE_PUBLIC_INPUTS_LEN,
+                slice.len()
+            )));
+        }
         let use_allow_list = slice[0] != 0;
         let allow_list_tree_root =
             PoseidonHashOut::from_u64_slice(&slice[1..1 + POSEIDON_HASH_OUT_LEN]).unwrap();
@@ -90,17 +94,12 @@ impl InnocencePublicInputs {
             &slice[1 + 2 * POSEIDON_HASH_OUT_LEN..1 + 3 * POSEIDON_HASH_OUT_LEN],
         )
         .unwrap();
-        Self {
+        Ok(Self {
             use_allow_list,
             allow_list_tree_root,
             deny_list_tree_root,
             nullifier_tree_root,
-        }
-    }
-
-    /// Creates public inputs from a slice of field elements
-    pub fn from_pis<F: PrimeField64>(pis: &[F]) -> Self {
-        Self::from_u64_slice(&pis[0..INNOCENCE_PUBLIC_INPUTS_LEN].to_u64_vec())
+        })
     }
 }
 
@@ -274,19 +273,6 @@ where
         }
     }
 
-    /// Generates a proof for a single step in the IVC chain
-    ///
-    /// This function:
-    /// 1. Sets the witness values for the inner circuit
-    /// 2. Handles the first step by creating a dummy proof with the initial nullifier tree
-    /// 3. For subsequent steps, connects to the previous proof
-    ///
-    /// # Arguments
-    /// * `inner_value` - InnocenceInnerValue containing the deposit and proofs for this step
-    /// * `prev_proof` - Optional previous proof in the IVC chain
-    ///
-    /// # Returns
-    /// A Result containing either the proof or an error
     pub fn prove(
         &self,
         inner_value: &InnocenceInnerValue,

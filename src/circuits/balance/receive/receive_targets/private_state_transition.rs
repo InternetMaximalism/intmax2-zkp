@@ -158,13 +158,6 @@ impl PrivateStateTransitionTarget {
     /// 2. Valid asset merkle proof for the token being updated
     /// 3. Correct computation of the new asset leaf by adding the amount
     /// 4. Proper construction of the new private state with updated roots
-    ///
-    /// # Arguments
-    /// * `builder` - Circuit builder
-    /// * `is_checked` - Whether to add constraints for checking the values
-    ///
-    /// # Returns
-    /// A new PrivateStateTransitionTarget with all necessary targets and constraints
     pub fn new<F: RichField + Extendable<D>, C: GenericConfig<D, F = F> + 'static, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
         is_checked: bool,

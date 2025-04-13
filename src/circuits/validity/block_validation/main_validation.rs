@@ -789,13 +789,6 @@ where
         Self { data, target }
     }
 
-    /// Generates a proof for the main validation circuit.
-    ///
-    /// This method creates a ZKP that verifies all aspects of block validity without
-    /// performing state transitions. It uses dummy proofs when necessary for conditional
-    /// verification paths that aren't taken.
-    ///
-    /// Returns a proof with public inputs that can be verified by the contract.
     pub fn prove(
         &self,
         account_inclusion_proof_dummy: DummyProof<F, C, D>,
