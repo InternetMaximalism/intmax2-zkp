@@ -5,11 +5,17 @@
 ![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)
 ![Version](https://img.shields.io/badge/version-0.1.0-blue.svg)
 
-intmax2-zkp is the main repository for Zero-Knowledge Proof circuits of Intmax2, an stateless rollup.
+Intmax2 is an innovative blockchain scaling protocol utilizing Zero-Knowledge Rollups. It significantly reduces the computational and data load on the underlying Layer 1 blockchain by shifting nearly all computational and storage responsibilities to client-side operations.
 
-## About Intmax2
+## Features
 
-Intmax2 is a cutting-edge Zero-Knowledge rollup protocol designed to achieve scalable blockchain performance with minimal data and computational requirements on the underlying blockchain. Key features include:
+- **Stateless Block Production**: Block producers only periodically commit transaction sets, distribute inclusion proofs, and aggregate sender signatures.
+
+- **Permissionless Operation**: Anyone can participate in block production without prior permission or specialized resources.
+
+- **Client-side Computation**: Minimizes on-chain data and computation by moving these processes off-chain.
+
+- **High Scalability**: The architecture scales efficiently with an increasing number of users.
 
 ## Circuit Descriptions
 
