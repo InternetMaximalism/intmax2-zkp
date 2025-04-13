@@ -242,6 +242,11 @@ impl DepositTimeValue {
                 "deposit is not eligible for mining".to_string(),
             ));
         }
+        if deposit.token_index != 0 {
+            return Err(CommonError::InvalidData(
+                "deposit.token_index != 0".to_string(),
+            ));
+        }
         // deposit non-inclusion proof of prev_deposit_merkle_proof
         prev_deposit_merkle_proof
             .verify(
@@ -354,6 +359,7 @@ impl DepositTimeTarget {
         let deposit_salt = SaltTarget::new(builder);
         let pubkey = U256Target::new(builder, is_checked);
 
+        builder.assert_zero(deposit.token_index);
         builder.assert_one(deposit.is_eligible.target);
 
         let empty_deposit = DepositTarget::empty_leaf(builder);
@@ -499,7 +505,6 @@ mod tests {
     use plonky2::{
         field::goldilocks_field::GoldilocksField, plonk::config::PoseidonGoldilocksConfig,
     };
-    use rand::Rng as _;
 
     use crate::{
         common::{
@@ -546,7 +551,7 @@ mod tests {
             depositor: Address::rand(&mut rng),
             pubkey_salt_hash,
             amount: U256::rand(&mut rng),
-            token_index: rng.gen(),
+            token_index: 0,
             is_eligible: true,
         };
 

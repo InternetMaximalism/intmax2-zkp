@@ -381,7 +381,6 @@ mod tests {
     use plonky2::{
         field::goldilocks_field::GoldilocksField, plonk::config::PoseidonGoldilocksConfig,
     };
-    use rand::Rng as _;
 
     use super::{SingleClaimCircuit, SingleClaimValue};
 
@@ -406,7 +405,7 @@ mod tests {
             depositor: Address::rand(&mut rng),
             pubkey_salt_hash: deposit_salt_hash,
             amount: U256::rand_small(&mut rng),
-            token_index: rng.gen(),
+            token_index: 0,
             is_eligible: true,
         };
         let deposit_index = validity_state_manager.deposit(&deposit).unwrap();
