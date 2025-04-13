@@ -132,17 +132,17 @@ mod tests {
         let single_withdrawal_proof_bytes =
             bincode::serialize(&compressed_single_withdrawal_proof).unwrap();
         let single_withdrawal_proof_str = BASE64_STANDARD.encode(single_withdrawal_proof_bytes);
-        std::fs::write(
-            "circuit_data/withdrawal/single_withdrawal_proof.txt",
-            single_withdrawal_proof_str,
-        )
-        .unwrap();
 
         let final_proof_str = serde_json::to_string_pretty(&final_proof)?;
         let final_circuit_vd = serde_json::to_string_pretty(&final_circuit.data.verifier_only)?;
         let final_circuit_cd = serde_json::to_string_pretty(&final_circuit.data.common)?;
         // save to files
         std::fs::create_dir_all("circuit_data/withdrawal")?;
+        std::fs::write(
+            "circuit_data/withdrawal/single_withdrawal_proof.txt",
+            single_withdrawal_proof_str,
+        )
+        .unwrap();
         std::fs::write(
             "circuit_data/withdrawal/proof_with_public_inputs.json",
             final_proof_str,

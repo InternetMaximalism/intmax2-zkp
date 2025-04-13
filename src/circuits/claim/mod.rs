@@ -1,8 +1,8 @@
 pub mod deposit_time;
 pub mod determine_lock_time;
 pub mod error;
-pub mod single_claim_processor;
 pub mod single_claim_circuit;
+pub mod single_claim_processor;
 pub mod utils;
 
 #[cfg(test)]
@@ -49,7 +49,6 @@ mod tests {
 
     #[test]
     fn test_claim() {
-        //
         let lock_config = LockTimeConfig::normal();
 
         let mut rng = rand::thread_rng();
@@ -148,6 +147,14 @@ mod tests {
         // for test data
         let single_claim_proof_bytes = bincode::serialize(&single_claim_proof).unwrap();
         let single_claim_proof_str = BASE64_STANDARD.encode(single_claim_proof_bytes);
+
+        let final_proof_str = serde_json::to_string_pretty(&final_proof).unwrap();
+        let final_circuit_vd =
+            serde_json::to_string_pretty(&final_circuit.data.verifier_only).unwrap();
+        let final_circuit_cd = serde_json::to_string_pretty(&final_circuit.data.common).unwrap();
+
+        // save to files
+        std::fs::create_dir_all(format!("circuit_data/{}", claim_name)).unwrap();
         std::fs::write(
             format!(
                 "circuit_data/{}/single_{}_proof.txt",
@@ -156,12 +163,6 @@ mod tests {
             single_claim_proof_str,
         )
         .unwrap();
-
-        let final_proof_str = serde_json::to_string_pretty(&final_proof).unwrap();
-        let final_circuit_vd =
-            serde_json::to_string_pretty(&final_circuit.data.verifier_only).unwrap();
-        let final_circuit_cd = serde_json::to_string_pretty(&final_circuit.data.common).unwrap();
-        // save to files
         std::fs::write(
             format!("circuit_data/{}/proof_with_public_inputs.json", claim_name),
             final_proof_str,
