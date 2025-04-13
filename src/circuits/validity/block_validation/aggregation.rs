@@ -88,8 +88,10 @@ impl AggregationPublicInputs {
                 actual: input.len(),
             });
         }
-        let pubkey_commitment = PoseidonHashOut::from_u64_slice(&input[0..4]);
-        let signature_commitment = PoseidonHashOut::from_u64_slice(&input[4..8]);
+        let pubkey_commitment = PoseidonHashOut::from_u64_slice(&input[0..4])
+            .unwrap_or_else(|e| panic!("Failed to create PoseidonHashOut from u64 slice: {}", e));
+        let signature_commitment = PoseidonHashOut::from_u64_slice(&input[4..8])
+            .unwrap_or_else(|e| panic!("Failed to create PoseidonHashOut from u64 slice: {}", e));
         let is_valid = input[8] == 1;
         Ok(Self {
             pubkey_commitment,
@@ -285,10 +287,6 @@ where
     C: GenericConfig<D, F = F> + 'static,
     C::Hasher: AlgebraicHasher<F>,
 {
-    /// Creates a new AggregationCircuit with the necessary constraints.
-    ///
-    /// This method initializes a circuit that verifies the weighted aggregation of
-    /// public keys matches the aggregate public key in the signature.
     pub fn new() -> Self {
         let config = CircuitConfig::default();
         let mut builder = CircuitBuilder::<F, D>::new(config.clone());
@@ -318,13 +316,6 @@ where
         }
     }
 
-    /// Generates a proof for the aggregation circuit.
-    ///
-    /// # Arguments
-    /// * `value` - The AggregationValue containing all inputs and expected outputs
-    ///
-    /// # Returns
-    /// A proof that the weighted aggregation of public keys matches the aggregate public key
     pub fn prove(
         &self,
         value: &AggregationValue,

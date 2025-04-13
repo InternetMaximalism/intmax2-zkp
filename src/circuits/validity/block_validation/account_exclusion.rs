@@ -53,16 +53,22 @@ pub struct AccountExclusionPublicInputsTarget {
 }
 
 impl AccountExclusionPublicInputs {
-    pub fn from_u64_slice(input: &[u64]) -> Self {
-        assert_eq!(input.len(), ACCOUNT_EXCLUSION_PUBLIC_INPUTS_LEN);
-        let account_tree_root = PoseidonHashOut::from_u64_slice(&input[0..4]);
-        let sender_tree_root = PoseidonHashOut::from_u64_slice(&input[4..8]);
+    pub fn from_u64_slice(input: &[u64]) -> Result<Self, BlockValidationError> {
+        if input.len() != ACCOUNT_EXCLUSION_PUBLIC_INPUTS_LEN {
+            return Err(BlockValidationError::InvalidData(format!(
+                "Invalid input length for AccountExclusionPublicInputs: expected {}, got {}",
+                ACCOUNT_EXCLUSION_PUBLIC_INPUTS_LEN,
+                input.len()
+            )));
+        }
+        let account_tree_root = PoseidonHashOut::from_u64_slice(&input[0..4]).unwrap();
+        let sender_tree_root = PoseidonHashOut::from_u64_slice(&input[4..8]).unwrap();
         let is_valid = input[8] == 1;
-        Self {
+        Ok(Self {
             account_tree_root,
             sender_tree_root,
             is_valid,
-        }
+        })
     }
 }
 

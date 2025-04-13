@@ -1,6 +1,6 @@
 //! Receive Deposit Circuit for processing deposits into the private state.
 //!
-//! This circuit proves the correctness of adding a deposit to the asset tree and 
+//! This circuit proves the correctness of adding a deposit to the asset tree and
 //! inserting the corresponding nullifier into the nullifier tree. The circuit ensures:
 //! 1. Valid deposit merkle proof against the public state's deposit tree root
 //! 2. Correct derivation of pubkey_salt_hash from the user's public key and salt
@@ -92,13 +92,10 @@ impl ReceiveDepositPublicInputs {
                 input.len()
             )));
         }
-
-        let prev_private_commitment = PoseidonHashOut::from_u64_slice(&input[0..4]);
-        let new_private_commitment = PoseidonHashOut::from_u64_slice(&input[4..8]);
-        let pubkey = U256::from_u64_slice(&input[8..16])
-            .map_err(|e| ReceiveError::InvalidInput(format!("Failed to parse pubkey: {:?}", e)))?;
-        let public_state = PublicState::from_u64_slice(&input[16..16 + PUBLIC_STATE_LEN]);
-
+        let prev_private_commitment = PoseidonHashOut::from_u64_slice(&input[0..4]).unwrap();
+        let new_private_commitment = PoseidonHashOut::from_u64_slice(&input[4..8]).unwrap();
+        let pubkey = U256::from_u64_slice(&input[8..16]).unwrap();
+        let public_state = PublicState::from_u64_slice(&input[16..16 + PUBLIC_STATE_LEN]).unwrap();
         Ok(ReceiveDepositPublicInputs {
             prev_private_commitment,
             new_private_commitment,
@@ -139,24 +136,21 @@ impl ReceiveDepositPublicInputsTarget {
         Ok(vec)
     }
 
-    pub fn from_slice(input: &[Target]) -> Result<Self, ReceiveError> {
-        if input.len() < RECEIVE_DEPOSIT_PUBLIC_INPUTS_LEN {
-            return Err(ReceiveError::InvalidInput(
-                format!("ReceiveDepositPublicInputsTarget input slice too short: expected at least {}, got {}", 
-                    RECEIVE_DEPOSIT_PUBLIC_INPUTS_LEN, input.len())
-            ));
-        }
-
+    pub fn from_slice(input: &[Target]) -> Self {
+        assert!(
+            input.len() >= RECEIVE_DEPOSIT_PUBLIC_INPUTS_LEN,
+            "Input slice too short"
+        );
         let prev_private_commitment = PoseidonHashOutTarget::from_slice(&input[0..4]);
         let new_private_commitment = PoseidonHashOutTarget::from_slice(&input[4..8]);
         let pubkey = U256Target::from_slice(&input[8..16]);
         let public_state = PublicStateTarget::from_slice(&input[16..16 + PUBLIC_STATE_LEN]);
-        Ok(ReceiveDepositPublicInputsTarget {
+        ReceiveDepositPublicInputsTarget {
             prev_private_commitment,
             new_private_commitment,
             pubkey,
             public_state,
-        })
+        }
     }
 }
 
@@ -168,15 +162,16 @@ impl ReceiveDepositPublicInputsTarget {
 /// - Process the private state transition (adding to asset tree and inserting nullifier)
 #[derive(Debug, Clone)]
 pub struct ReceiveDepositValue {
-    pub pubkey: U256,                                   // User's public key
-    pub deposit_salt: Salt,                             // Salt used to claim the deposit
-    pub deposit_index: u32,                             // Index of the deposit in the deposit tree
-    pub deposit: Deposit,                               // The deposit being claimed
-    pub deposit_merkle_proof: DepositMerkleProof,       // Proof of deposit inclusion
-    pub public_state: PublicState,                      // Current public state
+    pub pubkey: U256,       // User's public key
+    pub deposit_salt: Salt, // Salt used to claim the deposit
+    pub deposit_index: u32, /* Index of the deposit in the
+                             * deposit tree */
+    pub deposit: Deposit,                         // The deposit being claimed
+    pub deposit_merkle_proof: DepositMerkleProof, // Proof of deposit inclusion
+    pub public_state: PublicState,                // Current public state
     pub private_state_transition: PrivateStateTransitionValue, // Private state transition details
-    pub prev_private_commitment: PoseidonHashOut,       // Previous private state commitment
-    pub new_private_commitment: PoseidonHashOut,        // New private state commitment
+    pub prev_private_commitment: PoseidonHashOut, // Previous private state commitment
+    pub new_private_commitment: PoseidonHashOut,  // New private state commitment
 }
 
 impl ReceiveDepositValue {
@@ -292,13 +287,6 @@ impl ReceiveDepositTarget {
     /// 2. Valid deposit merkle proof against the public state's deposit tree root
     /// 3. Correct token index, amount, and nullifier in the private state transition
     /// 4. Proper computation of private state commitments
-    ///
-    /// # Arguments
-    /// * `builder` - Circuit builder
-    /// * `is_checked` - Whether to add constraints for checking the values
-    ///
-    /// # Returns
-    /// A new ReceiveDepositTarget with all necessary targets and constraints
     pub fn new<F: RichField + Extendable<D>, C: GenericConfig<D, F = F> + 'static, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
         is_checked: bool,
@@ -351,11 +339,6 @@ impl ReceiveDepositTarget {
         }
     }
 
-    /// Sets the witness values for all targets in this ReceiveDepositTarget.
-    ///
-    /// # Arguments
-    /// * `witness` - Witness to set values in
-    /// * `value` - ReceiveDepositValue containing the values to set
     pub fn set_witness<W: WitnessWrite<F>, F: Field>(
         &self,
         witness: &mut W,
@@ -392,9 +375,9 @@ where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
 {
-    pub data: CircuitData<F, C, D>,           // Circuit data containing the compiled circuit
-    pub target: ReceiveDepositTarget,          // Target containing all circuit constraints
-    pub dummy_proof: DummyProof<F, C, D>,      // Dummy proof for testing
+    pub data: CircuitData<F, C, D>, // Circuit data containing the compiled circuit
+    pub target: ReceiveDepositTarget, // Target containing all circuit constraints
+    pub dummy_proof: DummyProof<F, C, D>, // Dummy proof for testing
 }
 
 impl<F, C, const D: usize> Default for ReceiveDepositCircuit<F, C, D>
@@ -414,16 +397,6 @@ where
     C: GenericConfig<D, F = F> + 'static,
     C::Hasher: AlgebraicHasher<F>,
 {
-    /// Creates a new ReceiveDepositCircuit with all necessary constraints.
-    ///
-    /// This function:
-    /// 1. Creates a new circuit builder with default configuration
-    /// 2. Adds all targets and constraints via ReceiveDepositTarget
-    /// 3. Registers the public inputs (prev/new commitments, pubkey, public state)
-    /// 4. Builds the circuit and creates a dummy proof for testing
-    ///
-    /// # Returns
-    /// A new ReceiveDepositCircuit ready for proving
     pub fn new() -> Self {
         let config = CircuitConfig::default();
         let mut builder = CircuitBuilder::<F, D>::new(config.clone());
@@ -450,18 +423,6 @@ where
         }
     }
 
-    /// Generates a ZK proof for the given ReceiveDepositValue.
-    ///
-    /// This function:
-    /// 1. Creates a partial witness from the provided value
-    /// 2. Sets all witness values in the circuit
-    /// 3. Generates a proof that can be verified by anyone
-    ///
-    /// # Arguments
-    /// * `value` - The ReceiveDepositValue containing all data needed for the proof
-    ///
-    /// # Returns
-    /// A Result containing either the proof or an error if proof generation fails
     pub fn prove(
         &self,
         value: &ReceiveDepositValue,

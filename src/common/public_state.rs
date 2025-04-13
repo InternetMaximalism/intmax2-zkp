@@ -79,17 +79,23 @@ impl PublicState {
         vec
     }
 
-    pub fn from_u64_slice(input: &[u64]) -> Self {
-        assert_eq!(input.len(), PUBLIC_STATE_LEN);
-        let block_tree_root = PoseidonHashOut::from_u64_slice(&input[0..4]);
-        let prev_account_tree_root = PoseidonHashOut::from_u64_slice(&input[4..8]);
-        let account_tree_root = PoseidonHashOut::from_u64_slice(&input[8..12]);
+    pub fn from_u64_slice(input: &[u64]) -> Result<Self, crate::common::error::CommonError> {
+        if input.len() != PUBLIC_STATE_LEN {
+            return Err(crate::common::error::CommonError::InvalidData(format!(
+                "Invalid input length for PublicState: expected {}, got {}",
+                PUBLIC_STATE_LEN,
+                input.len()
+            )));
+        }
+        let block_tree_root = PoseidonHashOut::from_u64_slice(&input[0..4]).unwrap();
+        let prev_account_tree_root = PoseidonHashOut::from_u64_slice(&input[4..8]).unwrap();
+        let account_tree_root = PoseidonHashOut::from_u64_slice(&input[8..12]).unwrap();
         let next_account_id = input[12];
         let deposit_tree_root = Bytes32::from_u64_slice(&input[13..21]).unwrap();
         let block_hash = Bytes32::from_u64_slice(&input[21..29]).unwrap();
         let timestamp = U64::from_u64_slice(&input[29..31]).unwrap().into();
         let block_number = input[31] as u32;
-        Self {
+        Ok(Self {
             block_tree_root,
             prev_account_tree_root,
             account_tree_root,
@@ -98,7 +104,7 @@ impl PublicState {
             block_hash,
             timestamp,
             block_number,
-        }
+        })
     }
 }
 

@@ -245,7 +245,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn pack_and_unpack() {
+    fn test_account_id_pack_and_unpack() {
         let mut rng = rand::thread_rng();
         let account_ids = (0..NUM_SENDERS_IN_BLOCK)
             .map(|_| AccountId(rng.gen_range(0..1 << ACCOUNT_ID_BITS)))
@@ -256,7 +256,7 @@ mod tests {
     }
 
     #[test]
-    fn trim_account_ids() {
+    fn test_account_id_trim_account_ids() {
         let num_ids = 10;
         let mut rng = rand::thread_rng();
         let mut account_ids = (0..num_ids)

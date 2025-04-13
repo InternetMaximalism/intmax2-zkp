@@ -132,7 +132,9 @@ impl std::ops::Add for U64 {
     fn add(self, rhs: Self) -> Self::Output {
         let a: u64 = self.into();
         let b: u64 = rhs.into();
-        (a + b).into()
+        a.checked_add(b)
+            .unwrap_or_else(|| panic!("Addition overflow: {} + {}", a, b))
+            .into()
     }
 }
 
@@ -148,7 +150,9 @@ impl std::ops::Sub for U64 {
     fn sub(self, rhs: Self) -> Self::Output {
         let a: u64 = self.into();
         let b: u64 = rhs.into();
-        (a - b).into()
+        a.checked_sub(b)
+            .unwrap_or_else(|| panic!("Subtraction underflow: {} - {}", a, b))
+            .into()
     }
 }
 
@@ -281,20 +285,20 @@ mod tests {
     type C = PoseidonGoldilocksConfig;
 
     #[test]
-    fn u64_display() {
+    fn test_u64_display() {
         let u = U64::from(123u64);
         assert_eq!(format!("{}", u), "123");
     }
 
     #[test]
-    fn u64_order() {
+    fn test_u64_order() {
         let a = U64::from_u32_slice(&[0, 2]).unwrap();
         let b = U64::from_u32_slice(&[1, 1]).unwrap();
         assert!(a < b);
     }
 
     #[test]
-    fn u64_add_sub() {
+    fn test_u64_add_sub() {
         let a = U64::from_u32_slice(&[1, 2]).unwrap();
         let b = U64::from_u32_slice(&[0, u32::MAX]).unwrap();
         let c = U64::from_u32_slice(&[2, 1]).unwrap();
@@ -305,15 +309,16 @@ mod tests {
 
     #[test]
     #[should_panic]
-    fn u64_sub_underflow() {
+    fn test_u64_sub_underflow() {
         let a = U64::from_u32_slice(&[1, 2]).unwrap();
         let b = U64::from_u32_slice(&[0, u32::MAX]).unwrap();
 
-        _ = b - a;
+        let c = b - a;
+        dbg!(c);
     }
 
     #[test]
-    fn u64_le() {
+    fn test_u64_le() {
         let a = U64::from_u32_slice(&[1, 2]).unwrap();
         let b = U64::from_u32_slice(&[0, u32::MAX]).unwrap();
 
@@ -331,7 +336,7 @@ mod tests {
     }
 
     #[test]
-    fn u64_add_sub_circuit() {
+    fn test_u64_add_sub_circuit() {
         let mut rng = rand::thread_rng();
         let a = U64::rand(&mut rng);
         let b = U64::from(1u64);

@@ -82,8 +82,14 @@ impl DepositTimePublicInputs {
         result
     }
 
-    pub fn from_u32_slice(inputs: &[u32]) -> Self {
-        assert_eq!(inputs.len(), DEPOSIT_TIME_PUBLIC_INPUTS_LEN);
+    pub fn from_u32_slice(inputs: &[u32]) -> Result<Self, super::error::ClaimError> {
+        if inputs.len() != DEPOSIT_TIME_PUBLIC_INPUTS_LEN {
+            return Err(super::error::ClaimError::InvalidInput(format!(
+                "Invalid input length for DepositTimePublicInputs: expected {}, got {}",
+                DEPOSIT_TIME_PUBLIC_INPUTS_LEN,
+                inputs.len()
+            )));
+        }
         let pubkey = U256::from_u32_slice(&inputs[0..U256_LEN]).unwrap();
         let nullifier = Bytes32::from_u32_slice(&inputs[U256_LEN..U256_LEN + BYTES32_LEN]).unwrap();
         let deposit_amount = U256::from_u32_slice(
@@ -102,7 +108,7 @@ impl DepositTimePublicInputs {
         )
         .unwrap();
         let block_number = inputs[U256_LEN + BYTES32_LEN + U256_LEN + 1 + U64_LEN + BYTES32_LEN];
-        Self {
+        Ok(Self {
             pubkey,
             nullifier,
             deposit_amount,
@@ -110,18 +116,24 @@ impl DepositTimePublicInputs {
             block_timestamp: block_timestamp.into(),
             block_hash,
             block_number,
-        }
+        })
     }
 
-    pub fn from_u64_slice(inputs: &[u64]) -> Self {
-        let input_u32: Vec<u32> = inputs
+    pub fn from_u64_slice(inputs: &[u64]) -> Result<Self, super::error::ClaimError> {
+        let input_u32: Result<Vec<u32>, super::error::ClaimError> = inputs
             .iter()
             .map(|&x| {
-                assert!(x <= u32::MAX as u64);
-                x as u32
+                if x <= u32::MAX as u64 {
+                    Ok(x as u32)
+                } else {
+                    Err(super::error::ClaimError::InvalidInput(format!(
+                        "Value {} exceeds u32::MAX",
+                        x
+                    )))
+                }
             })
             .collect();
-        Self::from_u32_slice(&input_u32)
+        Self::from_u32_slice(&input_u32?)
     }
 }
 
@@ -331,14 +343,6 @@ impl DepositTimeTarget {
     /// 4. Blocks are sequential (prev_block is parent of block)
     /// 5. Deposit is bound to the provided public key
     /// 6. Correct calculation of the deposit's nullifier and lock time
-    ///
-    /// # Arguments
-    /// * `builder` - Circuit builder
-    /// * `is_checked` - Whether to add constraints for checking the values
-    /// * `config` - Configuration for lock time calculation
-    ///
-    /// # Returns
-    /// A new DepositTimeTarget with all necessary targets and constraints
     pub fn new<F: RichField + Extendable<D>, C: GenericConfig<D, F = F> + 'static, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
         is_checked: bool,
@@ -456,13 +460,6 @@ where
     C: GenericConfig<D, F = F> + 'static,
     C::Hasher: AlgebraicHasher<F>,
 {
-    /// Creates a new DepositTimeCircuit with the specified lock time configuration
-    ///
-    /// # Arguments
-    /// * `lock_config` - Configuration for lock time calculation
-    ///
-    /// # Returns
-    /// A new DepositTimeCircuit ready to generate proofs
     pub fn new(lock_config: &LockTimeConfig) -> Self {
         let config = CircuitConfig::default();
         let mut builder = CircuitBuilder::<F, D>::new(config.clone());
@@ -481,13 +478,6 @@ where
         Self { data, target }
     }
 
-    /// Generates a proof for the deposit time verification
-    ///
-    /// # Arguments
-    /// * `value` - DepositTimeValue containing all the data needed for the proof
-    ///
-    /// # Returns
-    /// A Result containing either the proof or an error
     pub fn prove(
         &self,
         value: &DepositTimeValue,

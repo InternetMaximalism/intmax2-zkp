@@ -63,13 +63,15 @@ impl InnocenceWrapPublicInputs {
         assert_eq!(slice.len(), INNOCENCE_WRAP_PUBLIC_INPUTS_LEN);
         let use_allow_list = slice[0] != 0;
         let allow_list_tree_root =
-            PoseidonHashOut::from_u64_slice(&slice[1..1 + POSEIDON_HASH_OUT_LEN]);
+            PoseidonHashOut::from_u64_slice(&slice[1..1 + POSEIDON_HASH_OUT_LEN]).unwrap();
         let deny_list_tree_root = PoseidonHashOut::from_u64_slice(
             &slice[1 + POSEIDON_HASH_OUT_LEN..1 + 2 * POSEIDON_HASH_OUT_LEN],
-        );
+        )
+        .unwrap();
         let private_commitment = PoseidonHashOut::from_u64_slice(
             &slice[1 + 2 * POSEIDON_HASH_OUT_LEN..1 + 3 * POSEIDON_HASH_OUT_LEN],
-        );
+        )
+        .unwrap();
         Self {
             use_allow_list,
             allow_list_tree_root,
@@ -204,19 +206,6 @@ where
         }
     }
 
-    /// Generates a proof for the innocence wrap circuit
-    ///
-    /// This function:
-    /// 1. Sets the witness values for the innocence proof and private state
-    /// 2. Generates a proof that verifies the innocence proof and computes the private state
-    ///    commitment
-    ///
-    /// # Arguments
-    /// * `innocence_proof` - Proof from the innocence circuit
-    /// * `private_state` - Private state to commit to
-    ///
-    /// # Returns
-    /// A Result containing either the proof or an error
     pub fn prove(
         &self,
         innocence_proof: &ProofWithPublicInputs<F, C, D>,

@@ -147,8 +147,7 @@ impl IndexedInsertionProof {
         }
 
         self.low_leaf_proof
-            .verify(&self.prev_low_leaf, self.low_leaf_index, prev_root)
-            .map_err(IndexedMerkleTreeError::MerkleProofError)?;
+            .verify(&self.prev_low_leaf, self.low_leaf_index, prev_root)?;
 
         let new_low_leaf = IndexedMerkleLeaf {
             next_index: self.index,
@@ -159,13 +158,11 @@ impl IndexedInsertionProof {
             .low_leaf_proof
             .get_root(&new_low_leaf, self.low_leaf_index);
 
-        self.leaf_proof
-            .verify(
-                &<IndexedMerkleLeaf as Leafable>::empty_leaf(),
-                self.index,
-                temp_root,
-            )
-            .map_err(IndexedMerkleTreeError::MerkleProofError)?;
+        self.leaf_proof.verify(
+            &<IndexedMerkleLeaf as Leafable>::empty_leaf(),
+            self.index,
+            temp_root,
+        )?;
 
         let leaf = IndexedMerkleLeaf {
             next_index: self.prev_low_leaf.next_index,
@@ -445,7 +442,7 @@ mod tests {
     }
 
     #[test]
-    fn test_dummy_insertion() {
+    fn test_indexed_merkle_tree_insertion_dummy() {
         let height = 40;
         let mut tree = IndexedMerkleTree::new(height);
         tree.prove_and_insert(U256::dummy_pubkey(), 0).unwrap();

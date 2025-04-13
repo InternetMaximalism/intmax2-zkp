@@ -54,8 +54,14 @@ impl Claim {
         result
     }
 
-    pub fn from_u32_slice(slice: &[u32]) -> Self {
-        assert_eq!(slice.len(), CLAIM_LEN);
+    pub fn from_u32_slice(slice: &[u32]) -> Result<Self, crate::common::error::CommonError> {
+        if slice.len() != CLAIM_LEN {
+            return Err(crate::common::error::CommonError::InvalidData(format!(
+                "Invalid input length for Claim: expected {}, got {}",
+                CLAIM_LEN,
+                slice.len()
+            )));
+        }
         let recipient = Address::from_u32_slice(&slice[0..ADDRESS_LEN]).unwrap();
         let amount = U256::from_u32_slice(&slice[ADDRESS_LEN..ADDRESS_LEN + U256_LEN]).unwrap();
         let nullifier = Bytes32::from_u32_slice(
@@ -68,16 +74,16 @@ impl Claim {
         )
         .unwrap();
         let block_number = slice[ADDRESS_LEN + U256_LEN + BYTES32_LEN + BYTES32_LEN];
-        Self {
+        Ok(Self {
             recipient,
             amount,
             nullifier,
             block_hash,
             block_number,
-        }
+        })
     }
 
-    pub fn from_u64_slice(slice: &[u64]) -> Self {
+    pub fn from_u64_slice(slice: &[u64]) -> Result<Claim, super::error::CommonError> {
         let u32_slice: Vec<u32> = slice
             .iter()
             .map(|&x| {

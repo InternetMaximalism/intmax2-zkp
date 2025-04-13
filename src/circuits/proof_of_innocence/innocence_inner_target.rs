@@ -151,13 +151,6 @@ impl InnocenceInnerTarget {
     /// 1. If use_allow_list is true, the depositor must be in the allow list
     /// 2. The depositor must not be in the deny list
     /// 3. The nullifier tree transition must be valid after inserting the deposit's nullifier
-    ///
-    /// # Arguments
-    /// * `builder` - Circuit builder
-    /// * `is_checked` - Whether to add constraints for checking the values
-    ///
-    /// # Returns
-    /// A new InnocenceInnerTarget with all necessary targets and constraints
     pub fn new<F: RichField + Extendable<D>, C: GenericConfig<D, F = F> + 'static, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
         is_checked: bool,

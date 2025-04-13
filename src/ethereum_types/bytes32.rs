@@ -108,8 +108,169 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_from_str_bytes32() {
+    fn test_bytes32_from_str() {
+        // Test empty bytes32
         let bytes32 = Bytes32::from_hex("0x").unwrap();
         assert_eq!(bytes32, Bytes32::default());
+
+        // Test valid bytes32
+        let hex_str = "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef";
+        let bytes32 = Bytes32::from_hex(hex_str).unwrap();
+        assert_eq!(
+            bytes32.to_u32_vec(),
+            vec![
+                0x12345678, 0x90abcdef, 0x12345678, 0x90abcdef,
+                0x12345678, 0x90abcdef, 0x12345678, 0x90abcdef
+            ]
+        );
+
+        // Test bytes32 without 0x prefix
+        let hex_str = "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef";
+        let bytes32 = Bytes32::from_hex(hex_str).unwrap();
+        assert_eq!(
+            bytes32.to_u32_vec(),
+            vec![
+                0x12345678, 0x90abcdef, 0x12345678, 0x90abcdef,
+                0x12345678, 0x90abcdef, 0x12345678, 0x90abcdef
+            ]
+        );
+
+        // Test invalid hex string
+        let result = Bytes32::from_hex("0xZZZ");
+        assert!(result.is_err());
+        if let Err(EthereumTypeError::InvalidHex(_)) = result {
+            // Expected error
+        } else {
+            panic!("Expected InvalidHex error");
+        }
+    }
+
+    #[test]
+    fn test_bytes32_display() {
+        let limbs = [
+            0x12345678, 0x90abcdef, 0x12345678, 0x90abcdef,
+            0x12345678, 0x90abcdef, 0x12345678, 0x90abcdef
+        ];
+        let bytes32 = Bytes32::from_u32_slice(&limbs).unwrap();
+        assert_eq!(
+            format!("{}", bytes32),
+            "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
+        );
+    }
+
+    #[test]
+    fn test_bytes32_serialize_deserialize() {
+        let limbs = [
+            0x12345678, 0x90abcdef, 0x12345678, 0x90abcdef,
+            0x12345678, 0x90abcdef, 0x12345678, 0x90abcdef
+        ];
+        let bytes32 = Bytes32::from_u32_slice(&limbs).unwrap();
+        let serialized = serde_json::to_string(&bytes32).unwrap();
+        let deserialized: Bytes32 = serde_json::from_str(&serialized).unwrap();
+        assert_eq!(bytes32, deserialized);
+    }
+
+    #[test]
+    fn test_bytes32_from_u32_slice() {
+        // Test valid slice
+        let limbs = [
+            0x12345678, 0x90abcdef, 0x12345678, 0x90abcdef,
+            0x12345678, 0x90abcdef, 0x12345678, 0x90abcdef
+        ];
+        let bytes32 = Bytes32::from_u32_slice(&limbs).unwrap();
+        assert_eq!(bytes32.to_u32_vec(), limbs.to_vec());
+
+        // Test invalid slice length
+        let result = Bytes32::from_u32_slice(&limbs[0..7]);
+        assert!(result.is_err());
+        if let Err(EthereumTypeError::InvalidLengthSimple(len)) = result {
+            assert_eq!(len, 7);
+        } else {
+            panic!("Expected InvalidLengthSimple error");
+        }
+    }
+
+    #[test]
+    fn test_bytes32_to_from_bytes() {
+        let limbs = [
+            0x12345678, 0x90abcdef, 0x12345678, 0x90abcdef,
+            0x12345678, 0x90abcdef, 0x12345678, 0x90abcdef
+        ];
+        let original = Bytes32::from_u32_slice(&limbs).unwrap();
+        let bytes = original.to_bytes_be();
+        let recovered = Bytes32::from_bytes_be(&bytes).unwrap();
+        assert_eq!(original, recovered);
+    }
+
+    #[test]
+    fn test_bytes32_to_from_bits() {
+        let limbs = [
+            0x12345678, 0x90abcdef, 0x12345678, 0x90abcdef,
+            0x12345678, 0x90abcdef, 0x12345678, 0x90abcdef
+        ];
+        let original = Bytes32::from_u32_slice(&limbs).unwrap();
+        let bits = original.to_bits_be();
+        let recovered = Bytes32::from_bits_be(&bits).unwrap();
+        assert_eq!(original, recovered);
+    }
+
+    #[test]
+    fn test_bytes32_random() {
+        let mut rng = rand::thread_rng();
+        let bytes32 = Bytes32::rand(&mut rng);
+        
+        // Verify that the random bytes32 can be converted to and from bytes
+        let bytes = bytes32.to_bytes_be();
+        let recovered = Bytes32::from_bytes_be(&bytes).unwrap();
+        assert_eq!(bytes32, recovered);
+    }
+
+    #[test]
+    fn test_bytes32_u256_conversion() {
+        // Create a U256 value
+        let u256_value = U256::from_u32_slice(&[
+            0x12345678, 0x90abcdef, 0x12345678, 0x90abcdef,
+            0x12345678, 0x90abcdef, 0x12345678, 0x90abcdef
+        ]).unwrap();
+        
+        // Convert to Bytes32
+        let bytes32_value: Bytes32 = u256_value.into();
+        
+        // Convert back to U256
+        let recovered_u256: U256 = bytes32_value.into();
+        
+        // Verify the round-trip conversion
+        assert_eq!(u256_value, recovered_u256);
+    }
+
+    #[test]
+    fn test_bytes32_target() {
+        use plonky2::{
+            field::goldilocks_field::GoldilocksField,
+            iop::witness::PartialWitness,
+            plonk::{
+                circuit_builder::CircuitBuilder, circuit_data::CircuitConfig,
+                config::PoseidonGoldilocksConfig,
+            },
+        };
+
+        type F = GoldilocksField;
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+
+        let limbs = [
+            0x12345678, 0x90abcdef, 0x12345678, 0x90abcdef,
+            0x12345678, 0x90abcdef, 0x12345678, 0x90abcdef
+        ];
+        let bytes32 = Bytes32::from_u32_slice(&limbs).unwrap();
+        
+        let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::default());
+        let bytes32_target = Bytes32Target::constant::<F, D, Bytes32>(&mut builder, bytes32);
+        
+        let mut pw = PartialWitness::new();
+        bytes32_target.set_witness(&mut pw, bytes32);
+        
+        let circuit = builder.build::<C>();
+        circuit.prove(pw).unwrap();
     }
 }

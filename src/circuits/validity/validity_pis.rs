@@ -69,26 +69,40 @@ impl ValidityPublicInputs {
         vec
     }
 
-    pub fn from_u64_slice(input: &[u64]) -> Self {
-        assert_eq!(input.len(), VALIDITY_PUBLIC_INPUTS_LEN);
-        let public_state = PublicState::from_u64_slice(&input[0..PUBLIC_STATE_LEN]);
+    pub fn from_u64_slice(input: &[u64]) -> Result<Self, super::error::ValidityProverError> {
+        if input.len() != VALIDITY_PUBLIC_INPUTS_LEN {
+            return Err(super::error::ValidityProverError::Plonky2Error(format!(
+                "Invalid input length for ValidityPublicInputs: expected {}, got {}",
+                VALIDITY_PUBLIC_INPUTS_LEN,
+                input.len()
+            )));
+        }
+        let public_state = PublicState::from_u64_slice(&input[0..PUBLIC_STATE_LEN]).unwrap();
         let tx_tree_root =
             Bytes32::from_u64_slice(&input[PUBLIC_STATE_LEN..PUBLIC_STATE_LEN + BYTES32_LEN])
                 .unwrap();
         let sender_tree_root = PoseidonHashOut::from_u64_slice(
             &input[PUBLIC_STATE_LEN + BYTES32_LEN
                 ..PUBLIC_STATE_LEN + BYTES32_LEN + POSEIDON_HASH_OUT_LEN],
-        );
+        )
+        .unwrap();
         let is_valid_block = input[PUBLIC_STATE_LEN + BYTES32_LEN + POSEIDON_HASH_OUT_LEN] == 1;
-        Self {
+        Ok(Self {
             public_state,
             tx_tree_root,
             sender_tree_root,
             is_valid_block,
-        }
+        })
     }
 
-    pub fn from_pis<F: PrimeField64>(pis: &[F]) -> Self {
+    pub fn from_pis<F: PrimeField64>(pis: &[F]) -> Result<Self, super::error::ValidityProverError> {
+        if pis.len() < VALIDITY_PUBLIC_INPUTS_LEN {
+            return Err(super::error::ValidityProverError::Plonky2Error(format!(
+                "Public inputs length too short: expected at least {}, got {}",
+                VALIDITY_PUBLIC_INPUTS_LEN,
+                pis.len()
+            )));
+        }
         Self::from_u64_slice(&pis[0..VALIDITY_PUBLIC_INPUTS_LEN].to_u64_vec())
     }
 }
@@ -244,7 +258,7 @@ mod tests {
         assert_eq!(u64_vec.len(), VALIDITY_PUBLIC_INPUTS_LEN);
 
         // Convert back from u64 slice
-        let recovered = ValidityPublicInputs::from_u64_slice(&u64_vec);
+        let recovered = ValidityPublicInputs::from_u64_slice(&u64_vec).unwrap();
 
         // Check that we get the original value back
         assert_eq!(recovered.public_state, original.public_state);

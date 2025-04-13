@@ -24,6 +24,8 @@ use crate::{
     utils::{conversion::ToU64 as _, recursively_verifiable::add_proof_target_and_verify_cyclic},
 };
 
+use super::error::HashChainError;
+
 const CHAIN_END_PROOF_PUBLIC_INPUTS_LEN: usize = BYTES32_LEN + ADDRESS_LEN;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -40,18 +42,30 @@ impl ChainEndProofPublicInputs {
         vec
     }
 
-    pub fn from_u32_slice(slice: &[u32]) -> Self {
-        assert_eq!(slice.len(), CHAIN_END_PROOF_PUBLIC_INPUTS_LEN);
+    pub fn from_u32_slice(slice: &[u32]) -> Result<Self, HashChainError> {
+        if slice.len() != CHAIN_END_PROOF_PUBLIC_INPUTS_LEN {
+            return Err(HashChainError::InvalidData(format!(
+                "Invalid input length for ChainEndProofPublicInputs: expected {}, got {}",
+                CHAIN_END_PROOF_PUBLIC_INPUTS_LEN,
+                slice.len()
+            )));
+        }
         let last_hash = Bytes32::from_u32_slice(&slice[0..BYTES32_LEN]).unwrap();
         let aggregator = Address::from_u32_slice(&slice[BYTES32_LEN..]).unwrap();
-        Self {
+        Ok(Self {
             last_hash,
             aggregator,
-        }
+        })
     }
 
-    pub fn from_u64_slice(slice: &[u64]) -> Self {
-        assert_eq!(slice.len(), CHAIN_END_PROOF_PUBLIC_INPUTS_LEN);
+    pub fn from_u64_slice(slice: &[u64]) -> Result<Self, HashChainError> {
+        if slice.len() != CHAIN_END_PROOF_PUBLIC_INPUTS_LEN {
+            return Err(HashChainError::InvalidData(format!(
+                "Invalid input length for ChainEndProofPublicInputs: expected {}, got {}",
+                CHAIN_END_PROOF_PUBLIC_INPUTS_LEN,
+                slice.len()
+            )));
+        }
         let inputs = slice
             .iter()
             .map(|&x| {
@@ -62,7 +76,7 @@ impl ChainEndProofPublicInputs {
         Self::from_u32_slice(&inputs)
     }
 
-    pub fn from_pis<F: PrimeField64>(pis: &[F]) -> Self {
+    pub fn from_pis<F: PrimeField64>(pis: &[F]) -> Result<Self, HashChainError> {
         Self::from_u64_slice(&pis.to_u64_vec())
     }
 
@@ -137,8 +151,10 @@ where
         let mut pw = PartialWitness::<F>::new();
         pw.set_proof_with_pis_target(&self.proof, proof);
         self.aggregator.set_witness(&mut pw, aggregator);
-        self.data
-            .prove(pw)
-            .map_err(|e| super::error::HashChainError::ChainEndProofError(e.to_string()))
+        self.data.prove(pw).map_err(|e| {
+            crate::utils::error::UtilsError::from(super::error::HashChainError::ChainEndProofError(
+                e.to_string(),
+            ))
+        })
     }
 }

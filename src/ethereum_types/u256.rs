@@ -404,20 +404,20 @@ mod tests {
     type C = PoseidonGoldilocksConfig;
 
     #[test]
-    fn u256_display() {
+    fn test_u256_display() {
         let u = U256::try_from(BigUint::from(123u64)).unwrap();
         assert_eq!(format!("{}", u), "123");
     }
 
     #[test]
-    fn u256_order() {
+    fn test_u256_order() {
         let a = U256::from_u32_slice(&[0, 0, 0, 0, 2, 0, 0, 0]).unwrap();
         let b = U256::from_u32_slice(&[0, 0, 0, 1, 1, 0, 0, 0]).unwrap();
         assert!(a < b);
     }
 
     #[test]
-    fn u256_add_sub() {
+    fn test_u256_add_sub() {
         let a = U256::from_u32_slice(&[0, 0, 0, 1, 2, 0, 0, 0]).unwrap();
         let b = U256::from_u32_slice(&[0, 0, 0, 0, u32::MAX, 0, 0, 0]).unwrap();
         let c = U256::from_u32_slice(&[0, 0, 0, 2, 1, 0, 0, 0]).unwrap();
@@ -428,7 +428,7 @@ mod tests {
 
     #[test]
     #[should_panic]
-    fn u256_sub_underflow() {
+    fn test_u256_sub_underflow() {
         let a = U256::from_u32_slice(&[0, 0, 0, 1, 2, 0, 0, 0]).unwrap();
         let b = U256::from_u32_slice(&[0, 0, 0, 0, u32::MAX, 0, 0, 0]).unwrap();
 
@@ -436,7 +436,7 @@ mod tests {
     }
 
     #[test]
-    fn u256_le() {
+    fn test_u256_le() {
         let a = U256::from_u32_slice(&[0, 0, 0, 1, 2, 0, 0, 0]).unwrap();
         let b = U256::from_u32_slice(&[0, 0, 0, 0, u32::MAX, 0, 0, 0]).unwrap();
 
@@ -454,7 +454,7 @@ mod tests {
     }
 
     #[test]
-    fn u256_add_sub_circuit() {
+    fn test_u256_add_sub_circuit() {
         let mut rng = rand::thread_rng();
         let a = U256::rand(&mut rng);
         let b = U256::try_from(BigUint::from(1u64)).unwrap();

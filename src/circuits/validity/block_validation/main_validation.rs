@@ -114,9 +114,11 @@ impl MainValidationPublicInputs {
         let prev_block_hash = Bytes32::from_u64_slice(&input[0..8]).unwrap();
         let block_hash = Bytes32::from_u64_slice(&input[8..16]).unwrap();
         let deposit_tree_root = Bytes32::from_u64_slice(&input[16..24]).unwrap();
-        let account_tree_root = PoseidonHashOut::from_u64_slice(&input[24..28]);
+        let account_tree_root = PoseidonHashOut::from_u64_slice(&input[24..28])
+            .unwrap_or_else(|e| panic!("Failed to create PoseidonHashOut from u64 slice: {}", e));
         let tx_tree_root = Bytes32::from_u64_slice(&input[28..36]).unwrap();
-        let sender_tree_root = PoseidonHashOut::from_u64_slice(&input[36..40]);
+        let sender_tree_root = PoseidonHashOut::from_u64_slice(&input[36..40])
+            .unwrap_or_else(|e| panic!("Failed to create PoseidonHashOut from u64 slice: {}", e));
         let timestamp = U64::from_u64_slice(&input[40..42]).unwrap().into();
         let block_number = input[42];
         let is_registration_block = input[43] == 1;
@@ -349,7 +351,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
 
             let pis = AccountExclusionPublicInputs::from_u64_slice(
                 &account_exclusion_proof.public_inputs.to_u64_vec(),
-            );
+            )?;
 
             if pis.sender_tree_root != sender_tree_root {
                 return Err(BlockValidationError::SenderTreeRootMismatch {
@@ -387,7 +389,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
                     .into_iter()
                     .map(|x| x.to_canonical_u64())
                     .collect::<Vec<_>>(),
-            );
+            )?;
 
             if pis.pubkey_commitment != pubkey_commitment {
                 return Err(BlockValidationError::PubkeyCommitmentMismatch {
@@ -787,13 +789,6 @@ where
         Self { data, target }
     }
 
-    /// Generates a proof for the main validation circuit.
-    ///
-    /// This method creates a ZKP that verifies all aspects of block validity without
-    /// performing state transitions. It uses dummy proofs when necessary for conditional
-    /// verification paths that aren't taken.
-    ///
-    /// Returns a proof with public inputs that can be verified by the contract.
     pub fn prove(
         &self,
         account_inclusion_proof_dummy: DummyProof<F, C, D>,

@@ -69,46 +69,40 @@ pub struct SpentPublicInputs {
 }
 
 impl SpentPublicInputs {
-    /// Constructs SpentPublicInputs from a slice of u64 values.
-    ///
-    /// # Arguments
-    /// * `input` - Slice of u64 values representing the public inputs
-    ///
-    /// # Returns
-    /// A new SpentPublicInputs struct
-    pub fn from_u64_slice(input: &[u64]) -> Self {
-        assert_eq!(input.len(), SPENT_PUBLIC_INPUTS_LEN);
+    pub fn from_u64_slice(input: &[u64]) -> Result<Self, super::error::SendError> {
+        if input.len() != SPENT_PUBLIC_INPUTS_LEN {
+            return Err(super::error::SendError::InvalidInput(format!(
+                "Invalid input length for SpentPublicInputs: expected {}, got {}",
+                SPENT_PUBLIC_INPUTS_LEN,
+                input.len()
+            )));
+        }
         let prev_private_commitment =
-            PoseidonHashOut::from_u64_slice(&input[0..POSEIDON_HASH_OUT_LEN]);
+            PoseidonHashOut::from_u64_slice(&input[0..POSEIDON_HASH_OUT_LEN]).unwrap();
         let new_private_commitment = PoseidonHashOut::from_u64_slice(
             &input[POSEIDON_HASH_OUT_LEN..2 * POSEIDON_HASH_OUT_LEN],
-        );
+        )
+        .unwrap();
         let tx = Tx::from_u64_slice(
             &input[2 * POSEIDON_HASH_OUT_LEN..2 * POSEIDON_HASH_OUT_LEN + TX_LEN],
-        );
+        )
+        .unwrap();
         let insufficient_flags = InsufficientFlags::from_u64_slice(
             &input[2 * POSEIDON_HASH_OUT_LEN + TX_LEN
                 ..2 * POSEIDON_HASH_OUT_LEN + TX_LEN + INSUFFICIENT_FLAGS_LEN],
         )
         .unwrap();
         let is_valid = input[2 * POSEIDON_HASH_OUT_LEN + TX_LEN + INSUFFICIENT_FLAGS_LEN] == 1;
-        Self {
+        Ok(Self {
             prev_private_commitment,
             new_private_commitment,
             tx,
             insufficient_flags,
             is_valid,
-        }
+        })
     }
 
-    /// Constructs SpentPublicInputs from a slice of field elements.
-    ///
-    /// # Arguments
-    /// * `pis` - Slice of field elements representing the public inputs
-    ///
-    /// # Returns
-    /// A new SpentPublicInputs struct
-    pub fn from_pis<F>(pis: &[F]) -> Self
+    pub fn from_pis<F>(pis: &[F]) -> Result<Self, super::error::SendError>
     where
         F: PrimeField64,
     {
@@ -146,13 +140,6 @@ impl SpentPublicInputsTarget {
         vec
     }
 
-    /// Constructs SpentPublicInputsTarget from a slice of targets.
-    ///
-    /// # Arguments
-    /// * `input` - Slice of targets representing the public inputs
-    ///
-    /// # Returns
-    /// A new SpentPublicInputsTarget struct
     pub fn from_slice(input: &[Target]) -> Self {
         assert_eq!(input.len(), SPENT_PUBLIC_INPUTS_LEN);
         let prev_private_commitment =
@@ -460,10 +447,6 @@ where
     C: GenericConfig<D, F = F> + 'static,
     C::Hasher: AlgebraicHasher<F>,
 {
-    /// Creates a new SpentCircuit with all necessary constraints.
-    ///
-    /// # Returns
-    /// A new SpentCircuit ready to generate and verify proofs
     pub fn new() -> Self {
         let mut builder =
             CircuitBuilder::<F, D>::new(CircuitConfig::standard_recursion_zk_config());
@@ -480,13 +463,6 @@ where
         Self { data, target }
     }
 
-    /// Generates a ZK proof for the given SpentValue.
-    ///
-    /// # Arguments
-    /// * `value` - SpentValue containing the witness data
-    ///
-    /// # Returns
-    /// A Result containing either the proof with public inputs or an error
     pub fn prove(&self, value: &SpentValue) -> Result<ProofWithPublicInputs<F, C, D>, CommonError> {
         let mut pw = PartialWitness::<F>::new();
         self.target.set_witness(&mut pw, value);

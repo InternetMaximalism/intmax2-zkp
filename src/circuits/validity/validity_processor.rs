@@ -80,6 +80,7 @@ where
     ) -> Result<ProofWithPublicInputs<F, C, D>, ValidityProverError> {
         let prev_pis = if prev_proof.is_some() {
             ValidityPublicInputs::from_pis(&prev_proof.as_ref().unwrap().public_inputs)
+                .map_err(|e| ValidityProverError::Plonky2Error(format!("Failed to parse validity public inputs: {}", e)))?
         } else {
             ValidityPublicInputs::genesis()
         };

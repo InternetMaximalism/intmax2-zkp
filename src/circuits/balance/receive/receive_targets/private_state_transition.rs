@@ -47,7 +47,7 @@ pub struct PrivateStateTransitionValue {
     pub new_private_state_salt: Salt,     // new salt of the private state
     pub prev_private_state: PrivateState, // previous private state
     pub nullifier_proof: NullifierInsertionProof, // merkle proof to update nullifier tree
-    pub prev_asset_leaf: AssetLeaf,       /* previous asset leaf (balance) of correspoing
+    pub prev_asset_leaf: AssetLeaf,       /* previous asset leaf (balance) of corresponding
                                            * token_index */
     pub asset_merkle_proof: AssetMerkleProof, // merkle proof to update asset tree
     pub new_private_state: PrivateState,      // new private state
@@ -158,13 +158,6 @@ impl PrivateStateTransitionTarget {
     /// 2. Valid asset merkle proof for the token being updated
     /// 3. Correct computation of the new asset leaf by adding the amount
     /// 4. Proper construction of the new private state with updated roots
-    ///
-    /// # Arguments
-    /// * `builder` - Circuit builder
-    /// * `is_checked` - Whether to add constraints for checking the values
-    ///
-    /// # Returns
-    /// A new PrivateStateTransitionTarget with all necessary targets and constraints
     pub fn new<F: RichField + Extendable<D>, C: GenericConfig<D, F = F> + 'static, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
         is_checked: bool,
@@ -216,11 +209,6 @@ impl PrivateStateTransitionTarget {
         }
     }
 
-    /// Sets the witness values for all targets in this PrivateStateTransitionTarget.
-    ///
-    /// # Arguments
-    /// * `witness` - Witness to set values in
-    /// * `value` - PrivateStateTransitionValue containing the values to set
     pub fn set_witness<W: WitnessWrite<F>, F: Field>(
         &self,
         witness: &mut W,
@@ -328,6 +316,7 @@ mod tests {
 
         let mut pw = PartialWitness::<F>::new();
         target.set_witness(&mut pw, &value);
-        let _ = data.prove(pw).unwrap();
+        let proof = data.prove(pw).unwrap();
+        data.verify(proof).unwrap();
     }
 }

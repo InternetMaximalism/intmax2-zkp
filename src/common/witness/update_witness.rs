@@ -61,7 +61,7 @@ where
     }
 
     pub fn validity_pis(&self) -> ValidityPublicInputs {
-        ValidityPublicInputs::from_pis(&self.validity_proof.public_inputs)
+        ValidityPublicInputs::from_pis(&self.validity_proof.public_inputs).unwrap()
     }
 
     pub fn public_state(&self) -> PublicState {

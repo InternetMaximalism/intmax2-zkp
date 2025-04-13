@@ -63,6 +63,6 @@ where
         pw.set_proof_with_pis_target(&self.single_proof, single_proof);
         self.data
             .prove(pw)
-            .map_err(|e| super::error::HashChainError::InnerProofError(e.to_string()))
+            .map_err(|e| crate::utils::error::UtilsError::from(super::error::HashChainError::InnerProofError(e.to_string())))
     }
 }

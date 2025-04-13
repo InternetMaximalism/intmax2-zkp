@@ -1,8 +1,5 @@
 #[derive(Debug, thiserror::Error)]
 pub enum CommonError {
-    #[error("Invalid length: {0}")]
-    InvalidLength(usize),
-
     #[error("Invalid signature")]
     InvalidSignature,
 
@@ -17,9 +14,6 @@ pub enum CommonError {
 
     #[error("Invalid data: {0}")]
     InvalidData(String),
-
-    #[error("Conversion error: {0}")]
-    ConversionError(String),
 
     #[error("Failed to prove and insert account tree: {0}")]
     AccountTreeProveAndInsertFailed(String),
@@ -50,9 +44,6 @@ pub enum CommonError {
 
     #[error("Invalid account: {0}")]
     InvalidAccount(String),
-
-    #[error("Invalid transaction: {0}")]
-    InvalidTransaction(String),
 
     #[error("Invalid witness: {0}")]
     InvalidWitness(String),

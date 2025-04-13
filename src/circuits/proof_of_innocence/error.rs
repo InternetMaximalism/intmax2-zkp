@@ -4,6 +4,9 @@ use crate::ethereum_types::{address::Address, bytes32::Bytes32};
 
 #[derive(Debug, Error)]
 pub enum InnocenceError {
+    #[error("Invalid input: {0}")]
+    InvalidInput(String),
+
     #[error("Depositor {0} is not in the allow list")]
     DepositorNotInAllowList(Address),
 

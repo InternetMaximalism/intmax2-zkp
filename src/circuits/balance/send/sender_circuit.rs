@@ -1,7 +1,8 @@
 //! Sender circuit for updating sender's public and private states.
 //!
 //! This circuit proves the transition of a sender's state by:
-//! 1. Updating the public state from an old state to the state of the closest block where the user sent a transaction
+//! 1. Updating the public state from an old state to the state of the closest block where the user
+//!    sent a transaction
 //! 2. Updating the private state only when both spent proof and tx inclusion proof are valid
 //!
 //! The private state update only occurs when the transaction nonce matches the account nonce
@@ -50,13 +51,9 @@ use super::{
 };
 
 /// Length of the public inputs for the sender circuit.
-/// Includes both previous and new balance public inputs.
 pub const SENDER_PUBLIC_INPUTS_LEN: usize = 2 * BALANCE_PUBLIC_INPUTS_LEN;
 
-/// Public inputs for the sender circuit.
-///
-/// These values are publicly visible outputs of the circuit that can be verified
-/// without knowing the private witness data.
+/// Public inputs for the sender circuit
 #[derive(Debug, Clone)]
 pub struct SenderPublicInputs {
     pub prev_balance_pis: BalancePublicInputs,
@@ -64,10 +61,6 @@ pub struct SenderPublicInputs {
 }
 
 impl SenderPublicInputs {
-    /// Converts the public inputs to a vector of u64 values.
-    ///
-    /// # Returns
-    /// A vector of u64 values representing all public inputs
     pub fn to_u64_vec(&self) -> Vec<u64> {
         let mut vec = self.prev_balance_pis.to_u64_vec();
         vec.extend(self.new_balance_pis.to_u64_vec());
@@ -75,13 +68,6 @@ impl SenderPublicInputs {
         vec
     }
 
-    /// Constructs SenderPublicInputs from a slice of u64 values.
-    ///
-    /// # Arguments
-    /// * `vec` - Slice of u64 values representing the public inputs
-    ///
-    /// # Returns
-    /// A Result containing either the new SenderPublicInputs or an error
     pub fn from_u64_slice(vec: &[u64]) -> Result<Self, super::error::SendError> {
         if vec.len() != SENDER_PUBLIC_INPUTS_LEN {
             return Err(super::error::SendError::InvalidInput(format!(
@@ -119,8 +105,6 @@ impl SenderPublicInputs {
 }
 
 /// Target version of SenderPublicInputs for use in ZKP circuits.
-///
-/// This struct contains circuit targets for all components of the public inputs.
 #[derive(Debug, Clone)]
 pub struct SenderPublicInputsTarget {
     pub prev_balance_pis: BalancePublicInputsTarget,
@@ -128,10 +112,6 @@ pub struct SenderPublicInputsTarget {
 }
 
 impl SenderPublicInputsTarget {
-    /// Converts the target to a vector of individual targets.
-    ///
-    /// # Returns
-    /// A vector of targets representing all public inputs
     pub fn to_vec(&self) -> Vec<Target> {
         let mut vec = self.prev_balance_pis.to_vec();
         vec.extend(self.new_balance_pis.to_vec());
@@ -139,13 +119,6 @@ impl SenderPublicInputsTarget {
         vec
     }
 
-    /// Constructs SenderPublicInputsTarget from a slice of targets.
-    ///
-    /// # Arguments
-    /// * `vec` - Slice of targets representing the public inputs
-    ///
-    /// # Returns
-    /// A new SenderPublicInputsTarget struct
     pub fn from_slice(vec: &[Target]) -> Self {
         assert_eq!(vec.len(), SENDER_PUBLIC_INPUTS_LEN);
         let prev_balance_pis =
@@ -224,10 +197,11 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
                 .iter()
                 .map(|x| x.to_canonical_u64())
                 .collect::<Vec<_>>(),
-        );
+        )?;
 
-        let tx_inclusion_pis =
-            TxInclusionPublicInputs::from_u64_slice(&tx_inclusion_proof.public_inputs.to_u64_vec());
+        let tx_inclusion_pis = TxInclusionPublicInputs::from_u64_slice(
+            &tx_inclusion_proof.public_inputs.to_u64_vec(),
+        )?;
 
         // check tx equivalence
         if spent_pis.tx != tx_inclusion_pis.tx {
@@ -309,15 +283,6 @@ impl<const D: usize> SenderTarget<D> {
     /// 2. Transaction equivalence between both proofs
     /// 3. Conditional private state update based on both proofs' validity
     /// 4. Proper construction of the new balance public inputs
-    ///
-    /// # Arguments
-    /// * `spent_vd` - Verifier data for the spent circuit
-    /// * `tx_inclusion_vd` - Verifier data for the tx inclusion circuit
-    /// * `builder` - Circuit builder
-    /// * `is_checked` - Whether to add constraints for checking the values
-    ///
-    /// # Returns
-    /// A new SenderTarget with all necessary targets and constraints
     pub fn new<F: RichField + Extendable<D>, C: GenericConfig<D, F = F> + 'static>(
         spent_vd: &VerifierCircuitData<F, C, D>,
         tx_inclusion_vd: &VerifierCircuitData<F, C, D>,
@@ -381,11 +346,6 @@ impl<const D: usize> SenderTarget<D> {
         }
     }
 
-    /// Sets the witness values for all targets in this SenderTarget.
-    ///
-    /// # Arguments
-    /// * `witness` - Witness to set values in
-    /// * `value` - SenderValue containing the values to set
     pub fn set_witness<
         W: WitnessWrite<F>,
         F: RichField + Extendable<D>,
@@ -433,14 +393,6 @@ where
     C: GenericConfig<D, F = F> + 'static,
     C::Hasher: AlgebraicHasher<F>,
 {
-    /// Creates a new SenderCircuit with all necessary constraints.
-    ///
-    /// # Arguments
-    /// * `spent_vd` - Verifier data for the spent circuit
-    /// * `tx_inclusion_vd` - Verifier data for the tx inclusion circuit
-    ///
-    /// # Returns
-    /// A new SenderCircuit ready to generate and verify proofs
     pub fn new(
         spent_vd: &VerifierCircuitData<F, C, D>,
         tx_inclusion_vd: &VerifierCircuitData<F, C, D>,
@@ -465,13 +417,6 @@ where
         }
     }
 
-    /// Generates a ZK proof for the given SenderValue.
-    ///
-    /// # Arguments
-    /// * `value` - SenderValue containing the witness data
-    ///
-    /// # Returns
-    /// A Result containing either the proof with public inputs or an error
     pub fn prove(
         &self,
         value: &SenderValue<F, C, D>,

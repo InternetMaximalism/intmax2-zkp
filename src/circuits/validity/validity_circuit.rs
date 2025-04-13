@@ -64,11 +64,12 @@ where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
 {
-    pub data: CircuitData<F, C, D>,                      // Circuit data containing the compiled circuit
-    is_first_step: BoolTarget,                           // Flag indicating if this is the first proof in the chain
-    transition_proof: ProofWithPublicInputsTarget<D>,    // Proof of the block validation and state transition
-    prev_proof: ProofWithPublicInputsTarget<D>,          // Previous validity proof in the chain
-    verifier_data_target: VerifierCircuitTarget,         // Verifier data for the circuit
+    pub data: CircuitData<F, C, D>, // Circuit data containing the compiled circuit
+    is_first_step: BoolTarget,      // Flag indicating if this is the first proof in the chain
+    transition_proof: ProofWithPublicInputsTarget<D>, /* Proof of the block validation and state
+                                     * transition */
+    prev_proof: ProofWithPublicInputsTarget<D>, // Previous validity proof in the chain
+    verifier_data_target: VerifierCircuitTarget, // Verifier data for the circuit
 }
 
 impl<F, C, const D: usize> ValidityCircuit<F, C, D>
@@ -348,7 +349,7 @@ mod tests {
             .unwrap();
 
         // update the previous validity pis
-        prev_validity_pis = ValidityPublicInputs::from_pis(&validity_proof1.public_inputs);
+        prev_validity_pis = ValidityPublicInputs::from_pis(&validity_proof1.public_inputs).unwrap();
 
         let transition_proof2 = validity_transition_processor
             .prove(&prev_validity_pis, &validity_witnesses[1])
@@ -386,7 +387,7 @@ mod tests {
             .unwrap();
 
         // update the previous validity pis
-        prev_validity_pis = ValidityPublicInputs::from_pis(&validity_proof1.public_inputs);
+        prev_validity_pis = ValidityPublicInputs::from_pis(&validity_proof1.public_inputs).unwrap();
 
         let transition_proof2 = dummy_transition_wrapper_circuit
             .prove(&prev_validity_pis, &validity_witnesses[1])

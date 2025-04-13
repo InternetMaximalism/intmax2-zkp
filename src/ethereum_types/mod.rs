@@ -6,3 +6,6 @@ pub mod error;
 pub mod u256;
 pub mod u32limb_trait;
 pub mod u64;
+
+pub use error::EthereumTypeError;
+pub type Result<T> = std::result::Result<T, EthereumTypeError>;

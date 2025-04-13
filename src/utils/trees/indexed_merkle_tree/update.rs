@@ -86,9 +86,7 @@ impl UpdateProof {
         }
 
         self.leaf_proof
-            .verify(&self.prev_leaf, self.leaf_index, prev_root)
-            .map_err(IndexedMerkleTreeError::MerkleProofError)?;
-
+            .verify(&self.prev_leaf, self.leaf_index, prev_root)?;
         let new_leaf = IndexedMerkleLeaf {
             value: new_value,
             ..self.prev_leaf

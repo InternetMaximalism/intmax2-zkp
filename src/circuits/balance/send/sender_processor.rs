@@ -74,7 +74,9 @@ where
         update_witness: &UpdateWitness<F, C, D>,
         spent_proof: &ProofWithPublicInputs<F, C, D>,
     ) -> Result<ProofWithPublicInputs<F, C, D>, SendError> {
-        let spent_pis = SpentPublicInputs::from_pis(&spent_proof.public_inputs);
+        let spent_pis = SpentPublicInputs::from_pis(&spent_proof.public_inputs).map_err(|e| {
+            SendError::InvalidInput(format!("Failed to parse spent public inputs: {}", e))
+        })?;
 
         if spent_pis.prev_private_commitment != prev_balance_pis.private_commitment {
             return Err(SendError::InvalidInput(format!(

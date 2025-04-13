@@ -41,14 +41,20 @@ impl Tx {
         vec
     }
 
-    pub fn from_u64_slice(input: &[u64]) -> Self {
-        assert_eq!(input.len(), TX_LEN);
-        let transfer_tree_root = PoseidonHashOut::from_u64_slice(&input[0..4]);
+    pub fn from_u64_slice(input: &[u64]) -> Result<Self, crate::common::error::CommonError> {
+        if input.len() != TX_LEN {
+            return Err(crate::common::error::CommonError::InvalidData(format!(
+                "Invalid input length for Tx: expected {}, got {}",
+                TX_LEN,
+                input.len()
+            )));
+        }
+        let transfer_tree_root = PoseidonHashOut::from_u64_slice(&input[0..4]).unwrap();
         let nonce = input[4] as u32;
-        Self {
+        Ok(Self {
             transfer_tree_root,
             nonce,
-        }
+        })
     }
 
     pub fn rand<R: Rng>(rng: &mut R) -> Self {

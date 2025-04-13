@@ -20,10 +20,7 @@ use crate::{
     utils::poseidon_hash_out::{PoseidonHashOut, PoseidonHashOutTarget},
 };
 
-use super::{
-    block::Block,
-    transfer::{Transfer, TransferTarget},
-};
+use super::transfer::{Transfer, TransferTarget};
 
 pub const WITHDRAWAL_LEN: usize = ADDRESS_LEN + 1 + U256_LEN + BYTES32_LEN + BYTES32_LEN + 1;
 
@@ -63,8 +60,14 @@ impl Withdrawal {
         result
     }
 
-    pub fn from_u32_slice(slice: &[u32]) -> Self {
-        assert_eq!(slice.len(), WITHDRAWAL_LEN);
+    pub fn from_u32_slice(slice: &[u32]) -> Result<Self, crate::common::error::CommonError> {
+        if slice.len() != WITHDRAWAL_LEN {
+            return Err(crate::common::error::CommonError::InvalidData(format!(
+                "Invalid input length for Withdrawal: expected {}, got {}",
+                WITHDRAWAL_LEN,
+                slice.len()
+            )));
+        }
         let recipient = Address::from_u32_slice(&slice[0..ADDRESS_LEN]).unwrap();
         let token_index = slice[ADDRESS_LEN];
         let amount =
@@ -79,17 +82,17 @@ impl Withdrawal {
         )
         .unwrap();
         let block_number = slice[ADDRESS_LEN + 1 + U256_LEN + BYTES32_LEN + BYTES32_LEN];
-        Self {
+        Ok(Self {
             recipient,
             token_index,
             amount,
             nullifier,
             block_hash,
             block_number,
-        }
+        })
     }
 
-    pub fn from_u64_slice(slice: &[u64]) -> Self {
+    pub fn from_u64_slice(slice: &[u64]) -> Result<Withdrawal, super::error::CommonError> {
         let u32_slice: Vec<u32> = slice
             .iter()
             .map(|&x| {
@@ -113,17 +116,6 @@ impl Withdrawal {
             nullifier: Bytes32::rand(rng),
             block_hash: Bytes32::rand(rng),
             block_number: rng.gen(),
-        }
-    }
-
-    pub fn rand_with_block<R: rand::Rng>(rng: &mut R, block: &Block) -> Self {
-        Self {
-            recipient: Address::rand(rng),
-            token_index: rng.gen(),
-            amount: U256::rand_small(rng),
-            nullifier: Bytes32::rand(rng),
-            block_hash: block.hash(),
-            block_number: block.block_number,
         }
     }
 }

@@ -76,9 +76,7 @@ impl IndexedMerkleTree {
 impl MembershipProof {
     /// Verify the membership/non-membership proof
     pub fn verify(&self, key: U256, root: PoseidonHashOut) -> Result<(), IndexedMerkleTreeError> {
-        self.leaf_proof
-            .verify(&self.leaf, self.leaf_index, root)
-            .map_err(IndexedMerkleTreeError::MerkleProofError)?;
+        self.leaf_proof.verify(&self.leaf, self.leaf_index, root)?;
 
         if self.is_included {
             if self.leaf.key != key {

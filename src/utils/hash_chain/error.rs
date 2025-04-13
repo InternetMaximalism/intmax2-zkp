@@ -1,5 +1,8 @@
 #[derive(Debug, thiserror::Error)]
 pub enum HashChainError {
+    #[error("Invalid data: {0}")]
+    InvalidData(String),
+
     #[error("Failed to prove inner: {0}")]
     InnerProofError(String),
 
@@ -16,4 +19,6 @@ pub enum HashChainError {
     Plonky2Error(String),
 }
 
-pub type Result<T> = std::result::Result<T, HashChainError>;
+use crate::utils::error::Result as UtilsResult;
+
+pub type Result<T> = UtilsResult<T>;

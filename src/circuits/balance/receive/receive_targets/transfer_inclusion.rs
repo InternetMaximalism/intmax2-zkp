@@ -72,17 +72,6 @@ where
     /// 2. Checks that the last_tx_hash in the balance PIs matches the tx hash
     /// 3. Verifies that the corresponding insufficient flag is false
     /// 4. Validates the transfer's inclusion in the transfer merkle tree
-    ///
-    /// # Arguments
-    /// * `balance_vd` - Verifier data for the balance circuit
-    /// * `transfer` - Transfer to be verified
-    /// * `transfer_index` - Index of the transfer in the transfer merkle tree
-    /// * `transfer_merkle_proof` - Merkle proof for the transfer
-    /// * `tx` - Transaction that includes the transfer
-    /// * `balance_proof` - Balance proof that includes the transaction
-    ///
-    /// # Returns
-    /// A Result containing either the new TransferInclusionValue or an error
     pub fn new(
         balance_vd: &VerifierCircuitData<F, C, D>,
         transfer: &Transfer,
@@ -98,13 +87,14 @@ where
                     e
                 ))
             })?;
-        let balance_circuit_vd = vd_from_pis_slice::<F, C, D>(
-            &balance_proof.public_inputs,
-            &balance_vd.common.config,
-        )
-        .map_err(|e| {
-            ReceiveTargetsError::VerificationFailed(format!("Failed to parse balance vd: {}", e))
-        })?;
+        let balance_circuit_vd =
+            vd_from_pis_slice::<F, C, D>(&balance_proof.public_inputs, &balance_vd.common.config)
+                .map_err(|e| {
+                ReceiveTargetsError::VerificationFailed(format!(
+                    "Failed to parse balance vd: {}",
+                    e
+                ))
+            })?;
 
         if balance_circuit_vd != balance_vd.verifier_only {
             return Err(ReceiveTargetsError::VerificationFailed(
@@ -112,14 +102,12 @@ where
             ));
         }
 
-        balance_vd
-            .verify(balance_proof.clone())
-            .map_err(|e| {
-                ReceiveTargetsError::VerificationFailed(format!(
-                    "Failed to verify balance proof: {}",
-                    e
-                ))
-            })?;
+        balance_vd.verify(balance_proof.clone()).map_err(|e| {
+            ReceiveTargetsError::VerificationFailed(format!(
+                "Failed to verify balance proof: {}",
+                e
+            ))
+        })?;
 
         if balance_pis.last_tx_hash != tx.hash() {
             return Err(ReceiveTargetsError::VerificationFailed(format!(
@@ -187,14 +175,6 @@ impl<const D: usize> TransferInclusionTarget<D> {
     /// 2. Matching last_tx_hash with the tx hash
     /// 3. False insufficient flag for the transfer
     /// 4. Valid transfer merkle proof
-    ///
-    /// # Arguments
-    /// * `balance_common_data` - Common circuit data for the balance circuit
-    /// * `builder` - Circuit builder
-    /// * `is_checked` - Whether to add constraints for checking the values
-    ///
-    /// # Returns
-    /// A new TransferInclusionTarget with all necessary targets and constraints
     pub fn new<F: RichField + Extendable<D>, C: GenericConfig<D, F = F> + 'static>(
         balance_common_data: &CommonCircuitData<F, D>,
         builder: &mut CircuitBuilder<F, D>,
@@ -240,11 +220,6 @@ impl<const D: usize> TransferInclusionTarget<D> {
         }
     }
 
-    /// Sets the witness values for all targets in this TransferInclusionTarget.
-    ///
-    /// # Arguments
-    /// * `witness` - Witness to set values in
-    /// * `value` - TransferInclusionValue containing the values to set
     pub fn set_witness<
         F: RichField + Extendable<D>,
         C: GenericConfig<D, F = F>,
@@ -380,6 +355,6 @@ mod tests {
 
         let data = builder.build::<C>();
         let proof = data.prove(pw).unwrap();
-        data.verify(proof.clone()).unwrap();
+        data.verify(proof).unwrap();
     }
 }

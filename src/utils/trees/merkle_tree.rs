@@ -105,7 +105,7 @@ impl<V: Leafable> Serialize for MerkleProof<V>
 where
     HashOut<V>: Serialize,
 {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
@@ -117,7 +117,7 @@ impl<'de, V: Leafable> Deserialize<'de> for MerkleProof<V>
 where
     HashOut<V>: Deserialize<'de>,
 {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {
@@ -343,7 +343,7 @@ mod tests {
     }
 
     #[test]
-    fn merkle_tree_update_prove_verify() {
+    fn test_merkle_tree_update_prove_verify() {
         let mut rng = rand::thread_rng();
         let height = 10;
         let mut tree = MerkleTree::<Bytes32>::new(height);
@@ -359,7 +359,7 @@ mod tests {
     }
 
     #[test]
-    fn test_merkle_proof_methods() {
+    fn test_merkle_tree_proof_methods() {
         let mut rng = rand::thread_rng();
         let height = 10;
 
@@ -396,7 +396,7 @@ mod tests {
     }
 
     #[test]
-    fn test_merkle_proof_target_methods() {
+    fn test_merkle_tree_proof_target_methods() {
         type V = Bytes32;
         type VT = Bytes32Target;
 
@@ -447,7 +447,7 @@ mod tests {
     }
 
     #[test]
-    fn test_conditional_verify() {
+    fn test_merkle_tree_conditional_verify() {
         type V = Bytes32;
         type VT = Bytes32Target;
 
@@ -518,7 +518,7 @@ mod tests {
     }
 
     #[test]
-    fn test_edge_cases() {
+    fn test_merkle_tree_edge_cases() {
         // Test with minimum height
         let min_height = 1;
         let tree_min = MerkleTree::<Bytes32>::new(min_height);
@@ -549,7 +549,7 @@ mod tests {
     }
 
     #[test]
-    fn test_merkle_proof_serialization() {
+    fn test_merkle_tree_proof_serialization() {
         type V = Bytes32;
 
         let mut rng = rand::thread_rng();
@@ -587,7 +587,7 @@ mod tests {
     }
 
     #[test]
-    fn merkle_proof_target() {
+    fn test_merkle_tree_proof_target() {
         type V = Bytes32;
         type VT = Bytes32Target;
 
