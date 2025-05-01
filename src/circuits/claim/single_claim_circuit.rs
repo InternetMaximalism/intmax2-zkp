@@ -4,7 +4,7 @@
 //! 1. Verifying the deposit was included in a block (via deposit_time_proof)
 //! 2. Verifying the required lock time has passed since the deposit
 //! 3. Verifying no transfers occurred during the lock period (using account tree's last block
-//!    number)
+//!    number is equal to or less than the deposit block number)
 //! 4. Generating a claim target that can be used to claim the deposit
 //!
 //! The single claim circuit combines multiple proofs and verifications:
@@ -83,8 +83,8 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     /// 2. Verifies the deposit time proof (when deposit was included)
     /// 3. Verifies the block merkle proof (deposit block is part of history)
     /// 4. Verifies the account membership proof (account's last activity)
-    /// 5. Checks that the deposit block number is greater than the account's last block number
-    ///    (ensuring no transfers occurred during the lock period)
+    /// 5. Checks that the deposit block number is equal to or greater than the account's last block
+    ///    number (ensuring no transfers occurred during the lock period)
     /// 6. Checks that the required lock time has passed since the deposit
     ///
     /// # Arguments
@@ -111,8 +111,8 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
             ClaimError::VerificationFailed(format!("Validity proof is invalid: {:?}", e))
         })?;
 
-        let validity_pis = ValidityPublicInputs::from_pis(&validity_proof.public_inputs)
-            .map_err(|e| {
+        let validity_pis =
+            ValidityPublicInputs::from_pis(&validity_proof.public_inputs).map_err(|e| {
                 ClaimError::InvalidInput(format!("Failed to parse validity public inputs: {}", e))
             })?;
 
@@ -155,9 +155,12 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
 
         let last_block_number = account_membership_proof.get_value() as u32;
 
-        if deposit_time_pis.block_number <= last_block_number {
+        // Check that last_block_number <= deposit_time_pis.block_number
+        // Since it is not possible to transfer assets that were deposited in the same block
+        // as the deposit, it is safe even if deposit_time_pis.block_number = last_block_number
+        if deposit_time_pis.block_number < last_block_number {
             return Err(ClaimError::InvalidBlockNumber(format!(
-                "Last block number {} of the account is not older than the deposit block number {}",
+               "Last block number {} of the account must be equal to or older than the deposit block number {}",
                 last_block_number, deposit_time_pis.block_number
             )));
         }
@@ -213,8 +216,8 @@ impl<const D: usize> SingleClaimTarget<D> {
     /// 2. Validity of the deposit time proof (when deposit was included)
     /// 3. Validity of the block merkle proof (deposit block is part of history)
     /// 4. Validity of the account membership proof (account's last activity)
-    /// 5. That the deposit block number is greater than the account's last block number (ensuring
-    ///    no transfers occurred during the lock period)
+    /// 5. Checks that the deposit block number is equal to or greater than the account's last block
+    ///    number (ensuring no transfers occurred during the lock period)
     /// 6. That the required lock time has passed since the deposit
     ///
     /// # Arguments
@@ -255,12 +258,12 @@ impl<const D: usize> SingleClaimTarget<D> {
             validity_pis.public_state.account_tree_root,
         );
         let last_block_number = account_membership_proof.get_value(builder);
-        // assert last_block_number < deposit_time_pis.block_number
+
+        // Check that last_block_number <= deposit_time_pis.block_number
+        // Since it is not possible to transfer assets that were deposited in the same block
+        // as the deposit, it is safe even if deposit_time_pis.block_number = last_block_number
         let diff = builder.sub(deposit_time_pis.block_number, last_block_number);
         builder.range_check(diff, 32);
-        let zero = builder.zero();
-        let is_diff_zero = builder.is_equal(diff, zero);
-        builder.assert_zero(is_diff_zero.target);
 
         let lock_time = U64Target::from_u32_target(builder, deposit_time_pis.lock_time);
         let maturity = deposit_time_pis.block_timestamp.add(builder, &lock_time);
