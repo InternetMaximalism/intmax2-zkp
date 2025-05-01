@@ -9,7 +9,7 @@
 //!
 //! The single claim circuit combines multiple proofs and verifications:
 //! - Deposit time proof: Verifies when the deposit was included and calculates its lock time
-//! - Validity proof: Verifies the current state of the system
+//! - Validity proof: Verifies the system state at the time of claim
 //! - Block merkle proof: Verifies the deposit block is part of the block history
 //! - Account membership proof: Verifies the account's last activity to ensure no transfers during
 //!   lock period
@@ -62,12 +62,12 @@ pub struct SingleClaimValue<
     const D: usize,
 > {
     pub recipient: Address,  // Address that will receive the claimed funds
-    pub block_hash: Bytes32, // Hash of the current block
-    pub block_number: u32,   // Number of the current block
+    pub block_hash: Bytes32, // Hash of the claim time block
+    pub block_number: u32,   // Block number of the claim time block
     pub block_merkle_proof: BlockHashMerkleProof, /* Proof that the deposit block is part of the
                               * block history */
     pub account_membership_proof: AccountMembershipProof, // Proof of the account's last activity
-    pub validity_proof: ProofWithPublicInputs<F, C, D>,   // Proof of the current system state
+    pub validity_proof: ProofWithPublicInputs<F, C, D>,   // Validity proof at the time of claim
     pub deposit_time_proof: ProofWithPublicInputs<F, C, D>, /* Proof of when the deposit was
                                                            * included */
 }
@@ -79,7 +79,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     /// required for a valid claim.
     ///
     /// This function:
-    /// 1. Verifies the validity proof (current system state)
+    /// 1. Verifies the validity proof (at the time of claim)
     /// 2. Verifies the deposit time proof (when deposit was included)
     /// 3. Verifies the block merkle proof (deposit block is part of history)
     /// 4. Verifies the account membership proof (account's last activity)
@@ -93,7 +93,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     /// * `recipient` - Address that will receive the claimed funds
     /// * `block_merkle_proof` - Proof that the deposit block is part of the block history
     /// * `account_membership_proof` - Proof of the account's last activity
-    /// * `validity_proof` - Proof of the current system state
+    /// * `validity_proof` - Validity proof at the time of claim
     /// * `deposit_time_proof` - Proof of when the deposit was included
     ///
     /// # Returns
@@ -169,7 +169,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
             < deposit_time_pis.block_timestamp + (deposit_time_pis.lock_time as u64)
         {
             return Err(ClaimError::InvalidLockTime(format!(
-                "Lock time is not passed yet. Deposit time: {}, lock time: {}, current time: {}",
+                "Lock time is not passed yet. Deposit time: {}, lock time: {}, claim time: {}",
                 deposit_time_pis.block_timestamp,
                 deposit_time_pis.lock_time,
                 validity_pis.public_state.timestamp
@@ -198,8 +198,8 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
 #[derive(Debug, Clone)]
 pub struct SingleClaimTarget<const D: usize> {
     pub recipient: AddressTarget,  // Target for recipient address
-    pub block_hash: Bytes32Target, // Target for current block hash
-    pub block_number: Target,      // Target for current block number
+    pub block_hash: Bytes32Target, // Target for claim time block hash
+    pub block_number: Target,      // Target for claim time block number
     pub block_merkle_proof: BlockHashMerkleProofTarget, // Target for block merkle proof
     pub account_membership_proof: AccountMembershipProofTarget, /* Target for account membership
                                     * proof */
@@ -212,7 +212,7 @@ impl<const D: usize> SingleClaimTarget<D> {
     /// the claim verification rules.
     ///
     /// The circuit enforces:
-    /// 1. Validity of the validity proof (current system state)
+    /// 1. Validity of the validity proof (at the time of claim)
     /// 2. Validity of the deposit time proof (when deposit was included)
     /// 3. Validity of the block merkle proof (deposit block is part of history)
     /// 4. Validity of the account membership proof (account's last activity)
