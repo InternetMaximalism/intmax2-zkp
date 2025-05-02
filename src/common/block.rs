@@ -10,13 +10,10 @@ use plonky2::{
 use plonky2_keccak::{builder::BuilderKeccak256, utils::solidity_keccak256};
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    constants::DEPOSIT_TREE_HEIGHT,
-    ethereum_types::{
-        bytes32::{Bytes32, Bytes32Target},
-        u32limb_trait::{U32LimbTargetTrait as _, U32LimbTrait},
-        u64::{U64Target, U64},
-    },
+use crate::ethereum_types::{
+    bytes32::{Bytes32, Bytes32Target},
+    u32limb_trait::{U32LimbTargetTrait as _, U32LimbTrait},
+    u64::{U64Target, U64},
 };
 
 use super::trees::deposit_tree::DepositTree;
@@ -43,7 +40,7 @@ pub struct BlockTarget {
 
 impl Block {
     pub fn genesis() -> Self {
-        let deposit_tree_root = DepositTree::new(DEPOSIT_TREE_HEIGHT).get_root();
+        let deposit_tree_root = DepositTree::initialize().get_root();
         Self {
             prev_block_hash: Bytes32::default(),
             deposit_tree_root,

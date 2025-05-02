@@ -10,7 +10,6 @@ use plonky2::{
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    constants::{BLOCK_HASH_TREE_HEIGHT, DEPOSIT_TREE_HEIGHT},
     ethereum_types::{
         bytes32::{Bytes32, Bytes32Target, BYTES32_LEN},
         u32limb_trait::{U32LimbTargetTrait as _, U32LimbTrait},
@@ -42,12 +41,11 @@ pub struct PublicState {
 
 impl PublicState {
     pub fn genesis() -> Self {
-        let mut block_tree = BlockHashTree::new(BLOCK_HASH_TREE_HEIGHT);
-        block_tree.push(Block::genesis().hash());
+        let block_tree = BlockHashTree::initialize();
         let account_tree = AccountTree::initialize();
         // Because account 0 is the reserved for the indexed merkle tree, 1 is the default account
         let next_account_id = 2;
-        let deposit_tree_root = DepositTree::new(DEPOSIT_TREE_HEIGHT);
+        let deposit_tree_root = DepositTree::initialize().get_root();
         let block_hash = Block::genesis().hash();
         let timestamp = 0;
         let block_number = 0;
@@ -56,7 +54,7 @@ impl PublicState {
             prev_account_tree_root: account_tree.get_root(),
             account_tree_root: account_tree.get_root(),
             next_account_id,
-            deposit_tree_root: deposit_tree_root.get_root(),
+            deposit_tree_root,
             block_hash,
             timestamp,
             block_number,
