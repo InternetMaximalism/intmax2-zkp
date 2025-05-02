@@ -29,4 +29,3 @@ pub enum ValidityProverError {
     #[error("Plonky2 error: {0}")]
     Plonky2Error(String),
 }
-

@@ -11,7 +11,10 @@ use plonky2::{
 };
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-use super::{error::MerkleProofError, merkle_tree::{HashOut, HashOutTarget, MerkleProof, MerkleProofTarget, MerkleTree}};
+use super::{
+    error::MerkleProofError,
+    merkle_tree::{HashOut, HashOutTarget, MerkleProof, MerkleProofTarget, MerkleTree},
+};
 use crate::utils::leafable::{Leafable, LeafableTarget};
 
 // Merkle Tree that holds leaves as a vec. It is suitable for handling indexed
