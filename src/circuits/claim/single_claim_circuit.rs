@@ -160,7 +160,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         // as the deposit, it is safe even if deposit_time_pis.block_number = last_block_number
         if deposit_time_pis.block_number < last_block_number {
             return Err(ClaimError::InvalidBlockNumber(format!(
-               "Last block number {} of the account must be equal to or older than the deposit block number {}",
+                "Last block number {} of the account must be equal to or older than the deposit block number {}",
                 last_block_number, deposit_time_pis.block_number
             )));
         }
