@@ -119,8 +119,8 @@ mod tests {
         assert_eq!(
             bytes32.to_u32_vec(),
             vec![
-                0x12345678, 0x90abcdef, 0x12345678, 0x90abcdef,
-                0x12345678, 0x90abcdef, 0x12345678, 0x90abcdef
+                0x12345678, 0x90abcdef, 0x12345678, 0x90abcdef, 0x12345678, 0x90abcdef, 0x12345678,
+                0x90abcdef
             ]
         );
 
@@ -130,8 +130,8 @@ mod tests {
         assert_eq!(
             bytes32.to_u32_vec(),
             vec![
-                0x12345678, 0x90abcdef, 0x12345678, 0x90abcdef,
-                0x12345678, 0x90abcdef, 0x12345678, 0x90abcdef
+                0x12345678, 0x90abcdef, 0x12345678, 0x90abcdef, 0x12345678, 0x90abcdef, 0x12345678,
+                0x90abcdef
             ]
         );
 
@@ -148,8 +148,8 @@ mod tests {
     #[test]
     fn test_bytes32_display() {
         let limbs = [
-            0x12345678, 0x90abcdef, 0x12345678, 0x90abcdef,
-            0x12345678, 0x90abcdef, 0x12345678, 0x90abcdef
+            0x12345678, 0x90abcdef, 0x12345678, 0x90abcdef, 0x12345678, 0x90abcdef, 0x12345678,
+            0x90abcdef,
         ];
         let bytes32 = Bytes32::from_u32_slice(&limbs).unwrap();
         assert_eq!(
@@ -161,8 +161,8 @@ mod tests {
     #[test]
     fn test_bytes32_serialize_deserialize() {
         let limbs = [
-            0x12345678, 0x90abcdef, 0x12345678, 0x90abcdef,
-            0x12345678, 0x90abcdef, 0x12345678, 0x90abcdef
+            0x12345678, 0x90abcdef, 0x12345678, 0x90abcdef, 0x12345678, 0x90abcdef, 0x12345678,
+            0x90abcdef,
         ];
         let bytes32 = Bytes32::from_u32_slice(&limbs).unwrap();
         let serialized = serde_json::to_string(&bytes32).unwrap();
@@ -174,8 +174,8 @@ mod tests {
     fn test_bytes32_from_u32_slice() {
         // Test valid slice
         let limbs = [
-            0x12345678, 0x90abcdef, 0x12345678, 0x90abcdef,
-            0x12345678, 0x90abcdef, 0x12345678, 0x90abcdef
+            0x12345678, 0x90abcdef, 0x12345678, 0x90abcdef, 0x12345678, 0x90abcdef, 0x12345678,
+            0x90abcdef,
         ];
         let bytes32 = Bytes32::from_u32_slice(&limbs).unwrap();
         assert_eq!(bytes32.to_u32_vec(), limbs.to_vec());
@@ -193,8 +193,8 @@ mod tests {
     #[test]
     fn test_bytes32_to_from_bytes() {
         let limbs = [
-            0x12345678, 0x90abcdef, 0x12345678, 0x90abcdef,
-            0x12345678, 0x90abcdef, 0x12345678, 0x90abcdef
+            0x12345678, 0x90abcdef, 0x12345678, 0x90abcdef, 0x12345678, 0x90abcdef, 0x12345678,
+            0x90abcdef,
         ];
         let original = Bytes32::from_u32_slice(&limbs).unwrap();
         let bytes = original.to_bytes_be();
@@ -205,8 +205,8 @@ mod tests {
     #[test]
     fn test_bytes32_to_from_bits() {
         let limbs = [
-            0x12345678, 0x90abcdef, 0x12345678, 0x90abcdef,
-            0x12345678, 0x90abcdef, 0x12345678, 0x90abcdef
+            0x12345678, 0x90abcdef, 0x12345678, 0x90abcdef, 0x12345678, 0x90abcdef, 0x12345678,
+            0x90abcdef,
         ];
         let original = Bytes32::from_u32_slice(&limbs).unwrap();
         let bits = original.to_bits_be();
@@ -218,7 +218,7 @@ mod tests {
     fn test_bytes32_random() {
         let mut rng = rand::thread_rng();
         let bytes32 = Bytes32::rand(&mut rng);
-        
+
         // Verify that the random bytes32 can be converted to and from bytes
         let bytes = bytes32.to_bytes_be();
         let recovered = Bytes32::from_bytes_be(&bytes).unwrap();
@@ -229,16 +229,17 @@ mod tests {
     fn test_bytes32_u256_conversion() {
         // Create a U256 value
         let u256_value = U256::from_u32_slice(&[
-            0x12345678, 0x90abcdef, 0x12345678, 0x90abcdef,
-            0x12345678, 0x90abcdef, 0x12345678, 0x90abcdef
-        ]).unwrap();
-        
+            0x12345678, 0x90abcdef, 0x12345678, 0x90abcdef, 0x12345678, 0x90abcdef, 0x12345678,
+            0x90abcdef,
+        ])
+        .unwrap();
+
         // Convert to Bytes32
         let bytes32_value: Bytes32 = u256_value.into();
-        
+
         // Convert back to U256
         let recovered_u256: U256 = bytes32_value.into();
-        
+
         // Verify the round-trip conversion
         assert_eq!(u256_value, recovered_u256);
     }
@@ -259,17 +260,17 @@ mod tests {
         type C = PoseidonGoldilocksConfig;
 
         let limbs = [
-            0x12345678, 0x90abcdef, 0x12345678, 0x90abcdef,
-            0x12345678, 0x90abcdef, 0x12345678, 0x90abcdef
+            0x12345678, 0x90abcdef, 0x12345678, 0x90abcdef, 0x12345678, 0x90abcdef, 0x12345678,
+            0x90abcdef,
         ];
         let bytes32 = Bytes32::from_u32_slice(&limbs).unwrap();
-        
+
         let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::default());
         let bytes32_target = Bytes32Target::constant::<F, D, Bytes32>(&mut builder, bytes32);
-        
+
         let mut pw = PartialWitness::new();
         bytes32_target.set_witness(&mut pw, bytes32);
-        
+
         let circuit = builder.build::<C>();
         circuit.prove(pw).unwrap();
     }

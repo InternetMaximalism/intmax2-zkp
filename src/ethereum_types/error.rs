@@ -47,19 +47,13 @@ mod tests {
     #[test]
     fn test_ethereum_type_error_integer_parse() {
         let error = EthereumTypeError::IntegerParseError("Not a number".to_string());
-        assert_eq!(
-            error.to_string(),
-            "Failed to parse integer: Not a number"
-        );
+        assert_eq!(error.to_string(), "Failed to parse integer: Not a number");
     }
 
     #[test]
     fn test_ethereum_type_error_value_too_large() {
         let error = EthereumTypeError::ValueTooLarge("Value exceeds maximum".to_string());
-        assert_eq!(
-            error.to_string(),
-            "Value too large: Value exceeds maximum"
-        );
+        assert_eq!(error.to_string(), "Value too large: Value exceeds maximum");
     }
 
     #[test]
@@ -68,47 +62,32 @@ mod tests {
             expected: "32".to_string(),
             actual: 16,
         };
-        assert_eq!(
-            error.to_string(),
-            "Invalid length: expected 32, got 16"
-        );
+        assert_eq!(error.to_string(), "Invalid length: expected 32, got 16");
     }
 
     #[test]
     fn test_ethereum_type_error_invalid_length_simple() {
         let error = EthereumTypeError::InvalidLengthSimple(16);
-        assert_eq!(
-            error.to_string(),
-            "Invalid length: 16"
-        );
+        assert_eq!(error.to_string(), "Invalid length: 16");
     }
 
     #[test]
     fn test_ethereum_type_error_out_of_u32_range() {
         let error = EthereumTypeError::OutOfU32Range;
-        assert_eq!(
-            error.to_string(),
-            "Out of u32 range"
-        );
+        assert_eq!(error.to_string(), "Out of u32 range");
     }
 
     #[test]
     fn test_ethereum_type_error_invalid_hex() {
         let hex_error = hex::FromHexError::OddLength;
         let error = EthereumTypeError::InvalidHex(hex_error);
-        assert_eq!(
-            error.to_string(),
-            "Invalid hex"
-        );
+        assert_eq!(error.to_string(), "Invalid hex");
     }
 
     #[test]
     fn test_ethereum_type_error_conversion() {
         let error = EthereumTypeError::ConversionError("Failed to convert".to_string());
-        assert_eq!(
-            error.to_string(),
-            "Conversion error: Failed to convert"
-        );
+        assert_eq!(error.to_string(), "Conversion error: Failed to convert");
     }
 
     #[test]
