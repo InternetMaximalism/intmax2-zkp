@@ -141,7 +141,7 @@ impl TransferTarget {
     ) -> Self {
         Self {
             recipient: GenericAddressTarget::constant(builder, value.recipient),
-            token_index: builder.add_virtual_target(),
+            token_index: builder.constant(F::from_canonical_u32(value.token_index)),
             amount: U256Target::constant(builder, value.amount),
             salt: SaltTarget::constant(builder, value.salt),
         }
