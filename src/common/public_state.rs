@@ -240,6 +240,8 @@ impl PublicStateTarget {
     }
 
     pub fn set_witness<F: Field, W: WitnessWrite<F>>(&self, witness: &mut W, value: &PublicState) {
+        self.block_tree_root
+            .set_witness(witness, value.block_tree_root);
         self.prev_account_tree_root
             .set_witness(witness, value.prev_account_tree_root);
         self.account_tree_root
@@ -248,8 +250,6 @@ impl PublicStateTarget {
             self.next_account_id,
             F::from_canonical_u64(value.next_account_id),
         );
-        self.block_tree_root
-            .set_witness(witness, value.block_tree_root);
         self.deposit_tree_root
             .set_witness(witness, value.deposit_tree_root);
         self.block_hash.set_witness(witness, value.block_hash);
