@@ -73,8 +73,8 @@ impl DepositTimePublicInputs {
     pub fn to_vec_u32(&self) -> Vec<u32> {
         let mut result = self.pubkey.to_u32_vec();
         result.extend_from_slice(&self.nullifier.to_u32_vec());
+        result.extend_from_slice(&self.deposit_amount.to_u32_vec());
         result.push(self.lock_time);
-        result.extend_from_slice(&self.nullifier.to_u32_vec());
         result.extend_from_slice(&U64::from(self.block_timestamp).to_u32_vec());
         result.extend_from_slice(&self.block_hash.to_u32_vec());
         result.push(self.block_number);

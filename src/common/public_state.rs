@@ -197,13 +197,12 @@ impl PublicStateTarget {
         builder: &mut CircuitBuilder<F, D>,
         other: &Self,
     ) {
+        self.block_tree_root.connect(builder, other.block_tree_root);
         self.prev_account_tree_root
             .connect(builder, other.prev_account_tree_root);
         self.account_tree_root
             .connect(builder, other.account_tree_root);
-        self.prev_account_tree_root
-            .connect(builder, other.prev_account_tree_root);
-        self.block_tree_root.connect(builder, other.block_tree_root);
+        builder.connect(self.next_account_id, other.next_account_id);
         self.deposit_tree_root
             .connect(builder, other.deposit_tree_root);
         self.block_hash.connect(builder, other.block_hash);
@@ -217,6 +216,8 @@ impl PublicStateTarget {
         other: &Self,
         condition: BoolTarget,
     ) {
+        self.block_tree_root
+            .conditional_assert_eq(builder, other.block_tree_root, condition);
         self.prev_account_tree_root.conditional_assert_eq(
             builder,
             other.prev_account_tree_root,
@@ -229,8 +230,6 @@ impl PublicStateTarget {
             self.next_account_id,
             other.next_account_id,
         );
-        self.block_tree_root
-            .conditional_assert_eq(builder, other.block_tree_root, condition);
         self.deposit_tree_root
             .conditional_assert_eq(builder, other.deposit_tree_root, condition);
         self.block_hash
@@ -241,6 +240,8 @@ impl PublicStateTarget {
     }
 
     pub fn set_witness<F: Field, W: WitnessWrite<F>>(&self, witness: &mut W, value: &PublicState) {
+        self.block_tree_root
+            .set_witness(witness, value.block_tree_root);
         self.prev_account_tree_root
             .set_witness(witness, value.prev_account_tree_root);
         self.account_tree_root
@@ -249,8 +250,6 @@ impl PublicStateTarget {
             self.next_account_id,
             F::from_canonical_u64(value.next_account_id),
         );
-        self.block_tree_root
-            .set_witness(witness, value.block_tree_root);
         self.deposit_tree_root
             .set_witness(witness, value.deposit_tree_root);
         self.block_hash.set_witness(witness, value.block_hash);
