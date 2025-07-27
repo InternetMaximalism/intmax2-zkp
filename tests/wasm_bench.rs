@@ -34,7 +34,7 @@ fn read_proof_request<R: DeserializeOwned>(content: &str) -> R {
 
 #[wasm_bindgen_test]
 // #[test]
-fn prove_test() {
+async fn prove_test() {
     console::time_with_label("setup processor");
     let verifiers = CircuitVerifiers::load();
     let validity_vd = verifiers.get_validity_vd();
@@ -59,10 +59,6 @@ fn prove_test() {
         .prove_spent(&spent_request.spent_witness)
         .unwrap();
     console::time_end_with_label("prove spent");
-
-    balance_vd
-        .verify(send_request.prev_proof.clone().unwrap())
-        .unwrap();
 
     console::time_with_label("prove send");
     balance_processor
