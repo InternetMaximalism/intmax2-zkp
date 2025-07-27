@@ -1,8 +1,15 @@
 use intmax2_zkp::{
-    circuits::balance::balance_processor::BalanceProcessor,
+    circuits::{
+        balance::balance_processor::BalanceProcessor,
+        claim::{
+            determine_lock_time::LockTimeConfig, single_claim_processor::SingleClaimProcessor,
+        },
+        withdrawal::single_withdrawal_circuit::SingleWithdrawalCircuit,
+    },
     types::{
         ProveReceiveDepositRequest, ProveReceiveTransferRequest, ProveSendRequest,
-        ProveSpentRequest, ProveUpdateRequest,
+        ProveSingleClaimRequest, ProveSingleWithdrawalRequest, ProveSpentRequest,
+        ProveUpdateRequest,
     },
     utils::circuit_verifiers::CircuitVerifiers,
 };
@@ -30,6 +37,10 @@ fn prove_test() {
     let verifiers = CircuitVerifiers::load();
     let validity_vd = verifiers.get_validity_vd();
     let balance_processor = BalanceProcessor::new(&validity_vd);
+    let balance_vd = verifiers.get_balance_vd();
+    assert_eq!(balance_vd, balance_processor.get_verifier_data());
+    let single_withdrawal_circuit = SingleWithdrawalCircuit::new(&balance_vd);
+    let single_claim_processor = SingleClaimProcessor::new(&validity_vd, &LockTimeConfig::normal());
     console::time_end_with_label("setup processor");
 
     let spent_request: ProveSpentRequest = read_proof_request(SPENT_DATA);
@@ -38,6 +49,8 @@ fn prove_test() {
     let receive_transfer_request: ProveReceiveTransferRequest =
         read_proof_request(RECEIVE_TRANSFER_DATA);
     let deposit_request: ProveReceiveDepositRequest = read_proof_request(RECEIVE_DEPOSIT_DATA);
+    let single_withdrawal_request: ProveSingleWithdrawalRequest = read_proof_request(WITHDRAWAL);
+    let single_claim_request: ProveSingleClaimRequest = read_proof_request(CLAIM);
 
     console::time_with_label("prove spent");
     balance_processor
@@ -88,4 +101,21 @@ fn prove_test() {
         )
         .unwrap();
     console::time_end_with_label("prove receive deposit");
+
+    console::time_with_label("prove single withdrawal");
+    single_withdrawal_circuit
+        .prove(
+            &single_withdrawal_request
+                .withdrawal_witness
+                .to_transition_inclusion_value(&balance_vd)
+                .unwrap(),
+        )
+        .unwrap();
+    console::time_end_with_label("prove single withdrawal");
+
+    console::time_with_label("prove single claim");
+    single_claim_processor
+        .prove(&single_claim_request.claim_witness)
+        .unwrap();
+    console::time_end_with_label("prove single claim");
 }
