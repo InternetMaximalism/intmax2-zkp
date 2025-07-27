@@ -6,6 +6,7 @@ use intmax2_zkp::{
         ProveSingleClaimRequest, ProveSingleWithdrawalRequest, ProveSpentRequest,
         ProveUpdateRequest,
     },
+    utils::circuit_verifiers::CircuitVerifiers,
 };
 use plonky2::{field::goldilocks_field::GoldilocksField, plonk::config::PoseidonGoldilocksConfig};
 use serde::Serialize;
@@ -47,6 +48,20 @@ fn main() {
     let lock_config = LockTimeConfig::normal();
     let validity_processor = Arc::new(ValidityProcessor::<F, C, D>::new());
     let balance_processor = BalanceProcessor::new(&validity_processor.get_verifier_data());
+
+    // verify
+    {
+        let verifier = CircuitVerifiers::load();
+        assert_eq!(
+            validity_processor.get_verifier_data(),
+            verifier.get_validity_vd()
+        );
+        assert_eq!(
+            balance_processor.get_verifier_data(),
+            verifier.get_balance_vd()
+        );
+    }
+
     let mut validity_state_manager =
         ValidityStateManager::new(validity_processor.clone(), Address::default());
     let key = KeySet::rand(&mut rng);
