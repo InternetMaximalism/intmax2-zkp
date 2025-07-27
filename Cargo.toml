@@ -4,10 +4,10 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-plonky2 = { git = "https://github.com/InternetMaximalism/polygon-plonky2.git", branch = "intmax2-dev" }
-plonky2_u32 = { git = "https://github.com/InternetMaximalism/plonky2-u32.git", branch = "intmax2-dev" }
-plonky2_keccak = { git = "https://github.com/InternetMaximalism/plonky2_keccak" }
-plonky2_bn254 = { git = "https://github.com/InternetMaximalism/plonky2_bn254" }
+plonky2 = { git = "https://github.com/InternetMaximalism/polygon-plonky2.git", branch = "intmax2-dev", default-features = false }
+plonky2_u32 = { git = "https://github.com/InternetMaximalism/plonky2-u32.git", branch = "intmax2-dev", default-features = false }
+plonky2_keccak = { git = "https://github.com/InternetMaximalism/plonky2_keccak", default-features = false  }
+plonky2_bn254 = { git = "https://github.com/InternetMaximalism/plonky2_bn254", default-features = false  }
 hex = "0.4.3"
 rand = "0.8.5"
 anyhow = "1.0.97"

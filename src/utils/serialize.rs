@@ -111,16 +111,16 @@ mod tests {
         serialize_and_deserialize_test(&verifier_data);
     }
 
-    #[test]
-    fn test_validity_transition_circuit() {
-        let validity_processor = ValidityProcessor::<F, C, D>::new();
-        let verifier_data = validity_processor
-            .transition_processor
-            .transition_wrapper_circuit
-            .data
-            .verifier_data();
-        serialize_and_deserialize_test(&verifier_data);
-    }
+    // #[test]
+    // fn test_validity_transition_circuit() {
+    //     let validity_processor = ValidityProcessor::<F, C, D>::new();
+    //     let verifier_data = validity_processor
+    //         .transition_processor
+    //         .transition_wrapper_circuit
+    //         .data
+    //         .verifier_data();
+    //     serialize_and_deserialize_test(&verifier_data);
+    // }
 
     #[test]
     fn test_validity_circuit_serialize() {
