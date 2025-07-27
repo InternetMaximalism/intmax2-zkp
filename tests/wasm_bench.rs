@@ -1,12 +1,6 @@
-use std::sync::Arc;
-
 use intmax2_zkp::{
-    circuits::{
-        balance::balance_processor::BalanceProcessor,
-        test_utils::state_manager::ValidityStateManager,
-        validity::validity_processor::ValidityProcessor,
-    },
-    ethereum_types::address::Address,
+    circuits::balance::balance_processor::BalanceProcessor,
+    utils::circuit_verifiers::CircuitVerifiers,
 };
 use plonky2::{field::goldilocks_field::GoldilocksField, plonk::config::PoseidonGoldilocksConfig};
 use wasm_bindgen_test::wasm_bindgen_test;
@@ -33,12 +27,12 @@ fn heavy_loop() {
 
 #[wasm_bindgen_test]
 fn prove_test() {
-    console::time_with_label("prove_test");
-    let validity_processor = Arc::new(ValidityProcessor::<F, C, D>::new());
-    // let balance_processor = BalanceProcessor::new(&validity_processor.get_verifier_data());
-    // let mut validity_state_manager =
-    //     ValidityStateManager::new(validity_processor.clone(), Address::default());
-    // let validity_vd = validity_processor.get_verifier_data();
-    // let balance_vd = balance_processor.get_verifier_data();
-    console::time_end_with_label("prove_test");
+    console::time_with_label("setup processor");
+
+    let mut rng = rand::thread_rng();
+
+    let verifiers = CircuitVerifiers::load();
+    let balance_processor = BalanceProcessor::new(&verifiers.get_validity_vd());
+
+    console::time_end_with_label("setup processor");
 }

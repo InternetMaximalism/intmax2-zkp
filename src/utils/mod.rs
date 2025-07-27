@@ -1,3 +1,4 @@
+pub mod circuit_verifiers;
 pub mod conversion;
 pub mod cyclic;
 pub mod dummy;
@@ -9,5 +10,6 @@ pub mod logic;
 pub mod poseidon_hash_out;
 pub mod recursively_verifiable;
 pub mod serialize;
+pub mod serializer;
 pub mod trees;
 pub mod wrapper;
