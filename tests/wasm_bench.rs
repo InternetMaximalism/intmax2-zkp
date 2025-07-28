@@ -31,7 +31,7 @@ fn read_proof_request<R: DeserializeOwned>(content: &str) -> R {
     serde_json::from_str(content).unwrap()
 }
 
-// #[wasm_bindgen_test]
+#[wasm_bindgen_test]
 async fn prove_test() {
     console::time_with_label("setup processor");
     let verifiers = CircuitVerifiers::load();
@@ -48,7 +48,7 @@ async fn prove_test() {
         read_proof_request(RECEIVE_TRANSFER_DATA);
     let deposit_request: ProveReceiveDepositRequest = read_proof_request(RECEIVE_DEPOSIT_DATA);
 
-    // console::time_with_label("prove spent");
+    console::time_with_label("prove spent");
     balance_processor
         .prove_spent(&spent_request.spent_witness)
         .unwrap();

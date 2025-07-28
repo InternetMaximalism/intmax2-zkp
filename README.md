@@ -132,3 +132,10 @@ This project relies on the following custom repositories:
 
 - [plonky2_keccak](https://github.com/InternetMaximalism/plonky2_keccak)
 - [plonky2_bn254](https://github.com/InternetMaximalism/plonky2_bn254)
+
+
+## WASM Test
+
+```
+wasm-pack test --firefox --release
+```
