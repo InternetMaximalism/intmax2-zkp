@@ -16,7 +16,6 @@ use intmax2_zkp::{
 use serde::de::DeserializeOwned;
 use wasm_bindgen_test::wasm_bindgen_test;
 use web_sys::console;
-// use web_sys::console;
 
 wasm_bindgen_test::wasm_bindgen_test_configure!(run_in_browser);
 
@@ -32,8 +31,7 @@ fn read_proof_request<R: DeserializeOwned>(content: &str) -> R {
     serde_json::from_str(content).unwrap()
 }
 
-#[wasm_bindgen_test]
-// #[test]
+// #[wasm_bindgen_test]
 async fn prove_test() {
     console::time_with_label("setup processor");
     let verifiers = CircuitVerifiers::load();
@@ -41,8 +39,6 @@ async fn prove_test() {
     let balance_processor = BalanceProcessor::new(&validity_vd);
     let balance_vd = verifiers.get_balance_vd();
     assert_eq!(balance_vd, balance_processor.get_verifier_data());
-    let single_withdrawal_circuit = SingleWithdrawalCircuit::new(&balance_vd);
-    let single_claim_processor = SingleClaimProcessor::new(&validity_vd, &LockTimeConfig::normal());
     console::time_end_with_label("setup processor");
 
     let spent_request: ProveSpentRequest = read_proof_request(SPENT_DATA);
@@ -51,10 +47,8 @@ async fn prove_test() {
     let receive_transfer_request: ProveReceiveTransferRequest =
         read_proof_request(RECEIVE_TRANSFER_DATA);
     let deposit_request: ProveReceiveDepositRequest = read_proof_request(RECEIVE_DEPOSIT_DATA);
-    let single_withdrawal_request: ProveSingleWithdrawalRequest = read_proof_request(WITHDRAWAL);
-    let single_claim_request: ProveSingleClaimRequest = read_proof_request(CLAIM);
 
-    console::time_with_label("prove spent");
+    // console::time_with_label("prove spent");
     balance_processor
         .prove_spent(&spent_request.spent_witness)
         .unwrap();
@@ -103,6 +97,20 @@ async fn prove_test() {
         )
         .unwrap();
     console::time_end_with_label("prove receive deposit");
+}
+
+#[wasm_bindgen_test]
+async fn prove_singles() {
+    console::time_with_label("setup processor");
+    let verifiers = CircuitVerifiers::load();
+    let validity_vd = verifiers.get_validity_vd();
+    let balance_vd = verifiers.get_balance_vd();
+    let single_withdrawal_circuit = SingleWithdrawalCircuit::new(&balance_vd);
+    let single_claim_processor = SingleClaimProcessor::new(&validity_vd, &LockTimeConfig::normal());
+    console::time_end_with_label("setup processor");
+
+    let single_withdrawal_request: ProveSingleWithdrawalRequest = read_proof_request(WITHDRAWAL);
+    let single_claim_request: ProveSingleClaimRequest = read_proof_request(CLAIM);
 
     console::time_with_label("prove single withdrawal");
     single_withdrawal_circuit

@@ -7,8 +7,8 @@ edition = "2021"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-plonky2 = { git = "https://github.com/InternetMaximalism/polygon-plonky2.git", branch = "intmax2-dev", default-features = false }
-plonky2_u32 = { git = "https://github.com/InternetMaximalism/plonky2-u32.git", branch = "intmax2-dev", default-features = false }
+plonky2 = { git = "https://github.com/InternetMaximalism/polygon-plonky2.git", branch = "wasm", default-features = false }
+plonky2_u32 = { git = "https://github.com/InternetMaximalism/plonky2-u32.git", branch = "wasm", default-features = false }
 plonky2_keccak = { git = "https://github.com/InternetMaximalism/plonky2_keccak", branch = "wasm", default-features = false }
 plonky2_bn254 = { git = "https://github.com/InternetMaximalism/plonky2_bn254", branch = "wasm", default-features = false }
 hex = "0.4.3"
@@ -35,9 +35,6 @@ wasm-bindgen = "0.2"
 js-sys = "0.3"
 web-sys = { version = "0.3", features = ["console", "Performance", "Window"] }
 futures = "0.3.31"
-
-[patch."https://github.com/InternetMaximalism/polygon-plonky2.git"]
-plonky2 = { path = "../polygon-plonky2/plonky2" }
 
 [dev-dependencies]
 wasm-bindgen-test = "0.3"
