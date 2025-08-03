@@ -116,7 +116,39 @@ Key Role:
 
 Directory: `src/circuits/proof_of_innocence/`
 
-The Proof of Innocence is a ZK circuit designed to prove the relationship between deposits and withdrawals without revealing the details of transfers within the network. It is used to disclose the minimum necessary information while maintaining privacy.
+The Proof of Innocence is a ZK circuit designed to prove that the source of a user's balance is not contaminated (i.e., derived from clean, legitimate deposits) without revealing the details of transfers within the network. It is used to disclose the minimum necessary information while maintaining privacy.
+
+#### Usage
+
+The `InnocenceProcessor` supports two modes of operation:
+
+**With Allowlist (`test_innocence_processor_use_allowlist`):**
+```rust
+let processor = InnocenceProcessor::<F, C, D>::new();
+let proof = processor.prove(
+    Some(&allow_list),  // Only addresses in allowlist are permitted
+    &deny_list,
+    &full_private_state,
+    &deposits,
+).unwrap();
+
+processor.verify(Some(&allow_list), &deny_list, private_commitment, &proof).unwrap();
+```
+
+**Without Allowlist (`test_innocence_processor_not_use_allowlist`):**
+```rust
+let processor = InnocenceProcessor::<F, C, D>::new();
+let proof = processor.prove(
+    None,              // All addresses permitted except those in deny_list
+    &deny_list,
+    &full_private_state,
+    &deposits,
+).unwrap();
+
+processor.verify(None, &deny_list, private_commitment, &proof).unwrap();
+```
+
+The processor validates that all deposit addresses comply with the specified allowlist/denylist rules while maintaining privacy of internal transfers.
 
 ## Running Tests
 
