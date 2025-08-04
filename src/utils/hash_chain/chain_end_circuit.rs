@@ -27,7 +27,7 @@ use crate::{
 use super::error::HashChainError;
 
 /// masked bits for use gnark circuit
-const MASKED_BITS: usize = 3;
+pub const MASKED_BITS: usize = 3;
 const CHAIN_END_PROOF_PUBLIC_INPUTS_LEN: usize = BYTES32_LEN + ADDRESS_LEN;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
