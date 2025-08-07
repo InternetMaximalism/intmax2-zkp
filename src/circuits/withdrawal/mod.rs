@@ -28,8 +28,9 @@ mod tests {
         utils::{
             conversion::ToU64,
             hash_chain::{
-                chain_end_circuit::ChainEndProofPublicInputs,
-                hash_chain_processor::HashChainProcessor, hash_with_prev_hash,
+                chain_end_circuit::{mask_high_bits, ChainEndProofPublicInputs, MASKED_BITS},
+                hash_chain_processor::HashChainProcessor,
+                hash_with_prev_hash,
             },
             wrapper::WrapperCircuit,
         },
@@ -111,7 +112,7 @@ mod tests {
             aggregator,
         };
         let pis_hash = expected_end_withdrawal_pis.hash();
-        let pis_hash_vec = pis_hash.to_u64_vec();
+        let pis_hash_vec = mask_high_bits(pis_hash, MASKED_BITS).to_u64_vec();
         assert_eq!(
             pis_hash_vec,
             end_withdrawal_proof.public_inputs.to_u64_vec()
