@@ -26,6 +26,8 @@ use crate::{
 
 use super::error::HashChainError;
 
+/// masked bits for use with gnark circuit
+pub const MASKED_BITS: usize = 3;
 const CHAIN_END_PROOF_PUBLIC_INPUTS_LEN: usize = BYTES32_LEN + ADDRESS_LEN;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -134,7 +136,8 @@ where
             aggregator,
         };
         let pis_hash = pis.hash::<F, C, D>(&mut builder);
-        builder.register_public_inputs(&pis_hash.to_vec());
+        let masked_pis_hash = mask_high_bits_circuit(&mut builder, pis_hash, MASKED_BITS);
+        builder.register_public_inputs(&masked_pis_hash.to_vec());
         let data = builder.build();
         Self {
             data,
@@ -156,5 +159,57 @@ where
                 e.to_string(),
             ))
         })
+    }
+}
+
+pub fn mask_high_bits(input: Bytes32, num_bits: usize) -> Bytes32 {
+    let mut limbs = input.to_u32_vec();
+    let masked_highest_limb = limbs[0] & ((1 << (32 - num_bits)) - 1);
+    limbs[0] = masked_highest_limb;
+    Bytes32::from_u32_slice(&limbs).unwrap()
+}
+
+pub fn mask_high_bits_circuit<F: RichField + Extendable<D>, const D: usize>(
+    builder: &mut CircuitBuilder<F, D>,
+    input: Bytes32Target,
+    num_bits: usize,
+) -> Bytes32Target {
+    let mut limbs = input.to_vec();
+    let highest_limb_bits_le = builder.split_le(limbs[0], 32);
+    let highest_limb = builder.le_sum(highest_limb_bits_le[0..32 - num_bits].into_iter());
+    limbs[0] = highest_limb;
+    Bytes32Target::from_slice(&limbs)
+}
+
+#[cfg(test)]
+mod tests {
+    use plonky2::{
+        field::goldilocks_field::GoldilocksField, plonk::config::PoseidonGoldilocksConfig,
+    };
+
+    use super::*;
+
+    type F = GoldilocksField;
+    type C = PoseidonGoldilocksConfig;
+    const D: usize = 2;
+
+    #[test]
+    fn test_mask_high_bits() {
+        let mut rng = rand::thread_rng();
+        let input = Bytes32::rand(&mut rng);
+
+        let num_bits = 3;
+        let expected = mask_high_bits(input, num_bits);
+
+        let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::default());
+        let input_target = Bytes32Target::constant(&mut builder, input);
+        let masked_target = mask_high_bits_circuit(&mut builder, input_target, num_bits);
+        let expected_target = Bytes32Target::constant(&mut builder, expected);
+        masked_target.connect(&mut builder, expected_target);
+
+        let data = builder.build::<C>();
+        let pw = PartialWitness::new();
+        let proof = data.prove(pw).unwrap();
+        data.verify(proof).unwrap();
     }
 }
